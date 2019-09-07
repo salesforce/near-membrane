@@ -1,0 +1,9 @@
+lib/
+types/
+node_modules/
+*.log
+-local-*
+.DS_Store
+dist/*.js
+.idea/
+.project/

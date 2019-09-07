@@ -1,0 +1,20 @@
+{
+  "name": "secure-dom",
+  "version": "1.0.0",
+  "description": "",
+  "module": "lib/index.js",
+  "types": "types/index.js",
+  "scripts": {
+    "build": "ttsc",
+    "start": "ttsc -w & http-server"
+  },
+  "author": "Caridy Patiño <caridy@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@zoltu/typescript-transformer-append-js-extension": "^1.0.1",
+    "http-server": "^0.11.1",
+    "realms-shim": "github:Agoric/realms-shim",
+    "ttypescript": "^1.5.7",
+    "typescript": "^3.6.2"
+  }
+}
