@@ -9,21 +9,25 @@ import {
     getOwnPropertySymbols,
     preventExtensions,
     isFunction,
-    isObject,
-    isTrue,
-    isNull,
     getOwnPropertyDescriptors,
     freeze,
     getPropertyDescriptor,
+    isTrue,
 } from './shared';
-import { SecureDOMEnvironment, SecureProxyTarget, ShadowTarget, SecureValue, SecureObject } from './realm';
+import {
+    SecureDOMEnvironment,
+    SecureProxyTarget,
+    SecureValue,
+    SecureObject,
+    RawConstructor,
+    RawFunction,
+    SecureShadowTarget,
+} from './environment';
 
-function getSecureDescriptor(descriptor: PropertyDescriptor, env: SecureDOMEnvironment): PropertyDescriptor {
+export function getSecureDescriptor(descriptor: PropertyDescriptor, env: SecureDOMEnvironment): PropertyDescriptor {
     const { value, get, set, writable } = descriptor;
     if (isUndefined(writable)) {
         // we are dealing with accessors
-        // Note: HTMLDocument.location is the only offender that has a
-        // non-configurable descriptor with accessors, the rest are configurable.
         if (!isUndefined(set)) {
             // TODO: do we really need to wrap this one?
             descriptor.set = env.getSecureFunction(set);
@@ -31,41 +35,34 @@ function getSecureDescriptor(descriptor: PropertyDescriptor, env: SecureDOMEnvir
         if (!isUndefined(get)) {
             descriptor.get = env.getSecureFunction(get);
         }
-    } else if (isTrue(writable)) {
-        if (isFunction(value)) {
-            // we are dealing with a method
-            descriptor.value = env.getSecureFunction(value);
-        } else {
-            // TODO: validate this assertions
-            if (!isNull(null) && isObject(value)) {
-                throw new Error(`DOM APIs are never exposing writable objects in descriptors`);
-            }
-            // letting the descriptor intact since it is just exposing a primitive value
-        }
     } else {
-        // when descriptors are non-writable, its value must be a primitive value
-        // for DOM APIs
-        if ((!isNull(null) && isObject(value)) || isFunction(value)) {
-            throw new Error(`DOM APIs are never non-writable`);
-        }
-        // letting the descriptor intact since it is just exposing a primitive value
+        descriptor.value = isFunction(value) ?
+            // we are dealing with a method (optimization)
+            env.getSecureFunction(value) : env.getSecureValue(value);
     }
     return descriptor;
 }
 
-function copySecureOwnDescriptors(env: SecureDOMEnvironment, shadowTarget: ShadowTarget, target: SecureProxyTarget) {
+function copySecureOwnDescriptors(env: SecureDOMEnvironment, shadowTarget: SecureShadowTarget, target: SecureProxyTarget) {
     // TODO: typescript definition for getOwnPropertyDescriptors is wrong, it should include symbols
     const descriptors = getOwnPropertyDescriptors(target);
     for (const key in descriptors) {
-        let descriptor = descriptors[key];
-        try {
-            descriptor = getSecureDescriptor(descriptor, env);
-        } catch (e) {
-            console.error(`Invalid descriptor in ${target}.${key}: ${e}`);
-            console.error(descriptors[key]);
-            // throw new Error(`Invalid descriptor in ${target}.${key}: ${e}`);
+        let originalDescriptor = descriptors[key];
+        originalDescriptor = getSecureDescriptor(originalDescriptor, env);
+        const shadowTargetDescriptor = getOwnPropertyDescriptor(shadowTarget, key);
+        if (!isUndefined(shadowTargetDescriptor)) {
+            if (isTrue(shadowTargetDescriptor.configurable)) {
+                ObjectDefineProperty(shadowTarget, key, originalDescriptor);
+            } else if (isTrue(shadowTargetDescriptor.writable)) {
+                // just in case
+                shadowTarget[key] = originalDescriptor.value;
+            } else {
+                // ignoring... since it is non configurable and non-writable
+                // usually, arguments, callee, etc.
+            }
+        } else {
+            ObjectDefineProperty(shadowTarget, key, originalDescriptor);
         }
-        ObjectDefineProperty(shadowTarget, key, descriptor);
     }
 }
 
@@ -75,20 +72,20 @@ const noop = () => undefined;
  * identity preserved through this membrane:
  *  - symbols
  */
-export class SecureProxyHandler implements ProxyHandler<object> {
+export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
     // original target for the proxy
     private readonly target: SecureProxyTarget;
     // environment object that controls the realm
     private readonly env: SecureDOMEnvironment;
 
-    constructor(env: SecureDOMEnvironment, target: object) {
+    constructor(env: SecureDOMEnvironment, target: SecureProxyTarget) {
         this.target = target;
         this.env = env;
     }
     // initialization used to avoid the initialization cost
     // of an object graph, we want to do it when the
     // first interaction happens.
-    private initialize(shadowTarget: ShadowTarget) {
+    private initialize(shadowTarget: SecureShadowTarget) {
         const { target, env } = this;
         // adjusting the proto chain of the shadowTarget (recursively)
         const rawProto = getPrototypeOf(target);
@@ -101,7 +98,7 @@ export class SecureProxyHandler implements ProxyHandler<object> {
         freeze(this);
     }
 
-    get(shadowTarget: ShadowTarget, key: PropertyKey): SecureValue {
+    get(shadowTarget: SecureShadowTarget, key: PropertyKey): SecureValue {
         this.initialize(shadowTarget);
         const desc = getPropertyDescriptor(shadowTarget, key);
         if (isUndefined(desc)) {
@@ -109,15 +106,14 @@ export class SecureProxyHandler implements ProxyHandler<object> {
         }
         const { get } = desc;
         if (!isUndefined(get)) {
-            const sr = this.env.stm.get(shadowTarget);
-            if (isUndefined(sr)) {
-                throw new Error(`Internal Error: a shadow target must always have secure record associated`);
-            }
-            return get.call(sr.sec);
+            // this.target is already in registered in the map, which means it
+            // will always return a valid secure object without having to create it.
+            const sec = this.env.getSecureValue(this.target);
+            return Reflect.apply(get, sec, []);
         }
         return desc.value;
     }
-    set(shadowTarget: ShadowTarget, key: PropertyKey, value: SecureValue): boolean {
+    set(shadowTarget: SecureShadowTarget, key: PropertyKey, value: SecureValue): boolean {
         this.initialize(shadowTarget);
         const desc = getPropertyDescriptor(shadowTarget, key);
         if (isUndefined(desc)) {
@@ -125,80 +121,78 @@ export class SecureProxyHandler implements ProxyHandler<object> {
         } else {
             const { set } = desc;
             if (!isUndefined(set)) {
-                const sr = this.env.stm.get(shadowTarget);
-                if (isUndefined(sr)) {
-                    throw new Error(`Internal Error: a shadow target must always have secure record associated`);
-                }
-                set.call(sr.sec, value);
+                // this.target is already in registered in the map, which means it
+                // will always return a valid secure object without having to create it.
+                const sec = this.env.getSecureValue(this.target);
+                Reflect.apply(set, sec, [value]);
             }
         }
         return true;
     }
-    deleteProperty(shadowTarget: ShadowTarget, key: PropertyKey): boolean {
+    deleteProperty(shadowTarget: SecureShadowTarget, key: PropertyKey): boolean {
         this.initialize(shadowTarget);
         delete shadowTarget[key];
         return true;
     }
-    apply(shadowTarget: ShadowTarget, thisArg: SecureValue, argArray: SecureValue[]) {
+    apply(shadowTarget: SecureShadowTarget, thisArg: SecureValue, argArray: SecureValue[]): SecureValue {
         const { target, env } = this;
         this.initialize(shadowTarget);
         const rawThisArg = env.getRawValue(thisArg);
         const rawArgArray = env.getRawArray(argArray);
-        // @ts-ignore caridy: TODO: lets figure what's going on here
-        const o = target.apply(rawThisArg, rawArgArray);
-        return env.getSecureValue(o);
+        const raw = Reflect.apply(target as RawFunction, rawThisArg, rawArgArray);
+        return env.getSecureValue(raw) as SecureValue;
     }
-    construct(shadowTarget: ShadowTarget, argArray: SecureValue[], newTarget?: SecureObject): SecureObject {
-        const { target: RawConstructor, env } = this;
+    construct(shadowTarget: SecureShadowTarget, argArray: SecureValue[], newTarget: SecureObject): SecureObject {
+        const { target: RawCtor, env } = this;
         this.initialize(shadowTarget);
-        const rawArgArray = env.getRawArray(argArray);
-        // @ts-ignore caridy: TODO: lets figure what's going on here
-        const o = new RawConstructor(...rawArgArray);
         if (newTarget === undefined) {
             throw TypeError();
         }
-        env.linkSecureToRawValue(newTarget, o);
-        return newTarget;
+        const rawArgArray = env.getRawArray(argArray);
+        const rawNewTarget = env.getRawValue(newTarget);
+        const raw = Reflect.construct(RawCtor as RawConstructor, rawArgArray, rawNewTarget);
+        const sec = env.getSecureValue(raw);
+        return sec as SecureObject;
     }
-    has(shadowTarget: ShadowTarget, key: PropertyKey): boolean {
+    has(shadowTarget: SecureShadowTarget, key: PropertyKey): boolean {
         this.initialize(shadowTarget);
         return key in shadowTarget;
     }
-    ownKeys(shadowTarget: ShadowTarget): (string | symbol)[] {
+    ownKeys(shadowTarget: SecureShadowTarget): (string | symbol)[] {
         this.initialize(shadowTarget);
         return [
             ...getOwnPropertyNames(shadowTarget),
             ...getOwnPropertySymbols(shadowTarget),
         ];
     }
-    isExtensible(shadowTarget: ShadowTarget): boolean {
+    isExtensible(shadowTarget: SecureShadowTarget): boolean {
         this.initialize(shadowTarget);
         // No DOM API is non-extensible, but in the sandbox, the author
         // might want to make them non-extensible
         return isExtensible(shadowTarget);
     }
-    getOwnPropertyDescriptor(shadowTarget: ShadowTarget, key: PropertyKey): PropertyDescriptor | undefined {
+    getOwnPropertyDescriptor(shadowTarget: SecureShadowTarget, key: PropertyKey): PropertyDescriptor | undefined {
         this.initialize(shadowTarget);
         return getOwnPropertyDescriptor(shadowTarget, key);
     }
-    getPrototypeOf(shadowTarget: ShadowTarget): SecureValue {
+    getPrototypeOf(shadowTarget: SecureShadowTarget): SecureValue {
         this.initialize(shadowTarget);
         // nothing to be done here since the shadowTarget must have the right proto chain
         return getPrototypeOf(shadowTarget);
     }
-    setPrototypeOf(shadowTarget: ShadowTarget, prototype: SecureValue): boolean {
+    setPrototypeOf(shadowTarget: SecureShadowTarget, prototype: SecureValue): boolean {
         this.initialize(shadowTarget);
         // this operation can only affect the env object graph
         setPrototypeOf(shadowTarget, prototype);
         return true;
     }
-    preventExtensions(shadowTarget: ShadowTarget): boolean {
+    preventExtensions(shadowTarget: SecureShadowTarget): boolean {
         // this operation can only affect the env object graph
         this.initialize(shadowTarget);
         preventExtensions(shadowTarget);
         return true;
     }
-    defineProperty(shadowTarget: ShadowTarget, key: PropertyKey, descriptor: PropertyDescriptor): boolean {
+    defineProperty(shadowTarget: SecureShadowTarget, key: PropertyKey, descriptor: PropertyDescriptor): boolean {
         this.initialize(shadowTarget);
         // this operation can only affect the env object graph
         ObjectDefineProperty(shadowTarget, key, descriptor);

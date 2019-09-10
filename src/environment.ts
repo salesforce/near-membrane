@@ -1,4 +1,4 @@
-import '../node_modules/realms-shim/dist/realms-shim.umd.js';
+import 'realms-shim/dist/realms-shim.umd';
 import { globals } from './globals';
 import { isUndefined, ObjectCreate, isFunction, getOwnPropertyDescriptor, getOwnPropertyNames, getOwnPropertySymbols, hasOwnProperty, ObjectDefineProperty } from './shared.js';
 import { SecureProxyHandler } from './secure-proxy-handler.js';
@@ -12,19 +12,28 @@ function installLazyGlobals(r: SecureDOMEnvironment) {
         const key = windowOwnKeys[i];
         // avoid any operation on existing keys
         if (!hasOwnProperty.call(realmWindow, key)) {
-            const descriptor = getOwnPropertyDescriptor(window, key);
+            let descriptor = getOwnPropertyDescriptor(window, key);
             // must be present since we are reading from window
             if (isUndefined(descriptor)) {
                 throw new Error(`Internal Error`);
             }
             if (hasOwnProperty.call(globals, key)) {
+                // TODO: to be implemented
                 // is a constructor to be controlled
-                if (isUndefined(descriptor.value) || !isUndefined(descriptor.get)) {
-                    throw new Error(`Internal Error`);
-                }
-                descriptor.value = r.getSecureFunction(window[key]);
-            } else if (isUndefined(descriptor.value)) {
-                const { get: originalGetter, set: originalSetter } = descriptor;
+                // if (isUndefined(descriptor.value) || !isUndefined(descriptor.get)) {
+                throw new Error(`Internal Error`);
+                // }
+                // descriptor.value = r.getSecureFunction(window[key]);
+            } else {
+                // normally, we could just rely on getSecureDescriptor() but
+                // apparently there is an issue with the scoping of the shim
+                // for global accessors, where the `this` value is incorrect.
+                // At least observable when using proxies.
+                // TODO: use the following line:
+                // descriptor = getSecureDescriptor(descriptor);
+                
+                // For now, we just do a manual composition:
+                const { set: originalSetter, get: originalGetter, value: originalValue } = descriptor;
                 if (!isUndefined(originalGetter)) {
                     descriptor.get = function get(): any {
                         return r.getSecureValue(originalGetter.call(window));
@@ -36,6 +45,9 @@ function installLazyGlobals(r: SecureDOMEnvironment) {
                         originalSetter.call(window, v);
                     };
                 }
+                if (!isUndefined(originalValue)) {
+                    descriptor.value = r.getSecureValue(originalValue);
+                }
             }
             Object.defineProperty(realmWindow, key, descriptor);
         }
@@ -43,22 +55,26 @@ function installLazyGlobals(r: SecureDOMEnvironment) {
 }
 
 export type RawValue = any;
-type RawArray = RawValue[];
-type RawFunction = (...args: RawValue[]) => RawValue;
+export type RawArray = RawValue[];
+export type RawFunction = (...args: RawValue[]) => RawValue;
 export type RawObject = object;
-interface RawConstructor {
+export interface RawConstructor {
     new(...args: any[]): RawObject;
 }
 export type SecureProxyTarget = RawObject | RawFunction | RawConstructor;
 export type ReverseProxyTarget = SecureObject | SecureFunction | SecureConstructor;
-export type ShadowTarget = SecureProxyTarget | ReverseProxyTarget;
+// TODO: how to doc the ProxyOf<>
+export type SecureShadowTarget = SecureProxyTarget; // Proxy<SecureProxyTarget>;
+export type ReverseShadowTarget = ReverseProxyTarget; // Proxy<ReverseProxyTarget>;
 
 type SecureProxy = SecureObject | SecureFunction;
+type ReverseProxy = RawObject | RawFunction;
+
 export type SecureValue = any;
-type SecureFunction = (...args: SecureValue[]) => SecureValue;
-type SecureArray = SecureValue[];
+export type SecureFunction = (...args: SecureValue[]) => SecureValue;
+export type SecureArray = SecureValue[];
 export type SecureObject = object;
-interface SecureConstructor {
+export interface SecureConstructor {
     new(...args: any[]): SecureObject;
 }
 interface SecureRecord {
@@ -92,10 +108,7 @@ function isProxyTarget(o: RawValue | SecureValue):
 
 export class SecureDOMEnvironment {
     // env realm
-    private r: RealmObject = ((window as any).Realm as RealmConstructor).makeRootRealm();
-    // shadow target map
-    // TODO: make this private
-    stm: WeakMap<ShadowTarget, SecureRecord> = new WeakMap();
+    private realm: RealmObject = ((window as any).Realm as RealmConstructor).makeRootRealm();
     // secure object map
     private som: WeakMap<SecureFunction | SecureObject, SecureRecord> = new WeakMap();
     // raw object map
@@ -104,7 +117,7 @@ export class SecureDOMEnvironment {
     constructor() {
         // complete realm, and remove things that we don't support (e.g.: globalThis.Realm)
         // caches
-        const secGlobals = this.r.global as any;
+        const secGlobals = this.realm.global as any;
         this.createSecureRecord(secGlobals.Object, Object);
         this.createSecureRecord(secGlobals.Object.prototype, Object.prototype);
         this.createSecureRecord(secGlobals.Function, Function);
@@ -112,9 +125,25 @@ export class SecureDOMEnvironment {
         installLazyGlobals(this);
     }
 
-    private createShadowTarget(o: SecureProxyTarget | ReverseProxyTarget): ShadowTarget {
-        let shadowTarget: ShadowTarget;
+    private createSecureShadowTarget(o: SecureProxyTarget): SecureShadowTarget {
+        let shadowTarget: SecureShadowTarget;
         if (isFunction(o)) {
+            // TODO: proto
+            shadowTarget = function () {};
+            ObjectDefineProperty(shadowTarget, 'name', {
+                value: o.name,
+                configurable: true,
+            });
+        } else {
+            // raw is object
+            shadowTarget = {};
+        }
+        return shadowTarget;
+    }
+    private createReverseShadowTarget(o: SecureProxyTarget | ReverseProxyTarget): ReverseShadowTarget {
+        let shadowTarget: ReverseShadowTarget;
+        if (isFunction(o)) {
+            // TODO: proto
             shadowTarget = function () {};
             ObjectDefineProperty(shadowTarget, 'name', {
                 value: o.name,
@@ -127,19 +156,19 @@ export class SecureDOMEnvironment {
         return shadowTarget;
     }
     private createSecureProxy(raw: SecureProxyTarget): SecureProxy {
-        const shadowTarget = this.createShadowTarget(raw);
+        const shadowTarget = this.createSecureShadowTarget(raw);
         const proxyHandler = new SecureProxyHandler(this, raw);
         const sec = new Proxy(shadowTarget, proxyHandler);
-        const sr = this.createSecureRecord(sec, raw);
-        // extra linking between shadow targets and secure record for perf
-        this.stm.set(shadowTarget, sr);
+        this.createSecureRecord(sec, raw);
         return sec;
     }
-    private createReverseProxy(sec: SecureValue): RawValue {
-        const shadowTarget = this.createShadowTarget(sec);
+    private createReverseProxy(sec: ReverseProxyTarget): ReverseProxy {
+        const shadowTarget = this.createReverseShadowTarget(sec);
         const proxyHandler = new ReverseProxyHandler(this, sec);
         const raw = new Proxy(shadowTarget, proxyHandler);
         this.createSecureRecord(sec, raw);
+        // eager initialization of reserve proxies
+        proxyHandler.initialize(shadowTarget);
         return raw;
     }
     private createSecureRecord(sec: SecureObject, raw: RawObject): SecureRecord {
@@ -166,7 +195,7 @@ export class SecureDOMEnvironment {
     }
     getSecureArray(a: RawArray): SecureArray {
         // identity of the new array correspond to the inner realm
-        const SecureArray = (this.r.global as any).Array as ArrayConstructor;
+        const SecureArray = (this.realm.global as any).Array as ArrayConstructor;
         return new SecureArray(...a).map((raw: RawValue) => this.getSecureValue(raw));
     }
     getSecureFunction(fn: RawFunction): SecureFunction {
@@ -197,20 +226,14 @@ export class SecureDOMEnvironment {
         // identity of the new array correspond to the outer realm
         return [...a].map((sec: SecureValue) => this.getRawValue(sec));
     }
-    linkSecureToRawValue(sec: SecureObject, raw: RawObject) {
-        if (this.som.has(sec)) {
-            return;
-        }
-        this.som.set(sec, this.createSecureRecord(sec, raw));
-    }
 
     // realm operations
     evaluate(src: string) {
         // intentionally not returning the result of the evaluation
-        this.r.evaluate(src);
+        this.realm.evaluate(src);
     }
 
     get window(): SecureWindow {
-        return this.r.global;
+        return this.realm.global;
     }
 }
