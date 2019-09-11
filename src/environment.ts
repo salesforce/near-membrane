@@ -1,7 +1,7 @@
 import '../node_modules/realms-shim/dist/realms-shim.umd.js';
 import { isUndefined, ObjectCreate, isFunction, hasOwnProperty, ObjectDefineProperty } from './shared';
 import { SecureProxyHandler } from './secure-proxy-handler';
-import { ReverseProxyHandler } from './reserve-proxy-handler';
+import { ReverseProxyHandler } from './reverse-proxy-handler';
 
 function installLazyGlobals(env: SecureEnvironment, baseGlobalThis: object, baseDescriptors: PropertyDescriptorMap) {
     const { globalThis: realmGlobalThis } = env;
@@ -165,7 +165,7 @@ export class SecureEnvironment {
         const proxyHandler = new ReverseProxyHandler(this, sec);
         const raw = new Proxy(shadowTarget, proxyHandler);
         this.createSecureRecord(sec, raw);
-        // eager initialization of reserve proxies
+        // eager initialization of reverse proxies
         proxyHandler.initialize(shadowTarget);
         return raw;
     }
