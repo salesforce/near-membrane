@@ -11,7 +11,6 @@ import {
     isFunction,
     getOwnPropertyDescriptors,
     freeze,
-    getPropertyDescriptor,
     isTrue,
 } from './shared';
 import {
@@ -40,6 +39,18 @@ export function getSecureDescriptor(descriptor: PropertyDescriptor, env: SecureE
             env.getSecureFunction(value) : env.getSecureValue(value);
     }
     return descriptor;
+}
+
+// equivalent to Object.getOwnPropertyDescriptor, but looks into the whole proto chain
+function getPropertyDescriptor(o: any, p: PropertyKey): PropertyDescriptor | undefined {
+    do {
+        const d = getOwnPropertyDescriptor(o, p);
+        if (!isUndefined(d)) {
+            return d;
+        }
+        o = getPrototypeOf(o);
+    } while (o !== null);
+    return undefined;
 }
 
 function copySecureOwnDescriptors(env: SecureEnvironment, shadowTarget: SecureShadowTarget, target: SecureProxyTarget) {

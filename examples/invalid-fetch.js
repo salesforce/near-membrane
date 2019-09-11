@@ -6,6 +6,7 @@ window.wrappedFetch = (...args) => fetch(...args);
 
 const descriptors = Object.getOwnPropertyDescriptors(window);
 const env = new SecureEnvironment({
+    global: window,
     descriptors,
     distortionCallback(t) {
         if (t === fetch) {

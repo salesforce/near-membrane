@@ -5,6 +5,7 @@ const { get } = Object.getOwnPropertyDescriptor(ShadowRoot.prototype, 'host');
 
 const descriptors = Object.getOwnPropertyDescriptors(window);
 const env = new SecureEnvironment({
+    global: window,
     descriptors,
     distortionCallback(t) {
         if (t === get) {

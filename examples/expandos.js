@@ -2,6 +2,7 @@ import { SecureEnvironment } from '../lib/environment.js';
 
 const descriptors = Object.getOwnPropertyDescriptors(window);
 const env = new SecureEnvironment({
+    global: window,
     descriptors,
 });
 

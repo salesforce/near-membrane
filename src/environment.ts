@@ -3,34 +3,37 @@ import { isUndefined, ObjectCreate, isFunction, hasOwnProperty, ObjectDefineProp
 import { SecureProxyHandler } from './secure-proxy-handler';
 import { ReverseProxyHandler } from './reserve-proxy-handler';
 
-function installLazyGlobals(r: SecureEnvironment, descriptors: PropertyDescriptorMap) {
-    const { globalThis: realmGlobalThis } = r;
-    for (let key in descriptors) {
+function installLazyGlobals(env: SecureEnvironment, baseGlobalThis: object, baseDescriptors: PropertyDescriptorMap) {
+    const { globalThis: realmGlobalThis } = env;
+    for (let key in baseDescriptors) {
         // avoid any operation on existing keys
         if (!hasOwnProperty.call(realmGlobalThis, key)) {
-            let descriptor = descriptors[key];
+            let descriptor = baseDescriptors[key];
             // normally, we could just rely on getSecureDescriptor() but
             // apparently there is an issue with the scoping of the shim
             // for global accessors, where the `this` value is incorrect.
             // At least observable when using proxies.
             // TODO: use the following line:
-            // descriptor = getSecureDescriptor(descriptor);
+            // descriptor = getSecureDescriptor(descriptor, env);
 
             // For now, we just do a manual composition:
             const { set: originalSetter, get: originalGetter, value: originalValue } = descriptor;
             if (!isUndefined(originalGetter)) {
                 descriptor.get = function get(): any {
-                    return r.getSecureValue(originalGetter.call(globalThis));
+                    return env.getSecureValue(originalGetter.call(baseGlobalThis));
                 };
             }
             if (!isUndefined(originalSetter)) {
                 descriptor.set = function set(v: any): void {
-                    originalSetter.call(globalThis, v);
+                    originalSetter.call(baseGlobalThis, v);
                 };
             }
             if (!isUndefined(originalValue)) {
-                descriptor.value = r.getSecureValue(originalValue);
+                // TODO: maybe we should make everything a getter/setter that way
+                // we don't pay the cost of creating the proxy in the first place
+                descriptor.value = env.getSecureValue(originalValue);
             }
+
             Object.defineProperty(realmGlobalThis, key, descriptor);
         }
     }
@@ -64,6 +67,7 @@ interface SecureRecord {
     sec: SecureProxy;
 }
 
+// TODO: Realm definitions should come from the realms-shim package
 interface RealmObject {
     global: object;
     evaluate(src: string): any;
@@ -85,7 +89,11 @@ function isProxyTarget(o: RawValue | SecureValue):
 }
 
 interface SecureEnvironmentOptions {
+    // Base global object to be wrapped by the secure environment
+    global: object;
+    // Base descriptors to be accessible in the secure environment
     descriptors: PropertyDescriptorMap;
+    // Optional distortion hook to prevent access to certain capabilities from within the secure environment
     distortionCallback?: (target: SecureProxyTarget) => SecureProxyTarget;
 }
 
@@ -103,16 +111,18 @@ export class SecureEnvironment {
         if (isUndefined(options) || isUndefined(options.descriptors)) {
             throw new Error(`Missing descriptors options which must be a PropertyDescriptorMap`);
         }
-        const { descriptors, distortionCallback } = options;
+        const { global, descriptors, distortionCallback } = options;
         this.distortionCallback = distortionCallback;
-        // complete realm, and remove things that we don't support (e.g.: globalThis.Realm)
-        // caches
-        const secGlobals = this.realm.global as any;
-        this.createSecureRecord(secGlobals.Object, Object);
-        this.createSecureRecord(secGlobals.Object.prototype, Object.prototype);
-        this.createSecureRecord(secGlobals.Function, Function);
-        this.createSecureRecord(secGlobals.Function.prototype, Function.prototype);
-        installLazyGlobals(this, descriptors);
+        const secureGlobal = this.realm.global as any;
+        // These are foundational things that should never be wrapped but are equivalent
+        // TODO: revisit this, is this really needed? what happen if Object.prototype is patched in the sec env?
+        this.createSecureRecord(secureGlobal, global);
+        this.createSecureRecord(secureGlobal.Object, Object);
+        this.createSecureRecord(secureGlobal.Object.prototype, Object.prototype);
+        this.createSecureRecord(secureGlobal.Function, Function);
+        this.createSecureRecord(secureGlobal.Function.prototype, Function.prototype);
+        // complete realm by installing new globals to match the behavior of the outer realm
+        installLazyGlobals(this, global, descriptors);
     }
 
     private createSecureShadowTarget(o: SecureProxyTarget): SecureShadowTarget {
@@ -124,7 +134,7 @@ export class SecureEnvironment {
                 configurable: true,
             });
         } else {
-            // raw is object
+            // o is object
             shadowTarget = {};
         }
         return shadowTarget;
@@ -138,7 +148,7 @@ export class SecureEnvironment {
                 configurable: true,
             });
         } else {
-            // raw is object
+            // o is object
             shadowTarget = {};
         }
         return shadowTarget;
