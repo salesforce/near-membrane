@@ -15,7 +15,7 @@ import {
     isTrue,
 } from './shared';
 import {
-    SecureDOMEnvironment,
+    SecureEnvironment,
     SecureProxyTarget,
     SecureValue,
     SecureObject,
@@ -24,12 +24,11 @@ import {
     SecureShadowTarget,
 } from './environment';
 
-export function getSecureDescriptor(descriptor: PropertyDescriptor, env: SecureDOMEnvironment): PropertyDescriptor {
+export function getSecureDescriptor(descriptor: PropertyDescriptor, env: SecureEnvironment): PropertyDescriptor {
     const { value, get, set, writable } = descriptor;
     if (isUndefined(writable)) {
         // we are dealing with accessors
         if (!isUndefined(set)) {
-            // TODO: do we really need to wrap this one?
             descriptor.set = env.getSecureFunction(set);
         }
         if (!isUndefined(get)) {
@@ -43,7 +42,7 @@ export function getSecureDescriptor(descriptor: PropertyDescriptor, env: SecureD
     return descriptor;
 }
 
-function copySecureOwnDescriptors(env: SecureDOMEnvironment, shadowTarget: SecureShadowTarget, target: SecureProxyTarget) {
+function copySecureOwnDescriptors(env: SecureEnvironment, shadowTarget: SecureShadowTarget, target: SecureProxyTarget) {
     // TODO: typescript definition for getOwnPropertyDescriptors is wrong, it should include symbols
     const descriptors = getOwnPropertyDescriptors(target);
     for (const key in descriptors) {
@@ -76,9 +75,9 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
     // original target for the proxy
     private readonly target: SecureProxyTarget;
     // environment object that controls the realm
-    private readonly env: SecureDOMEnvironment;
+    private readonly env: SecureEnvironment;
 
-    constructor(env: SecureDOMEnvironment, target: SecureProxyTarget) {
+    constructor(env: SecureEnvironment, target: SecureProxyTarget) {
         this.target = target;
         this.env = env;
     }

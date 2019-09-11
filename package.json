@@ -1,5 +1,5 @@
 {
-  "name": "secure-dom",
+  "name": "secure-javascript-environment",
   "version": "1.0.0",
   "description": "",
   "module": "lib/index.js",
@@ -10,10 +10,12 @@
   },
   "author": "Caridy Patiño <caridy@gmail.com>",
   "license": "MIT",
+  "dependencies": {
+    "realms-shim": "github:Agoric/realms-shim"
+  },
   "devDependencies": {
     "@zoltu/typescript-transformer-append-js-extension": "^1.0.1",
     "http-server": "^0.11.1",
-    "realms-shim": "github:Agoric/realms-shim",
     "ttypescript": "^1.5.7",
     "typescript": "^3.6.2"
   }

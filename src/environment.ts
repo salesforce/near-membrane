@@ -1,55 +1,37 @@
-import 'realms-shim/dist/realms-shim.umd';
-import { globals } from './globals';
-import { isUndefined, ObjectCreate, isFunction, getOwnPropertyDescriptor, getOwnPropertyNames, getOwnPropertySymbols, hasOwnProperty, ObjectDefineProperty } from './shared.js';
-import { SecureProxyHandler } from './secure-proxy-handler.js';
+import '../node_modules/realms-shim/dist/realms-shim.umd.js';
+import { isUndefined, ObjectCreate, isFunction, hasOwnProperty, ObjectDefineProperty } from './shared';
+import { SecureProxyHandler } from './secure-proxy-handler';
 import { ReverseProxyHandler } from './reserve-proxy-handler';
 
-const windowOwnKeys = [...getOwnPropertyNames(window), ...getOwnPropertySymbols(window)];
-
-function installLazyGlobals(r: SecureDOMEnvironment) {
-    const { window: realmWindow } = r;
-    for (let i = 0, len = windowOwnKeys.length; i < len; i += 1) {
-        const key = windowOwnKeys[i];
+function installLazyGlobals(r: SecureEnvironment, descriptors: PropertyDescriptorMap) {
+    const { globalThis: realmGlobalThis } = r;
+    for (let key in descriptors) {
         // avoid any operation on existing keys
-        if (!hasOwnProperty.call(realmWindow, key)) {
-            let descriptor = getOwnPropertyDescriptor(window, key);
-            // must be present since we are reading from window
-            if (isUndefined(descriptor)) {
-                throw new Error(`Internal Error`);
+        if (!hasOwnProperty.call(realmGlobalThis, key)) {
+            let descriptor = descriptors[key];
+            // normally, we could just rely on getSecureDescriptor() but
+            // apparently there is an issue with the scoping of the shim
+            // for global accessors, where the `this` value is incorrect.
+            // At least observable when using proxies.
+            // TODO: use the following line:
+            // descriptor = getSecureDescriptor(descriptor);
+
+            // For now, we just do a manual composition:
+            const { set: originalSetter, get: originalGetter, value: originalValue } = descriptor;
+            if (!isUndefined(originalGetter)) {
+                descriptor.get = function get(): any {
+                    return r.getSecureValue(originalGetter.call(globalThis));
+                };
             }
-            if (hasOwnProperty.call(globals, key)) {
-                // TODO: to be implemented
-                // is a constructor to be controlled
-                // if (isUndefined(descriptor.value) || !isUndefined(descriptor.get)) {
-                throw new Error(`Internal Error`);
-                // }
-                // descriptor.value = r.getSecureFunction(window[key]);
-            } else {
-                // normally, we could just rely on getSecureDescriptor() but
-                // apparently there is an issue with the scoping of the shim
-                // for global accessors, where the `this` value is incorrect.
-                // At least observable when using proxies.
-                // TODO: use the following line:
-                // descriptor = getSecureDescriptor(descriptor);
-                
-                // For now, we just do a manual composition:
-                const { set: originalSetter, get: originalGetter, value: originalValue } = descriptor;
-                if (!isUndefined(originalGetter)) {
-                    descriptor.get = function get(): any {
-                        return r.getSecureValue(originalGetter.call(window));
-                    };
-                }
-                if (!isUndefined(originalSetter)) {
-                    // TODO: should we allow this? can this mutation be done at the SecureWindow level?
-                    descriptor.set = function set(v: any): void {
-                        originalSetter.call(window, v);
-                    };
-                }
-                if (!isUndefined(originalValue)) {
-                    descriptor.value = r.getSecureValue(originalValue);
-                }
+            if (!isUndefined(originalSetter)) {
+                descriptor.set = function set(v: any): void {
+                    originalSetter.call(globalThis, v);
+                };
             }
-            Object.defineProperty(realmWindow, key, descriptor);
+            if (!isUndefined(originalValue)) {
+                descriptor.value = r.getSecureValue(originalValue);
+            }
+            Object.defineProperty(realmGlobalThis, key, descriptor);
         }
     }
 }
@@ -82,12 +64,8 @@ interface SecureRecord {
     sec: SecureProxy;
 }
 
-interface SecureWindow extends Window {
-    // Blacklisting
-}
-
 interface RealmObject {
-    global: Window;
+    global: object;
     evaluate(src: string): any;
 }
 interface RealmConstructor {
@@ -106,15 +84,27 @@ function isProxyTarget(o: RawValue | SecureValue):
     return t === 'object' || t === 'function';
 }
 
-export class SecureDOMEnvironment {
+interface SecureEnvironmentOptions {
+    descriptors: PropertyDescriptorMap;
+    distortionCallback?: (target: SecureProxyTarget) => SecureProxyTarget;
+}
+
+export class SecureEnvironment {
     // env realm
-    private realm: RealmObject = ((window as any).Realm as RealmConstructor).makeRootRealm();
+    private realm: RealmObject = ((globalThis as any).Realm as RealmConstructor).makeRootRealm();
     // secure object map
     private som: WeakMap<SecureFunction | SecureObject, SecureRecord> = new WeakMap();
     // raw object map
     private rom: WeakMap<RawFunction | RawObject, SecureRecord> = new WeakMap();
+    // distortion mechanism (default to noop)
+    private distortionCallback?: (target: SecureProxyTarget) => SecureProxyTarget = t => t;
 
-    constructor() {
+    constructor(options: SecureEnvironmentOptions) {
+        if (isUndefined(options) || isUndefined(options.descriptors)) {
+            throw new Error(`Missing descriptors options which must be a PropertyDescriptorMap`);
+        }
+        const { descriptors, distortionCallback } = options;
+        this.distortionCallback = distortionCallback;
         // complete realm, and remove things that we don't support (e.g.: globalThis.Realm)
         // caches
         const secGlobals = this.realm.global as any;
@@ -122,13 +112,12 @@ export class SecureDOMEnvironment {
         this.createSecureRecord(secGlobals.Object.prototype, Object.prototype);
         this.createSecureRecord(secGlobals.Function, Function);
         this.createSecureRecord(secGlobals.Function.prototype, Function.prototype);
-        installLazyGlobals(this);
+        installLazyGlobals(this, descriptors);
     }
 
     private createSecureShadowTarget(o: SecureProxyTarget): SecureShadowTarget {
         let shadowTarget: SecureShadowTarget;
         if (isFunction(o)) {
-            // TODO: proto
             shadowTarget = function () {};
             ObjectDefineProperty(shadowTarget, 'name', {
                 value: o.name,
@@ -143,7 +132,6 @@ export class SecureDOMEnvironment {
     private createReverseShadowTarget(o: SecureProxyTarget | ReverseProxyTarget): ReverseShadowTarget {
         let shadowTarget: ReverseShadowTarget;
         if (isFunction(o)) {
-            // TODO: proto
             shadowTarget = function () {};
             ObjectDefineProperty(shadowTarget, 'name', {
                 value: o.name,
@@ -171,14 +159,24 @@ export class SecureDOMEnvironment {
         proxyHandler.initialize(shadowTarget);
         return raw;
     }
-    private createSecureRecord(sec: SecureObject, raw: RawObject): SecureRecord {
+    private createSecureRecord(sec: SecureObject, raw: RawObject) {
         const sr: SecureRecord = ObjectCreate(null);
         sr.raw = raw;
         sr.sec = sec;
         // double index for perf
         this.som.set(sec, sr);
         this.rom.set(raw, sr);
-        return sr; // TODO: do we really need to return this?
+    }
+    private getDistortedValue(target: SecureProxyTarget): SecureProxyTarget {
+        const { distortionCallback } = this;
+        if (isUndefined(distortionCallback)) {
+            return target;
+        }
+        const distortedTarget = distortionCallback(target);
+        if (!isProxyTarget(distortedTarget)) {
+            throw new Error(`Invalid distortion mechanism.`);
+        }
+        return distortedTarget;
     }
 
     // membrane operations
@@ -186,7 +184,7 @@ export class SecureDOMEnvironment {
         if (isProxyTarget(raw)) {
             let sr = this.rom.get(raw);
             if (isUndefined(sr)) {
-                return this.createSecureProxy(raw);
+                return this.createSecureProxy(this.getDistortedValue(raw));
             }
             return sr.sec;
         } else {
@@ -201,7 +199,7 @@ export class SecureDOMEnvironment {
     getSecureFunction(fn: RawFunction): SecureFunction {
         let sr = this.rom.get(fn);
         if (isUndefined(sr)) {
-            return this.createSecureProxy(fn) as SecureFunction;
+            return this.createSecureProxy(this.getDistortedValue(fn)) as SecureFunction;
         }
         return sr.sec as SecureFunction;
     }
@@ -233,7 +231,7 @@ export class SecureDOMEnvironment {
         this.realm.evaluate(src);
     }
 
-    get window(): SecureWindow {
+    get globalThis(): RawValue {
         return this.realm.global;
     }
 }

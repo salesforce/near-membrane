@@ -12,7 +12,7 @@ import {
     isTrue,
 } from './shared';
 import {
-    SecureDOMEnvironment,
+    SecureEnvironment,
     ReverseProxyTarget,
     RawValue,
     RawObject,
@@ -21,7 +21,7 @@ import {
     ReverseShadowTarget,
 } from './environment';
 
-function getReverseDescriptor(descriptor: PropertyDescriptor, env: SecureDOMEnvironment): PropertyDescriptor {
+function getReverseDescriptor(descriptor: PropertyDescriptor, env: SecureEnvironment): PropertyDescriptor {
     const { value, get, set, writable } = descriptor;
     if (isUndefined(writable)) {
         // we are dealing with accessors
@@ -41,7 +41,7 @@ function getReverseDescriptor(descriptor: PropertyDescriptor, env: SecureDOMEnvi
     return descriptor;
 }
 
-function copyReverseOwnDescriptors(env: SecureDOMEnvironment, shadowTarget: ReverseShadowTarget, target: ReverseProxyTarget) {
+function copyReverseOwnDescriptors(env: SecureEnvironment, shadowTarget: ReverseShadowTarget, target: ReverseProxyTarget) {
     // TODO: typescript definition for getOwnPropertyDescriptors is wrong, it should include symbols
     const descriptors = getOwnPropertyDescriptors(target);
     for (const key in descriptors) {
@@ -72,9 +72,9 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
     // original target for the proxy
     private readonly target: ReverseProxyTarget;
     // environment object that controls the realm
-    private readonly env: SecureDOMEnvironment;
+    private readonly env: SecureEnvironment;
 
-    constructor(env: SecureDOMEnvironment, target: ReverseProxyTarget) {
+    constructor(env: SecureEnvironment, target: ReverseProxyTarget) {
         this.target = target;
         this.env = env;
     }
