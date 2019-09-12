@@ -127,14 +127,38 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
         this.initialize(shadowTarget);
         const desc = getPropertyDescriptor(shadowTarget, key);
         if (isUndefined(desc)) {
-            shadowTarget[key] = value;
+            if (isExtensible(shadowTarget)) {
+                // it should be a descriptor installed on the current shadowTarget
+                ObjectDefineProperty(shadowTarget, key, {
+                    value,
+                    configurable: true,
+                    enumerable: true,
+                    writable: true,
+                });
+            } else {
+                // non-extensible should throw in strict mode
+                // TypeError: Cannot add property ${key}, object is not extensible
+                return false;
+            }
         } else {
-            const { set } = desc;
-            if (!isUndefined(set)) {
+            // descriptor exists in the shadowRoot or proto chain
+            const { set, get, writable } = desc;
+            if (writable === false) {
+                // TypeError: Cannot assign to read only property '${key}' of object
+                return false;
+            } else if (!isUndefined(set)) {
+                // a setter is available, just call it:
                 // this.target is already in registered in the map, which means it
                 // will always return a valid secure object without having to create it.
                 const sec = this.env.getSecureValue(this.target);
                 Reflect.apply(set, sec, [value]);
+            } else if (!isUndefined(get)) {
+                // a getter without a setter should fail to set in strict mode
+                // TypeError: Cannot set property ${key} of object which has only a getter
+                return false;
+            } else {
+                // the descriptor is writable, just assign it
+                shadowTarget[key] = value;
             }
         }
         return true;
