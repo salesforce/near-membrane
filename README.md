@@ -57,3 +57,9 @@ We do not know the applications of this library just yet, but we suspect that th
 * Should we continue relying on the realms-shim package, or should we have our own implementation of that? The main reason is that this is very specific, and does not use many of the features of the realms-shim.
 * Should we proxify Arrays objects to support live Arrays?
 * There is not a clear boundary on what can be mutated and what not through the membrane.
+
+## Browsers Support and Stats
+
+* Modern browsers with support for ES6 Proxy
+* This library: 1.7kb minified/gzip
+* Realms Shim + this library = ~5k minified/gzip

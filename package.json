@@ -5,7 +5,7 @@
   "module": "lib/index.js",
   "types": "types/index.js",
   "scripts": {
-    "build": "ttsc",
+    "build": "ttsc & rollup -c",
     "start": "ttsc -w & http-server"
   },
   "author": "Caridy Patiño <caridy@gmail.com>",
@@ -16,6 +16,7 @@
   "devDependencies": {
     "@zoltu/typescript-transformer-append-js-extension": "^1.0.1",
     "http-server": "^0.11.1",
+    "rollup": "^1.21.3",
     "ttypescript": "^1.5.7",
     "typescript": "^3.6.2"
   }

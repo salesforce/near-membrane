@@ -1,0 +1,38 @@
+<html>
+    <head>
+    </head>
+    <body>
+        <script type="module" src="./bundle.js"></script>
+        <textarea style="display: block; height: 600px; width: 100%">
+            debugger;
+
+            // custom elements
+            class Foo extends HTMLElement {
+                constructor() {
+                    super();
+                    this.attachShadow({ mode: 'open' });
+                    this.shadowRoot.innerHTML = `content of x-foo`;
+                }
+                fooProtoMethod() {
+                    return 1;
+                }
+            }
+            customElements.define('x-foo', Foo);
+            const elm = document.createElement('x-foo');
+            document.body.appendChild(elm);
+
+            // testing public method
+            document.querySelector('x-foo').fooProtoMethod(); // yields 1
+        
+            // checking class invariants
+            HTMLElement.__proto__ === Event; // yields true
+            HTMLElement.prototype.__proto__ === Event.prototype; // yields true
+            HTMLElement.prototype.constructor === HTMLElement; // yields true
+            Foo.__proto__ === HTMLElement; // yields true
+            Foo.prototype.__proto__ === HTMLElement.prototype; // yields true
+            Foo.prototype.constructor === Foo; // yields true
+        </textarea>
+        <button>click to evaluate in a new sandbox</button>
+        <p style="color: red;">Note: open the console before evaluating the code.</p>
+    </body>
+</html>
