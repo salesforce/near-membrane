@@ -1,4 +1,6 @@
 import {
+    apply,
+    construct,
     isUndefined,
     ObjectDefineProperty,
     setPrototypeOf,
@@ -119,7 +121,7 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
             // this.target is already in registered in the map, which means it
             // will always return a valid secure object without having to create it.
             const sec = this.env.getSecureValue(this.target);
-            return Reflect.apply(get, sec, []);
+            return apply(get, sec, []);
         }
         return desc.value;
     }
@@ -151,7 +153,7 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
                 // this.target is already in registered in the map, which means it
                 // will always return a valid secure object without having to create it.
                 const sec = this.env.getSecureValue(this.target);
-                Reflect.apply(set, sec, [value]);
+                apply(set, sec, [value]);
             } else if (!isUndefined(get)) {
                 // a getter without a setter should fail to set in strict mode
                 // TypeError: Cannot set property ${key} of object which has only a getter
@@ -173,7 +175,7 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
         this.initialize(shadowTarget);
         const rawThisArg = env.getRawValue(thisArg);
         const rawArgArray = env.getRawArray(argArray);
-        const raw = Reflect.apply(target as RawFunction, rawThisArg, rawArgArray);
+        const raw = apply(target as RawFunction, rawThisArg, rawArgArray);
         return env.getSecureValue(raw) as SecureValue;
     }
     construct(shadowTarget: SecureShadowTarget, argArray: SecureValue[], newTarget: SecureObject): SecureObject {
@@ -184,7 +186,7 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
         }
         const rawArgArray = env.getRawArray(argArray);
         const rawNewTarget = env.getRawValue(newTarget);
-        const raw = Reflect.construct(RawCtor as RawConstructor, rawArgArray, rawNewTarget);
+        const raw = construct(RawCtor as RawConstructor, rawArgArray, rawNewTarget);
         const sec = env.getSecureValue(raw);
         return sec as SecureObject;
     }

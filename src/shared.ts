@@ -1,19 +1,27 @@
 const {
-    getPrototypeOf,
-    setPrototypeOf,
     create: ObjectCreate,
-    defineProperty: ObjectDefineProperty,
-    isExtensible,
-    getOwnPropertyDescriptor,
     getOwnPropertyDescriptors,
     getOwnPropertyNames,
     getOwnPropertySymbols,
-    preventExtensions,
-    hasOwnProperty,
     freeze,
 } = Object;
 
+const {
+    apply,
+    construct,
+    getPrototypeOf,
+    setPrototypeOf,
+    defineProperty: ObjectDefineProperty,
+    isExtensible,
+    getOwnPropertyDescriptor,
+    preventExtensions,
+} = Reflect;
+
+const hasOwnProperty = unapply(Object.prototype.hasOwnProperty);
+
 export {
+    apply,
+    construct,
     getPrototypeOf,
     setPrototypeOf,
     ObjectCreate,
@@ -27,6 +35,10 @@ export {
     hasOwnProperty,
     freeze,
 };
+
+export function unapply(func: Function): Function {
+    return (thisArg: any, ...args: any[]) => apply(func, thisArg, args);
+}
 
 export function isUndefined(obj: any): obj is undefined {
     return obj === undefined;

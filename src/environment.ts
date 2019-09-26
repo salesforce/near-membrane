@@ -1,5 +1,5 @@
 import '../node_modules/realms-shim/dist/realms-shim.umd.js';
-import { isUndefined, ObjectCreate, isFunction, hasOwnProperty, ObjectDefineProperty } from './shared';
+import { apply, isUndefined, ObjectCreate, isFunction, hasOwnProperty, ObjectDefineProperty } from './shared';
 import { SecureProxyHandler } from './secure-proxy-handler';
 import { ReverseProxyHandler } from './reverse-proxy-handler';
 
@@ -7,7 +7,7 @@ function installLazyGlobals(env: SecureEnvironment, baseGlobalThis: object, base
     const { globalThis: realmGlobalThis } = env;
     for (let key in baseDescriptors) {
         // avoid any operation on existing keys
-        if (!hasOwnProperty.call(realmGlobalThis, key)) {
+        if (!hasOwnProperty(realmGlobalThis, key)) {
             let descriptor = baseDescriptors[key];
             // normally, we could just rely on getSecureDescriptor() but
             // apparently there is an issue with the scoping of the shim
@@ -20,12 +20,13 @@ function installLazyGlobals(env: SecureEnvironment, baseGlobalThis: object, base
             const { set: originalSetter, get: originalGetter, value: originalValue } = descriptor;
             if (!isUndefined(originalGetter)) {
                 descriptor.get = function get(): any {
-                    return env.getSecureValue(originalGetter.call(baseGlobalThis));
+                    const value: any = apply(originalGetter, baseGlobalThis, []);
+                    return env.getSecureValue(value);
                 };
             }
             if (!isUndefined(originalSetter)) {
                 descriptor.set = function set(v: any): void {
-                    originalSetter.call(baseGlobalThis, v);
+                    apply(originalSetter, baseGlobalThis, [v]);
                 };
             }
             if (!isUndefined(originalValue)) {
@@ -34,7 +35,7 @@ function installLazyGlobals(env: SecureEnvironment, baseGlobalThis: object, base
                 descriptor.value = env.getSecureValue(originalValue);
             }
 
-            Object.defineProperty(realmGlobalThis, key, descriptor);
+            ObjectDefineProperty(realmGlobalThis, key, descriptor);
         }
     }
 }

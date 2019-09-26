@@ -1,4 +1,6 @@
 import {
+    apply,
+    construct,
     isUndefined,
     ObjectDefineProperty,
     setPrototypeOf,
@@ -92,7 +94,7 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
         const { target, env } = this;
         const secThisArg = env.getSecureValue(thisArg);
         const secArgArray = env.getSecureArray(argArray);
-        const sec = Reflect.apply(target as SecureFunction, secThisArg, secArgArray);
+        const sec = apply(target as SecureFunction, secThisArg, secArgArray);
         return env.getRawValue(sec) as RawValue;
     }
     construct(shadowTarget: ReverseShadowTarget, argArray: RawValue[], newTarget: RawObject): RawObject {
@@ -102,7 +104,7 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
         }
         const secArgArray = env.getSecureArray(argArray);
         // const secNewTarget = env.getSecureValue(newTarget);
-        const sec = Reflect.construct(SecCtor as SecureConstructor, secArgArray);
+        const sec = construct(SecCtor as SecureConstructor, secArgArray);
         const raw = env.getRawValue(sec);
         return raw as RawObject;
     }
