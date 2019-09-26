@@ -11,7 +11,7 @@
   "author": "Caridy Patiño <caridy@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "realms-shim": "github:Agoric/realms-shim"
+    "realms-shim": "^1.1.2"
   },
   "devDependencies": {
     "@zoltu/typescript-transformer-append-js-extension": "^1.0.1",
