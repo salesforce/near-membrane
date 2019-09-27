@@ -51,3 +51,5 @@ export function isTrue(obj: any): obj is true {
 export function isFunction(obj: any): obj is Function {
     return typeof obj === 'function';
 }
+
+export const emptyArray: [] = [];

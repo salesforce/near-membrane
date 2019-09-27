@@ -1,5 +1,5 @@
 import '../node_modules/realms-shim/dist/realms-shim.umd.js';
-import { apply, isUndefined, ObjectCreate, isFunction, hasOwnProperty, ObjectDefineProperty } from './shared';
+import { apply, isUndefined, ObjectCreate, isFunction, hasOwnProperty, ObjectDefineProperty, emptyArray } from './shared';
 import { SecureProxyHandler } from './secure-proxy-handler';
 import { ReverseProxyHandler } from './reverse-proxy-handler';
 
@@ -19,14 +19,14 @@ function installLazyGlobals(env: SecureEnvironment, baseGlobalThis: object, base
             // For now, we just do a manual composition:
             const { set: originalSetter, get: originalGetter, value: originalValue } = descriptor;
             if (!isUndefined(originalGetter)) {
-                descriptor.get = function get(): any {
-                    const value: any = apply(originalGetter, baseGlobalThis, []);
+                descriptor.get = function get(): SecureValue {
+                    const value: RawValue = apply(originalGetter, baseGlobalThis, emptyArray);
                     return env.getSecureValue(value);
                 };
             }
             if (!isUndefined(originalSetter)) {
-                descriptor.set = function set(v: any): void {
-                    apply(originalSetter, baseGlobalThis, [v]);
+                descriptor.set = function set(v: SecureValue): void {
+                    apply(originalSetter, baseGlobalThis, [env.getRawValue(v)]);
                 };
             }
             if (!isUndefined(originalValue)) {

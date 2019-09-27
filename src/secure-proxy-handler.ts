@@ -14,6 +14,7 @@ import {
     getOwnPropertyDescriptors,
     freeze,
     isTrue,
+    emptyArray,
 } from './shared';
 import {
     SecureEnvironment,
@@ -121,7 +122,7 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
             // this.target is already in registered in the map, which means it
             // will always return a valid secure object without having to create it.
             const sec = this.env.getSecureValue(this.target);
-            return apply(get, sec, []);
+            return apply(get, sec, emptyArray);
         }
         return desc.value;
     }
