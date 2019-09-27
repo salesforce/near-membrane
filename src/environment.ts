@@ -1,5 +1,5 @@
 import '../node_modules/realms-shim/dist/realms-shim.umd.js';
-import { apply, isUndefined, ObjectCreate, isFunction, hasOwnProperty, ObjectDefineProperty, emptyArray } from './shared';
+import { apply, isUndefined, ObjectCreate, isFunction, hasOwnProperty, ObjectDefineProperty, emptyArray, isArray, map } from './shared';
 import { SecureProxyHandler } from './secure-proxy-handler';
 import { ReverseProxyHandler } from './reverse-proxy-handler';
 
@@ -212,7 +212,9 @@ export class SecureEnvironment {
 
     // membrane operations
     getSecureValue(raw: RawValue): SecureValue {
-        if (isProxyTarget(raw)) {
+        if (isArray(raw)) {
+            return this.getSecureArray(raw);
+        } else if (isProxyTarget(raw)) {
             let sr = this.rom.get(raw);
             if (isUndefined(sr)) {
                 return this.createSecureProxy(this.getDistortedValue(raw));
@@ -225,7 +227,8 @@ export class SecureEnvironment {
     getSecureArray(a: RawArray): SecureArray {
         // identity of the new array correspond to the inner realm
         const SecureArray = (this.realm.global as any).Array as ArrayConstructor;
-        return new SecureArray(...a).map((raw: RawValue) => this.getSecureValue(raw));
+        const b: SecureValue[] = map(a, (raw: RawValue) => this.getSecureValue(raw));
+        return new SecureArray(...b);
     }
     getSecureFunction(fn: RawFunction): SecureFunction {
         let sr = this.rom.get(fn);
@@ -235,7 +238,9 @@ export class SecureEnvironment {
         return sr.sec as SecureFunction;
     }
     getRawValue(sec: SecureValue): RawValue {
-        if (isProxyTarget(sec)) {
+        if (isArray(sec)) {
+            return this.getRawArray(sec);
+        } else if (isProxyTarget(sec)) {
             let sr = this.som.get(sec);
             if (isUndefined(sr)) {
                 return this.createReverseProxy(sec);
@@ -253,7 +258,7 @@ export class SecureEnvironment {
     }
     getRawArray(a: SecureArray): RawArray {
         // identity of the new array correspond to the outer realm
-        return [...a].map((sec: SecureValue) => this.getRawValue(sec));
+        return map(a, (sec: SecureValue) => this.getRawValue(sec));
     }
 
     // realm operations
