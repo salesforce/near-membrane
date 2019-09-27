@@ -12,6 +12,7 @@ import {
     freeze,
     isFunction,
     isTrue,
+    hasOwnProperty,
 } from './shared';
 import {
     SecureEnvironment,
@@ -47,21 +48,24 @@ function copyReverseOwnDescriptors(env: SecureEnvironment, shadowTarget: Reverse
     // TODO: typescript definition for getOwnPropertyDescriptors is wrong, it should include symbols
     const descriptors = getOwnPropertyDescriptors(target);
     for (const key in descriptors) {
-        let originalDescriptor = descriptors[key];
-        originalDescriptor = getReverseDescriptor(originalDescriptor, env);
-        const shadowTargetDescriptor = getOwnPropertyDescriptor(shadowTarget, key);
-        if (!isUndefined(shadowTargetDescriptor)) {
-            if (isTrue(shadowTargetDescriptor.configurable)) {
-                ObjectDefineProperty(shadowTarget, key, originalDescriptor);
-            } else if (isTrue(shadowTargetDescriptor.writable)) {
-                // just in case
-                shadowTarget[key] = originalDescriptor.value;
+        // avoid poisoning by checking own properties from descriptors
+        if (hasOwnProperty(descriptors, key)) {
+            let originalDescriptor = descriptors[key];
+            originalDescriptor = getReverseDescriptor(originalDescriptor, env);
+            const shadowTargetDescriptor = getOwnPropertyDescriptor(shadowTarget, key);
+            if (!isUndefined(shadowTargetDescriptor)) {
+                if (isTrue(shadowTargetDescriptor.configurable)) {
+                    ObjectDefineProperty(shadowTarget, key, originalDescriptor);
+                } else if (isTrue(shadowTargetDescriptor.writable)) {
+                    // just in case
+                    shadowTarget[key] = originalDescriptor.value;
+                } else {
+                    // ignoring... since it is non configurable and non-writable
+                    // usually, arguments, callee, etc.
+                }
             } else {
-                // ignoring... since it is non configurable and non-writable
-                // usually, arguments, callee, etc.
+                ObjectDefineProperty(shadowTarget, key, originalDescriptor);
             }
-        } else {
-            ObjectDefineProperty(shadowTarget, key, originalDescriptor);
         }
     }
 }

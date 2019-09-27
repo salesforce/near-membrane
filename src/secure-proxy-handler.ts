@@ -14,6 +14,8 @@ import {
     getOwnPropertyDescriptors,
     freeze,
     isTrue,
+    emptyArray,
+    hasOwnProperty,
 } from './shared';
 import {
     SecureEnvironment,
@@ -59,21 +61,24 @@ function copySecureOwnDescriptors(env: SecureEnvironment, shadowTarget: SecureSh
     // TODO: typescript definition for getOwnPropertyDescriptors is wrong, it should include symbols
     const descriptors = getOwnPropertyDescriptors(target);
     for (const key in descriptors) {
-        let originalDescriptor = descriptors[key];
-        originalDescriptor = getSecureDescriptor(originalDescriptor, env);
-        const shadowTargetDescriptor = getOwnPropertyDescriptor(shadowTarget, key);
-        if (!isUndefined(shadowTargetDescriptor)) {
-            if (isTrue(shadowTargetDescriptor.configurable)) {
-                ObjectDefineProperty(shadowTarget, key, originalDescriptor);
-            } else if (isTrue(shadowTargetDescriptor.writable)) {
-                // just in case
-                shadowTarget[key] = originalDescriptor.value;
+        // avoid poisoning by checking own properties from descriptors
+        if (hasOwnProperty(descriptors, key)) {
+            let originalDescriptor = descriptors[key];
+            originalDescriptor = getSecureDescriptor(originalDescriptor, env);
+            const shadowTargetDescriptor = getOwnPropertyDescriptor(shadowTarget, key);
+            if (!isUndefined(shadowTargetDescriptor)) {
+                if (isTrue(shadowTargetDescriptor.configurable)) {
+                    ObjectDefineProperty(shadowTarget, key, originalDescriptor);
+                } else if (isTrue(shadowTargetDescriptor.writable)) {
+                    // just in case
+                    shadowTarget[key] = originalDescriptor.value;
+                } else {
+                    // ignoring... since it is non configurable and non-writable
+                    // usually, arguments, callee, etc.
+                }
             } else {
-                // ignoring... since it is non configurable and non-writable
-                // usually, arguments, callee, etc.
+                ObjectDefineProperty(shadowTarget, key, originalDescriptor);
             }
-        } else {
-            ObjectDefineProperty(shadowTarget, key, originalDescriptor);
         }
     }
 }
@@ -121,7 +126,7 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
             // this.target is already in registered in the map, which means it
             // will always return a valid secure object without having to create it.
             const sec = this.env.getSecureValue(this.target);
-            return apply(get, sec, []);
+            return apply(get, sec, emptyArray);
         }
         return desc.value;
     }

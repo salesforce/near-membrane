@@ -1,40 +1,60 @@
 import '../node_modules/realms-shim/dist/realms-shim.umd.js';
-import { apply, isUndefined, ObjectCreate, isFunction, hasOwnProperty, ObjectDefineProperty } from './shared';
+import { apply, isUndefined, ObjectCreate, isFunction, hasOwnProperty, ObjectDefineProperty, emptyArray } from './shared';
 import { SecureProxyHandler } from './secure-proxy-handler';
 import { ReverseProxyHandler } from './reverse-proxy-handler';
 
-function installLazyGlobals(env: SecureEnvironment, baseGlobalThis: object, baseDescriptors: PropertyDescriptorMap) {
+/**
+ * This method returns a descriptor that given an original setter, and a getter, can use the original
+ * getter to return a secure object, but if the sandbox attempts to set it to a new value, this
+ * mutation will only affect the sandbox's global object, and the getter will start returning the
+ * new provided value rather than calling onto the outer realm. This is to preserve the object graph
+ * of the outer realm.
+ */
+function getSecureGlobalAccessorDescriptor(env: SecureEnvironment, descriptor: PropertyDescriptor): PropertyDescriptor {
+    const { get: originalGetter } = descriptor;
+    let currentGetter = isUndefined(originalGetter) ? () => undefined : function(this: any): SecureValue {
+        // TODO: hack because the realms-shim is leaking their shadow target, so we need
+        // to use this.__proto__ to unroll that and get the real window. issue:
+        // https://github.com/Agoric/realms-shim/pull/45
+        const value: RawValue = apply(originalGetter, env.getRawValue(this.__proto__), emptyArray);
+        return env.getSecureValue(value);
+    }
+    if (!isUndefined(originalGetter)) {
+        descriptor.get = function get(): SecureValue {
+            return apply(currentGetter, this, emptyArray);
+        };
+    }
+    descriptor.set = function set(v: SecureValue): void {
+        // if a global setter is invoke, the value will be use as it is as the result of the getter operation
+        currentGetter = () => v;
+    };
+    return descriptor;
+}
+
+function installLazyGlobals(env: SecureEnvironment, baseDescriptors: PropertyDescriptorMap) {
     const { globalThis: realmGlobalThis } = env;
     for (let key in baseDescriptors) {
-        // avoid any operation on existing keys
-        if (!hasOwnProperty(realmGlobalThis, key)) {
+        // avoid poisoning to only installing own properties from baseDescriptors,
+        // and avoid overriding existing keys on the realmGlobalThis (TODO: this second condition might need to be revisited)
+        if (hasOwnProperty(baseDescriptors, key) && !hasOwnProperty(realmGlobalThis, key)) {
             let descriptor = baseDescriptors[key];
-            // normally, we could just rely on getSecureDescriptor() but
-            // apparently there is an issue with the scoping of the shim
-            // for global accessors, where the `this` value is incorrect.
-            // At least observable when using proxies.
-            // TODO: use the following line:
-            // descriptor = getSecureDescriptor(descriptor, env);
-
-            // For now, we just do a manual composition:
-            const { set: originalSetter, get: originalGetter, value: originalValue } = descriptor;
-            if (!isUndefined(originalGetter)) {
-                descriptor.get = function get(): any {
-                    const value: any = apply(originalGetter, baseGlobalThis, []);
+            if (hasOwnProperty(descriptor, 'set')) {
+                // setter, and probably getter branch
+                descriptor = getSecureGlobalAccessorDescriptor(env, descriptor);
+            } else if (hasOwnProperty(descriptor, 'get')) {
+                // getter only branch (e.g.: window.navigator)
+                const { get: originalGetter } = descriptor;
+                descriptor.get = function get(): SecureValue {
+                    const value: RawValue = apply(originalGetter as () => any, env.getRawValue(this), emptyArray);
                     return env.getSecureValue(value);
                 };
-            }
-            if (!isUndefined(originalSetter)) {
-                descriptor.set = function set(v: any): void {
-                    apply(originalSetter, baseGlobalThis, [v]);
-                };
-            }
-            if (!isUndefined(originalValue)) {
+            } else {
+                // value branch
+                const { value: originalValue } = descriptor;
                 // TODO: maybe we should make everything a getter/setter that way
                 // we don't pay the cost of creating the proxy in the first place
                 descriptor.value = env.getSecureValue(originalValue);
             }
-
             ObjectDefineProperty(realmGlobalThis, key, descriptor);
         }
     }
@@ -123,7 +143,7 @@ export class SecureEnvironment {
         this.createSecureRecord(secureGlobal.Function, Function);
         this.createSecureRecord(secureGlobal.Function.prototype, Function.prototype);
         // complete realm by installing new globals to match the behavior of the outer realm
-        installLazyGlobals(this, global, descriptors);
+        installLazyGlobals(this, descriptors);
     }
 
     private createSecureShadowTarget(o: SecureProxyTarget): SecureShadowTarget {
