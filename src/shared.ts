@@ -1,3 +1,5 @@
+const { isArray } = Array;
+
 const {
     create: ObjectCreate,
     getOwnPropertyDescriptors,
@@ -18,6 +20,7 @@ const {
 } = Reflect;
 
 const hasOwnProperty = unapply(Object.prototype.hasOwnProperty);
+const map = unapply(Array.prototype.map);
 
 export {
     apply,
@@ -34,6 +37,8 @@ export {
     preventExtensions,
     hasOwnProperty,
     freeze,
+    isArray,
+    map,
 };
 
 export function unapply(func: Function): Function {
