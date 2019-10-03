@@ -115,7 +115,7 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
         freeze(this);
     }
 
-    get(shadowTarget: SecureShadowTarget, key: PropertyKey): SecureValue {
+    get(shadowTarget: SecureShadowTarget, key: PropertyKey, receiver: SecureObject): SecureValue {
         this.initialize(shadowTarget);
         const desc = getPropertyDescriptor(shadowTarget, key);
         if (isUndefined(desc)) {
@@ -123,14 +123,11 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
         }
         const { get } = desc;
         if (!isUndefined(get)) {
-            // this.target is already in registered in the map, which means it
-            // will always return a valid secure object without having to create it.
-            const sec = this.env.getSecureValue(this.target);
-            return apply(get, sec, emptyArray);
+            return apply(get, receiver, emptyArray);
         }
         return desc.value;
     }
-    set(shadowTarget: SecureShadowTarget, key: PropertyKey, value: SecureValue): boolean {
+    set(shadowTarget: SecureShadowTarget, key: PropertyKey, value: SecureValue, receiver: SecureObject): boolean {
         this.initialize(shadowTarget);
         const desc = getPropertyDescriptor(shadowTarget, key);
         if (isUndefined(desc)) {
@@ -155,10 +152,7 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
                 return false;
             } else if (!isUndefined(set)) {
                 // a setter is available, just call it:
-                // this.target is already in registered in the map, which means it
-                // will always return a valid secure object without having to create it.
-                const sec = this.env.getSecureValue(this.target);
-                apply(set, sec, [value]);
+                apply(set, receiver, [value]);
             } else if (!isUndefined(get)) {
                 // a getter without a setter should fail to set in strict mode
                 // TypeError: Cannot set property ${key} of object which has only a getter
@@ -201,6 +195,7 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
     }
     ownKeys(shadowTarget: SecureShadowTarget): (string | symbol)[] {
         this.initialize(shadowTarget);
+        // TODO: this is leaking outer realm's array
         return [
             ...getOwnPropertyNames(shadowTarget),
             ...getOwnPropertySymbols(shadowTarget),
@@ -214,6 +209,7 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
     }
     getOwnPropertyDescriptor(shadowTarget: SecureShadowTarget, key: PropertyKey): PropertyDescriptor | undefined {
         this.initialize(shadowTarget);
+        // TODO: this is leaking outer realm's object
         return getOwnPropertyDescriptor(shadowTarget, key);
     }
     getPrototypeOf(shadowTarget: SecureShadowTarget): SecureValue {

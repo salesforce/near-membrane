@@ -1,12 +1,11 @@
-import { SecureEnvironment } from '../lib/environment.js';
+import createSecureEnvironment from '../lib/browser-realm.js';
 
-const descriptors = Object.getOwnPropertyDescriptors(window);
-const env = new SecureEnvironment({
-    global: window,
-    descriptors,
-});
-
-env.evaluate(`
+const secureGlobalThis = createSecureEnvironment();
+const elm = secureGlobalThis.document.createElement('p');
+secureGlobalThis.document.body.appendChild(elm);
+console.log(document.body.outerHTML);
+console.log(secureGlobalThis.document.body.outerHTML);
+secureGlobalThis.eval(`
     debugger;
 
     const elm = document.createElement('p');

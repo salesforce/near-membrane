@@ -116,6 +116,7 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
         return key in shadowTarget;
     }
     ownKeys(shadowTarget: ReverseShadowTarget): (string | symbol)[] {
+        // TODO: avoid triggering the iterator protocol
         return [
             ...getOwnPropertyNames(shadowTarget),
             ...getOwnPropertySymbols(shadowTarget),

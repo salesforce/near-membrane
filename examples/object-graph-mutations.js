@@ -1,11 +1,8 @@
-import { SecureEnvironment } from '../lib/environment.js';
+import createSecureEnvironment from '../lib/browser-realm.js';
 
-const descriptors = Object.getOwnPropertyDescriptors(window);
-const env = new SecureEnvironment({
-    global: window,
-    descriptors,
-});
-env.evaluate(`
+const secureGlobalThis = createSecureEnvironment();
+
+secureGlobalThis.eval(`
     debugger;
 
     const originalProto = HTMLParagraphElement.prototype.__proto__;
