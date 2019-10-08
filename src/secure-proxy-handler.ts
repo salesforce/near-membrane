@@ -16,6 +16,9 @@ import {
     isTrue,
     emptyArray,
     hasOwnProperty,
+    isSealed,
+    isFrozen,
+    seal,
 } from './shared';
 import {
     SecureEnvironment,
@@ -109,6 +112,14 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
         setPrototypeOf(shadowTarget, env.getSecureValue(rawProto));
         // defining own descriptors
         copySecureOwnDescriptors(env, shadowTarget, target);
+        // preserving the semantics of the object
+        if (isFrozen(target)) {
+            freeze(shadowTarget);
+        } else if (isSealed(target)) {
+            seal(shadowTarget);
+        } else if (!isExtensible(target)) {
+            preventExtensions(shadowTarget);
+        }
         // once the initialization is executed once... the rest is just noop 
         this.initialize = noop;
         // future optimization: hoping that proxies with frozen handlers can be faster

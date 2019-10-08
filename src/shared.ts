@@ -6,6 +6,9 @@ const {
     getOwnPropertyNames,
     getOwnPropertySymbols,
     freeze,
+    seal,
+    isSealed,
+    isFrozen,
 } = Object;
 
 const {
@@ -39,6 +42,9 @@ export {
     freeze,
     isArray,
     map,
+    seal,
+    isSealed,
+    isFrozen,
 };
 
 export function unapply(func: Function): Function {

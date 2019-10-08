@@ -91,6 +91,8 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
         setPrototypeOf(shadowTarget, env.getRawValue(secureProto));
         // defining own descriptors
         copyReverseOwnDescriptors(env, shadowTarget, target);
+        // reserve proxies are always frozen
+        freeze(shadowTarget);
         // future optimization: hoping that proxies with frozen handlers can be faster
         freeze(this);
     }
@@ -128,20 +130,5 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
     getPrototypeOf(shadowTarget: ReverseShadowTarget): object {
         // nothing to be done here since the shadowTarget must have the right proto chain
         return getPrototypeOf(shadowTarget);
-    }
-    deleteProperty(shadowTarget: ReverseShadowTarget, _key: PropertyKey): boolean {
-        return false; // reverse proxies are immutable
-    }
-    isExtensible(shadowTarget: ReverseShadowTarget): boolean {
-        return false; // reverse proxies are immutable
-    }
-    setPrototypeOf(shadowTarget: ReverseShadowTarget, _prototype: RawValue): boolean {
-        return false; // reverse proxies are immutable
-    }
-    preventExtensions(shadowTarget: ReverseShadowTarget): boolean {
-        return false; // reverse proxies are immutable
-    }
-    defineProperty(shadowTarget: ReverseShadowTarget, _key: PropertyKey, _descriptor: PropertyDescriptor): boolean {
-        return false; // reverse proxies are immutable
     }
 }
