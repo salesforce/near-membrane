@@ -166,7 +166,7 @@ export class SecureEnvironment {
 
     remap(secureValue: SecureValue, rawValue: RawValue, rawDescriptors: PropertyDescriptorMap) {
         this.createSecureRecord(secureValue, rawValue);
-        for (let key in rawDescriptors) {
+        for (const key in rawDescriptors) {
             // TODO: this whole block needs cleanup and simplification
             // avoid overriding ecma script global keys.
             if (!ESGlobalKeys.has(key)) {
@@ -192,7 +192,9 @@ export class SecureEnvironment {
                         // we don't pay the cost of creating the proxy in the first place
                         rawDescriptor.value = this.getSecureValue(rawDescriptorValue);
                     }
-                    if (!isUndefined(secureDescriptor) && secureDescriptor.configurable === false) {
+                    if (!isUndefined(secureDescriptor) && 
+                            hasOwnProperty(secureDescriptor, 'configurable') &&  
+                            secureDescriptor.configurable === false) {
                         // this is the case where the secure env has a descriptor that was supposed to be
                         // overrule but can't be done because it is a non-configurable. Instead we try to
                         // fallback to some more advanced gymnastics
