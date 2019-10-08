@@ -6,6 +6,7 @@ const unsafeGlobalSrc = "'use strict'; this";
 export default function createSecureEnvironment(distortionCallback: (target: SecureProxyTarget) => SecureProxyTarget) {
     // @ts-ignore document global ref - in browsers
     const iframe = document.createElement('iframe');
+    iframe.sandbox = 'allow-same-origin allow-scripts';
     iframe.style.display = 'none';
 
     // @ts-ignore document global ref - in browsers
