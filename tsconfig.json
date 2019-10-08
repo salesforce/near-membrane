@@ -1,16 +1,18 @@
 {
-	"compilerOptions": {
+    "compilerOptions": {
         "declaration": true,
         "sourceMap": true,
         "declarationDir": "types/",
         "outDir": "lib/",
         "target": "es2015",
         "module": "es2015",
-		"plugins": [
-			{
-				"transform": "@zoltu/typescript-transformer-append-js-extension/output/index.js",
-				"after": true
-			}
+        "moduleResolution": "node",
+        "esModuleInterop": true,
+        "plugins": [
+            {
+                "transform": "@zoltu/typescript-transformer-append-js-extension/output/index.js",
+                "after": true
+            }
         ],
         "lib": ["es2015", "es2016", "es2017", "es2018"],
 

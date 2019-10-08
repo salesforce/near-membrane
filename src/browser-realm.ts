@@ -1,5 +1,5 @@
 import { SecureEnvironment, SecureProxyTarget } from "./environment";
-import { getPrototypeOf, setPrototypeOf, getOwnPropertyDescriptors } from "./shared";
+import { getPrototypeOf, setPrototypeOf, getOwnPropertyDescriptors, getGlobalThis } from "./shared";
 
 const unsafeGlobalSrc = "'use strict'; this";
 
@@ -21,7 +21,7 @@ export default function createSecureEnvironment(distortionCallback: (target: Sec
     const secureWindowPropertiesProto = getPrototypeOf(secureWindowProto);
     const secureEventTargetProto = getPrototypeOf(secureWindowPropertiesProto);
 
-    const rawGlobalThis = globalThis as any;
+    const rawGlobalThis = getGlobalThis();
     const rawDocument = rawGlobalThis.document;
     const rawDocumentProto = getPrototypeOf(rawDocument);
     const rawWindowProto = getPrototypeOf(rawGlobalThis);

@@ -79,6 +79,23 @@ const ESGlobalKeys = new Set([
     // *** ECMA-402
     'Intl',
 ]);
+// Variation of the polyfill described here:
+// https://mathiasbynens.be/notes/globalthis
+// Note: we don't polyfill it, just use it.
+// Note: we don't cache it, to accommodate jest for now
+function getGlobalThis() {
+    if (typeof globalThis === 'object') {
+        return globalThis;
+    }
+    // @ts-ignore funky stuff to get the global reference in all environments
+    Object.prototype.__defineGetter__('__magic__', function () {
+        return this;
+    });
+    // @ts-ignore
+    const gt = __magic__;
+    delete Object.prototype.__magic__;
+    return gt;
+}
 
 function getSecureDescriptor(descriptor, env) {
     const { value, get, set, writable } = descriptor;
@@ -680,7 +697,7 @@ function createSecureEnvironment(distortionCallback) {
     const secureWindowProto = getPrototypeOf(secureGlobalThis);
     const secureWindowPropertiesProto = getPrototypeOf(secureWindowProto);
     const secureEventTargetProto = getPrototypeOf(secureWindowPropertiesProto);
-    const rawGlobalThis = globalThis;
+    const rawGlobalThis = getGlobalThis();
     const rawDocument = rawGlobalThis.document;
     const rawDocumentProto = getPrototypeOf(rawDocument);
     const rawWindowProto = getPrototypeOf(rawGlobalThis);
