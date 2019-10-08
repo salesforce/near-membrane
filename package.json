@@ -6,17 +6,22 @@
   "types": "types/index.js",
   "scripts": {
     "build": "ttsc & rollup -c",
-    "start": "ttsc -w & http-server"
+    "start": "ttsc -w & http-server",
+    "test": "jest --runInBand --no-cache --config ./jest.config.js"
   },
   "author": "Caridy Patiño <caridy@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "realms-shim": "^1.1.2"
+    "realms-shim": "^1.2.0"
   },
   "devDependencies": {
+    "@types/jest": "^24.0.18",
     "@zoltu/typescript-transformer-append-js-extension": "^1.0.1",
     "http-server": "^0.11.1",
+    "jest": "^24.9.0",
+    "jest-environment-jsdom-fifteen": "^1.0.0",
     "rollup": "^1.21.3",
+    "ts-jest": "^24.1.0",
     "ttypescript": "^1.5.7",
     "typescript": "^3.6.2"
   }

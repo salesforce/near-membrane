@@ -1,17 +1,13 @@
-import { SecureEnvironment } from '../lib/environment.js';
+import createSecureEnvironment from '../lib/browser-realm.js';
 
-const descriptors = Object.getOwnPropertyDescriptors(window);
-const env = new SecureEnvironment({
-    global: window,
-    descriptors,
-});
+const secureGlobalThis = createSecureEnvironment();
 
 // listening for x from outer realm
 document.body.addEventListener('x', function (e) {
     console.log(e, e.target, e.currentTarget);
 });
 
-env.evaluate(`
+secureGlobalThis.eval(`
     debugger;
 
     // custom elements

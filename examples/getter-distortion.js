@@ -1,24 +1,21 @@
-import { SecureEnvironment } from '../lib/environment.js';
+import createSecureEnvironment from '../lib/browser-realm.js';
 
 // getting reference to the function to be distorted
 const { get } = Object.getOwnPropertyDescriptor(ShadowRoot.prototype, 'host');
 
-const descriptors = Object.getOwnPropertyDescriptors(window);
-const env = new SecureEnvironment({
-    global: window,
-    descriptors,
-    distortionCallback(t) {
-        if (t === get) {
-            return () => {
-                console.error('forbidden');
-                return null;
-            }
+function distortionCallback(t) {
+    if (t === get) {
+        return () => {
+            console.error('forbidden');
+            return null;
         }
-        return t;
     }
-});
+    return t;
+}
 
-env.evaluate(`
+const secureGlobalThis = createSecureEnvironment(distortionCallback);
+
+secureGlobalThis.eval(`
     debugger;
 
     // the distortion of ShadowRoot.prototype.host returns null
