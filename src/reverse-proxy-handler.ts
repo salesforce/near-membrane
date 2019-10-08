@@ -145,3 +145,5 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
         return false; // reverse proxies are immutable
     }
 }
+
+setPrototypeOf(ReverseProxyHandler.prototype, null);

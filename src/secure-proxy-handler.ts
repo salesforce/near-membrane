@@ -236,3 +236,5 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
         return true;
     }
 }
+
+setPrototypeOf(SecureProxyHandler.prototype, null);
