@@ -133,3 +133,5 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
         return getPrototypeOf(shadowTarget);
     }
 }
+
+setPrototypeOf(ReverseProxyHandler.prototype, null);
