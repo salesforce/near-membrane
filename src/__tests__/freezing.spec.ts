@@ -41,4 +41,19 @@ describe('Freezing', () => {
             expect(secureGlobalThis.baz.c).toBe(3); // because it wasn't frozen when the shadow target was constructed
         });
     });
+    describe('reverse proxies', () => {
+        it('should be frozen', () => {
+            expect.assertions(4);
+            globalThis.outerObjectFactory = function (o: any, f: () => void) {
+                expect(Object.isFrozen(o)).toBe(true);
+                expect(Object.isFrozen(Object.getOwnPropertyDescriptor(o, 'y')!.get)).toBe(true);
+                expect(Object.isFrozen(f)).toBe(true);
+                expect(() => {
+                    o.z = 3;
+                }).toThrowError();
+            }
+            const secureGlobalThis = createSecureEnvironment((v) => v);
+            secureGlobalThis.eval(`outerObjectFactory({ x: 1, get y() { return 2 } }, function() {})`);
+        });
+    });
 });
