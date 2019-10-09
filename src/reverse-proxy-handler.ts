@@ -13,6 +13,7 @@ import {
     isFunction,
     isTrue,
     hasOwnProperty,
+    push,
 } from './shared';
 import {
     SecureEnvironment,
@@ -119,11 +120,10 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
         return key in shadowTarget;
     }
     ownKeys(shadowTarget: ReverseShadowTarget): (string | symbol)[] {
-        // TODO: avoid triggering the iterator protocol
-        return [
-            ...getOwnPropertyNames(shadowTarget),
-            ...getOwnPropertySymbols(shadowTarget),
-        ];
+        return push(
+            getOwnPropertyNames(shadowTarget),
+            getOwnPropertySymbols(shadowTarget)
+        );
     }
     getOwnPropertyDescriptor(shadowTarget: ReverseShadowTarget, key: PropertyKey): PropertyDescriptor | undefined {
         return getOwnPropertyDescriptor(shadowTarget, key);

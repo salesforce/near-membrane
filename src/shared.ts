@@ -24,6 +24,7 @@ const {
 
 const hasOwnProperty = unapply(Object.prototype.hasOwnProperty);
 const map = unapply(Array.prototype.map);
+const push = unapply(Array.prototype.push);
 
 export {
     apply,
@@ -42,6 +43,7 @@ export {
     freeze,
     isArray,
     map,
+    push,
     seal,
     isSealed,
     isFrozen,
