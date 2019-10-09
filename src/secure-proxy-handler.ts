@@ -70,9 +70,11 @@ function copySecureOwnDescriptors(env: SecureEnvironment, shadowTarget: SecureSh
             originalDescriptor = getSecureDescriptor(originalDescriptor, env);
             const shadowTargetDescriptor = getOwnPropertyDescriptor(shadowTarget, key);
             if (!isUndefined(shadowTargetDescriptor)) {
-                if (isTrue(shadowTargetDescriptor.configurable)) {
+                if (hasOwnProperty(shadowTargetDescriptor, 'configurable') &&
+                        isTrue(shadowTargetDescriptor.configurable)) {
                     ObjectDefineProperty(shadowTarget, key, originalDescriptor);
-                } else if (isTrue(shadowTargetDescriptor.writable)) {
+                } else if (hasOwnProperty(shadowTargetDescriptor, 'writable') &&
+                        isTrue(shadowTargetDescriptor.writable)) {
                     // just in case
                     shadowTarget[key] = originalDescriptor.value;
                 } else {

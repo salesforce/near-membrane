@@ -54,7 +54,8 @@ function copyReverseOwnDescriptors(env: SecureEnvironment, shadowTarget: Reverse
             originalDescriptor = getReverseDescriptor(originalDescriptor, env);
             const shadowTargetDescriptor = getOwnPropertyDescriptor(shadowTarget, key);
             if (!isUndefined(shadowTargetDescriptor)) {
-                if (isTrue(shadowTargetDescriptor.configurable)) {
+                if (hasOwnProperty(shadowTargetDescriptor, 'configurable') &&
+                        isTrue(shadowTargetDescriptor.configurable)) {
                     ObjectDefineProperty(shadowTarget, key, originalDescriptor);
                 } else if (isTrue(shadowTargetDescriptor.writable)) {
                     // just in case
