@@ -19,6 +19,7 @@ import {
     isSealed,
     isFrozen,
     seal,
+    push,
 } from './shared';
 import {
     SecureEnvironment,
@@ -208,11 +209,10 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
     }
     ownKeys(shadowTarget: SecureShadowTarget): (string | symbol)[] {
         this.initialize(shadowTarget);
-        // TODO: this is leaking outer realm's array
-        return [
-            ...getOwnPropertyNames(shadowTarget),
-            ...getOwnPropertySymbols(shadowTarget),
-        ];
+        return push(
+            getOwnPropertyNames(shadowTarget),
+            getOwnPropertySymbols(shadowTarget)
+        );
     }
     isExtensible(shadowTarget: SecureShadowTarget): boolean {
         this.initialize(shadowTarget);
