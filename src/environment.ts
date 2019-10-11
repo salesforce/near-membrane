@@ -252,7 +252,7 @@ export class SecureEnvironment {
         if (isArray(raw)) {
             return this.getSecureArray(raw);
         } else if (isProxyTarget(raw)) {
-            let sr = this.rom.get(raw);
+            const sr = this.rom.get(raw);
             if (isUndefined(sr)) {
                 return this.createSecureProxy(this.getDistortedValue(raw));
             }
@@ -268,7 +268,7 @@ export class SecureEnvironment {
         return construct(SecureArray, b);
     }
     getSecureFunction(fn: RawFunction): SecureFunction {
-        let sr = this.rom.get(fn);
+        const sr = this.rom.get(fn);
         if (isUndefined(sr)) {
             return this.createSecureProxy(this.getDistortedValue(fn)) as SecureFunction;
         }
@@ -278,7 +278,7 @@ export class SecureEnvironment {
         if (isArray(sec)) {
             return this.getRawArray(sec);
         } else if (isProxyTarget(sec)) {
-            let sr = this.som.get(sec);
+            const sr = this.som.get(sec);
             if (isUndefined(sr)) {
                 return this.createReverseProxy(sec);
             }
@@ -287,7 +287,7 @@ export class SecureEnvironment {
         return sec as RawValue;
     }
     getRawFunction(fn: SecureFunction): RawFunction {
-        let sr = this.som.get(fn);
+        const sr = this.som.get(fn);
         if (isUndefined(sr)) {
             return this.createReverseProxy(fn) as RawFunction;
         }

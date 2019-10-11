@@ -67,8 +67,7 @@ function copySecureOwnDescriptors(env: SecureEnvironment, shadowTarget: SecureSh
     for (const key in descriptors) {
         // avoid poisoning by checking own properties from descriptors
         if (hasOwnProperty(descriptors, key)) {
-            let originalDescriptor = descriptors[key];
-            originalDescriptor = getSecureDescriptor(originalDescriptor, env);
+            const originalDescriptor = getSecureDescriptor(descriptors[key], env);
             const shadowTargetDescriptor = getOwnPropertyDescriptor(shadowTarget, key);
             if (!isUndefined(shadowTargetDescriptor)) {
                 if (hasOwnProperty(shadowTargetDescriptor, 'configurable') &&
