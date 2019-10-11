@@ -51,8 +51,7 @@ function copyReverseOwnDescriptors(env: SecureEnvironment, shadowTarget: Reverse
     for (const key in descriptors) {
         // avoid poisoning by checking own properties from descriptors
         if (hasOwnProperty(descriptors, key)) {
-            let originalDescriptor = descriptors[key];
-            originalDescriptor = getReverseDescriptor(originalDescriptor, env);
+            const originalDescriptor = getReverseDescriptor(descriptors[key], env);
             const shadowTargetDescriptor = getOwnPropertyDescriptor(shadowTarget, key);
             if (!isUndefined(shadowTargetDescriptor)) {
                 if (hasOwnProperty(shadowTargetDescriptor, 'configurable') &&
