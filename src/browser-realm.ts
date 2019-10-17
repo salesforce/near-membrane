@@ -11,12 +11,19 @@ export default function createSecureEnvironment(distortionCallback: (target: Sec
 
     // @ts-ignore document global ref - in browsers
     document.body.appendChild(iframe);
-    // We need to keep the iframe attached to the DOM because removing it
-    // causes its global object to lose intrinsics, its eval()
-    // function to evaluate code, etc.
+
+    // For Chrome we evaluate the `window` object to kickstart the realm so that
+    // `window` persists when the iframe is removed from the document.
+    const { contentWindow } = iframe;
+    contentWindow.eval('window');
+
+    // In Chrome debugger statements will be ignored when the iframe is removed
+    // from the document. Other browsers like Firefox and Safari work as expected.
+    // https://bugs.chromium.org/p/chromium/issues/detail?id=1015462
+    iframe.remove();
 
     // window -> Window -> WindowProperties -> EventTarget
-    const secureGlobalThis = iframe.contentWindow.eval(unsafeGlobalSrc);
+    const secureGlobalThis = contentWindow.eval(unsafeGlobalSrc);
     const secureDocument = secureGlobalThis.document;
     const secureWindowProto = getPrototypeOf(secureGlobalThis);
     const secureWindowPropertiesProto = getPrototypeOf(secureWindowProto);
