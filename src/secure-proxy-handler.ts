@@ -5,13 +5,13 @@ import {
     isUndefined,
     ObjectCreate,
     ObjectDefineProperty,
-    defineProperty,
-    setPrototypeOf,
-    getPrototypeOf,
-    isExtensible,
-    getOwnPropertyDescriptor,
+    ReflectDefineProperty,
+    ReflectSetPrototypeOf,
+    ReflectGetPrototypeOf,
+    ReflectIsExtensible,
+    ReflectGetOwnPropertyDescriptor,
     ownKeys,
-    preventExtensions,
+    ReflectPreventExtensions,
     isFunction,
     getOwnPropertyDescriptors,
     freeze,
@@ -54,12 +54,12 @@ export function getSecureDescriptor(descriptor: PropertyDescriptor, env: SecureE
 // equivalent to Object.getOwnPropertyDescriptor, but looks into the whole proto chain
 function getPropertyDescriptor(o: any, p: PropertyKey): PropertyDescriptor | undefined {
     do {
-        const d = getOwnPropertyDescriptor(o, p);
+        const d = ReflectGetOwnPropertyDescriptor(o, p);
         if (!isUndefined(d)) {
-            setPrototypeOf(d, null);
+            ReflectSetPrototypeOf(d, null);
             return d;
         }
-        o = getPrototypeOf(o);
+        o = ReflectGetPrototypeOf(o);
     } while (o !== null);
     return undefined;
 }
@@ -71,11 +71,11 @@ function copySecureOwnDescriptors(env: SecureEnvironment, shadowTarget: SecureSh
         // avoid poisoning by checking own properties from descriptors
         if (hasOwnProperty(descriptors, key)) {
             const originalDescriptor = getSecureDescriptor(descriptors[key], env);
-            const shadowTargetDescriptor = getOwnPropertyDescriptor(shadowTarget, key);
+            const shadowTargetDescriptor = ReflectGetOwnPropertyDescriptor(shadowTarget, key);
             if (!isUndefined(shadowTargetDescriptor)) {
                 if (hasOwnProperty(shadowTargetDescriptor, 'configurable') &&
                         isTrue(shadowTargetDescriptor.configurable)) {
-                    defineProperty(shadowTarget, key, originalDescriptor);
+                    ReflectDefineProperty(shadowTarget, key, originalDescriptor);
                 } else if (hasOwnProperty(shadowTargetDescriptor, 'writable') &&
                         isTrue(shadowTargetDescriptor.writable)) {
                     // just in case
@@ -85,7 +85,7 @@ function copySecureOwnDescriptors(env: SecureEnvironment, shadowTarget: SecureSh
                     // usually, arguments, callee, etc.
                 }
             } else {
-                defineProperty(shadowTarget, key, originalDescriptor);
+                ReflectDefineProperty(shadowTarget, key, originalDescriptor);
             }
         }
     }
@@ -113,8 +113,8 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
     private initialize(shadowTarget: SecureShadowTarget) {
         const { target, env } = this;
         // adjusting the proto chain of the shadowTarget (recursively)
-        const rawProto = getPrototypeOf(target);
-        setPrototypeOf(shadowTarget, env.getSecureValue(rawProto));
+        const rawProto = ReflectGetPrototypeOf(target);
+        ReflectSetPrototypeOf(shadowTarget, env.getSecureValue(rawProto));
         // defining own descriptors
         copySecureOwnDescriptors(env, shadowTarget, target);
         // preserving the semantics of the object
@@ -122,8 +122,8 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
             freeze(shadowTarget);
         } else if (isSealed(target)) {
             seal(shadowTarget);
-        } else if (!isExtensible(target)) {
-            preventExtensions(shadowTarget);
+        } else if (!ReflectIsExtensible(target)) {
+            ReflectPreventExtensions(shadowTarget);
         }
         // once the initialization is executed once... the rest is just noop 
         this.initialize = noop;
@@ -163,7 +163,7 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
                 // TypeError: Cannot set property ${key} of object which has only a getter
                 return false;
             }
-        } else if (!isExtensible(shadowTarget)) {
+        } else if (!ReflectIsExtensible(shadowTarget)) {
             // non-extensible should throw in strict mode
             // TypeError: Cannot add property ${key}, object is not extensible
             return false;
@@ -209,27 +209,27 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
         this.initialize(shadowTarget);
         // No DOM API is non-extensible, but in the sandbox, the author
         // might want to make them non-extensible
-        return isExtensible(shadowTarget);
+        return ReflectIsExtensible(shadowTarget);
     }
     getOwnPropertyDescriptor(shadowTarget: SecureShadowTarget, key: PropertyKey): PropertyDescriptor | undefined {
         this.initialize(shadowTarget);
         // TODO: this is leaking outer realm's object
-        return getOwnPropertyDescriptor(shadowTarget, key);
+        return ReflectGetOwnPropertyDescriptor(shadowTarget, key);
     }
     getPrototypeOf(shadowTarget: SecureShadowTarget): SecureValue {
         this.initialize(shadowTarget);
         // nothing to be done here since the shadowTarget must have the right proto chain
-        return getPrototypeOf(shadowTarget);
+        return ReflectGetPrototypeOf(shadowTarget);
     }
     setPrototypeOf(shadowTarget: SecureShadowTarget, prototype: SecureValue): boolean {
         this.initialize(shadowTarget);
         // this operation can only affect the env object graph
-        return setPrototypeOf(shadowTarget, prototype);
+        return ReflectSetPrototypeOf(shadowTarget, prototype);
     }
     preventExtensions(shadowTarget: SecureShadowTarget): boolean {
         // this operation can only affect the env object graph
         this.initialize(shadowTarget);
-        return preventExtensions(shadowTarget);
+        return ReflectPreventExtensions(shadowTarget);
     }
     defineProperty(shadowTarget: SecureShadowTarget, key: PropertyKey, descriptor: PropertyDescriptor): boolean {
         this.initialize(shadowTarget);
@@ -239,4 +239,4 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
     }
 }
 
-setPrototypeOf(SecureProxyHandler.prototype, null);
+ReflectSetPrototypeOf(SecureProxyHandler.prototype, null);

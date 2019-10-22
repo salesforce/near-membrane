@@ -5,15 +5,14 @@ import {
     ObjectCreate, 
     isFunction, 
     hasOwnProperty, 
-    defineProperty, 
+    ReflectDefineProperty, 
     emptyArray, 
     isArray, 
     map, 
     construct, 
     ESGlobalKeys, 
-    getOwnPropertyDescriptor, 
-    isExtensible, 
-    setPrototypeOf 
+    ReflectGetOwnPropertyDescriptor, 
+    ReflectIsExtensible,
 } from './shared';
 import { SecureProxyHandler } from './secure-proxy-handler';
 import { ReverseProxyHandler } from './reverse-proxy-handler';
@@ -98,7 +97,7 @@ export class SecureEnvironment {
             const nameDescriptor = ObjectCreate(null);
             nameDescriptor.configurable = true;
             nameDescriptor.value = o.name;
-            defineProperty(shadowTarget, 'name', nameDescriptor);
+            ReflectDefineProperty(shadowTarget, 'name', nameDescriptor);
         } else {
             // o is object
             shadowTarget = {};
@@ -112,7 +111,7 @@ export class SecureEnvironment {
             const nameDescriptor = ObjectCreate(null);
             nameDescriptor.configurable = true;
             nameDescriptor.value = o.name;
-            defineProperty(shadowTarget, 'name', nameDescriptor);
+            ReflectDefineProperty(shadowTarget, 'name', nameDescriptor);
         } else {
             // o is object
             shadowTarget = {};
@@ -166,7 +165,6 @@ export class SecureEnvironment {
 
             // avoid poisoning to only installing own properties from baseDescriptors
             const rawDescriptor = assign(ObjectCreate(null), rawDescriptors[key]);
-            setPrototypeOf(rawDescriptor, null);
             if ('value' in rawDescriptor) {
                 // TODO: maybe we should make everything a getter/setter that way
                 // we don't pay the cost of creating the proxy in the first place
@@ -198,7 +196,7 @@ export class SecureEnvironment {
                 }
             }
 
-            const secureDescriptor = getOwnPropertyDescriptor(secureValue, key);
+            const secureDescriptor = ReflectGetOwnPropertyDescriptor(secureValue, key);
             if (!isUndefined(secureDescriptor) && 
                     hasOwnProperty(secureDescriptor, 'configurable') &&  
                     secureDescriptor.configurable === false) {
@@ -233,9 +231,9 @@ export class SecureEnvironment {
                         // this.createSecureRecord(secureDescriptorValue, rawDescriptorValue);
                         // this.installDescriptors(secureDescriptorValue, rawDescriptorValue, getOwnPropertyDescriptors(rawDescriptorValue));
                         console.error('need remapping: ', key, rawValue, rawDescriptor);
-                        if (isExtensible(secureDescriptorValue)) {
+                        if (ReflectIsExtensible(secureDescriptorValue)) {
                             // remapping proto chain
-                            // setPrototypeOf(secureDescriptorValue, this.getSecureValue(getPrototypeOf(secureDescriptorValue)));
+                            // ReflectSetPrototypeOf(secureDescriptorValue, this.getSecureValue(ReflectGetPrototypeOf(secureDescriptorValue)));
                             console.error('needs prototype remapping: ', rawValue);
                         } else {
                             console.error('leaking prototype: ',  key, rawValue, rawDescriptor);
@@ -247,7 +245,7 @@ export class SecureEnvironment {
                     console.error('skipping: ', key, rawValue, rawDescriptor);
                 }
             } else {
-                defineProperty(secureValue, key, rawDescriptor);
+                ReflectDefineProperty(secureValue, key, rawDescriptor);
             }
         }
     }

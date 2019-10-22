@@ -1,5 +1,10 @@
 import { SecureEnvironment, SecureProxyTarget } from "./environment";
-import { getPrototypeOf, setPrototypeOf, getOwnPropertyDescriptors, getGlobalThis } from "./shared";
+import { 
+    ReflectGetPrototypeOf, 
+    ReflectSetPrototypeOf, 
+    getOwnPropertyDescriptors,
+    getGlobalThis
+} from "./shared";
 
 const unsafeGlobalSrc = "'use strict'; this";
 
@@ -25,16 +30,16 @@ export default function createSecureEnvironment(distortionCallback: (target: Sec
     // window -> Window -> WindowProperties -> EventTarget
     const secureGlobalThis = contentWindow.eval(unsafeGlobalSrc);
     const secureDocument = secureGlobalThis.document;
-    const secureWindowProto = getPrototypeOf(secureGlobalThis);
-    const secureWindowPropertiesProto = getPrototypeOf(secureWindowProto);
-    const secureEventTargetProto = getPrototypeOf(secureWindowPropertiesProto);
+    const secureWindowProto = ReflectGetPrototypeOf(secureGlobalThis);
+    const secureWindowPropertiesProto = ReflectGetPrototypeOf(secureWindowProto);
+    const secureEventTargetProto = ReflectGetPrototypeOf(secureWindowPropertiesProto);
 
     const rawGlobalThis = getGlobalThis();
     const rawDocument = rawGlobalThis.document;
-    const rawDocumentProto = getPrototypeOf(rawDocument);
-    const rawWindowProto = getPrototypeOf(rawGlobalThis);
-    const rawWindowPropertiesProto = getPrototypeOf(rawWindowProto);
-    const rawEventTargetProto = getPrototypeOf(rawWindowPropertiesProto);
+    const rawDocumentProto = ReflectGetPrototypeOf(rawDocument);
+    const rawWindowProto = ReflectGetPrototypeOf(rawGlobalThis);
+    const rawWindowPropertiesProto = ReflectGetPrototypeOf(rawWindowProto);
+    const rawEventTargetProto = ReflectGetPrototypeOf(rawWindowPropertiesProto);
 
     const rawGlobalThisDescriptors = getOwnPropertyDescriptors(rawGlobalThis);
     const rawWindowProtoDescriptors = getOwnPropertyDescriptors(rawWindowProto);
@@ -55,7 +60,7 @@ export default function createSecureEnvironment(distortionCallback: (target: Sec
 
     // other maps
     env.remap(secureDocument, rawDocument, {/* it only has location, which is ignored for now */});
-    setPrototypeOf(secureDocument, env.getSecureValue(rawDocumentProto));
+    ReflectSetPrototypeOf(secureDocument, env.getSecureValue(rawDocumentProto));
 
     // remapping window proto chain backward
     env.remap(secureEventTargetProto, rawEventTargetProto, rawEventTargetProtoDescriptors);

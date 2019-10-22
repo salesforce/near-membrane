@@ -3,10 +3,10 @@ import {
     assign,
     construct,
     isUndefined,
-    defineProperty,
-    setPrototypeOf,
-    getPrototypeOf,
-    getOwnPropertyDescriptor,
+    ReflectDefineProperty,
+    ReflectGetPrototypeOf,
+    ReflectGetOwnPropertyDescriptor,
+    ReflectSetPrototypeOf,
     getOwnPropertyDescriptors,
     freeze,
     isFunction,
@@ -51,11 +51,11 @@ function copyReverseOwnDescriptors(env: SecureEnvironment, shadowTarget: Reverse
         // avoid poisoning by checking own properties from descriptors
         if (hasOwnProperty(descriptors, key)) {
             const originalDescriptor = getReverseDescriptor(descriptors[key], env);
-            const shadowTargetDescriptor = getOwnPropertyDescriptor(shadowTarget, key);
+            const shadowTargetDescriptor = ReflectGetOwnPropertyDescriptor(shadowTarget, key);
             if (!isUndefined(shadowTargetDescriptor)) {
                 if (hasOwnProperty(shadowTargetDescriptor, 'configurable') &&
                         isTrue(shadowTargetDescriptor.configurable)) {
-                    defineProperty(shadowTarget, key, originalDescriptor);
+                    ReflectDefineProperty(shadowTarget, key, originalDescriptor);
                 } else if (isTrue(shadowTargetDescriptor.writable)) {
                     // just in case
                     shadowTarget[key] = hasOwnProperty(originalDescriptor, 'value') ?
@@ -65,7 +65,7 @@ function copyReverseOwnDescriptors(env: SecureEnvironment, shadowTarget: Reverse
                     // usually, arguments, callee, etc.
                 }
             } else {
-                defineProperty(shadowTarget, key, originalDescriptor);
+                ReflectDefineProperty(shadowTarget, key, originalDescriptor);
             }
         }
     }
@@ -88,8 +88,8 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
     initialize(shadowTarget: ReverseShadowTarget) {
         const { target, env } = this;
         // adjusting the proto chain of the shadowTarget (recursively)
-        const secureProto = getPrototypeOf(target);
-        setPrototypeOf(shadowTarget, env.getRawValue(secureProto));
+        const secureProto = ReflectGetPrototypeOf(target);
+        ReflectSetPrototypeOf(shadowTarget, env.getRawValue(secureProto));
         // defining own descriptors
         copyReverseOwnDescriptors(env, shadowTarget, target);
         // reserve proxies are always frozen
@@ -117,4 +117,4 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
     }
 }
 
-setPrototypeOf(ReverseProxyHandler.prototype, null);
+ReflectSetPrototypeOf(ReverseProxyHandler.prototype, null);
