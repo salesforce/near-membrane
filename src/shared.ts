@@ -1,10 +1,10 @@
 const { isArray } = Array;
 
 const {
+    assign,
     create: ObjectCreate,
+    defineProperty: ObjectDefineProperty,
     getOwnPropertyDescriptors,
-    getOwnPropertyNames,
-    getOwnPropertySymbols,
     freeze,
     seal,
     isSealed,
@@ -16,34 +16,34 @@ const {
     construct,
     getPrototypeOf,
     setPrototypeOf,
-    defineProperty: ObjectDefineProperty,
+    defineProperty,
     isExtensible,
     getOwnPropertyDescriptor,
+    ownKeys,
     preventExtensions,
 } = Reflect;
 
 const hasOwnProperty = unapply(Object.prototype.hasOwnProperty);
 const map = unapply(Array.prototype.map);
-const push = unapply(Array.prototype.push);
 
 export {
     apply,
+    assign,
     construct,
     getPrototypeOf,
     setPrototypeOf,
     ObjectCreate,
     ObjectDefineProperty,
+    defineProperty,
     isExtensible,
     getOwnPropertyDescriptor,
     getOwnPropertyDescriptors,
-    getOwnPropertyNames,
-    getOwnPropertySymbols,
+    ownKeys,
     preventExtensions,
     hasOwnProperty,
     freeze,
     isArray,
     map,
-    push,
     seal,
     isSealed,
     isFrozen,

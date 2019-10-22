@@ -1,19 +1,18 @@
 import {
     apply,
+    assign,
     construct,
     isUndefined,
-    ObjectDefineProperty,
+    defineProperty,
     setPrototypeOf,
     getPrototypeOf,
     getOwnPropertyDescriptor,
-    getOwnPropertyNames,
-    getOwnPropertySymbols,
     getOwnPropertyDescriptors,
     freeze,
     isFunction,
     isTrue,
     hasOwnProperty,
-    push,
+    ObjectCreate,
 } from './shared';
 import {
     SecureEnvironment,
@@ -26,23 +25,23 @@ import {
 } from './environment';
 
 function getReverseDescriptor(descriptor: PropertyDescriptor, env: SecureEnvironment): PropertyDescriptor {
-    const { value, get, set, writable } = descriptor;
-    if (isUndefined(writable)) {
-        // we are dealing with accessors
-        if (!isUndefined(set)) {
-            descriptor.set = env.getRawFunction(set);
-        }
-        if (!isUndefined(get)) {
-            descriptor.get = env.getRawFunction(get);
-        }
-        return descriptor;
-    } else {
+    const reverseDescriptor = assign(ObjectCreate(null), descriptor);
+    const { value, get, set } = reverseDescriptor;
+    if ('writable' in reverseDescriptor) {
         // we are dealing with a value descriptor
-        descriptor.value = isFunction(value) ?
+        reverseDescriptor.value = isFunction(value) ?
             // we are dealing with a method (optimization)
             env.getRawFunction(value) : env.getRawValue(value);
+    } else {
+        // we are dealing with accessors
+        if (isFunction(set)) {
+            reverseDescriptor.set = env.getRawFunction(set);
+        }
+        if (isFunction(get)) {
+            reverseDescriptor.get = env.getRawFunction(get);
+        }
     }
-    return descriptor;
+    return reverseDescriptor;
 }
 
 function copyReverseOwnDescriptors(env: SecureEnvironment, shadowTarget: ReverseShadowTarget, target: ReverseProxyTarget) {
@@ -56,16 +55,17 @@ function copyReverseOwnDescriptors(env: SecureEnvironment, shadowTarget: Reverse
             if (!isUndefined(shadowTargetDescriptor)) {
                 if (hasOwnProperty(shadowTargetDescriptor, 'configurable') &&
                         isTrue(shadowTargetDescriptor.configurable)) {
-                    ObjectDefineProperty(shadowTarget, key, originalDescriptor);
+                    defineProperty(shadowTarget, key, originalDescriptor);
                 } else if (isTrue(shadowTargetDescriptor.writable)) {
                     // just in case
-                    shadowTarget[key] = originalDescriptor.value;
+                    shadowTarget[key] = hasOwnProperty(originalDescriptor, 'value') ?
+                        originalDescriptor.value : undefined;
                 } else {
                     // ignoring... since it is non configurable and non-writable
                     // usually, arguments, callee, etc.
                 }
             } else {
-                ObjectDefineProperty(shadowTarget, key, originalDescriptor);
+                defineProperty(shadowTarget, key, originalDescriptor);
             }
         }
     }
@@ -114,22 +114,6 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
         const sec = construct(SecCtor as SecureConstructor, secArgArray);
         const raw = env.getRawValue(sec);
         return raw as RawObject;
-    }
-    has(shadowTarget: ReverseShadowTarget, key: PropertyKey): boolean {
-        return key in shadowTarget;
-    }
-    ownKeys(shadowTarget: ReverseShadowTarget): (string | symbol)[] {
-        return push(
-            getOwnPropertyNames(shadowTarget),
-            getOwnPropertySymbols(shadowTarget)
-        );
-    }
-    getOwnPropertyDescriptor(shadowTarget: ReverseShadowTarget, key: PropertyKey): PropertyDescriptor | undefined {
-        return getOwnPropertyDescriptor(shadowTarget, key);
-    }
-    getPrototypeOf(shadowTarget: ReverseShadowTarget): object {
-        // nothing to be done here since the shadowTarget must have the right proto chain
-        return getPrototypeOf(shadowTarget);
     }
 }
 
