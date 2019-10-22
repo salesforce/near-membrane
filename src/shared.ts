@@ -108,7 +108,7 @@ export const ESGlobalKeys = new Set([
     'ReferenceError',
     'RegExp', // Unstable
     'Set',
-    // 'SharedArrayBuffer', // removed on Jan 5, 2018
+    'SharedArrayBuffer',
     'String',
     'Symbol',
     'SyntaxError',
@@ -122,19 +122,16 @@ export const ESGlobalKeys = new Set([
     'WeakSet',
 
     // *** 18.4 Other Properties of the Global Object
-
-    // 'Atomics', // removed on Jan 5, 2018
+    'Atomics',
     'JSON',
     'Math',
     'Reflect',
 
     // *** Annex B
-
     'escape',
     'unescape',
 
     // *** ECMA-402
-
     'Intl', // Unstable
 ]);
 
