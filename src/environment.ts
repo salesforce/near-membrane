@@ -223,26 +223,28 @@ export class SecureEnvironment {
                         // an example of this is circular window.window ref
                         console.info('circular: ',  key, rawValue, rawDescriptor);
                     }
-                } else if (hasOwnProperty(secureDescriptor, 'get') && isProxyTarget(secureValue[key])) {
+                } else if (hasOwnProperty(secureDescriptor, 'get')) {
                     const secureDescriptorValue = secureValue[key];
-                    if (secureDescriptorValue === secureValue[key]) {
-                        // this is the case for window.document which is identity preserving getter
-                        // const rawDescriptorValue = rawValue[key];
-                        // this.createSecureRecord(secureDescriptorValue, rawDescriptorValue);
-                        // this.installDescriptors(secureDescriptorValue, rawDescriptorValue, getOwnPropertyDescriptors(rawDescriptorValue));
-                        console.error('need remapping: ', key, rawValue, rawDescriptor);
-                        if (ReflectIsExtensible(secureDescriptorValue)) {
-                            // remapping proto chain
-                            // ReflectSetPrototypeOf(secureDescriptorValue, this.getSecureValue(ReflectGetPrototypeOf(secureDescriptorValue)));
-                            console.error('needs prototype remapping: ', rawValue);
+                    if (isProxyTarget(secureDescriptorValue)) {
+                        if (secureDescriptorValue === secureValue[key]) {
+                            // this is the case for window.document which is identity preserving getter
+                            // const rawDescriptorValue = rawValue[key];
+                            // this.createSecureRecord(secureDescriptorValue, rawDescriptorValue);
+                            // this.installDescriptors(secureDescriptorValue, rawDescriptorValue, getOwnPropertyDescriptors(rawDescriptorValue));
+                            console.error('need remapping: ', key, rawValue, rawDescriptor);
+                            if (ReflectIsExtensible(secureDescriptorValue)) {
+                                // remapping proto chain
+                                // ReflectSetPrototypeOf(secureDescriptorValue, this.getSecureValue(ReflectGetPrototypeOf(secureDescriptorValue)));
+                                console.error('needs prototype remapping: ', rawValue);
+                            } else {
+                                console.error('leaking prototype: ',  key, rawValue, rawDescriptor);
+                            }
                         } else {
-                            console.error('leaking prototype: ',  key, rawValue, rawDescriptor);
+                            console.error('leaking a getter returning values without identity: ', key, rawValue, rawDescriptor);
                         }
                     } else {
-                        console.error('leaking a getter returning values without identity: ', key, rawValue, rawDescriptor);
+                        console.error('skipping: ', key, rawValue, rawDescriptor);
                     }
-                } else {
-                    console.error('skipping: ', key, rawValue, rawDescriptor);
                 }
             } else {
                 ReflectDefineProperty(secureValue, key, rawDescriptor);
