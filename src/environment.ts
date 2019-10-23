@@ -13,6 +13,10 @@ import {
     ESGlobalKeys, 
     ReflectGetOwnPropertyDescriptor, 
     ReflectIsExtensible,
+    SetHas,
+    WeakMapGet,
+    WeakMapHas,
+    WeakMapSet,
 } from './shared';
 import { SecureProxyHandler } from './secure-proxy-handler';
 import { ReverseProxyHandler } from './reverse-proxy-handler';
@@ -139,8 +143,8 @@ export class SecureEnvironment {
         sr.raw = raw;
         sr.sec = sec;
         // double index for perf
-        this.som.set(sec, sr);
-        this.rom.set(raw, sr);
+        WeakMapSet(this.som, sec, sr);
+        WeakMapSet(this.rom, raw, sr);
     }
     private getDistortedValue(target: SecureProxyTarget): SecureProxyTarget {
         const { distortionCallback } = this;
@@ -159,7 +163,7 @@ export class SecureEnvironment {
         for (const key in rawDescriptors) {
             // TODO: this whole loop needs cleanup and simplification avoid
             // overriding ECMA script global keys.
-            if (ESGlobalKeys.has(key) || !hasOwnProperty(rawDescriptors, key)) {
+            if (SetHas(ESGlobalKeys, key) || !hasOwnProperty(rawDescriptors, key)) {
                 continue;
             }
 
@@ -205,7 +209,7 @@ export class SecureEnvironment {
                 // fallback to some more advanced gymnastics
                 if (hasOwnProperty(secureDescriptor, 'value') && isProxyTarget(secureDescriptor.value)) {
                     const { value: secureDescriptorValue } = secureDescriptor;
-                    if (!this.som.has(secureDescriptorValue)) {
+                    if (!WeakMapHas(this.som, secureDescriptorValue)) {
                         // remapping the value of the secure object graph to the outer realm graph
                         const { value: rawDescriptorValue } = rawDescriptor;
                         if (secureValue !== rawDescriptorValue) {
@@ -257,7 +261,7 @@ export class SecureEnvironment {
         if (isArray(raw)) {
             return this.getSecureArray(raw);
         } else if (isProxyTarget(raw)) {
-            const sr = this.rom.get(raw);
+            const sr = WeakMapGet(this.rom, raw);
             if (isUndefined(sr)) {
                 return this.createSecureProxy(this.getDistortedValue(raw));
             }
@@ -273,7 +277,7 @@ export class SecureEnvironment {
         return construct(SecureArray, b);
     }
     getSecureFunction(fn: RawFunction): SecureFunction {
-        const sr = this.rom.get(fn);
+        const sr = WeakMapGet(this.rom, fn);
         if (isUndefined(sr)) {
             return this.createSecureProxy(this.getDistortedValue(fn)) as SecureFunction;
         }
@@ -283,7 +287,7 @@ export class SecureEnvironment {
         if (isArray(sec)) {
             return this.getRawArray(sec);
         } else if (isProxyTarget(sec)) {
-            const sr = this.som.get(sec);
+            const sr = WeakMapGet(this.som, sec);
             if (isUndefined(sr)) {
                 return this.createReverseProxy(sec);
             }
@@ -292,7 +296,7 @@ export class SecureEnvironment {
         return sec as RawValue;
     }
     getRawFunction(fn: SecureFunction): RawFunction {
-        const sr = this.som.get(fn);
+        const sr = WeakMapGet(this.som, fn);
         if (isUndefined(sr)) {
             return this.createReverseProxy(fn) as RawFunction;
         }

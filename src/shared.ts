@@ -24,6 +24,10 @@ const {
     preventExtensions: ReflectPreventExtensions,
 } = Reflect;
 
+const SetHas = unapply(Set.prototype.has);
+const WeakMapGet = unapply(WeakMap.prototype.get);
+const WeakMapHas = unapply(WeakMap.prototype.has);
+const WeakMapSet = unapply(WeakMap.prototype.set);
 const hasOwnProperty = unapply(Object.prototype.hasOwnProperty);
 const map = unapply(Array.prototype.map);
 
@@ -39,6 +43,10 @@ export {
     ReflectDefineProperty,
     ReflectIsExtensible,
     ReflectGetOwnPropertyDescriptor,
+    SetHas,
+    WeakMapGet,
+    WeakMapHas,
+    WeakMapSet,
     getOwnPropertyDescriptors,
     ownKeys,
     ReflectPreventExtensions,
