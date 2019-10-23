@@ -2,6 +2,7 @@ import {
     apply,
     assign,
     construct,
+    deleteProperty,
     isUndefined,
     ObjectCreate,
     ObjectDefineProperty,
@@ -174,8 +175,7 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
     }
     deleteProperty(shadowTarget: SecureShadowTarget, key: PropertyKey): boolean {
         this.initialize(shadowTarget);
-        delete shadowTarget[key];
-        return true;
+        return deleteProperty(shadowTarget, key);
     }
     apply(shadowTarget: SecureShadowTarget, thisArg: SecureValue, argArray: SecureValue[]): SecureValue {
         const { target, env } = this;
