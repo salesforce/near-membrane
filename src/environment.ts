@@ -1,31 +1,25 @@
-import { apply, isUndefined, ObjectCreate, isFunction, hasOwnProperty, ObjectDefineProperty, emptyArray, isArray, map, construct, ESGlobalKeys, getOwnPropertyDescriptor, isExtensible } from './shared';
+import { 
+    apply, 
+    assign,
+    isUndefined, 
+    ObjectCreate, 
+    isFunction, 
+    hasOwnProperty, 
+    ReflectDefineProperty, 
+    emptyArray, 
+    isArray, 
+    map, 
+    construct, 
+    ESGlobalKeys, 
+    ReflectGetOwnPropertyDescriptor, 
+    ReflectIsExtensible,
+    SetHas,
+    WeakMapGet,
+    WeakMapHas,
+    WeakMapSet,
+} from './shared';
 import { SecureProxyHandler } from './secure-proxy-handler';
 import { ReverseProxyHandler } from './reverse-proxy-handler';
-
-/**
- * This method returns a descriptor that given an original setter, and a getter, can use the original
- * getter to return a secure object, but if the sandbox attempts to set it to a new value, this
- * mutation will only affect the sandbox's global object, and the getter will start returning the
- * new provided value rather than calling onto the outer realm. This is to preserve the object graph
- * of the outer realm.
- */
-function getSecureGlobalAccessorDescriptor(env: SecureEnvironment, descriptor: PropertyDescriptor): PropertyDescriptor {
-    const { get: originalGetter } = descriptor;
-    let currentGetter = isUndefined(originalGetter) ? () => undefined : function(this: any): SecureValue {
-        const value: RawValue = apply(originalGetter, env.getRawValue(this), emptyArray);
-        return env.getSecureValue(value);
-    }
-    if (!isUndefined(originalGetter)) {
-        descriptor.get = function get(): SecureValue {
-            return apply(currentGetter, this, emptyArray);
-        };
-    }
-    descriptor.set = function set(v: SecureValue): void {
-        // if a global setter is invoke, the value will be use as it is as the result of the getter operation
-        currentGetter = () => v;
-    };
-    return descriptor;
-}
 
 export type RawValue = any;
 export type RawArray = RawValue[];
@@ -104,10 +98,10 @@ export class SecureEnvironment {
         let shadowTarget: SecureShadowTarget;
         if (isFunction(o)) {
             shadowTarget = function () {};
-            ObjectDefineProperty(shadowTarget, 'name', {
-                value: o.name,
-                configurable: true,
-            });
+            const nameDescriptor = ObjectCreate(null);
+            nameDescriptor.configurable = true;
+            nameDescriptor.value = o.name;
+            ReflectDefineProperty(shadowTarget, 'name', nameDescriptor);
         } else {
             // o is object
             shadowTarget = {};
@@ -118,10 +112,10 @@ export class SecureEnvironment {
         let shadowTarget: ReverseShadowTarget;
         if (isFunction(o)) {
             shadowTarget = function () {};
-            ObjectDefineProperty(shadowTarget, 'name', {
-                value: o.name,
-                configurable: true,
-            });
+            const nameDescriptor = ObjectCreate(null);
+            nameDescriptor.configurable = true;
+            nameDescriptor.value = o.name;
+            ReflectDefineProperty(shadowTarget, 'name', nameDescriptor);
         } else {
             // o is object
             shadowTarget = {};
@@ -149,12 +143,12 @@ export class SecureEnvironment {
         sr.raw = raw;
         sr.sec = sec;
         // double index for perf
-        this.som.set(sec, sr);
-        this.rom.set(raw, sr);
+        WeakMapSet(this.som, sec, sr);
+        WeakMapSet(this.rom, raw, sr);
     }
     private getDistortedValue(target: SecureProxyTarget): SecureProxyTarget {
         const { distortionCallback } = this;
-        if (isUndefined(distortionCallback)) {
+        if (!isFunction(distortionCallback)) {
             return target;
         }
         const distortedTarget = distortionCallback(target);
@@ -167,82 +161,97 @@ export class SecureEnvironment {
     remap(secureValue: SecureValue, rawValue: RawValue, rawDescriptors: PropertyDescriptorMap) {
         this.createSecureRecord(secureValue, rawValue);
         for (const key in rawDescriptors) {
-            // TODO: this whole block needs cleanup and simplification
-            // avoid overriding ecma script global keys.
-            if (!ESGlobalKeys.has(key)) {
-                const secureDescriptor = getOwnPropertyDescriptor(secureValue, key);
-                if (hasOwnProperty(rawDescriptors, key)) {
-                    // avoid poisoning to only installing own properties from baseDescriptors,
-                    let rawDescriptor = rawDescriptors[key];
-                    if (hasOwnProperty(rawDescriptor, 'set')) {
-                        // setter, and probably getter branch
-                        rawDescriptor = getSecureGlobalAccessorDescriptor(this, rawDescriptor);
-                    } else if (hasOwnProperty(rawDescriptor, 'get')) {
-                        // getter only branch (e.g.: window.navigator)
-                        const { get: originalGetter } = rawDescriptor;
-                        const env = this;
-                        rawDescriptor.get = function get(): SecureValue {
-                            const value: RawValue = apply(originalGetter as () => any, env.getRawValue(this), emptyArray);
-                            return env.getSecureValue(value);
-                        };
-                    } else {
-                        // value branch
+            // TODO: this whole loop needs cleanup and simplification avoid
+            // overriding ECMA script global keys.
+            if (SetHas(ESGlobalKeys, key) || !hasOwnProperty(rawDescriptors, key)) {
+                continue;
+            }
+
+            // avoid poisoning to only installing own properties from baseDescriptors
+            const rawDescriptor = assign(ObjectCreate(null), rawDescriptors[key]);
+            if ('value' in rawDescriptor) {
+                // TODO: maybe we should make everything a getter/setter that way
+                // we don't pay the cost of creating the proxy in the first place
+                rawDescriptor.value = this.getSecureValue(rawDescriptor.value);
+            } else {
+               // Use the original getter to return a secure object, but if the 
+               // sandbox attempts to set it to a new value, this mutation will
+               // only affect the sandbox's global object, and the getter will
+               // start returning the new provided value rather than calling onto
+               // the outer realm. This is to preserve the object graph of the
+               // outer realm.
+                const env = this;
+                const { get: originalGetter } = rawDescriptor;
+                
+                let currentGetter = !isFunction(rawDescriptor.get) ? () => undefined : function(this: any): SecureValue {
+                    const value: RawValue = apply(originalGetter as () => any, env.getRawValue(this), emptyArray);
+                    return env.getSecureValue(value);
+                };
+
+                rawDescriptor.get = function(): SecureValue {
+                    return apply(currentGetter, this, emptyArray);
+                };
+
+                if (isFunction(rawDescriptor.set)) {
+                    rawDescriptor.set = function(v: SecureValue): void {
+                        // if a global setter is invoke, the value will be use as it is as the result of the getter operation
+                        currentGetter = () => v;
+                    };
+                }
+            }
+
+            const secureDescriptor = ReflectGetOwnPropertyDescriptor(secureValue, key);
+            if (!isUndefined(secureDescriptor) && 
+                    hasOwnProperty(secureDescriptor, 'configurable') &&  
+                    secureDescriptor.configurable === false) {
+                // this is the case where the secure env has a descriptor that was supposed to be
+                // overrule but can't be done because it is a non-configurable. Instead we try to
+                // fallback to some more advanced gymnastics
+                if (hasOwnProperty(secureDescriptor, 'value') && isProxyTarget(secureDescriptor.value)) {
+                    const { value: secureDescriptorValue } = secureDescriptor;
+                    if (!WeakMapHas(this.som, secureDescriptorValue)) {
+                        // remapping the value of the secure object graph to the outer realm graph
                         const { value: rawDescriptorValue } = rawDescriptor;
-                        // TODO: maybe we should make everything a getter/setter that way
-                        // we don't pay the cost of creating the proxy in the first place
-                        rawDescriptor.value = this.getSecureValue(rawDescriptorValue);
-                    }
-                    if (!isUndefined(secureDescriptor) && 
-                            hasOwnProperty(secureDescriptor, 'configurable') &&  
-                            secureDescriptor.configurable === false) {
-                        // this is the case where the secure env has a descriptor that was supposed to be
-                        // overrule but can't be done because it is a non-configurable. Instead we try to
-                        // fallback to some more advanced gymnastics
-                        if (hasOwnProperty(secureDescriptor, 'value') && isProxyTarget(secureDescriptor.value)) {
-                            const { value: secureDescriptorValue } = secureDescriptor;
-                            if (!this.som.has(secureDescriptorValue)) {
-                                // remapping the value of the secure object graph to the outer realm graph
-                                const { value: rawDescriptorValue } = rawDescriptor;
-                                if (secureValue !== rawDescriptorValue) {
-                                    if (this.getRawValue(secureValue) !== rawValue) {
-                                        console.error('need remapping: ',  key, rawValue, rawDescriptor);
-                                    } else {
-                                        // it was already mapped
-                                    }
-                                } else {
-                                    // window.top is the classic example of a descriptor that leaks access to the outer
-                                    // window reference, and there is no containment for that case yet.
-                                    console.error('leaking: ',  key, rawValue, rawDescriptor);
-                                }
+                        if (secureValue !== rawDescriptorValue) {
+                            if (this.getRawValue(secureValue) !== rawValue) {
+                                console.error('need remapping: ',  key, rawValue, rawDescriptor);
                             } else {
-                                // an example of this is circular window.window ref
-                                console.info('circular: ',  key, rawValue, rawDescriptor);
-                            }
-                        } else if (hasOwnProperty(secureDescriptor, 'get') && isProxyTarget(secureValue[key])) {
-                            const secureDescriptorValue = secureValue[key];
-                            if (secureDescriptorValue === secureValue[key]) {
-                                // this is the case for window.document which is identity preserving getter
-                                // const rawDescriptorValue = rawValue[key];
-                                // this.createSecureRecord(secureDescriptorValue, rawDescriptorValue);
-                                // this.installDescriptors(secureDescriptorValue, rawDescriptorValue, getOwnPropertyDescriptors(rawDescriptorValue));
-                                console.error('need remapping: ', key, rawValue, rawDescriptor);
-                                if (isExtensible(secureDescriptorValue)) {
-                                    // remapping proto chain
-                                    // setPrototypeOf(secureDescriptorValue, this.getSecureValue(getPrototypeOf(secureDescriptorValue)));
-                                    console.error('needs prototype remapping: ', rawValue);
-                                } else {
-                                    console.error('leaking prototype: ',  key, rawValue, rawDescriptor);
-                                }
-                            } else {
-                                console.error('leaking a getter returning values without identity: ', key, rawValue, rawDescriptor);
+                                // it was already mapped
                             }
                         } else {
-                            console.error('skipping: ', key, rawValue, rawDescriptor);
+                            // window.top is the classic example of a descriptor that leaks access to the outer
+                            // window reference, and there is no containment for that case yet.
+                            console.error('leaking: ',  key, rawValue, rawDescriptor);
                         }
                     } else {
-                        ObjectDefineProperty(secureValue, key, rawDescriptor);
+                        // an example of this is circular window.window ref
+                        console.info('circular: ',  key, rawValue, rawDescriptor);
+                    }
+                } else if (hasOwnProperty(secureDescriptor, 'get')) {
+                    const secureDescriptorValue = secureValue[key];
+                    if (isProxyTarget(secureDescriptorValue)) {
+                        if (secureDescriptorValue === secureValue[key]) {
+                            // this is the case for window.document which is identity preserving getter
+                            // const rawDescriptorValue = rawValue[key];
+                            // this.createSecureRecord(secureDescriptorValue, rawDescriptorValue);
+                            // this.installDescriptors(secureDescriptorValue, rawDescriptorValue, getOwnPropertyDescriptors(rawDescriptorValue));
+                            console.error('need remapping: ', key, rawValue, rawDescriptor);
+                            if (ReflectIsExtensible(secureDescriptorValue)) {
+                                // remapping proto chain
+                                // ReflectSetPrototypeOf(secureDescriptorValue, this.getSecureValue(ReflectGetPrototypeOf(secureDescriptorValue)));
+                                console.error('needs prototype remapping: ', rawValue);
+                            } else {
+                                console.error('leaking prototype: ',  key, rawValue, rawDescriptor);
+                            }
+                        } else {
+                            console.error('leaking a getter returning values without identity: ', key, rawValue, rawDescriptor);
+                        }
+                    } else {
+                        console.error('skipping: ', key, rawValue, rawDescriptor);
                     }
                 }
+            } else {
+                ReflectDefineProperty(secureValue, key, rawDescriptor);
             }
         }
     }
@@ -252,7 +261,7 @@ export class SecureEnvironment {
         if (isArray(raw)) {
             return this.getSecureArray(raw);
         } else if (isProxyTarget(raw)) {
-            const sr = this.rom.get(raw);
+            const sr = WeakMapGet(this.rom, raw);
             if (isUndefined(sr)) {
                 return this.createSecureProxy(this.getDistortedValue(raw));
             }
@@ -268,7 +277,7 @@ export class SecureEnvironment {
         return construct(SecureArray, b);
     }
     getSecureFunction(fn: RawFunction): SecureFunction {
-        const sr = this.rom.get(fn);
+        const sr = WeakMapGet(this.rom, fn);
         if (isUndefined(sr)) {
             return this.createSecureProxy(this.getDistortedValue(fn)) as SecureFunction;
         }
@@ -278,7 +287,7 @@ export class SecureEnvironment {
         if (isArray(sec)) {
             return this.getRawArray(sec);
         } else if (isProxyTarget(sec)) {
-            const sr = this.som.get(sec);
+            const sr = WeakMapGet(this.som, sec);
             if (isUndefined(sr)) {
                 return this.createReverseProxy(sec);
             }
@@ -287,7 +296,7 @@ export class SecureEnvironment {
         return sec as RawValue;
     }
     getRawFunction(fn: SecureFunction): RawFunction {
-        const sr = this.som.get(fn);
+        const sr = WeakMapGet(this.som, fn);
         if (isUndefined(sr)) {
             return this.createReverseProxy(fn) as RawFunction;
         }

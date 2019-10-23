@@ -1,10 +1,10 @@
 const { isArray } = Array;
 
 const {
+    assign,
     create: ObjectCreate,
+    defineProperty: ObjectDefineProperty,
     getOwnPropertyDescriptors,
-    getOwnPropertyNames,
-    getOwnPropertySymbols,
     freeze,
     seal,
     isSealed,
@@ -14,36 +14,46 @@ const {
 const {
     apply,
     construct,
-    getPrototypeOf,
-    setPrototypeOf,
-    defineProperty: ObjectDefineProperty,
-    isExtensible,
-    getOwnPropertyDescriptor,
-    preventExtensions,
+    deleteProperty,
+    getPrototypeOf: ReflectGetPrototypeOf,
+    setPrototypeOf: ReflectSetPrototypeOf,
+    defineProperty: ReflectDefineProperty,
+    isExtensible: ReflectIsExtensible,
+    getOwnPropertyDescriptor: ReflectGetOwnPropertyDescriptor,
+    ownKeys,
+    preventExtensions: ReflectPreventExtensions,
 } = Reflect;
 
+const SetHas = unapply(Set.prototype.has);
+const WeakMapGet = unapply(WeakMap.prototype.get);
+const WeakMapHas = unapply(WeakMap.prototype.has);
+const WeakMapSet = unapply(WeakMap.prototype.set);
 const hasOwnProperty = unapply(Object.prototype.hasOwnProperty);
 const map = unapply(Array.prototype.map);
-const push = unapply(Array.prototype.push);
 
 export {
     apply,
+    assign,
     construct,
-    getPrototypeOf,
-    setPrototypeOf,
+    deleteProperty,
+    ReflectGetPrototypeOf,
+    ReflectSetPrototypeOf,
     ObjectCreate,
     ObjectDefineProperty,
-    isExtensible,
-    getOwnPropertyDescriptor,
+    ReflectDefineProperty,
+    ReflectIsExtensible,
+    ReflectGetOwnPropertyDescriptor,
+    SetHas,
+    WeakMapGet,
+    WeakMapHas,
+    WeakMapSet,
     getOwnPropertyDescriptors,
-    getOwnPropertyNames,
-    getOwnPropertySymbols,
-    preventExtensions,
+    ownKeys,
+    ReflectPreventExtensions,
     hasOwnProperty,
     freeze,
     isArray,
     map,
-    push,
     seal,
     isSealed,
     isFrozen,

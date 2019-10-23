@@ -1,6 +1,7 @@
 lib/
 types/
 node_modules/
+*/**/bundle.js
 *.log
 -local-*
 .DS_Store
