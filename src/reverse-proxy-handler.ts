@@ -56,10 +56,10 @@ function copyReverseOwnDescriptors(env: SecureEnvironment, shadowTarget: Reverse
                 if (hasOwnProperty(shadowTargetDescriptor, 'configurable') &&
                         isTrue(shadowTargetDescriptor.configurable)) {
                     ReflectDefineProperty(shadowTarget, key, originalDescriptor);
-                } else if (isTrue(shadowTargetDescriptor.writable)) {
+                } else if (hasOwnProperty(shadowTargetDescriptor, 'writable') &&
+                        isTrue(shadowTargetDescriptor.writable)) {
                     // just in case
-                    shadowTarget[key] = hasOwnProperty(originalDescriptor, 'value') ?
-                        originalDescriptor.value : undefined;
+                    shadowTarget[key] = originalDescriptor.value;
                 } else {
                     // ignoring... since it is non configurable and non-writable
                     // usually, arguments, callee, etc.
