@@ -61,8 +61,6 @@ function isProxyTarget(o: RawValue | SecureValue):
 }
 
 interface SecureEnvironmentOptions {
-    // Base global object used by the raw environment
-    rawGlobalThis: any;
     // Secure global object used by the secure environment
     secureGlobalThis: any;
     // Optional distortion hook to prevent access to certain capabilities from within the secure environment
@@ -83,15 +81,9 @@ export class SecureEnvironment {
         if (isUndefined(options)) {
             throw new Error(`Missing SecureEnvironmentOptions options bag.`);
         }
-        const { rawGlobalThis, secureGlobalThis, distortionCallback } = options;
+        const { distortionCallback, secureGlobalThis } = options;
         this.distortionCallback = distortionCallback;
         this.secureGlobalThis = secureGlobalThis;
-        // These are foundational things that should never be wrapped but are equivalent
-        // TODO: revisit this, is this really needed? what happen if Object.prototype is patched in the sec env?
-        this.createSecureRecord(secureGlobalThis.Object, rawGlobalThis.Object);
-        this.createSecureRecord(secureGlobalThis.Object.prototype, rawGlobalThis.Object.prototype);
-        this.createSecureRecord(secureGlobalThis.Function, rawGlobalThis.Function);
-        this.createSecureRecord(secureGlobalThis.Function.prototype, rawGlobalThis.Function.prototype);
     }
 
     private createSecureShadowTarget(o: SecureProxyTarget): SecureShadowTarget {
@@ -163,7 +155,7 @@ export class SecureEnvironment {
         for (const key in rawDescriptors) {
             // TODO: this whole loop needs cleanup and simplification avoid
             // overriding ECMA script global keys.
-            if (SetHas(ESGlobalKeys, key) || !hasOwnProperty(rawDescriptors, key)) {
+            if (!hasOwnProperty(rawDescriptors, key) || SetHas(ESGlobalKeys, key)) {
                 continue;
             }
 

@@ -53,7 +53,6 @@ export default function createSecureEnvironment(distortionCallback: (target: Sec
     delete rawGlobalThisDescriptors.window;
 
     const env = new SecureEnvironment({
-        rawGlobalThis,
         secureGlobalThis,
         distortionCallback,
     });

@@ -105,8 +105,8 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
     private readonly env: SecureEnvironment;
 
     constructor(env: SecureEnvironment, target: SecureProxyTarget) {
-        this.target = target;
         this.env = env;
+        this.target = target;
     }
     // initialization used to avoid the initialization cost
     // of an object graph, we want to do it when the

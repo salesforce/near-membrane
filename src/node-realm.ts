@@ -14,7 +14,6 @@ export default function createSecureEnvironment(distortionCallback: (target: Sec
     const rawGlobalThis = globalThis as any;
     const rawGlobalThisDescriptors = getOwnPropertyDescriptors(rawGlobalThis);
     const env = new SecureEnvironment({
-        rawGlobalThis,
         secureGlobalThis,
         distortionCallback,
     });
