@@ -9,11 +9,14 @@ import {
     emptyArray, 
     isArray, 
     map, 
-    construct, 
+    construct,
+    ErrorCreate,
     ESGlobalKeys, 
+    ProxyCreate,
     ReflectGetOwnPropertyDescriptor, 
     ReflectIsExtensible,
     SetHas,
+    WeakMapCreate,
     WeakMapGet,
     WeakMapHas,
     WeakMapSet,
@@ -73,15 +76,15 @@ export class SecureEnvironment {
     // secure global object
     private secureGlobalThis: any;
     // secure object map
-    private som: WeakMap<SecureFunction | SecureObject, SecureRecord> = new WeakMap();
+    private som: WeakMap<SecureFunction | SecureObject, SecureRecord> = WeakMapCreate();
     // raw object map
-    private rom: WeakMap<RawFunction | RawObject, SecureRecord> = new WeakMap();
+    private rom: WeakMap<RawFunction | RawObject, SecureRecord> = WeakMapCreate();
     // distortion mechanism (default to noop)
     private distortionCallback?: (target: SecureProxyTarget) => SecureProxyTarget = t => t;
 
     constructor(options: SecureEnvironmentOptions) {
         if (isUndefined(options)) {
-            throw new Error(`Missing SecureEnvironmentOptions options bag.`);
+            throw ErrorCreate(`Missing SecureEnvironmentOptions options bag.`);
         }
         const { rawGlobalThis, secureGlobalThis, distortionCallback } = options;
         this.distortionCallback = distortionCallback;
@@ -125,14 +128,14 @@ export class SecureEnvironment {
     private createSecureProxy(raw: SecureProxyTarget): SecureProxy {
         const shadowTarget = this.createSecureShadowTarget(raw);
         const proxyHandler = new SecureProxyHandler(this, raw);
-        const sec = new Proxy(shadowTarget, proxyHandler);
+        const sec = ProxyCreate(shadowTarget, proxyHandler);
         this.createSecureRecord(sec, raw);
         return sec;
     }
     private createReverseProxy(sec: ReverseProxyTarget): ReverseProxy {
         const shadowTarget = this.createReverseShadowTarget(sec);
         const proxyHandler = new ReverseProxyHandler(this, sec);
-        const raw = new Proxy(shadowTarget, proxyHandler);
+        const raw = ProxyCreate(shadowTarget, proxyHandler);
         this.createSecureRecord(sec, raw);
         // eager initialization of reverse proxies
         proxyHandler.initialize(shadowTarget);
@@ -153,7 +156,7 @@ export class SecureEnvironment {
         }
         const distortedTarget = distortionCallback(target);
         if (!isProxyTarget(distortedTarget)) {
-            throw new Error(`Invalid distortion mechanism.`);
+            throw ErrorCreate(`Invalid distortion mechanism.`);
         }
         return distortedTarget;
     }
