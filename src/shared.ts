@@ -24,7 +24,11 @@ const {
     preventExtensions: ReflectPreventExtensions,
 } = Reflect;
 
+const ErrorCreate = unconstruct(Error);
+const SetCreate = unconstruct(Set);
 const SetHas = unapply(Set.prototype.has);
+const ProxyCreate = unconstruct(Proxy);
+const WeakMapCreate = unconstruct(WeakMap);
 const WeakMapGet = unapply(WeakMap.prototype.get);
 const WeakMapHas = unapply(WeakMap.prototype.has);
 const WeakMapSet = unapply(WeakMap.prototype.set);
@@ -36,14 +40,18 @@ export {
     assign,
     construct,
     deleteProperty,
+    ErrorCreate,
     ReflectGetPrototypeOf,
     ReflectSetPrototypeOf,
     ObjectCreate,
     ObjectDefineProperty,
+    ProxyCreate,
     ReflectDefineProperty,
     ReflectIsExtensible,
     ReflectGetOwnPropertyDescriptor,
+    SetCreate,
     SetHas,
+    WeakMapCreate,
     WeakMapGet,
     WeakMapHas,
     WeakMapSet,
@@ -63,6 +71,10 @@ export function unapply(func: Function): Function {
     return (thisArg: any, ...args: any[]) => apply(func, thisArg, args);
 }
 
+export function unconstruct(func: Function): Function {
+    return (...args: any[]) => construct(func, args);
+}
+
 export function isUndefined(obj: any): obj is undefined {
     return obj === undefined;
 }
@@ -77,7 +89,7 @@ export function isFunction(obj: any): obj is Function {
 
 export const emptyArray: [] = [];
 
-export const ESGlobalKeys = new Set([
+export const ESGlobalKeys = SetCreate([
 
     // *** 18.1 Value Properties of the Global Object
     'Infinity',
