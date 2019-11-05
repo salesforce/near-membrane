@@ -1,19 +1,21 @@
 {
-  "name": "secure-javascript-environment",
-  "version": "1.0.0",
-  "description": "",
+  "name": "@caridy/sjs",
+  "version": "0.1.0",
+  "description": "Experimental JS Library to create a secure javascript sandbox in browsers and node",
   "module": "lib/index.js",
   "types": "types/index.js",
   "scripts": {
     "build": "ttsc & rollup -c",
     "start": "ttsc -w & http-server",
-    "test": "jest --runInBand --no-cache --config ./jest.config.js"
+    "test": "jest --runInBand --no-cache --config ./jest.config.js",
+    "publish": "npm publish --access public"
   },
+  "files": [
+    "lib/",
+    "types/"
+  ],
   "author": "Caridy Patiño <caridy@gmail.com>",
   "license": "MIT",
-  "dependencies": {
-    "realms-shim": "^1.2.0"
-  },
   "devDependencies": {
     "@types/jest": "^24.0.18",
     "@zoltu/typescript-transformer-append-js-extension": "^1.0.1",

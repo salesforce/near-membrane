@@ -1,4 +1,4 @@
-# Secure Javascript Environment
+# Secure Javascript Sandbox
 
 This is an experimental library to demonstrate that it is possible to use membranes to secure the object graph of a javascript environment without introducing identity discontinuity.
 
@@ -51,15 +51,14 @@ We do not know the applications of this library just yet, but we suspect that th
 * No tests are provided just yet, the plan is to rely on existing tests (e.g.: WPT or ecma262) to validate that the membrane created by this library is a high-fidelity membrane.
 * The `examples/` folder contains a set of examples showcasing how to use this library.
 * The `src/` folder contains the library code, while the `lib/` folder will contain the compiled ES Modules after executing the `build` script from `package.json`.
+* This library does not have any runtime dependency, in fact it is very tiny &lt;2kb.
 
 ## Open Questions
 
-* Should we continue relying on the realms-shim package, or should we have our own implementation of that? The main reason is that this is very specific, and does not use many of the features of the realms-shim.
 * Should we proxify Arrays objects to support live Arrays?
 * There is not a clear boundary on what can be mutated and what not through the membrane.
 
 ## Browsers Support and Stats
 
 * Modern browsers with support for ES6 Proxy
-* This library: 1.7kb minified/gzip
-* Realms Shim + this library = ~5k minified/gzip
+* This library: ~3kb minified/gzip for browsers, ~2kb for node (no external dependencies).
