@@ -242,7 +242,7 @@ export class SecureEnvironment {
                             if (ReflectIsExtensible(secureDescriptorValue)) {
                                 // remapping proto chain
                                 // ReflectSetPrototypeOf(secureDescriptorValue, this.getSecureValue(ReflectGetPrototypeOf(secureDescriptorValue)));
-                                console.error('needs prototype remapping: ', rawValue);
+                                console.error('needs prototype remapping: ', key, rawValue);
                             } else {
                                 console.error('leaking prototype: ',  key, rawValue, rawDescriptor);
                             }
