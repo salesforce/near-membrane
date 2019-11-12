@@ -14,8 +14,8 @@ secureGlobalThis.eval(`
     document.body.appendChild(elm);
 
     // expandos are available inside the secure env
-    document.querySelector('p').foo; // fields 1
+    console.log(document.querySelector('p').foo); // -> 1
 `);
 
 // expandos are not available in the outer realm
-document.querySelector('p').foo; // fields undefined
+console.log(document.querySelector('p').foo); // -> undefined

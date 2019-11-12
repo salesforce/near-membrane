@@ -21,5 +21,5 @@ secureGlobalThis.eval(`
     // the distortion of ShadowRoot.prototype.host returns null
     const elm = document.createElement('div');
     elm.attachShadow({ mode: 'open' });
-    elm.shadowRoot.host; // yields null
+    console.log(elm.shadowRoot.host); // -> null
 `);
