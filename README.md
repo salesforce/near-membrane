@@ -8,7 +8,7 @@ This is an experimental library to demonstrate that it is possible to use membra
 * Code executed inside the secure environment cannot observe the sandbox.
 * Mutations on the object graph should only affect the secure environment.
 
-## No goals
+## Non-goals
 
 * Poisoning is still possible via the membrane by providing object-likes through the membrane that could be used by the outer realm to perform an operation that leaks primitive values that are relevant.
 * This library does not provide security guarantees, those must be implemented on top of the distortion mechanism.
