@@ -5,7 +5,7 @@
   "module": "lib/index.js",
   "types": "types/index.js",
   "scripts": {
-    "build": "ttsc & rollup -c",
+    "build": "ttsc && rollup -c",
     "start": "ttsc -w & http-server",
     "test": "jest --runInBand --no-cache --config ./jest.config.js",
     "publish": "npm publish --access public"
