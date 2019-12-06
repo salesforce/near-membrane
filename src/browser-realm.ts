@@ -8,6 +8,14 @@ import {
 
 const unsafeGlobalSrc = "'use strict'; this";
 
+// caching references to object values that can't be replaced
+// window -> Window -> WindowProperties -> EventTarget
+const rawGlobalThis = globalThis;
+const rawDocument = rawGlobalThis.document;
+const rawWindowProto = ReflectGetPrototypeOf(rawGlobalThis);
+const rawWindowPropertiesProto = ReflectGetPrototypeOf(rawWindowProto);
+const rawEventTargetProto = ReflectGetPrototypeOf(rawWindowPropertiesProto);
+
 export default function createSecureEnvironment(distortionCallback: (target: SecureProxyTarget) => SecureProxyTarget) {
     // @ts-ignore document global ref - in browsers
     const iframe = document.createElement('iframe');
@@ -34,13 +42,7 @@ export default function createSecureEnvironment(distortionCallback: (target: Sec
     const secureWindowPropertiesProto = ReflectGetPrototypeOf(secureWindowProto);
     const secureEventTargetProto = ReflectGetPrototypeOf(secureWindowPropertiesProto);
 
-    const rawGlobalThis = getGlobalThis();
-    const rawDocument = rawGlobalThis.document;
     const rawDocumentProto = ReflectGetPrototypeOf(rawDocument);
-    const rawWindowProto = ReflectGetPrototypeOf(rawGlobalThis);
-    const rawWindowPropertiesProto = ReflectGetPrototypeOf(rawWindowProto);
-    const rawEventTargetProto = ReflectGetPrototypeOf(rawWindowPropertiesProto);
-
     const rawGlobalThisDescriptors = getOwnPropertyDescriptors(rawGlobalThis);
     const rawWindowProtoDescriptors = getOwnPropertyDescriptors(rawWindowProto);
     const rawWindowPropertiesProtoDescriptors = getOwnPropertyDescriptors(rawWindowPropertiesProto);
