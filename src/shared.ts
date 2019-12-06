@@ -156,21 +156,3 @@ export const ESGlobalKeys = SetCreate([
     // *** ECMA-402
     'Intl', // Unstable
 ]);
-
-// Variation of the polyfill described here:
-// https://mathiasbynens.be/notes/globalthis
-// Note: we don't polyfill it, just use it.
-// Note: we don't cache it, to accommodate jest for now
-export function getGlobalThis() {
-    if (typeof globalThis === 'object') {
-        return globalThis;
-    }
-    // @ts-ignore funky stuff to get the global reference in all environments
-	Object.prototype.__defineGetter__('__magic__', function(this: object) {
-		return this;
-    });
-    // @ts-ignore
-	const gt = __magic__;
-    delete (Object.prototype as any).__magic__;
-    return gt;
-}

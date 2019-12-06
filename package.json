@@ -17,14 +17,17 @@
   "author": "Caridy Patiño <caridy@gmail.com>",
   "license": "MIT",
   "devDependencies": {
-    "@types/jest": "^24.0.18",
+    "@types/jest": "^24.0.23",
     "@zoltu/typescript-transformer-append-js-extension": "^1.0.1",
     "http-server": "^0.11.1",
     "jest": "^24.9.0",
-    "jest-environment-jsdom-fifteen": "^1.0.0",
+    "jsdom": "^15.2.1",
     "rollup": "^1.21.3",
-    "ts-jest": "^24.1.0",
-    "ttypescript": "^1.5.7",
-    "typescript": "^3.6.2"
+    "ts-jest": "^24.2.0",
+    "ttypescript": "^1.5.8",
+    "typescript": "^3.7.3"
+  },
+  "engines": {
+    "node": ">=12"
   }
 }

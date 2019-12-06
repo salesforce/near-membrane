@@ -1,7 +1,4 @@
 import createSecureEnvironment from '../node-realm';
-import { getGlobalThis } from '../shared';
-
-const globalThis = getGlobalThis();
 
 describe('SecureEnvironment', () => {
     describe('.constructor', () => {

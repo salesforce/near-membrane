@@ -3,23 +3,20 @@ import {
     ReflectGetPrototypeOf, 
     ReflectSetPrototypeOf, 
     getOwnPropertyDescriptors,
-    getGlobalThis
 } from "./shared";
-
-const unsafeGlobalSrc = "'use strict'; this";
 
 // caching references to object values that can't be replaced
 // window -> Window -> WindowProperties -> EventTarget
-const rawGlobalThis = globalThis;
-const rawDocument = rawGlobalThis.document;
-const rawWindowProto = ReflectGetPrototypeOf(rawGlobalThis);
+const rawWindow = globalThis.window;
+const rawDocument = globalThis.document;
+const rawWindowProto = ReflectGetPrototypeOf(rawWindow);
 const rawWindowPropertiesProto = ReflectGetPrototypeOf(rawWindowProto);
 const rawEventTargetProto = ReflectGetPrototypeOf(rawWindowPropertiesProto);
 
-export default function createSecureEnvironment(distortionCallback: (target: SecureProxyTarget) => SecureProxyTarget) {
+export default function createSecureEnvironment(distortionCallback: (target: SecureProxyTarget) => SecureProxyTarget): Window & typeof globalThis {
     // @ts-ignore document global ref - in browsers
     const iframe = document.createElement('iframe');
-    iframe.sandbox = 'allow-same-origin allow-scripts';
+    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
     iframe.style.display = 'none';
 
     // @ts-ignore document global ref - in browsers
@@ -27,8 +24,8 @@ export default function createSecureEnvironment(distortionCallback: (target: Sec
 
     // For Chrome we evaluate the `window` object to kickstart the realm so that
     // `window` persists when the iframe is removed from the document.
-    const { contentWindow } = iframe;
-    contentWindow.eval('window');
+    const secureWindow = (iframe.contentWindow as WindowProxy).window;
+    secureWindow.eval('window');
 
     // In Chrome debugger statements will be ignored when the iframe is removed
     // from the document. Other browsers like Firefox and Safari work as expected.
@@ -36,14 +33,13 @@ export default function createSecureEnvironment(distortionCallback: (target: Sec
     iframe.remove();
 
     // window -> Window -> WindowProperties -> EventTarget
-    const secureGlobalThis = contentWindow.eval(unsafeGlobalSrc);
-    const secureDocument = secureGlobalThis.document;
-    const secureWindowProto = ReflectGetPrototypeOf(secureGlobalThis);
+    const secureDocument = secureWindow.document;
+    const secureWindowProto = ReflectGetPrototypeOf(secureWindow);
     const secureWindowPropertiesProto = ReflectGetPrototypeOf(secureWindowProto);
     const secureEventTargetProto = ReflectGetPrototypeOf(secureWindowPropertiesProto);
 
     const rawDocumentProto = ReflectGetPrototypeOf(rawDocument);
-    const rawGlobalThisDescriptors = getOwnPropertyDescriptors(rawGlobalThis);
+    const rawGlobalThisDescriptors = getOwnPropertyDescriptors(rawWindow) as PropertyDescriptorMap;
     const rawWindowProtoDescriptors = getOwnPropertyDescriptors(rawWindowProto);
     const rawWindowPropertiesProtoDescriptors = getOwnPropertyDescriptors(rawWindowPropertiesProto);
     const rawEventTargetProtoDescriptors = getOwnPropertyDescriptors(rawEventTargetProto);
@@ -55,8 +51,8 @@ export default function createSecureEnvironment(distortionCallback: (target: Sec
     delete rawGlobalThisDescriptors.window;
 
     const env = new SecureEnvironment({
-        rawGlobalThis,
-        secureGlobalThis,
+        rawGlobalThis: rawWindow,
+        secureGlobalThis: secureWindow,
         distortionCallback,
     });
 
@@ -68,7 +64,7 @@ export default function createSecureEnvironment(distortionCallback: (target: Sec
     env.remap(secureEventTargetProto, rawEventTargetProto, rawEventTargetProtoDescriptors);
     env.remap(secureWindowPropertiesProto, rawWindowPropertiesProto, rawWindowPropertiesProtoDescriptors);
     env.remap(secureWindowProto, rawWindowProto, rawWindowProtoDescriptors);
-    env.remap(secureGlobalThis, rawGlobalThis, rawGlobalThisDescriptors);
+    env.remap(secureWindow, rawWindow, rawGlobalThisDescriptors);
 
-    return secureGlobalThis;
+    return secureWindow;
 }

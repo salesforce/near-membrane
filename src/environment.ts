@@ -65,16 +65,16 @@ function isProxyTarget(o: RawValue | SecureValue):
 
 interface SecureEnvironmentOptions {
     // Base global object used by the raw environment
-    rawGlobalThis: any;
+    rawGlobalThis: RawObject & typeof globalThis;
     // Secure global object used by the secure environment
-    secureGlobalThis: any;
+    secureGlobalThis: SecureObject & typeof globalThis;
     // Optional distortion hook to prevent access to certain capabilities from within the secure environment
     distortionCallback?: (target: SecureProxyTarget) => SecureProxyTarget;
 }
 
 export class SecureEnvironment {
     // secure global object
-    private secureGlobalThis: any;
+    private secureGlobalThis: SecureObject & typeof globalThis;
     // secure object map
     private som: WeakMap<SecureFunction | SecureObject, SecureRecord> = WeakMapCreate();
     // raw object map
@@ -309,7 +309,7 @@ export class SecureEnvironment {
         // identity of the new array correspond to the outer realm
         return map(a, (sec: SecureValue) => this.getRawValue(sec));
     }
-    get globalThis(): RawValue {
+    get globalThis(): RawObject & typeof globalThis {
         return this.secureGlobalThis;
     }
 }
