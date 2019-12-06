@@ -8,7 +8,7 @@ This is an experimental library to demonstrate that it is possible to use membra
 * Code executed inside the secure environment cannot observe the sandbox.
 * Mutations on the object graph should only affect the secure environment.
 
-## No goals
+## Non-goals
 
 * Poisoning is still possible via the membrane by providing object-likes through the membrane that could be used by the outer realm to perform an operation that leaks primitive values that are relevant.
 * This library does not provide security guarantees, those must be implemented on top of the distortion mechanism.
@@ -28,7 +28,7 @@ Since you can have multiple secure environment instances in your outer realm, th
 
 Even though this library is experimental, we want to showcase that it is possible to have a membrane that is fairly fast. The main feature of this library is the laziness aspect of the proxies when accessing outer realm objects and functions from within the secure environment. Those proxies are only going to be initialized when one of the proxy's traps is invoked the first time. This allow us to have a environment creation process that is extremely fast.
 
-Additionally, since existing host javascript environments are immense due the the amount of APIs that they offer, most programs will only need a very small subject of those APIs, and this library only activate the portions of the object graph that are observed by the executed code, making it really light weight compared to other implementations.
+Additionally, since existing host javascript environments are immense due the the amount of APIs that they offer, most programs will only need a very small subset of those APIs, and this library only activate the portions of the object graph that are observed by the executed code, making it really light weight compared to other implementations.
 
 Finally, reverse proxies are not lazy, they are initialized the first time they go through the membrane even if they are not used by the outer realm. This could be changed in the future if it becomes a bottleneck.
 
