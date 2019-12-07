@@ -3,17 +3,14 @@ import createSecureEnvironment from '../lib/browser-realm.js';
 // getting reference to the function to be distorted
 const { get } = Object.getOwnPropertyDescriptor(ShadowRoot.prototype, 'host');
 
-function distortionCallback(t) {
-    if (t === get) {
-        return () => {
-            console.error('forbidden');
-            return null;
-        }
-    }
-    return t;
-}
+const distortionMap = new Map([
+    [get, () => {
+        console.error('forbidden');
+        return null;
+    }],
+]);
 
-const secureGlobalThis = createSecureEnvironment(distortionCallback);
+const secureGlobalThis = createSecureEnvironment(distortionMap);
 
 secureGlobalThis.eval(`
     debugger;

@@ -7,7 +7,7 @@ import { runInNewContext } from 'vm';
 // 'this' will be the correct global object.
 const unsafeGlobalEvalSrc = `(0, eval)("'use strict'; this")`;
 
-export default function createSecureEnvironment(distortionCallback: (target: SecureProxyTarget) => SecureProxyTarget): typeof globalThis {
+export default function createSecureEnvironment(distortionMap?: Map<SecureProxyTarget, SecureProxyTarget>): typeof globalThis {
     // Use unsafeGlobalEvalSrc to ensure we get the right 'this'.
     const secureGlobalThis = runInNewContext(unsafeGlobalEvalSrc);
     const rawGlobalThis = globalThis as any;
@@ -15,7 +15,7 @@ export default function createSecureEnvironment(distortionCallback: (target: Sec
     const env = new SecureEnvironment({
         rawGlobalThis,
         secureGlobalThis,
-        distortionCallback,
+        distortionMap,
     });
 
     // remapping globals
