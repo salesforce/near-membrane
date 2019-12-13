@@ -3,7 +3,6 @@ const { isArray } = Array;
 const {
     assign,
     create: ObjectCreate,
-    defineProperty: ObjectDefineProperty,
     getOwnPropertyDescriptors,
     freeze,
     seal,
@@ -44,7 +43,6 @@ export {
     ReflectGetPrototypeOf,
     ReflectSetPrototypeOf,
     ObjectCreate,
-    ObjectDefineProperty,
     ProxyCreate,
     ReflectDefineProperty,
     ReflectIsExtensible,
