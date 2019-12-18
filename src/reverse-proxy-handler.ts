@@ -46,7 +46,7 @@ function getReverseDescriptor(descriptor: PropertyDescriptor, env: SecureEnviron
 
 function copyReverseOwnDescriptors(env: SecureEnvironment, shadowTarget: ReverseShadowTarget, target: ReverseProxyTarget) {
     // TODO: typescript definition for getOwnPropertyDescriptors is wrong, it should include symbols
-    const descriptors = callWithErrorBoundaryProtection(env, () => {
+    const descriptors: PropertyDescriptorMap = callWithErrorBoundaryProtection(env, () => {
         return getOwnPropertyDescriptors(target);
     });
     for (const key in descriptors) {
@@ -80,9 +80,17 @@ function callWithErrorBoundaryProtection(env: SecureEnvironment, fn: () => RawVa
     } catch (e) {
         // This error occurred when the outer realm invokes a function from the sandbox.
         if (e instanceof Error) {
-            return e;
+            throw e;
         }
-        return new (env.getRawValue(e.constructor))(e.message);
+        let rawError;
+        try {
+            rawError = new (env.getRawValue(e.constructor))(e.message);
+        } catch (ignored) {
+            // in case the constructor inference fails
+            rawError = new Error(e.message)
+        }
+        // by throwing a new raw error, we eliminate the stack information from the sandbox
+        throw rawError;
     }
     return raw;
 }

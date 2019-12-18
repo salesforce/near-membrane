@@ -137,6 +137,9 @@ export class SecureEnvironment {
         return shadowTarget;
     }
     private createSecureProxy(raw: SecureProxyTarget): SecureProxy {
+        if (this.som.has(raw)) {
+            throw new Error('Invariant Violation');
+        }
         const shadowTarget = this.createSecureShadowTarget(raw);
         const proxyHandler = new SecureProxyHandler(this, raw);
         const sec = this.createProxyInSandbox(shadowTarget, proxyHandler);
@@ -144,6 +147,9 @@ export class SecureEnvironment {
         return sec;
     }
     private createReverseProxy(sec: ReverseProxyTarget): ReverseProxy {
+        if (this.rom.has(sec)) {
+            throw new Error('Invariant Violation');
+        }
         const shadowTarget = this.createReverseShadowTarget(sec);
         const proxyHandler = new ReverseProxyHandler(this, sec);
         const raw = ProxyCreate(shadowTarget, proxyHandler);

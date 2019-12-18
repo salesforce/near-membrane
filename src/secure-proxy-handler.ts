@@ -66,7 +66,7 @@ function getPropertyDescriptor(o: any, p: PropertyKey): PropertyDescriptor | und
 
 function copySecureOwnDescriptors(env: SecureEnvironment, shadowTarget: SecureShadowTarget, target: SecureProxyTarget) {
     // TODO: typescript definition for getOwnPropertyDescriptors is wrong, it should include symbols
-    const descriptors = callWithErrorBoundaryProtection(env, () => {
+    const descriptors: PropertyDescriptorMap = callWithErrorBoundaryProtection(env, () => {
         return getOwnPropertyDescriptors(target);
     });
     for (const key in descriptors) {
@@ -100,9 +100,17 @@ function callWithErrorBoundaryProtection(env: SecureEnvironment, fn: () => Secur
     } catch (e) {
         // This error occurred when a sandbox invokes a function from the outer realm.
         if (e instanceof Error) {
-            return new (env.getSecureValue(e.constructor))(e.message);
+            let secError;
+            try {
+                secError = new (env.getSecureValue(e.constructor))(e.message);
+            } catch (ignored) {
+                // in case the constructor inference fails
+                secError = new (env.getSecureValue(Error))(e.message)
+            }
+            // by throwing a new secure error, we eliminate the stack information from the outer realm
+            throw secError;
         }
-        return e;
+        throw e;
     }
     return sec;
 }
@@ -133,7 +141,7 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
             const rawProto = ReflectGetPrototypeOf(target);
             return env.getSecureValue(rawProto);
         });
-        ReflectSetPrototypeOf(shadowTarget, env.getSecureValue(secProto));
+        ReflectSetPrototypeOf(shadowTarget, secProto);
         // defining own descriptors
         copySecureOwnDescriptors(env, shadowTarget, target);
         // preserving the semantics of the object
