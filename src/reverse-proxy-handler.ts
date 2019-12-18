@@ -46,7 +46,9 @@ function getReverseDescriptor(descriptor: PropertyDescriptor, env: SecureEnviron
 
 function copyReverseOwnDescriptors(env: SecureEnvironment, shadowTarget: ReverseShadowTarget, target: ReverseProxyTarget) {
     // TODO: typescript definition for getOwnPropertyDescriptors is wrong, it should include symbols
-    const descriptors = getOwnPropertyDescriptors(target);
+    const descriptors = callWithErrorBoundaryProtection(env, () => {
+        return getOwnPropertyDescriptors(target);
+    });
     for (const key in descriptors) {
         // avoid poisoning by checking own properties from descriptors
         if (hasOwnProperty(descriptors, key)) {
@@ -71,6 +73,20 @@ function copyReverseOwnDescriptors(env: SecureEnvironment, shadowTarget: Reverse
     }
 }
 
+function callWithErrorBoundaryProtection(env: SecureEnvironment, fn: () => RawValue): RawValue {
+    let raw;
+    try {
+        raw = fn();
+    } catch (e) {
+        // This error occurred when the outer realm invokes a function from the sandbox.
+        if (e instanceof Error) {
+            return e;
+        }
+        return new (env.getRawValue(e.constructor))(e.message);
+    }
+    return raw;
+}
+
 /**
  * identity preserved through this membrane:
  *  - symbols
@@ -88,8 +104,11 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
     initialize(shadowTarget: ReverseShadowTarget) {
         const { target, env } = this;
         // adjusting the proto chain of the shadowTarget (recursively)
-        const secureProto = ReflectGetPrototypeOf(target);
-        ReflectSetPrototypeOf(shadowTarget, env.getRawValue(secureProto));
+        const rawProto = callWithErrorBoundaryProtection(env, () => {
+            const secureProto = ReflectGetPrototypeOf(target);
+            return env.getRawValue(secureProto);
+        });
+        ReflectSetPrototypeOf(shadowTarget, rawProto);
         // defining own descriptors
         copyReverseOwnDescriptors(env, shadowTarget, target);
         // reserve proxies are always frozen
@@ -101,8 +120,10 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
         const { target, env } = this;
         const secThisArg = env.getSecureValue(thisArg);
         const secArgArray = env.getSecureArray(argArray);
-        const sec = apply(target as SecureFunction, secThisArg, secArgArray);
-        return env.getRawValue(sec) as RawValue;
+        return callWithErrorBoundaryProtection(env, () => {
+            const sec = apply(target as SecureFunction, secThisArg, secArgArray);
+            return env.getRawValue(sec);
+        });
     }
     construct(shadowTarget: ReverseShadowTarget, argArray: RawValue[], newTarget: RawObject): RawObject {
         const { target: SecCtor, env } = this;
@@ -111,9 +132,10 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
         }
         const secArgArray = env.getSecureArray(argArray);
         // const secNewTarget = env.getSecureValue(newTarget);
-        const sec = construct(SecCtor as SecureConstructor, secArgArray);
-        const raw = env.getRawValue(sec);
-        return raw as RawObject;
+        return callWithErrorBoundaryProtection(env, () => {
+            const sec = construct(SecCtor as SecureConstructor, secArgArray);
+            return env.getRawValue(sec);
+        });
     }
 }
 

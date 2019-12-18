@@ -30,7 +30,6 @@ import {
     RawConstructor,
     RawFunction,
     SecureShadowTarget,
-    RawValue,
 } from './environment';
 
 export function getSecureDescriptor(descriptor: PropertyDescriptor, env: SecureEnvironment): PropertyDescriptor {
@@ -94,20 +93,18 @@ function copySecureOwnDescriptors(env: SecureEnvironment, shadowTarget: SecureSh
     }
 }
 
-function callWithErrorBoundaryProtection(env: SecureEnvironment, fn: () => RawValue): RawValue {
-    let result;
+function callWithErrorBoundaryProtection(env: SecureEnvironment, fn: () => SecureValue): SecureValue {
+    let sec;
     try {
-        result = fn();
-    } catch (rawError) {
-        // This error occurred when a sandbox attempted to invoke a function,
-        // setter, getter, or any other operation on the outer realm.
-        // TODO: what should we do with this error?
-        //       by default, it will be just proxy it, but the stack and everything
-        //       from the original error will be accessible into the sandbox, although
-        //       no object identity will be leaked.
-        throw rawError;
+        sec = fn();
+    } catch (e) {
+        // This error occurred when a sandbox invokes a function from the outer realm.
+        if (e instanceof Error) {
+            return new (env.getSecureValue(e.constructor))(e.message);
+        }
+        return e;
     }
-    return result;
+    return sec;
 }
 
 const noop = () => undefined;
@@ -132,10 +129,11 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
     private initialize(shadowTarget: SecureShadowTarget) {
         const { target, env } = this;
         // adjusting the proto chain of the shadowTarget (recursively)
-        const rawProto = callWithErrorBoundaryProtection(env, () => {
-            return ReflectGetPrototypeOf(target);
+        const secProto = callWithErrorBoundaryProtection(env, () => {
+            const rawProto = ReflectGetPrototypeOf(target);
+            return env.getSecureValue(rawProto);
         });
-        ReflectSetPrototypeOf(shadowTarget, env.getSecureValue(rawProto));
+        ReflectSetPrototypeOf(shadowTarget, env.getSecureValue(secProto));
         // defining own descriptors
         copySecureOwnDescriptors(env, shadowTarget, target);
         // preserving the semantics of the object
@@ -160,9 +158,9 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
         }
         const { get } = desc;
         if (isFunction(get)) {
-            return callWithErrorBoundaryProtection(this.env, () => {
-                return apply(get, receiver, emptyArray);
-            });
+            // calling the getter with the secure receiver because the getter expects a secure value
+            // it also returns a secure value
+            return apply(get, receiver, emptyArray);
         }
         return desc.value;
     }
@@ -170,17 +168,16 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
         this.initialize(shadowTarget);
         const shadowTargetDescriptor = getPropertyDescriptor(shadowTarget, key);
         if (!isUndefined(shadowTargetDescriptor)) {
-            // descriptor exists in the shadowRoot or proto chain
+            // descriptor exists in the shadowTarget or proto chain
             const { set, get, writable } = shadowTargetDescriptor;
             if (writable === false) {
                 // TypeError: Cannot assign to read only property '${key}' of object
                 return false;
             }
             if (isFunction(set)) {
-                // a setter is available, just call it:
-                callWithErrorBoundaryProtection(this.env, () => {
-                    apply(set, receiver, [value]);
-                });
+                // a setter is available, just call it with the secure value because
+                // the setter expects a secure value
+                apply(set, receiver, [value]);
                 return true;
             }
             if (isFunction(get)) {
@@ -194,9 +191,7 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
             return false;
         }
         // the descriptor is writable on the obj or proto chain, just assign it
-        callWithErrorBoundaryProtection(this.env, () => {
-            shadowTarget[key] = value;
-        });
+        shadowTarget[key] = value;
         return true;
     }
     deleteProperty(shadowTarget: SecureShadowTarget, key: PropertyKey): boolean {
@@ -208,10 +203,10 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
         this.initialize(shadowTarget);
         const rawThisArg = env.getRawValue(thisArg);
         const rawArgArray = env.getRawArray(argArray);
-        const raw = callWithErrorBoundaryProtection(this.env, () => {
-            return apply(target as RawFunction, rawThisArg, rawArgArray);
+        return callWithErrorBoundaryProtection(env, () => {
+            const raw = apply(target as RawFunction, rawThisArg, rawArgArray);
+            return env.getSecureValue(raw);
         });
-        return env.getSecureValue(raw) as SecureValue;
     }
     construct(shadowTarget: SecureShadowTarget, argArray: SecureValue[], newTarget: SecureObject): SecureObject {
         const { target: RawCtor, env } = this;
@@ -221,11 +216,10 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
         }
         const rawArgArray = env.getRawArray(argArray);
         const rawNewTarget = env.getRawValue(newTarget);
-        const raw = callWithErrorBoundaryProtection(this.env, () => {
-            return construct(RawCtor as RawConstructor, rawArgArray, rawNewTarget);
+        return callWithErrorBoundaryProtection(env, () => {
+            const raw = construct(RawCtor as RawConstructor, rawArgArray, rawNewTarget);
+            return env.getSecureValue(raw);
         });
-        const sec = env.getSecureValue(raw);
-        return sec as SecureObject;
     }
     has(shadowTarget: SecureShadowTarget, key: PropertyKey): boolean {
         this.initialize(shadowTarget);

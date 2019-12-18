@@ -154,3 +154,17 @@ export const ESGlobalKeys = SetCreate([
     // *** ECMA-402
     'Intl', // Unstable
 ]);
+
+// These are foundational things that should never be wrapped but are equivalent
+// TODO: revisit this list.
+export const ReflectiveIntrinsicObjectNames = [
+    'Object',
+    'Function',
+    'URIError',
+    'TypeError',
+    'SyntaxError',
+    'ReferenceError',
+    'RangeError',
+    'EvalError',
+    'Error',
+];

@@ -20,6 +20,7 @@ import {
     WeakMapGet,
     WeakMapHas,
     WeakMapSet,
+    ReflectiveIntrinsicObjectNames,
 } from './shared';
 import { SecureProxyHandler } from './secure-proxy-handler';
 import { ReverseProxyHandler } from './reverse-proxy-handler';
@@ -73,8 +74,6 @@ interface SecureEnvironmentOptions {
 }
 
 export class SecureEnvironment {
-    // secure global object
-    private secureGlobalThis: SecureObject & typeof globalThis;
     // secure object map
     private som: WeakMap<SecureFunction | SecureObject, SecureRecord> = WeakMapCreate();
     // raw object map
@@ -82,21 +81,33 @@ export class SecureEnvironment {
     // distortion mechanism (default to noop)
     private distortionCallback?: (target: SecureProxyTarget) => SecureProxyTarget = t => t;
 
+    // cached utilities
+    private secureProxyConstructor: ProxyConstructor;
+    private secureArrayConstructor: ArrayConstructor;
+
     constructor(options: SecureEnvironmentOptions) {
         if (isUndefined(options)) {
             throw ErrorCreate(`Missing SecureEnvironmentOptions options bag.`);
         }
         const { rawGlobalThis, secureGlobalThis, distortionCallback } = options;
         this.distortionCallback = distortionCallback;
-        this.secureGlobalThis = secureGlobalThis;
-        // These are foundational things that should never be wrapped but are equivalent
-        // TODO: revisit this, is this really needed? what happen if Object.prototype is patched in the sec env?
-        this.createSecureRecord(secureGlobalThis.Object, rawGlobalThis.Object);
-        this.createSecureRecord(secureGlobalThis.Object.prototype, rawGlobalThis.Object.prototype);
-        this.createSecureRecord(secureGlobalThis.Function, rawGlobalThis.Function);
-        this.createSecureRecord(secureGlobalThis.Function.prototype, rawGlobalThis.Function.prototype);
+        // remapping intrinsics that are realm's agnostic
+        for (let i = 0, len = ReflectiveIntrinsicObjectNames.length; i < len; i += 1) {
+            const name = ReflectiveIntrinsicObjectNames[i];
+            const raw = rawGlobalThis[name];
+            const secure = secureGlobalThis[name];
+            this.createSecureRecord(secure, raw);
+            this.createSecureRecord(secure.prototype, raw.prototype);
+        }
+        // caching utilities
+        this.secureProxyConstructor = secureGlobalThis.Proxy;
+        this.secureArrayConstructor = secureGlobalThis.Array;
     }
 
+    private createProxyInSandbox(shadowTarget: SecureShadowTarget, proxyHandler: SecureProxyHandler): SecureProxy {
+        // Using the Proxy constructor from the sandbox to avoid stack overflow leakages (see #48)
+        return new this.secureProxyConstructor(shadowTarget, proxyHandler);
+    }
     private createSecureShadowTarget(o: SecureProxyTarget): SecureShadowTarget {
         let shadowTarget: SecureShadowTarget;
         if (isFunction(o)) {
@@ -128,7 +139,7 @@ export class SecureEnvironment {
     private createSecureProxy(raw: SecureProxyTarget): SecureProxy {
         const shadowTarget = this.createSecureShadowTarget(raw);
         const proxyHandler = new SecureProxyHandler(this, raw);
-        const sec = ProxyCreate(shadowTarget, proxyHandler);
+        const sec = this.createProxyInSandbox(shadowTarget, proxyHandler);
         this.createSecureRecord(sec, raw);
         return sec;
     }
@@ -274,10 +285,9 @@ export class SecureEnvironment {
         }
     }
     getSecureArray(a: RawArray): SecureArray {
-        // identity of the new array correspond to the inner realm
-        const SecureArray = this.secureGlobalThis.Array as ArrayConstructor;
         const b: SecureValue[] = map(a, (raw: RawValue) => this.getSecureValue(raw));
-        return construct(SecureArray, b);
+        // identity of the new array correspond to the inner realm
+        return construct(this.secureArrayConstructor, b);
     }
     getSecureFunction(fn: RawFunction): SecureFunction {
         const sr = WeakMapGet(this.rom, fn);
@@ -308,8 +318,5 @@ export class SecureEnvironment {
     getRawArray(a: SecureArray): RawArray {
         // identity of the new array correspond to the outer realm
         return map(a, (sec: SecureValue) => this.getRawValue(sec));
-    }
-    get globalThis(): RawObject & typeof globalThis {
-        return this.secureGlobalThis;
     }
 }
