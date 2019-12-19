@@ -1,4 +1,4 @@
-const { isArray } = Array;
+const { isArray: ArrayIsArray } = Array;
 
 const {
     assign,
@@ -26,7 +26,7 @@ const {
 const ErrorCreate = unconstruct(Error);
 const SetCreate = unconstruct(Set);
 const SetHas = unapply(Set.prototype.has);
-const ProxyCreate = unconstruct(Proxy);
+const ProxyRevocable = Proxy.revocable;
 const WeakMapCreate = unconstruct(WeakMap);
 const WeakMapGet = unapply(WeakMap.prototype.get);
 const WeakMapHas = unapply(WeakMap.prototype.has);
@@ -43,7 +43,7 @@ export {
     ReflectGetPrototypeOf,
     ReflectSetPrototypeOf,
     ObjectCreate,
-    ProxyCreate,
+    ProxyRevocable,
     ReflectDefineProperty,
     ReflectIsExtensible,
     ReflectGetOwnPropertyDescriptor,
@@ -58,12 +58,45 @@ export {
     ReflectPreventExtensions,
     hasOwnProperty,
     freeze,
-    isArray,
     map,
     seal,
     isSealed,
     isFrozen,
 };
+
+export function isArray(a: any): a is [] {
+    try {
+        // a revoked proxy will break the membrane, more info:
+        // https://github.com/tc39/ecma262/issues/1798#issuecomment-567317199
+        return ArrayIsArray(a);
+    } catch (_ignored) {
+        return false;
+    }
+}
+
+export function isRevokedProxy(a: any): boolean {
+    try {
+        ArrayIsArray(a);
+        return false;
+    } catch (_ignored) {
+        return true;
+    }
+}
+
+interface AConstructor {
+    new(...args: any[]): unknown;
+}
+
+type AFunction = (...args: unknown[]) => unknown
+
+export function getFunctionName(fn: AConstructor | AFunction): string {
+    try {
+        // a revoked proxy will break the membrane when reading the function name
+        return fn.name;
+    } catch (_ignored) {
+        return ''; // or maybe undefined
+    }
+}
 
 export function unapply(func: Function): Function {
     return (thisArg: any, ...args: any[]) => apply(func, thisArg, args);

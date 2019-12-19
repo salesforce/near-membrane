@@ -13,29 +13,29 @@ import {
     ownKeys,
     ReflectPreventExtensions,
     isFunction,
-    getOwnPropertyDescriptors,
     freeze,
-    isTrue,
     emptyArray,
     hasOwnProperty,
-    isSealed,
-    isFrozen,
     seal,
 } from './shared';
 import {
     SecureEnvironment,
+} from './environment';
+import {
     SecureProxyTarget,
     SecureValue,
     SecureObject,
     RawConstructor,
     RawFunction,
     SecureShadowTarget,
-} from './environment';
+} from './membrane';
+import { TargetMeta, installDescriptorIntoShadowTarget } from './membrane';
 
 export function getSecureDescriptor(descriptor: PropertyDescriptor, env: SecureEnvironment): PropertyDescriptor {
     const secureDescriptor = assign(ObjectCreate(null), descriptor);
     const { value, get, set } = secureDescriptor;
     if ('writable' in secureDescriptor) {
+        // we are dealing with a value descriptor
         secureDescriptor.value = isFunction(value) ?
             // we are dealing with a method (optimization)
             env.getSecureFunction(value) : env.getSecureValue(value);
@@ -64,31 +64,12 @@ function getPropertyDescriptor(o: any, p: PropertyKey): PropertyDescriptor | und
     return undefined;
 }
 
-function copySecureOwnDescriptors(env: SecureEnvironment, shadowTarget: SecureShadowTarget, target: SecureProxyTarget) {
-    // TODO: typescript definition for getOwnPropertyDescriptors is wrong, it should include symbols
-    const descriptors: PropertyDescriptorMap = callWithErrorBoundaryProtection(env, () => {
-        return getOwnPropertyDescriptors(target);
-    });
+function copySecureOwnDescriptors(env: SecureEnvironment, shadowTarget: SecureShadowTarget, descriptors: PropertyDescriptorMap) {
     for (const key in descriptors) {
         // avoid poisoning by checking own properties from descriptors
         if (hasOwnProperty(descriptors, key)) {
             const originalDescriptor = getSecureDescriptor(descriptors[key], env);
-            const shadowTargetDescriptor = ReflectGetOwnPropertyDescriptor(shadowTarget, key);
-            if (!isUndefined(shadowTargetDescriptor)) {
-                if (hasOwnProperty(shadowTargetDescriptor, 'configurable') &&
-                        isTrue(shadowTargetDescriptor.configurable)) {
-                    ReflectDefineProperty(shadowTarget, key, originalDescriptor);
-                } else if (hasOwnProperty(shadowTargetDescriptor, 'writable') &&
-                        isTrue(shadowTargetDescriptor.writable)) {
-                    // just in case
-                    shadowTarget[key] = originalDescriptor.value;
-                } else {
-                    // ignoring... since it is non configurable and non-writable
-                    // usually, arguments, callee, etc.
-                }
-            } else {
-                ReflectDefineProperty(shadowTarget, key, originalDescriptor);
-            }
+            installDescriptorIntoShadowTarget(shadowTarget, key, originalDescriptor);
         }
     }
 }
@@ -126,34 +107,34 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
     private readonly target: SecureProxyTarget;
     // environment object that controls the realm
     private readonly env: SecureEnvironment;
+    // metadata about the shape of the target
+    private readonly meta: TargetMeta;
 
-    constructor(env: SecureEnvironment, target: SecureProxyTarget) {
+    constructor(env: SecureEnvironment, target: SecureProxyTarget, meta: TargetMeta) {
         this.target = target;
+        this.meta = meta;
         this.env = env;
     }
     // initialization used to avoid the initialization cost
     // of an object graph, we want to do it when the
     // first interaction happens.
     private initialize(shadowTarget: SecureShadowTarget) {
-        const { target, env } = this;
-        // adjusting the proto chain of the shadowTarget (recursively)
-        const secProto = callWithErrorBoundaryProtection(env, () => {
-            const rawProto = ReflectGetPrototypeOf(target);
-            return env.getSecureValue(rawProto);
-        });
-        ReflectSetPrototypeOf(shadowTarget, secProto);
-        // defining own descriptors
-        copySecureOwnDescriptors(env, shadowTarget, target);
-        // preserving the semantics of the object
-        if (isFrozen(target)) {
-            freeze(shadowTarget);
-        } else if (isSealed(target)) {
-            seal(shadowTarget);
-        } else if (!ReflectIsExtensible(target)) {
-            ReflectPreventExtensions(shadowTarget);
-        }
+        const { meta, env } = this;
         // once the initialization is executed once... the rest is just noop 
         this.initialize = noop;
+        // adjusting the proto chain of the shadowTarget (recursively)
+        const secProto =  env.getSecureValue(meta.proto);
+        ReflectSetPrototypeOf(shadowTarget, secProto);
+        // defining own descriptors
+        copySecureOwnDescriptors(env, shadowTarget, meta.descriptors);
+        // preserving the semantics of the object
+        if (meta.isFrozen) {
+            freeze(shadowTarget);
+        } else if (meta.isSealed) {
+            seal(shadowTarget);
+        } else if (!meta.isExtensible) {
+            ReflectPreventExtensions(shadowTarget);
+        }
         // future optimization: hoping that proxies with frozen handlers can be faster
         freeze(this);
     }

@@ -4,7 +4,7 @@ function throwNewError(Ctor, msg) {
     throw new Ctor(msg);
 }
 
-let sandboxedFn;
+let sandboxedValue;
 
 globalThis.foo = {
     set a(v) {
@@ -17,7 +17,7 @@ globalThis.foo = {
         throwNewError(RangeError, 'b() method throws for argument: ' + v);
     },
     expose(fn) {
-        sandboxedFn = fn;
+        sandboxedValue = fn;
     }
 };
 
@@ -26,15 +26,15 @@ describe('The Error Boundary', () => {
         const secureGlobalThis = createSecureEnvironment((v) => v);
         secureGlobalThis.eval(`foo.expose(() => { foo.a })`);
         expect(() => {
-            sandboxedFn();
+            sandboxedValue();
         }).toThrowError(Error);
         secureGlobalThis.eval(`foo.expose(() => { foo.a = 1; })`);
         expect(() => {
-            sandboxedFn();
+            sandboxedValue();
         }).toThrowError(Error);
         secureGlobalThis.eval(`foo.expose(() => { foo.b(2); })`);
         expect(() => {
-            sandboxedFn();
+            sandboxedValue();
         }).toThrowError(RangeError);
     });
     it('should remap the Outer Realm Error instance to the sandbox errors', function() {
@@ -72,5 +72,22 @@ describe('The Error Boundary', () => {
                 }
             `);
         }).not.toThrowError();
+    });
+    it('should capture throwing from user proxy', function() {
+        const secureGlobalThis = createSecureEnvironment((v) => v);
+        secureGlobalThis.eval(`
+            const revocable = Proxy.revocable(() => undefined, {});
+            revocable.revoke();
+            foo.expose(revocable.proxy);
+        `);
+        expect(() => {
+            sandboxedValue.x;
+        }).toThrowError(Error);
+        expect(() => {
+            sandboxedValue.x = 1;
+        }).toThrowError(Error);
+        expect(() => {
+            delete sandboxedValue.x;
+        }).toThrowError(Error);
     });
 });

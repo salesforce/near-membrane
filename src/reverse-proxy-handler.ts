@@ -2,27 +2,24 @@ import {
     apply,
     assign,
     construct,
-    isUndefined,
-    ReflectDefineProperty,
-    ReflectGetPrototypeOf,
-    ReflectGetOwnPropertyDescriptor,
     ReflectSetPrototypeOf,
-    getOwnPropertyDescriptors,
     freeze,
     isFunction,
-    isTrue,
     hasOwnProperty,
     ObjectCreate,
 } from './shared';
 import {
     SecureEnvironment,
+} from './environment';
+import {
     ReverseProxyTarget,
     RawValue,
     RawObject,
     SecureConstructor,
     SecureFunction,
     ReverseShadowTarget,
-} from './environment';
+} from './membrane';
+import { TargetMeta, installDescriptorIntoShadowTarget } from './membrane';
 
 function getReverseDescriptor(descriptor: PropertyDescriptor, env: SecureEnvironment): PropertyDescriptor {
     const reverseDescriptor = assign(ObjectCreate(null), descriptor);
@@ -34,7 +31,7 @@ function getReverseDescriptor(descriptor: PropertyDescriptor, env: SecureEnviron
             env.getRawFunction(value) : env.getRawValue(value);
     } else {
         // we are dealing with accessors
-        if (isFunction(set)) {
+        if (isFunction(set)) { 
             reverseDescriptor.set = env.getRawFunction(set);
         }
         if (isFunction(get)) {
@@ -44,31 +41,12 @@ function getReverseDescriptor(descriptor: PropertyDescriptor, env: SecureEnviron
     return reverseDescriptor;
 }
 
-function copyReverseOwnDescriptors(env: SecureEnvironment, shadowTarget: ReverseShadowTarget, target: ReverseProxyTarget) {
-    // TODO: typescript definition for getOwnPropertyDescriptors is wrong, it should include symbols
-    const descriptors: PropertyDescriptorMap = callWithErrorBoundaryProtection(env, () => {
-        return getOwnPropertyDescriptors(target);
-    });
+function copyReverseOwnDescriptors(env: SecureEnvironment, shadowTarget: ReverseShadowTarget, descriptors: PropertyDescriptorMap) {
     for (const key in descriptors) {
         // avoid poisoning by checking own properties from descriptors
         if (hasOwnProperty(descriptors, key)) {
             const originalDescriptor = getReverseDescriptor(descriptors[key], env);
-            const shadowTargetDescriptor = ReflectGetOwnPropertyDescriptor(shadowTarget, key);
-            if (!isUndefined(shadowTargetDescriptor)) {
-                if (hasOwnProperty(shadowTargetDescriptor, 'configurable') &&
-                        isTrue(shadowTargetDescriptor.configurable)) {
-                    ReflectDefineProperty(shadowTarget, key, originalDescriptor);
-                } else if (hasOwnProperty(shadowTargetDescriptor, 'writable') &&
-                        isTrue(shadowTargetDescriptor.writable)) {
-                    // just in case
-                    shadowTarget[key] = originalDescriptor.value;
-                } else {
-                    // ignoring... since it is non configurable and non-writable
-                    // usually, arguments, callee, etc.
-                }
-            } else {
-                ReflectDefineProperty(shadowTarget, key, originalDescriptor);
-            }
+            installDescriptorIntoShadowTarget(shadowTarget, key, originalDescriptor);
         }
     }
 }
@@ -104,21 +82,21 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
     private readonly target: ReverseProxyTarget;
     // environment object that controls the realm
     private readonly env: SecureEnvironment;
+    // metadata about the shape of the target
+    private readonly meta: TargetMeta;
 
-    constructor(env: SecureEnvironment, target: ReverseProxyTarget) {
+    constructor(env: SecureEnvironment, target: ReverseProxyTarget, meta: TargetMeta) {
         this.target = target;
+        this.meta = meta;
         this.env = env;
     }
     initialize(shadowTarget: ReverseShadowTarget) {
-        const { target, env } = this;
+        const { meta, env } = this;
         // adjusting the proto chain of the shadowTarget (recursively)
-        const rawProto = callWithErrorBoundaryProtection(env, () => {
-            const secureProto = ReflectGetPrototypeOf(target);
-            return env.getRawValue(secureProto);
-        });
+        const rawProto = env.getRawValue(meta.proto);
         ReflectSetPrototypeOf(shadowTarget, rawProto);
         // defining own descriptors
-        copyReverseOwnDescriptors(env, shadowTarget, target);
+        copyReverseOwnDescriptors(env, shadowTarget, meta.descriptors);
         // reserve proxies are always frozen
         freeze(shadowTarget);
         // future optimization: hoping that proxies with frozen handlers can be faster

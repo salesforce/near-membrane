@@ -1,4 +1,5 @@
-import { SecureEnvironment, SecureProxyTarget } from "./environment";
+import { SecureEnvironment } from "./environment";
+import { SecureProxyTarget } from "./membrane";
 import { 
     ReflectGetPrototypeOf, 
     ReflectSetPrototypeOf, 
