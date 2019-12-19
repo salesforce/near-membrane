@@ -123,7 +123,7 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
         // once the initialization is executed once... the rest is just noop 
         this.initialize = noop;
         // adjusting the proto chain of the shadowTarget (recursively)
-        const secProto =  env.getSecureValue(meta.proto);
+        const secProto = env.getSecureValue(meta.proto);
         ReflectSetPrototypeOf(shadowTarget, secProto);
         // defining own descriptors
         copySecureOwnDescriptors(env, shadowTarget, meta.descriptors);

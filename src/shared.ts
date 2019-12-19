@@ -83,21 +83,6 @@ export function isRevokedProxy(a: any): boolean {
     }
 }
 
-interface AConstructor {
-    new(...args: any[]): unknown;
-}
-
-type AFunction = (...args: unknown[]) => unknown
-
-export function getFunctionName(fn: AConstructor | AFunction): string {
-    try {
-        // a revoked proxy will break the membrane when reading the function name
-        return fn.name;
-    } catch (_ignored) {
-        return ''; // or maybe undefined
-    }
-}
-
 export function unapply(func: Function): Function {
     return (thisArg: any, ...args: any[]) => apply(func, thisArg, args);
 }
