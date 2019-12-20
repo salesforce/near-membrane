@@ -13,7 +13,7 @@ const rawWindowProto = ReflectGetPrototypeOf(rawWindow);
 const rawWindowPropertiesProto = ReflectGetPrototypeOf(rawWindowProto);
 const rawEventTargetProto = ReflectGetPrototypeOf(rawWindowPropertiesProto);
 
-export default function createSecureEnvironment(distortionCallback: (target: SecureProxyTarget) => SecureProxyTarget): Window & typeof globalThis {
+export default function createSecureEnvironment(distortionMap?: Map<SecureProxyTarget, SecureProxyTarget>): Window & typeof globalThis {
     // @ts-ignore document global ref - in browsers
     const iframe = document.createElement('iframe');
     iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
@@ -53,7 +53,7 @@ export default function createSecureEnvironment(distortionCallback: (target: Sec
     const env = new SecureEnvironment({
         rawGlobalThis: rawWindow,
         secureGlobalThis: secureWindow,
-        distortionCallback,
+        distortionMap,
     });
 
     // other maps

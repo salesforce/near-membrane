@@ -4,16 +4,12 @@ import createSecureEnvironment from '../lib/browser-realm.js';
 window.originalFetch = fetch;
 window.wrappedFetch = (...args) => fetch(...args);
 
-function distortionCallback(t) {
-    if (t === fetch) {
-        return () => {
-            console.error('forbidden');
-        }
-    }
-    return t;
-}
-
-const secureGlobalThis = createSecureEnvironment(distortionCallback);
+const distortionMap = new Map([
+    [fetch, () => {
+        console.error('forbidden');
+    }],
+]);
+const secureGlobalThis = createSecureEnvironment(distortionMap);
 
 secureGlobalThis.eval(`
     debugger;
