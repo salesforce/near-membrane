@@ -5,7 +5,7 @@ describe('Freezing', () => {
         it('should be observed from within the sandbox', function() {
             globalThis.bar = { a:1, b: 2 };
             Object.freeze(globalThis.bar)
-            const secureGlobalThis = createSecureEnvironment((v) => v);
+            const secureGlobalThis = createSecureEnvironment();
             expect(Object.isExtensible(globalThis.bar)).toBe(false);
             expect(Object.isSealed(globalThis.bar)).toBe(true);
             expect(Object.isFrozen(globalThis.bar)).toBe(true);
@@ -21,7 +21,7 @@ describe('Freezing', () => {
     describe('after creating the sandbox', () => {
         it('should not be observed from within the sandbox', function() {
             globalThis.baz = { a:1, b: 2 };
-            const secureGlobalThis = createSecureEnvironment((v) => v);
+            const secureGlobalThis = createSecureEnvironment();
             expect(secureGlobalThis.Object.isExtensible(secureGlobalThis.baz)).toBe(true);
             expect(secureGlobalThis.Object.isSealed(secureGlobalThis.baz)).toBe(false);
             expect(secureGlobalThis.Object.isFrozen(secureGlobalThis.baz)).toBe(false);
@@ -49,7 +49,7 @@ describe('Freezing', () => {
                     o.z = 3;
                 }).toThrowError();
             }
-            const secureGlobalThis = createSecureEnvironment((v) => v);
+            const secureGlobalThis = createSecureEnvironment();
             secureGlobalThis.eval(`outerObjectFactory({ x: 1, get y() { return 2 } }, function() {})`);
         });
     });

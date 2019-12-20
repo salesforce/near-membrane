@@ -2,6 +2,7 @@ import {
     apply, 
     assign,
     isUndefined, 
+    isNullish,
     ObjectCreate, 
     isFunction, 
     hasOwnProperty, 
@@ -52,11 +53,13 @@ interface SecureRecord {
     sec: SecureProxy;
 }
 
+export type DistortionMap = WeakMap<SecureProxyTarget, SecureProxyTarget>;
+
 // it means it does have identity and should be proxified.
 function isProxyTarget(o: RawValue | SecureValue):
     o is (RawFunction | RawConstructor | RawObject | SecureFunction | SecureConstructor | SecureObject) {
     // hire-wired for the common case
-    if (o == null) {
+    if (isNullish(o)) {
         return false;
     }
     const t = typeof o;
@@ -68,8 +71,8 @@ interface SecureEnvironmentOptions {
     rawGlobalThis: RawObject & typeof globalThis;
     // Secure global object used by the secure environment
     secureGlobalThis: SecureObject & typeof globalThis;
-    // Optional distortion hook to prevent access to certain capabilities from within the secure environment
-    distortionCallback?: (target: SecureProxyTarget) => SecureProxyTarget;
+    // Optional distortion map to tame functionalities observed through the membrane
+    distortionMap?: Map<SecureProxyTarget, SecureProxyTarget>;
 }
 
 export class SecureEnvironment {
@@ -78,7 +81,7 @@ export class SecureEnvironment {
     // raw object map
     private rom: WeakMap<RawFunction | RawObject, SecureRecord> = WeakMapCreate();
     // distortion mechanism (default to noop)
-    private distortionCallback?: (target: SecureProxyTarget) => SecureProxyTarget = t => t;
+    private distortionMap: DistortionMap;
 
     // cached utilities
     private secureProxyRevocable: <T extends object>(target: T, handler: ProxyHandler<T>) => { proxy: T; revoke: () => void; }
@@ -88,8 +91,8 @@ export class SecureEnvironment {
         if (isUndefined(options)) {
             throw ErrorCreate(`Missing SecureEnvironmentOptions options bag.`);
         }
-        const { rawGlobalThis, secureGlobalThis, distortionCallback } = options;
-        this.distortionCallback = distortionCallback;
+        const { rawGlobalThis, secureGlobalThis, distortionMap } = options;
+        this.distortionMap = WeakMapCreate(isUndefined(distortionMap) ? [] : distortionMap.entries());
         // remapping intrinsics that are realm's agnostic
         for (let i = 0, len = ReflectiveIntrinsicObjectNames.length; i < len; i += 1) {
             const name = ReflectiveIntrinsicObjectNames[i];
@@ -149,11 +152,12 @@ export class SecureEnvironment {
         WeakMapSet(this.rom, raw, sr);
     }
     private getDistortedValue(target: SecureProxyTarget): SecureProxyTarget {
-        const { distortionCallback } = this;
-        if (!isFunction(distortionCallback)) {
+        const { distortionMap } = this;
+        if (!WeakMapHas(distortionMap, target)) {
             return target;
         }
-        const distortedTarget = distortionCallback(target);
+        // if a distortion entry is found, it must be a valid proxy target
+        const distortedTarget = WeakMapGet(distortionMap, target) as SecureProxyTarget;
         if (!isProxyTarget(distortedTarget)) {
             throw ErrorCreate(`Invalid distortion mechanism.`);
         }
