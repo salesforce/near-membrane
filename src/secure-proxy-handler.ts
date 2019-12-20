@@ -5,7 +5,7 @@ import {
     deleteProperty,
     isUndefined,
     ObjectCreate,
-    ReflectDefineProperty,
+    ObjectDefineProperty,
     ReflectSetPrototypeOf,
     ReflectGetPrototypeOf,
     ReflectIsExtensible,
@@ -83,10 +83,10 @@ function callWithErrorBoundaryProtection(env: SecureEnvironment, fn: () => Secur
         if (e instanceof Error) {
             let secError;
             try {
-                secError = new (env.getSecureValue(e.constructor))(e.message);
+                secError = construct(env.getSecureValue(e.constructor), [e.message]);
             } catch (ignored) {
                 // in case the constructor inference fails
-                secError = new (env.getSecureValue(Error))(e.message)
+                secError = construct(env.getSecureValue(Error), [e.message]);
             }
             // by throwing a new secure error, we eliminate the stack information from the outer realm
             throw secError;
@@ -247,7 +247,10 @@ export class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
     defineProperty(shadowTarget: SecureShadowTarget, key: PropertyKey, descriptor: PropertyDescriptor): boolean {
         this.initialize(shadowTarget);
         // this operation can only affect the env object graph
-        return ReflectDefineProperty(shadowTarget, key, descriptor);
+        // intentionally using Object.defineProperty instead of Reflect.defineProperty
+        // to throw for existing non-configurable descriptors.
+        ObjectDefineProperty(shadowTarget, key, descriptor);
+        return true;
     }
 }
 

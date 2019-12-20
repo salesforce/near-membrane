@@ -62,10 +62,10 @@ function callWithErrorBoundaryProtection(env: SecureEnvironment, fn: () => RawVa
         }
         let rawError;
         try {
-            rawError = new (env.getRawValue(e.constructor))(e.message);
+            rawError = construct(env.getRawValue(e.constructor), [e.message]);
         } catch (ignored) {
             // in case the constructor inference fails
-            rawError = new Error(e.message)
+            rawError = construct(Error, [e.message]);
         }
         // by throwing a new raw error, we eliminate the stack information from the sandbox
         throw rawError;
