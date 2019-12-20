@@ -2,6 +2,7 @@ import {
     apply, 
     assign,
     isUndefined, 
+    isNullish,
     ObjectCreate, 
     isFunction, 
     hasOwnProperty, 
@@ -56,7 +57,7 @@ interface SecureRecord {
 function isProxyTarget(o: RawValue | SecureValue):
     o is (RawFunction | RawConstructor | RawObject | SecureFunction | SecureConstructor | SecureObject) {
     // hire-wired for the common case
-    if (o == null) {
+    if (isNullish(o)) {
         return false;
     }
     const t = typeof o;
