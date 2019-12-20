@@ -2,27 +2,24 @@ import {
     apply,
     assign,
     construct,
-    isUndefined,
-    ReflectDefineProperty,
-    ReflectGetPrototypeOf,
-    ReflectGetOwnPropertyDescriptor,
     ReflectSetPrototypeOf,
-    getOwnPropertyDescriptors,
     freeze,
     isFunction,
-    isTrue,
     hasOwnProperty,
     ObjectCreate,
 } from './shared';
 import {
     SecureEnvironment,
+} from './environment';
+import {
     ReverseProxyTarget,
     RawValue,
     RawObject,
     SecureConstructor,
     SecureFunction,
     ReverseShadowTarget,
-} from './environment';
+} from './membrane';
+import { TargetMeta, installDescriptorIntoShadowTarget } from './membrane';
 
 function getReverseDescriptor(descriptor: PropertyDescriptor, env: SecureEnvironment): PropertyDescriptor {
     const reverseDescriptor = assign(ObjectCreate(null), descriptor);
@@ -34,7 +31,7 @@ function getReverseDescriptor(descriptor: PropertyDescriptor, env: SecureEnviron
             env.getRawFunction(value) : env.getRawValue(value);
     } else {
         // we are dealing with accessors
-        if (isFunction(set)) {
+        if (isFunction(set)) { 
             reverseDescriptor.set = env.getRawFunction(set);
         }
         if (isFunction(get)) {
@@ -44,31 +41,36 @@ function getReverseDescriptor(descriptor: PropertyDescriptor, env: SecureEnviron
     return reverseDescriptor;
 }
 
-function copyReverseOwnDescriptors(env: SecureEnvironment, shadowTarget: ReverseShadowTarget, target: ReverseProxyTarget) {
-    // TODO: typescript definition for getOwnPropertyDescriptors is wrong, it should include symbols
-    const descriptors = getOwnPropertyDescriptors(target);
+function copyReverseOwnDescriptors(env: SecureEnvironment, shadowTarget: ReverseShadowTarget, descriptors: PropertyDescriptorMap) {
     for (const key in descriptors) {
         // avoid poisoning by checking own properties from descriptors
         if (hasOwnProperty(descriptors, key)) {
             const originalDescriptor = getReverseDescriptor(descriptors[key], env);
-            const shadowTargetDescriptor = ReflectGetOwnPropertyDescriptor(shadowTarget, key);
-            if (!isUndefined(shadowTargetDescriptor)) {
-                if (hasOwnProperty(shadowTargetDescriptor, 'configurable') &&
-                        isTrue(shadowTargetDescriptor.configurable)) {
-                    ReflectDefineProperty(shadowTarget, key, originalDescriptor);
-                } else if (hasOwnProperty(shadowTargetDescriptor, 'writable') &&
-                        isTrue(shadowTargetDescriptor.writable)) {
-                    // just in case
-                    shadowTarget[key] = originalDescriptor.value;
-                } else {
-                    // ignoring... since it is non configurable and non-writable
-                    // usually, arguments, callee, etc.
-                }
-            } else {
-                ReflectDefineProperty(shadowTarget, key, originalDescriptor);
-            }
+            installDescriptorIntoShadowTarget(shadowTarget, key, originalDescriptor);
         }
     }
+}
+
+function callWithErrorBoundaryProtection(env: SecureEnvironment, fn: () => RawValue): RawValue {
+    let raw;
+    try {
+        raw = fn();
+    } catch (e) {
+        // This error occurred when the outer realm invokes a function from the sandbox.
+        if (e instanceof Error) {
+            throw e;
+        }
+        let rawError;
+        try {
+            rawError = construct(env.getRawValue(e.constructor), [e.message]);
+        } catch (ignored) {
+            // in case the constructor inference fails
+            rawError = construct(Error, [e.message]);
+        }
+        // by throwing a new raw error, we eliminate the stack information from the sandbox
+        throw rawError;
+    }
+    return raw;
 }
 
 /**
@@ -80,18 +82,21 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
     private readonly target: ReverseProxyTarget;
     // environment object that controls the realm
     private readonly env: SecureEnvironment;
+    // metadata about the shape of the target
+    private readonly meta: TargetMeta;
 
-    constructor(env: SecureEnvironment, target: ReverseProxyTarget) {
+    constructor(env: SecureEnvironment, target: ReverseProxyTarget, meta: TargetMeta) {
         this.target = target;
+        this.meta = meta;
         this.env = env;
     }
     initialize(shadowTarget: ReverseShadowTarget) {
-        const { target, env } = this;
+        const { meta, env } = this;
         // adjusting the proto chain of the shadowTarget (recursively)
-        const secureProto = ReflectGetPrototypeOf(target);
-        ReflectSetPrototypeOf(shadowTarget, env.getRawValue(secureProto));
+        const rawProto = env.getRawValue(meta.proto);
+        ReflectSetPrototypeOf(shadowTarget, rawProto);
         // defining own descriptors
-        copyReverseOwnDescriptors(env, shadowTarget, target);
+        copyReverseOwnDescriptors(env, shadowTarget, meta.descriptors);
         // reserve proxies are always frozen
         freeze(shadowTarget);
         // future optimization: hoping that proxies with frozen handlers can be faster
@@ -101,8 +106,10 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
         const { target, env } = this;
         const secThisArg = env.getSecureValue(thisArg);
         const secArgArray = env.getSecureArray(argArray);
-        const sec = apply(target as SecureFunction, secThisArg, secArgArray);
-        return env.getRawValue(sec) as RawValue;
+        return callWithErrorBoundaryProtection(env, () => {
+            const sec = apply(target as SecureFunction, secThisArg, secArgArray);
+            return env.getRawValue(sec);
+        });
     }
     construct(shadowTarget: ReverseShadowTarget, argArray: RawValue[], newTarget: RawObject): RawObject {
         const { target: SecCtor, env } = this;
@@ -111,9 +118,10 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
         }
         const secArgArray = env.getSecureArray(argArray);
         // const secNewTarget = env.getSecureValue(newTarget);
-        const sec = construct(SecCtor as SecureConstructor, secArgArray);
-        const raw = env.getRawValue(sec);
-        return raw as RawObject;
+        return callWithErrorBoundaryProtection(env, () => {
+            const sec = construct(SecCtor as SecureConstructor, secArgArray);
+            return env.getRawValue(sec);
+        });
     }
 }
 

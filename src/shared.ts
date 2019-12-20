@@ -1,4 +1,4 @@
-const { isArray } = Array;
+const { isArray: ArrayIsArray } = Array;
 
 const {
     assign,
@@ -27,7 +27,7 @@ const {
 const ErrorCreate = unconstruct(Error);
 const SetCreate = unconstruct(Set);
 const SetHas = unapply(Set.prototype.has);
-const ProxyCreate = unconstruct(Proxy);
+const ProxyRevocable = Proxy.revocable;
 const WeakMapCreate = unconstruct(WeakMap);
 const WeakMapGet = unapply(WeakMap.prototype.get);
 const WeakMapHas = unapply(WeakMap.prototype.has);
@@ -45,7 +45,7 @@ export {
     ReflectSetPrototypeOf,
     ObjectCreate,
     ObjectDefineProperty,
-    ProxyCreate,
+    ProxyRevocable,
     ReflectDefineProperty,
     ReflectIsExtensible,
     ReflectGetOwnPropertyDescriptor,
@@ -60,12 +60,30 @@ export {
     ReflectPreventExtensions,
     hasOwnProperty,
     freeze,
-    isArray,
     map,
     seal,
     isSealed,
     isFrozen,
 };
+
+export function isArray(a: any): a is [] {
+    try {
+        // a revoked proxy will break the membrane, more info:
+        // https://github.com/tc39/ecma262/issues/1798#issuecomment-567317199
+        return ArrayIsArray(a);
+    } catch (_ignored) {
+        return false;
+    }
+}
+
+export function isRevokedProxy(a: any): boolean {
+    try {
+        ArrayIsArray(a);
+        return false;
+    } catch (_ignored) {
+        return true;
+    }
+}
 
 export function unapply(func: Function): Function {
     return (thisArg: any, ...args: any[]) => apply(func, thisArg, args);
@@ -161,3 +179,17 @@ export const ESGlobalKeys = SetCreate([
     // *** ECMA-402
     'Intl', // Unstable
 ]);
+
+// These are foundational things that should never be wrapped but are equivalent
+// TODO: revisit this list.
+export const ReflectiveIntrinsicObjectNames = [
+    'Object',
+    'Function',
+    'URIError',
+    'TypeError',
+    'SyntaxError',
+    'ReferenceError',
+    'RangeError',
+    'EvalError',
+    'Error',
+];
