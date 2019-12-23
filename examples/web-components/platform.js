@@ -9,14 +9,9 @@ distortionMap.set(ShadowRootHostGetter, _ => { throw new Error(`Forbidden`); });
 distortionMap.set(assignedNodes, _ => { throw new Error(`Forbidden`); });
 distortionMap.set(assignedElements, _ => { throw new Error(`Forbidden`); });
 
-function distortionCallback(t) {
-    const d = distortionMap.get(t);
-    return d === undefined ? t : d;
-}
-
 function evaluateInNewSandbox(sourceText) {
-    const secureGlobalThis = createSecureEnvironment(distortionCallback);
-    secureGlobalThis.eval(sourceText);
+    const evalScript = createSecureEnvironment(distortionMap);
+    evalScript(sourceText);
 }
 
 document.querySelector('button').addEventListener('click', function (e) {

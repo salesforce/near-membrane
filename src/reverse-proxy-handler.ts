@@ -31,7 +31,7 @@ function getReverseDescriptor(descriptor: PropertyDescriptor, env: SecureEnviron
             env.getRawFunction(value) : env.getRawValue(value);
     } else {
         // we are dealing with accessors
-        if (isFunction(set)) { 
+        if (isFunction(set)) {
             reverseDescriptor.set = env.getRawFunction(set);
         }
         if (isFunction(get)) {
@@ -56,19 +56,8 @@ function callWithErrorBoundaryProtection(env: SecureEnvironment, fn: () => RawVa
     try {
         raw = fn();
     } catch (e) {
-        // This error occurred when the outer realm invokes a function from the sandbox.
-        if (e instanceof Error) {
-            throw e;
-        }
-        let rawError;
-        try {
-            rawError = construct(env.getRawValue(e.constructor), [e.message]);
-        } catch (ignored) {
-            // in case the constructor inference fails
-            rawError = construct(Error, [e.message]);
-        }
         // by throwing a new raw error, we eliminate the stack information from the sandbox
-        throw rawError;
+        throw env.getRawError(e);
     }
     return raw;
 }

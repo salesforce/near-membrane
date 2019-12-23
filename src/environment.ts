@@ -311,4 +311,18 @@ export class SecureEnvironment {
         // identity of the new array correspond to the outer realm
         return map(a, (sec: SecureValue) => this.getRawValue(sec));
     }
+    getRawError(e: Error | object): Error {
+        if (e instanceof Error) {
+            return e;
+        }
+        let rawError;
+        const { message } = e as any;
+        try {
+            rawError = construct(this.getRawValue(e.constructor), [message]);
+        } catch (ignored) {
+            // in case the constructor inference fails
+            rawError = construct(Error, [message]);
+        }
+        return rawError;
+    }
 }

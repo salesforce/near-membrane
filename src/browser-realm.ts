@@ -14,7 +14,7 @@ const rawWindowProto = ReflectGetPrototypeOf(rawWindow);
 const rawWindowPropertiesProto = ReflectGetPrototypeOf(rawWindowProto);
 const rawEventTargetProto = ReflectGetPrototypeOf(rawWindowPropertiesProto);
 
-export default function createSecureEnvironment(distortionMap?: Map<SecureProxyTarget, SecureProxyTarget>): Window & typeof globalThis {
+export default function createSecureEnvironment(distortionMap?: Map<SecureProxyTarget, SecureProxyTarget>): (sourceText: string) => void {
     // @ts-ignore document global ref - in browsers
     const iframe = document.createElement('iframe');
     iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
@@ -26,12 +26,13 @@ export default function createSecureEnvironment(distortionMap?: Map<SecureProxyT
     // For Chrome we evaluate the `window` object to kickstart the realm so that
     // `window` persists when the iframe is removed from the document.
     const secureWindow = (iframe.contentWindow as WindowProxy).window;
-    secureWindow.eval('window');
+    const { eval: secureIndirectEval } = secureWindow;
+    secureIndirectEval('window');
 
     // In Chrome debugger statements will be ignored when the iframe is removed
     // from the document. Other browsers like Firefox and Safari work as expected.
     // https://bugs.chromium.org/p/chromium/issues/detail?id=1015462
-    iframe.remove();
+    // iframe.remove();
 
     // window -> Window -> WindowProperties -> EventTarget
     const secureDocument = secureWindow.document;
@@ -67,5 +68,14 @@ export default function createSecureEnvironment(distortionMap?: Map<SecureProxyT
     env.remap(secureWindowProto, rawWindowProto, rawWindowProtoDescriptors);
     env.remap(secureWindow, rawWindow, rawGlobalThisDescriptors);
 
-    return secureWindow;
+    return (sourceText: string): void => {
+        try {
+            secureIndirectEval(sourceText);
+        } catch (e) {
+            // This error occurred when the outer realm attempts to evaluate a
+            // sourceText into the sandbox.
+            // - By throwing a new raw error, we eliminate the stack information from the sandbox
+            throw env.getRawError(e);
+        }
+    };
 }

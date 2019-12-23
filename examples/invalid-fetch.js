@@ -9,23 +9,23 @@ const distortionMap = new Map([
         console.error('forbidden');
     }],
 ]);
-const secureGlobalThis = createSecureEnvironment(distortionMap);
+const evalScript = createSecureEnvironment(distortionMap);
 
-secureGlobalThis.eval(`
+evalScript(`
     debugger;
 
     // the distortion of fetch does nothing
     window.fetch('./invalid-network-request.json');
 `);
 
-secureGlobalThis.eval(`
+evalScript(`
     debugger;
 
     // it will also throw because distortion it is based on identity
     window.originalFetch('./invalid-fetch.html');
 `);
 
-secureGlobalThis.eval(`
+evalScript(`
     debugger;
 
     // it will bypass the restriction because fetch ref never goes throw the membrane

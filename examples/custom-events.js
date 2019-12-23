@@ -1,13 +1,13 @@
 import createSecureEnvironment from '../lib/browser-realm.js';
 
-const secureGlobalThis = createSecureEnvironment();
+const evalScript = createSecureEnvironment();
 
 // listening for x from outer realm
 document.body.addEventListener('x', function (e) {
     console.log(e, e.target, e.currentTarget);
 });
 
-secureGlobalThis.eval(`
+evalScript(`
     debugger;
 
     const elm = document.createElement('p');

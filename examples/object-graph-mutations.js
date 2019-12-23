@@ -1,8 +1,40 @@
 import createSecureEnvironment from '../lib/browser-realm.js';
 
-const secureGlobalThis = createSecureEnvironment();
+globalThis.expect = (msg) => { 
+    return {
+        toBe(value) {
+            console.log(msg, value);
+        }
+    }
+};
 
-secureGlobalThis.eval(`
+globalThis.baz = { a:1, b: 2 };
+
+const evalScript = createSecureEnvironment();
+
+// checking the state of bar in the sandbox
+evalScript(`    
+    expect(Object.isExtensible(globalThis.bar)).toBe(true);
+    expect(Object.isSealed(globalThis.bar)).toBe(false);
+    expect(Object.isFrozen(globalThis.bar)).toBe(false);
+`);
+// freezing the raw value after being observed by the sandbox
+Object.freeze(globalThis.baz);
+expect(Object.isExtensible(globalThis.baz)).toBe(false);
+expect(Object.isSealed(globalThis.baz)).toBe(true);
+expect(Object.isFrozen(globalThis.baz)).toBe(true);
+// verifying the state of the obj from within the sandbox
+evalScript(`
+    'use strict';
+    debugger;
+    baz.c = 3;
+    expect(baz.c).toBe(3);
+`);
+expect(globalThis.baz.c).toBe(undefined); // because it is a sandboxed expando that doesn't leak out
+
+
+evalScript(`
+    'use strict';
     debugger;
 
     const originalProto = HTMLParagraphElement.prototype.__proto__;

@@ -1,11 +1,7 @@
 import createSecureEnvironment from '../lib/browser-realm.js';
 
-const secureGlobalThis = createSecureEnvironment();
-const elm = secureGlobalThis.document.createElement('p');
-secureGlobalThis.document.body.appendChild(elm);
-console.log(document.body.outerHTML);
-console.log(secureGlobalThis.document.body.outerHTML);
-secureGlobalThis.eval(`
+const evalScript = createSecureEnvironment();
+evalScript(`
     debugger;
 
     const elm = document.createElement('p');
@@ -16,6 +12,8 @@ secureGlobalThis.eval(`
     // expandos are available inside the secure env
     console.log(document.querySelector('p').foo); // -> 1
 `);
+
+console.log(document.body.outerHTML);
 
 // expandos are not available in the outer realm
 console.log(document.querySelector('p').foo); // -> undefined
