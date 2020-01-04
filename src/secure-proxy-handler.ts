@@ -1,6 +1,6 @@
 /**
  * This file implements a serializable factory function that is invoked once per sandbox
- * and it is used to create secure proxy handlers where all identities are defined inside
+ * and it is used to create secure proxies where all identities are defined inside
  * the sandbox, this guarantees that any error when interacting with those proxies, has
  * the proper identity to avoid leaking references from the outer realm into the sandbox
  * this is especially important for out of memory errors.
@@ -22,7 +22,12 @@ import {
 } from './membrane';
 import { TargetMeta } from './membrane';
 
-export const serializedSecureProxyHandlerFactory = (function secureProxyHandlerFactory(env: SecureEnvironment) {
+export type SecureRevocableInitializableProxyFactory = <SecureProxy>(raw: SecureProxyTarget, meta: TargetMeta) => {
+    proxy: SecureProxy;
+    revoke: () => void;
+};
+
+export const serializedSecureProxyFactory = (function secureProxyFactory(env: SecureEnvironment) {
     'use strict';
 
     const {
@@ -38,7 +43,9 @@ export const serializedSecureProxyHandlerFactory = (function secureProxyHandlerF
         defineProperty,
     } = Reflect;
     const { seal, freeze, defineProperty: ObjectDefineProperty, create, assign, hasOwnProperty } = Object;
+    const ProxyRevocable = Proxy.revocable;
     const emptyArray: [] = [];
+    const noop = () => undefined;
 
     function isUndefined(obj: any): obj is undefined {
         return obj === undefined;
@@ -47,6 +54,21 @@ export const serializedSecureProxyHandlerFactory = (function secureProxyHandlerF
     function isFunction(obj: any): obj is Function {
         return typeof obj === 'function';
     }
+
+    function renameFunction(provider: (...args: any[]) => any, receiver: (...args: any[]) => any) {
+        let nameDescriptor: PropertyDescriptor | undefined;
+        try {
+            // a revoked proxy will break the membrane when reading the function name
+            nameDescriptor = getOwnPropertyDescriptor(provider, 'name');
+        } catch (_ignored) {
+            // intentionally swallowing the error because this method is just extracting the function
+            // in a way that it should always succeed except for the cases in which the provider is a proxy
+            // that is either revoked or has some logic to prevent reading the name property descriptor.
+        }
+        if (!isUndefined(nameDescriptor)) {
+            defineProperty(receiver, 'name', nameDescriptor);
+        }
+    }    
 
     function installDescriptorIntoShadowTarget(shadowTarget: SecureProxyTarget, key: PropertyKey, originalDescriptor: PropertyDescriptor) {
         const shadowTargetDescriptor = getOwnPropertyDescriptor(shadowTarget, key);
@@ -110,14 +132,23 @@ export const serializedSecureProxyHandlerFactory = (function secureProxyHandlerF
         }
     }
 
-    return function createSecureProxyHandler(target: SecureProxyTarget, meta: TargetMeta): ProxyHandler<SecureProxyTarget> {
-
+    class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
+        // original target for the proxy
+        private readonly target: SecureProxyTarget;
+        // metadata about the shape of the target
+        private readonly meta: TargetMeta;
+    
+        constructor(target: SecureProxyTarget, meta: TargetMeta) {
+            this.target = target;
+            this.meta = meta;
+        }
         // initialization used to avoid the initialization cost
         // of an object graph, we want to do it when the
         // first interaction happens.
-        let initialize = function (shadowTarget: SecureShadowTarget) {
-            // once the initialization is executed once... the rest is just noop
-            initialize = () => undefined;
+        initialize(shadowTarget: SecureShadowTarget) {
+            const { meta } = this;
+            // once the initialization is executed once... the rest is just noop 
+            this.initialize = noop;
             // adjusting the proto chain of the shadowTarget (recursively)
             const secProto = env.getSecureValue(meta.proto);
             setPrototypeOf(shadowTarget, secProto);
@@ -131,130 +162,152 @@ export const serializedSecureProxyHandlerFactory = (function secureProxyHandlerF
             } else if (!meta.isExtensible) {
                 preventExtensions(shadowTarget);
             }
+            // future optimization: hoping that proxies with frozen handlers can be faster
+            freeze(this);
         }
-
-        // future optimization: hoping that proxies with frozen handlers can be faster
-        return freeze({
-            get(shadowTarget: SecureShadowTarget, key: PropertyKey, receiver: SecureObject): SecureValue {
-                initialize(shadowTarget);
-                const desc = getPropertyDescriptor(shadowTarget, key);
-                if (isUndefined(desc)) {
-                    return desc;
-                }
-                const { get } = desc;
-                if (isFunction(get)) {
-                    // calling the getter with the secure receiver because the getter expects a secure value
-                    // it also returns a secure value
-                    return apply(get, receiver, emptyArray);
-                }
-                return desc.value;
-            },
-            set(shadowTarget: SecureShadowTarget, key: PropertyKey, value: SecureValue, receiver: SecureObject): boolean {
-                initialize(shadowTarget);
-                const shadowTargetDescriptor = getPropertyDescriptor(shadowTarget, key);
-                if (!isUndefined(shadowTargetDescriptor)) {
-                    // descriptor exists in the shadowTarget or proto chain
-                    const { set, get, writable } = shadowTargetDescriptor;
-                    if (writable === false) {
-                        // TypeError: Cannot assign to read only property '${key}' of object
-                        return false;
-                    }
-                    if (typeof set === 'function') {
-                        // a setter is available, just call it with the secure value because
-                        // the setter expects a secure value
-                        apply(set, receiver, [value]);
-                        return true;
-                    }
-                    if (typeof get === 'function') {
-                        // a getter without a setter should fail to set in strict mode
-                        // TypeError: Cannot set property ${key} of object which has only a getter
-                        return false;
-                    }
-                } else if (!isExtensible(shadowTarget)) {
-                    // non-extensible should throw in strict mode
-                    // TypeError: Cannot add property ${key}, object is not extensible
+    
+        get(shadowTarget: SecureShadowTarget, key: PropertyKey, receiver: SecureObject): SecureValue {
+            this.initialize(shadowTarget);
+            const desc = getPropertyDescriptor(shadowTarget, key);
+            if (isUndefined(desc)) {
+                return desc;
+            }
+            const { get } = desc;
+            if (isFunction(get)) {
+                // calling the getter with the secure receiver because the getter expects a secure value
+                // it also returns a secure value
+                return apply(get, receiver, emptyArray);
+            }
+            return desc.value;
+        }
+        set(shadowTarget: SecureShadowTarget, key: PropertyKey, value: SecureValue, receiver: SecureObject): boolean {
+            this.initialize(shadowTarget);
+            const shadowTargetDescriptor = getPropertyDescriptor(shadowTarget, key);
+            if (!isUndefined(shadowTargetDescriptor)) {
+                // descriptor exists in the shadowTarget or proto chain
+                const { set, get, writable } = shadowTargetDescriptor;
+                if (writable === false) {
+                    // TypeError: Cannot assign to read only property '${key}' of object
                     return false;
                 }
-                // the descriptor is writable on the obj or proto chain, just assign it
-                shadowTarget[key] = value;
-                return true;
-            },
-            deleteProperty(shadowTarget: SecureShadowTarget, key: PropertyKey): boolean {
-                initialize(shadowTarget);
-                return deleteProperty(shadowTarget, key);
-            },
-            apply(shadowTarget: SecureShadowTarget, thisArg: SecureValue, argArray: SecureValue[]): SecureValue {
-                try {
-                    initialize(shadowTarget);
-                    const rawThisArg = env.getRawValue(thisArg);
-                    const rawArgArray = env.getRawArray(argArray);
-                    const raw = apply(target as RawFunction, rawThisArg, rawArgArray);
-                    return env.getSecureValue(raw);
-                } catch (e) {
-                    // by throwing a new secure error, we prevent stack overflow errors
-                    // from outer realm to leak into the sandbox
-                    throw e;
+                if (isFunction(set)) {
+                    // a setter is available, just call it with the secure value because
+                    // the setter expects a secure value
+                    apply(set, receiver, [value]);
+                    return true;
                 }
-            },
-            construct(shadowTarget: SecureShadowTarget, argArray: SecureValue[], newTarget: SecureObject): SecureObject {
-                try {
-                    initialize(shadowTarget);
-                    if (isUndefined(newTarget)) {
-                        throw TypeError();
-                    }
-                    const rawArgArray = env.getRawArray(argArray);
-                    const rawNewTarget = env.getRawValue(newTarget);
-                    const raw = construct(target as RawConstructor, rawArgArray, rawNewTarget);
-                    return env.getSecureValue(raw);
-                } catch (e) {
-                    // by throwing a new secure error, we prevent stack overflow errors
-                    // from outer realm to leak into the sandbox
-                    throw e;
+                if (isFunction(get)) {
+                    // a getter without a setter should fail to set in strict mode
+                    // TypeError: Cannot set property ${key} of object which has only a getter
+                    return false;
                 }
-            },
-            has(shadowTarget: SecureShadowTarget, key: PropertyKey): boolean {
-                initialize(shadowTarget);
-                return key in shadowTarget;
-            },
-            ownKeys(shadowTarget: SecureShadowTarget): PropertyKey[] {
-                initialize(shadowTarget);
-                return ownKeys(shadowTarget);
-            },
-            isExtensible(shadowTarget: SecureShadowTarget): boolean {
-                initialize(shadowTarget);
-                // No DOM API is non-extensible, but in the sandbox, the author
-                // might want to make them non-extensible
-                return isExtensible(shadowTarget);
-            },
-            getOwnPropertyDescriptor(shadowTarget: SecureShadowTarget, key: PropertyKey): PropertyDescriptor | undefined {
-                initialize(shadowTarget);
-                // TODO: this is leaking outer realm's object
-                return getOwnPropertyDescriptor(shadowTarget, key);
-            },
-            getPrototypeOf(shadowTarget: SecureShadowTarget): SecureValue {
-                initialize(shadowTarget);
-                // nothing to be done here since the shadowTarget must have the right proto chain
-                return getPrototypeOf(shadowTarget);
-            },
-            setPrototypeOf(shadowTarget: SecureShadowTarget, prototype: SecureValue): boolean {
-                initialize(shadowTarget);
-                // this operation can only affect the env object graph
-                return setPrototypeOf(shadowTarget, prototype);
-            },
-            preventExtensions(shadowTarget: SecureShadowTarget): boolean {
-                initialize(shadowTarget);
-                // this operation can only affect the env object graph
-                return preventExtensions(shadowTarget);
-            },
-            defineProperty(shadowTarget: SecureShadowTarget, key: PropertyKey, descriptor: PropertyDescriptor): boolean {
-                initialize(shadowTarget);
-                // this operation can only affect the env object graph
-                // intentionally using Object.defineProperty instead of Reflect.defineProperty
-                // to throw for existing non-configurable descriptors.
-                ObjectDefineProperty(shadowTarget, key, descriptor);
-                return true;
-            },
-        });
+            } else if (!isExtensible(shadowTarget)) {
+                // non-extensible should throw in strict mode
+                // TypeError: Cannot add property ${key}, object is not extensible
+                return false;
+            }
+            // the descriptor is writable on the obj or proto chain, just assign it
+            shadowTarget[key] = value;
+            return true;
+        }
+        deleteProperty(shadowTarget: SecureShadowTarget, key: PropertyKey): boolean {
+            this.initialize(shadowTarget);
+            return deleteProperty(shadowTarget, key);
+        }
+        apply(shadowTarget: SecureShadowTarget, thisArg: SecureValue, argArray: SecureValue[]): SecureValue {
+            const { target } = this;
+            try {
+                this.initialize(shadowTarget);
+                const rawThisArg = env.getRawValue(thisArg);
+                const rawArgArray = env.getRawArray(argArray);
+                const raw = apply(target as RawFunction, rawThisArg, rawArgArray);
+                return env.getSecureValue(raw);
+            } catch (e) {
+                // by throwing a new secure error, we prevent stack overflow errors
+                // from outer realm to leak into the sandbox
+                throw e;
+            }
+        }
+        construct(shadowTarget: SecureShadowTarget, argArray: SecureValue[], newTarget: SecureObject): SecureObject {
+            const { target } = this;
+            try {
+                this.initialize(shadowTarget);
+                if (isUndefined(newTarget)) {
+                    throw TypeError();
+                }
+                const rawArgArray = env.getRawArray(argArray);
+                const rawNewTarget = env.getRawValue(newTarget);
+                const raw = construct(target as RawConstructor, rawArgArray, rawNewTarget);
+                return env.getSecureValue(raw);
+            } catch (e) {
+                // by throwing a new secure error, we prevent stack overflow errors
+                // from outer realm to leak into the sandbox
+                throw e;
+            }
+        }
+        has(shadowTarget: SecureShadowTarget, key: PropertyKey): boolean {
+            this.initialize(shadowTarget);
+            return key in shadowTarget;
+        }
+        ownKeys(shadowTarget: SecureShadowTarget): PropertyKey[] {
+            this.initialize(shadowTarget);
+            return ownKeys(shadowTarget);
+        }
+        isExtensible(shadowTarget: SecureShadowTarget): boolean {
+            this.initialize(shadowTarget);
+            // No DOM API is non-extensible, but in the sandbox, the author
+            // might want to make them non-extensible
+            return isExtensible(shadowTarget);
+        }
+        getOwnPropertyDescriptor(shadowTarget: SecureShadowTarget, key: PropertyKey): PropertyDescriptor | undefined {
+            this.initialize(shadowTarget);
+            // TODO: this is leaking outer realm's object
+            return getOwnPropertyDescriptor(shadowTarget, key);
+        }
+        getPrototypeOf(shadowTarget: SecureShadowTarget): SecureValue {
+            this.initialize(shadowTarget);
+            // nothing to be done here since the shadowTarget must have the right proto chain
+            return getPrototypeOf(shadowTarget);
+        }
+        setPrototypeOf(shadowTarget: SecureShadowTarget, prototype: SecureValue): boolean {
+            this.initialize(shadowTarget);
+            // this operation can only affect the env object graph
+            return setPrototypeOf(shadowTarget, prototype);
+        }
+        preventExtensions(shadowTarget: SecureShadowTarget): boolean {
+            this.initialize(shadowTarget);
+            // this operation can only affect the env object graph
+            return preventExtensions(shadowTarget);
+        }
+        defineProperty(shadowTarget: SecureShadowTarget, key: PropertyKey, descriptor: PropertyDescriptor): boolean {
+            this.initialize(shadowTarget);
+            // this operation can only affect the env object graph
+            // intentionally using Object.defineProperty instead of Reflect.defineProperty
+            // to throw for existing non-configurable descriptors.
+            ObjectDefineProperty(shadowTarget, key, descriptor);
+            return true;
+        }
+    }
+    
+    setPrototypeOf(SecureProxyHandler.prototype, null);
 
-    };
+    function createSecureShadowTarget(target: SecureProxyTarget): SecureShadowTarget {
+        let shadowTarget;
+        if (isFunction(target)) {
+            // this is never invoked just needed to anchor the realm for errors
+            shadowTarget = function () {};
+            renameFunction(target as (...args: any[]) => any, shadowTarget as (...args: any[]) => any);
+        } else {
+            // o is object
+            shadowTarget = {};
+        }
+        return shadowTarget;
+    }
+
+    return function createSecureProxy(raw: SecureProxyTarget, meta: TargetMeta) {
+        const shadowTarget = createSecureShadowTarget(raw);
+        const proxyHandler = new SecureProxyHandler(raw, meta);
+        return ProxyRevocable(shadowTarget, proxyHandler);
+    } as SecureRevocableInitializableProxyFactory;
+
 }).toString();

@@ -37,6 +37,9 @@ export interface TargetMeta {
     isBroken?: true;
 }
 
+export type SecureProxy = SecureObject | SecureFunction;
+export type ReverseProxy = RawObject | RawFunction;
+
 export function getTargetMeta(target: SecureProxyTarget | ReverseProxyTarget): TargetMeta {
     const meta: TargetMeta = ObjectCreate(null);
     try {

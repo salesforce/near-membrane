@@ -12,8 +12,7 @@ import {
     map, 
     construct,
     ErrorCreate,
-    ESGlobalKeys, 
-    ProxyRevocable,
+    ESGlobalKeys,
     ReflectGetOwnPropertyDescriptor, 
     ReflectIsExtensible,
     SetHas,
@@ -23,10 +22,9 @@ import {
     WeakMapSet,
     ReflectiveIntrinsicObjectNames,
     isRevokedProxy,
-    renameFunction,
 } from './shared';
-import { serializedSecureProxyHandlerFactory } from './secure-proxy-handler';
-import { reverseProxyHandlerFactory, ReverseProxyHandler } from './reverse-proxy-handler';
+import { serializedSecureProxyFactory, SecureRevocableInitializableProxyFactory } from './secure-proxy-handler';
+import { reverseProxyFactory, ReverseRevocableInitializableProxyFactory } from './reverse-proxy-handler';
 import {
     SecureObject,
     SecureFunction,
@@ -41,19 +39,15 @@ import {
     RawArray,
     SecureArray,
     getTargetMeta,
-    ReverseShadowTarget,
-    SecureShadowTarget,
-    TargetMeta,
+    SecureProxy,
+    ReverseProxy,
 } from './membrane';
-
-type SecureProxy = SecureObject | SecureFunction;
-type ReverseProxy = RawObject | RawFunction;
 
 interface SecureRecord {
     // Ref to a value created inside the sandbox.
-    raw: SecureProxyTarget;
-    // Proxy of an reference from the outer realm.
-    sec: SecureProxy;
+    raw: SecureProxyTarget | ReverseProxy;
+    // Proxy of an reference from the outer realm or any other sandbox.
+    sec: SecureProxy | ReverseProxyTarget;
 }
 
 export type DistortionMap = WeakMap<SecureProxyTarget, SecureProxyTarget>;
@@ -87,11 +81,9 @@ export class SecureEnvironment {
     private distortionMap: DistortionMap;
 
     // cached utilities
-    private secureProxyRevocable: <T extends object>(target: T, handler: ProxyHandler<T>) => { proxy: T; revoke: () => void; }
     private secureArrayConstructor: ArrayConstructor;
-    private secureFunction: Function;
-    private createSecureProxyHandler: (target: SecureProxyTarget, meta: TargetMeta) => ProxyHandler<SecureProxyTarget>;
-    private createReverseProxyHandler: (target: ReverseProxyTarget, meta: TargetMeta) => ReverseProxyHandler;
+    private createProxyInSandbox: SecureRevocableInitializableProxyFactory;
+    private createProxyInOuterRealm: ReverseRevocableInitializableProxyFactory;
 
     constructor(options: SecureEnvironmentOptions) {
         if (isUndefined(options)) {
@@ -102,8 +94,8 @@ export class SecureEnvironment {
         // computing traps per environment for perf reasons
         // these traps are functions evaluated inside the sandbox that will
         // be used as the traps for any secure proxy.
-        this.createSecureProxyHandler = secureGlobalThis.eval(`(${serializedSecureProxyHandlerFactory})`)(this);
-        this.createReverseProxyHandler = reverseProxyHandlerFactory(this);
+        this.createProxyInSandbox = secureGlobalThis.eval(`(${serializedSecureProxyFactory})`)(this);
+        this.createProxyInOuterRealm = reverseProxyFactory(this);
         // remapping intrinsics that are realm's agnostic
         for (let i = 0, len = ReflectiveIntrinsicObjectNames.length; i < len; i += 1) {
             const name = ReflectiveIntrinsicObjectNames[i];
@@ -113,47 +105,15 @@ export class SecureEnvironment {
             this.createSecureRecord(secure.prototype, raw.prototype);
         }
         // caching utilities
-        this.secureProxyRevocable = secureGlobalThis.Proxy.revocable;
         this.secureArrayConstructor = secureGlobalThis.Array;
-        this.secureFunction = secureGlobalThis.Function;
     }
 
-    private createSecureShadowTarget(target: SecureProxyTarget): SecureShadowTarget {
-        let shadowTarget;
-        if (isFunction(target)) {
-            shadowTarget = this.secureFunction; // this is never invoked just needed to anchor the realm
-            renameFunction(target as (...args: any[]) => any, shadowTarget as (...args: any[]) => any);
-        } else {
-            // o is object
-            shadowTarget = {};
-        }
-        return shadowTarget;
-    }
-    private createReverseShadowTarget(target: ReverseProxyTarget): ReverseShadowTarget {
-        let shadowTarget;
-        if (isFunction(target)) {
-            shadowTarget = Function; // this is never invoked just needed to anchor the realm
-            renameFunction(target as (...args: any[]) => any, shadowTarget as (...args: any[]) => any);
-        } else {
-            // o is object
-            shadowTarget = {};
-        }
-        return shadowTarget;
-    }
     private createSecureProxy(raw: SecureProxyTarget): SecureProxy {
-        if (this.som.has(raw)) {
+        if (WeakMapHas(this.som, raw)) {
             throw new Error('Invariant Violation');
         }
-        const shadowTarget = this.createSecureShadowTarget(raw);
         const meta = getTargetMeta(raw);
-        const proxyHandler = this.createSecureProxyHandler(raw, meta);
-        // some secure proxy traps are subject to stack overflow attacks, the
-        // safety mechanism is to make sure that those two methods are functions
-        // defined inside the sandbox cached per environment.
-        assign(proxyHandler, this.createSecureProxyHandler);
-        // Using the Proxy.revocable from the sandbox to avoid stack overflow leakages (see #48)
-        const { secureProxyRevocable } = this;
-        const { proxy, revoke } = secureProxyRevocable(shadowTarget, proxyHandler);
+        const { proxy, revoke } = this.createProxyInSandbox(raw, meta);
         this.createSecureRecord(proxy, raw);
         if (meta.isBroken || isRevokedProxy(raw)) {
             // a failure during the meta extraction or the target is a revoked proxy
@@ -163,13 +123,11 @@ export class SecureEnvironment {
         return proxy;
     }
     private createReverseProxy(sec: ReverseProxyTarget): ReverseProxy {
-        if (this.rom.has(sec)) {
+        if (WeakMapHas(this.rom, sec)) {
             throw new Error('Invariant Violation');
         }
-        const shadowTarget = this.createReverseShadowTarget(sec);
         const meta = getTargetMeta(sec);
-        const proxyHandler = this.createReverseProxyHandler(sec, meta);
-        const { proxy, revoke } = ProxyRevocable(shadowTarget, proxyHandler);
+        const { proxy, revoke, initialize } = this.createProxyInOuterRealm(sec, meta);
         this.createSecureRecord(sec, proxy);
         if (meta.isBroken || isRevokedProxy(sec)) {
             // a failure during the meta extraction or the target is a revoked proxy
@@ -177,7 +135,7 @@ export class SecureEnvironment {
             revoke();
         } else {
             // eager initialization of reverse proxies
-            proxyHandler.initialize(shadowTarget);
+            initialize();
         }
         return proxy;
     }
@@ -348,19 +306,5 @@ export class SecureEnvironment {
     getRawArray(a: SecureArray): RawArray {
         // identity of the new array correspond to the outer realm
         return map(a, (sec: SecureValue) => this.getRawValue(sec));
-    }
-    getRawError(e: Error | object): Error {
-        if (e instanceof Error) {
-            return e;
-        }
-        let rawError;
-        const { message } = e as any;
-        try {
-            rawError = construct(this.getRawValue(e.constructor), [message]);
-        } catch (ignored) {
-            // in case the constructor inference fails
-            rawError = construct(Error, [message]);
-        }
-        return rawError;
     }
 }

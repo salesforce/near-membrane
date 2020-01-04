@@ -11,6 +11,8 @@ import {
     ReflectGetOwnPropertyDescriptor,
     isTrue,
     ReflectDefineProperty,
+    renameFunction,
+    ProxyRevocable,
 } from './shared';
 import {
     SecureEnvironment,
@@ -25,6 +27,12 @@ import {
     SecureProxyTarget,
 } from './membrane';
 import { TargetMeta } from './membrane';
+
+export type ReverseRevocableInitializableProxyFactory = <ReverseProxy>(raw: ReverseProxyTarget, meta: TargetMeta) => {
+    proxy: ReverseProxy;
+    revoke: () => void;
+    initialize: () => void;
+};
 
 function installDescriptorIntoShadowTarget(shadowTarget: SecureProxyTarget | ReverseProxyTarget, key: PropertyKey, originalDescriptor: PropertyDescriptor) {
     const shadowTargetDescriptor = ReflectGetOwnPropertyDescriptor(shadowTarget, key);
@@ -135,8 +143,28 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
 
 ReflectSetPrototypeOf(ReverseProxyHandler.prototype, null);
 
-export function reverseProxyHandlerFactory(env: SecureEnvironment) {
-    return function createReverseProxyHandler(target: ReverseProxyTarget, meta: TargetMeta): ReverseProxyHandler {
-        return new ReverseProxyHandler(env, target, meta);
+function createReverseShadowTarget(target: ReverseProxyTarget): ReverseShadowTarget {
+    let shadowTarget;
+    if (isFunction(target)) {
+        // this is never invoked just needed to anchor the realm
+        shadowTarget = function () {};
+        renameFunction(target as (...args: any[]) => any, shadowTarget as (...args: any[]) => any);
+    } else {
+        // o is object
+        shadowTarget = {};
     }
+    return shadowTarget;
+}
+
+export function reverseProxyFactory(env: SecureEnvironment) {
+    return function createReverseProxy(sec: ReverseProxyTarget, meta: TargetMeta) {
+        const shadowTarget = createReverseShadowTarget(sec);
+        const proxyHandler = new ReverseProxyHandler(env, sec, meta);
+        const { proxy, revoke } = ProxyRevocable(shadowTarget, proxyHandler);
+        return {
+            proxy,
+            revoke,
+            initialize: () => proxyHandler.initialize(shadowTarget),
+        };
+    } as ReverseRevocableInitializableProxyFactory;
 }
