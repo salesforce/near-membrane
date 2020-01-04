@@ -23,9 +23,10 @@ import {
     WeakMapSet,
     ReflectiveIntrinsicObjectNames,
     isRevokedProxy,
+    renameFunction,
 } from './shared';
-import { SecureProxyHandler } from './secure-proxy-handler';
-import { ReverseProxyHandler } from './reverse-proxy-handler';
+import { serializedSecureProxyHandlerFactory } from './secure-proxy-handler';
+import { reverseProxyHandlerFactory, ReverseProxyHandler } from './reverse-proxy-handler';
 import {
     SecureObject,
     SecureFunction,
@@ -40,7 +41,9 @@ import {
     RawArray,
     SecureArray,
     getTargetMeta,
-    createShadowTarget,
+    ReverseShadowTarget,
+    SecureShadowTarget,
+    TargetMeta,
 } from './membrane';
 
 type SecureProxy = SecureObject | SecureFunction;
@@ -86,6 +89,9 @@ export class SecureEnvironment {
     // cached utilities
     private secureProxyRevocable: <T extends object>(target: T, handler: ProxyHandler<T>) => { proxy: T; revoke: () => void; }
     private secureArrayConstructor: ArrayConstructor;
+    private secureFunction: Function;
+    private createSecureProxyHandler: (target: SecureProxyTarget, meta: TargetMeta) => ProxyHandler<SecureProxyTarget>;
+    private createReverseProxyHandler: (target: ReverseProxyTarget, meta: TargetMeta) => ReverseProxyHandler;
 
     constructor(options: SecureEnvironmentOptions) {
         if (isUndefined(options)) {
@@ -93,6 +99,11 @@ export class SecureEnvironment {
         }
         const { rawGlobalThis, secureGlobalThis, distortionMap } = options;
         this.distortionMap = WeakMapCreate(isUndefined(distortionMap) ? [] : distortionMap.entries());
+        // computing traps per environment for perf reasons
+        // these traps are functions evaluated inside the sandbox that will
+        // be used as the traps for any secure proxy.
+        this.createSecureProxyHandler = secureGlobalThis.eval(`(${serializedSecureProxyHandlerFactory})`)(this);
+        this.createReverseProxyHandler = reverseProxyHandlerFactory(this);
         // remapping intrinsics that are realm's agnostic
         for (let i = 0, len = ReflectiveIntrinsicObjectNames.length; i < len; i += 1) {
             const name = ReflectiveIntrinsicObjectNames[i];
@@ -104,15 +115,42 @@ export class SecureEnvironment {
         // caching utilities
         this.secureProxyRevocable = secureGlobalThis.Proxy.revocable;
         this.secureArrayConstructor = secureGlobalThis.Array;
+        this.secureFunction = secureGlobalThis.Function;
     }
 
+    private createSecureShadowTarget(target: SecureProxyTarget): SecureShadowTarget {
+        let shadowTarget;
+        if (isFunction(target)) {
+            shadowTarget = this.secureFunction; // this is never invoked just needed to anchor the realm
+            renameFunction(target as (...args: any[]) => any, shadowTarget as (...args: any[]) => any);
+        } else {
+            // o is object
+            shadowTarget = {};
+        }
+        return shadowTarget;
+    }
+    private createReverseShadowTarget(target: ReverseProxyTarget): ReverseShadowTarget {
+        let shadowTarget;
+        if (isFunction(target)) {
+            shadowTarget = Function; // this is never invoked just needed to anchor the realm
+            renameFunction(target as (...args: any[]) => any, shadowTarget as (...args: any[]) => any);
+        } else {
+            // o is object
+            shadowTarget = {};
+        }
+        return shadowTarget;
+    }
     private createSecureProxy(raw: SecureProxyTarget): SecureProxy {
         if (this.som.has(raw)) {
             throw new Error('Invariant Violation');
         }
-        const shadowTarget = createShadowTarget(raw);
+        const shadowTarget = this.createSecureShadowTarget(raw);
         const meta = getTargetMeta(raw);
-        const proxyHandler = new SecureProxyHandler(this, raw, meta);
+        const proxyHandler = this.createSecureProxyHandler(raw, meta);
+        // some secure proxy traps are subject to stack overflow attacks, the
+        // safety mechanism is to make sure that those two methods are functions
+        // defined inside the sandbox cached per environment.
+        assign(proxyHandler, this.createSecureProxyHandler);
         // Using the Proxy.revocable from the sandbox to avoid stack overflow leakages (see #48)
         const { secureProxyRevocable } = this;
         const { proxy, revoke } = secureProxyRevocable(shadowTarget, proxyHandler);
@@ -128,9 +166,9 @@ export class SecureEnvironment {
         if (this.rom.has(sec)) {
             throw new Error('Invariant Violation');
         }
-        const shadowTarget = createShadowTarget(sec);
+        const shadowTarget = this.createReverseShadowTarget(sec);
         const meta = getTargetMeta(sec);
-        const proxyHandler = new ReverseProxyHandler(this, sec, meta);
+        const proxyHandler = this.createReverseProxyHandler(sec, meta);
         const { proxy, revoke } = ProxyRevocable(shadowTarget, proxyHandler);
         this.createSecureRecord(sec, proxy);
         if (meta.isBroken || isRevokedProxy(sec)) {
@@ -173,7 +211,7 @@ export class SecureEnvironment {
                 continue;
             }
 
-            // avoid poisoning to only installing own properties from baseDescriptors
+            // avoid poisoning by only installing own properties from rawDescriptors
             const rawDescriptor = assign(ObjectCreate(null), rawDescriptors[key]);
             if ('value' in rawDescriptor) {
                 // TODO: maybe we should make everything a getter/setter that way

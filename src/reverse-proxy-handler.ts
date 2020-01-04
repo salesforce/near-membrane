@@ -7,6 +7,10 @@ import {
     isFunction,
     hasOwnProperty,
     ObjectCreate,
+    isUndefined,
+    ReflectGetOwnPropertyDescriptor,
+    isTrue,
+    ReflectDefineProperty,
 } from './shared';
 import {
     SecureEnvironment,
@@ -18,8 +22,28 @@ import {
     SecureConstructor,
     SecureFunction,
     ReverseShadowTarget,
+    SecureProxyTarget,
 } from './membrane';
-import { TargetMeta, installDescriptorIntoShadowTarget } from './membrane';
+import { TargetMeta } from './membrane';
+
+function installDescriptorIntoShadowTarget(shadowTarget: SecureProxyTarget | ReverseProxyTarget, key: PropertyKey, originalDescriptor: PropertyDescriptor) {
+    const shadowTargetDescriptor = ReflectGetOwnPropertyDescriptor(shadowTarget, key);
+    if (!isUndefined(shadowTargetDescriptor)) {
+        if (hasOwnProperty(shadowTargetDescriptor, 'configurable') &&
+                isTrue(shadowTargetDescriptor.configurable)) {
+            ReflectDefineProperty(shadowTarget, key, originalDescriptor);
+        } else if (hasOwnProperty(shadowTargetDescriptor, 'writable') &&
+                isTrue(shadowTargetDescriptor.writable)) {
+            // just in case
+            shadowTarget[key] = originalDescriptor.value;
+        } else {
+            // ignoring... since it is non configurable and non-writable
+            // usually, arguments, callee, etc.
+        }
+    } else {
+        ReflectDefineProperty(shadowTarget, key, originalDescriptor);
+    }
+}
 
 function getReverseDescriptor(descriptor: PropertyDescriptor, env: SecureEnvironment): PropertyDescriptor {
     const reverseDescriptor = assign(ObjectCreate(null), descriptor);
@@ -49,17 +73,6 @@ function copyReverseOwnDescriptors(env: SecureEnvironment, shadowTarget: Reverse
             installDescriptorIntoShadowTarget(shadowTarget, key, originalDescriptor);
         }
     }
-}
-
-function callWithErrorBoundaryProtection(env: SecureEnvironment, fn: () => RawValue): RawValue {
-    let raw;
-    try {
-        raw = fn();
-    } catch (e) {
-        // by throwing a new raw error, we eliminate the stack information from the sandbox
-        throw env.getRawError(e);
-    }
-    return raw;
 }
 
 /**
@@ -93,25 +106,37 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
     }
     apply(shadowTarget: ReverseShadowTarget, thisArg: RawValue, argArray: RawValue[]): RawValue {
         const { target, env } = this;
-        const secThisArg = env.getSecureValue(thisArg);
-        const secArgArray = env.getSecureArray(argArray);
-        return callWithErrorBoundaryProtection(env, () => {
+        try {
+            const secThisArg = env.getSecureValue(thisArg);
+            const secArgArray = env.getSecureArray(argArray);
             const sec = apply(target as SecureFunction, secThisArg, secArgArray);
             return env.getRawValue(sec);
-        });
+        } catch (e) {
+            // by throwing a new raw error, we avoid leaking error instances from sandbox
+            throw e;
+        }
     }
     construct(shadowTarget: ReverseShadowTarget, argArray: RawValue[], newTarget: RawObject): RawObject {
         const { target: SecCtor, env } = this;
         if (newTarget === undefined) {
             throw TypeError();
         }
-        const secArgArray = env.getSecureArray(argArray);
-        // const secNewTarget = env.getSecureValue(newTarget);
-        return callWithErrorBoundaryProtection(env, () => {
+        try {
+            const secArgArray = env.getSecureArray(argArray);
+            // const secNewTarget = env.getSecureValue(newTarget);
             const sec = construct(SecCtor as SecureConstructor, secArgArray);
             return env.getRawValue(sec);
-        });
+        } catch (e) {
+            // by throwing a new raw error, we avoid leaking error instances from sandbox
+            throw e;
+        }
     }
 }
 
 ReflectSetPrototypeOf(ReverseProxyHandler.prototype, null);
+
+export function reverseProxyHandlerFactory(env: SecureEnvironment) {
+    return function createReverseProxyHandler(target: ReverseProxyTarget, meta: TargetMeta): ReverseProxyHandler {
+        return new ReverseProxyHandler(env, target, meta);
+    }
+}

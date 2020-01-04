@@ -85,4 +85,13 @@ describe('The Error Boundary', () => {
             `);
         }).toThrowError(TypeError);
     });
+    it('should protect from leaking sandbox errors during parsing', function() {
+        const evalScript = createSecureEnvironment();
+
+        expect(() => {
+            evalScript(`
+                return; // illegal return statement
+            `);
+        }).toThrowError(SyntaxError);
+    });
 });

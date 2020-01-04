@@ -1,16 +1,10 @@
 import {
-    isUndefined,
     ObjectCreate,
     ReflectGetPrototypeOf,
     isFrozen,
     isSealed,
     ReflectIsExtensible,
     getOwnPropertyDescriptors,
-    ReflectGetOwnPropertyDescriptor,
-    hasOwnProperty,
-    isTrue,
-    isFunction,
-    ReflectDefineProperty,
 } from "./shared";
 
 export type RawValue = any;
@@ -67,50 +61,4 @@ export function getTargetMeta(target: SecureProxyTarget | ReverseProxyTarget): T
         meta.isBroken = true;
     }
     return meta;
-}
-
-export function installDescriptorIntoShadowTarget(shadowTarget: SecureProxyTarget | ReverseProxyTarget, key: PropertyKey, originalDescriptor: PropertyDescriptor) {
-    const shadowTargetDescriptor = ReflectGetOwnPropertyDescriptor(shadowTarget, key);
-    if (!isUndefined(shadowTargetDescriptor)) {
-        if (hasOwnProperty(shadowTargetDescriptor, 'configurable') &&
-                isTrue(shadowTargetDescriptor.configurable)) {
-            ReflectDefineProperty(shadowTarget, key, originalDescriptor);
-        } else if (hasOwnProperty(shadowTargetDescriptor, 'writable') &&
-                isTrue(shadowTargetDescriptor.writable)) {
-            // just in case
-            shadowTarget[key] = originalDescriptor.value;
-        } else {
-            // ignoring... since it is non configurable and non-writable
-            // usually, arguments, callee, etc.
-        }
-    } else {
-        ReflectDefineProperty(shadowTarget, key, originalDescriptor);
-    }
-}
-
-export function createShadowTarget(o: SecureProxyTarget): SecureShadowTarget
-export function createShadowTarget(target: ReverseProxyTarget): ReverseShadowTarget {
-    let shadowTarget;
-    if (isFunction(target)) {
-        shadowTarget = function () {};
-        let nameDescriptor: PropertyDescriptor | undefined;
-        try {
-            // a revoked proxy will break the membrane when reading the function name
-            nameDescriptor = ReflectGetOwnPropertyDescriptor(target, 'name');
-        } catch (_ignored) {
-            // intentionally swallowing the error because this method is just extracting the function
-            // in a way that it should always succeed except for the cases in which the target is a proxy
-            // that is either revoked or has some logic to prevent reading the name property descriptor.
-            // If it is revoked, it will be handled by the getTargetMeta() at some point, else, we just
-            // assume no name will be exposed, and continue.
-            // TODO: is the ignore name logic good enough? or should we be more restrictive?
-        }
-        if (!isUndefined(nameDescriptor)) {
-            ReflectDefineProperty(shadowTarget, 'name', nameDescriptor);
-        }
-    } else {
-        // o is object
-        shadowTarget = {};
-    }
-    return shadowTarget;
 }

@@ -32,7 +32,7 @@ export default function createSecureEnvironment(distortionMap?: Map<SecureProxyT
     // In Chrome debugger statements will be ignored when the iframe is removed
     // from the document. Other browsers like Firefox and Safari work as expected.
     // https://bugs.chromium.org/p/chromium/issues/detail?id=1015462
-    // iframe.remove();
+    iframe.remove();
 
     // window -> Window -> WindowProperties -> EventTarget
     const secureDocument = secureWindow.document;

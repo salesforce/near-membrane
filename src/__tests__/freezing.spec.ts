@@ -4,7 +4,7 @@ describe('Freezing', () => {
     describe('before creating the sandbox', () => {
         it('should be observed from within the sandbox', function() {
             expect.assertions(8);
-            globalThis.bar = { a:1, b: 2 };
+            globalThis.bar = { a: 1, b: 2 };
             Object.freeze(globalThis.bar)
             const evalScript = createSecureEnvironment();
             // checking the state of bar in the outer realm
@@ -22,7 +22,7 @@ describe('Freezing', () => {
                 'use strict';
                 expect(() => {
                     bar.c = 3; // because it is frozen
-                }).toThrow(Error);
+                }).toThrow(TypeError);
                 expect(bar.c).toBe(undefined);
             `);
         });
