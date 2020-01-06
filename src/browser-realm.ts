@@ -5,6 +5,7 @@ import {
     ReflectSetPrototypeOf, 
     getOwnPropertyDescriptors,
     construct,
+    ErrorCreate,
 } from "./shared";
 
 // caching references to object values that can't be replaced
@@ -74,25 +75,15 @@ export default function createSecureEnvironment(distortionMap?: Map<SecureProxyT
             secureIndirectEval(sourceText);
         } catch (e) {
             // This error occurred when the outer realm attempts to evaluate a
-            // sourceText into the sandbox.
-            try {
-                throw e;
-            } catch (e) {
-                // for some errors, re-throwing them is sufficient to correct
-                // the identity of the error, in which case we just use that.
-                if (e instanceof Error) {
-                    throw e;
-                }
-            }
-            // otherwise throwing a new raw error, which eliminates the stack
-            // information from the sandbox as a consequence.
+            // sourceText into the sandbox. By throwing a new raw error, which
+            // eliminates the stack information from the sandbox as a consequence.
             let rawError;
-            const { message } = e as any;
+            const { message, constructor } = e;
             try {
-                rawError = construct(env.getRawValue(e.constructor), [message]);
+                rawError = construct(env.getRawRef(constructor), [message]);
             } catch (ignored) {
                 // in case the constructor inference fails
-                rawError = construct(Error, [message]);
+                rawError = ErrorCreate(message);
             }
             throw rawError;
         }

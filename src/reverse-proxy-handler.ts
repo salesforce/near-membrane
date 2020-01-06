@@ -13,6 +13,7 @@ import {
     ReflectDefineProperty,
     renameFunction,
     ProxyRevocable,
+    ErrorCreate,
 } from './shared';
 import {
     SecureEnvironment,
@@ -114,30 +115,52 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
     }
     apply(shadowTarget: ReverseShadowTarget, thisArg: RawValue, argArray: RawValue[]): RawValue {
         const { target, env } = this;
+        const secThisArg = env.getSecureValue(thisArg);
+        const secArgArray = env.getSecureArray(argArray);
+        let sec;
         try {
-            const secThisArg = env.getSecureValue(thisArg);
-            const secArgArray = env.getSecureArray(argArray);
-            const sec = apply(target as SecureFunction, secThisArg, secArgArray);
-            return env.getRawValue(sec);
+            sec = apply(target as SecureFunction, secThisArg, secArgArray);
         } catch (e) {
-            // by throwing a new raw error, we avoid leaking error instances from sandbox
-            throw e;
+            // This error occurred when the outer realm attempts to call a
+            // function from the sandbox. By throwing a new raw error, we eliminates the stack
+            // information from the sandbox as a consequence.
+            let rawError;
+            const { message, constructor } = e;
+            try {
+                rawError = construct(env.getRawRef(constructor), [message]);
+            } catch (ignored) {
+                // in case the constructor inference fails
+                rawError = ErrorCreate(message);
+            }
+            throw rawError;
         }
+        return env.getRawValue(sec);
     }
     construct(shadowTarget: ReverseShadowTarget, argArray: RawValue[], newTarget: RawObject): RawObject {
         const { target: SecCtor, env } = this;
         if (newTarget === undefined) {
             throw TypeError();
         }
+        const secArgArray = env.getSecureArray(argArray);
+        // const secNewTarget = env.getSecureValue(newTarget);
+        let sec;
         try {
-            const secArgArray = env.getSecureArray(argArray);
-            // const secNewTarget = env.getSecureValue(newTarget);
-            const sec = construct(SecCtor as SecureConstructor, secArgArray);
-            return env.getRawValue(sec);
+            sec = construct(SecCtor as SecureConstructor, secArgArray);
         } catch (e) {
-            // by throwing a new raw error, we avoid leaking error instances from sandbox
-            throw e;
+            // This error occurred when the outer realm attempts to new a
+            // constructor from the sandbox. By throwing a new raw error, we eliminates the stack
+            // information from the sandbox as a consequence.
+            let rawError;
+            const { message, constructor } = e;
+            try {
+                rawError = construct(env.getRawRef(constructor), [message]);
+            } catch (ignored) {
+                // in case the constructor inference fails
+                rawError = ErrorCreate(message);
+            }
+            throw rawError;
         }
+        return env.getRawValue(sec);
     }
 }
 

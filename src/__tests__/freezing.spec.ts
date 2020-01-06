@@ -3,7 +3,7 @@ import createSecureEnvironment from '../node-realm';
 describe('Freezing', () => {
     describe('before creating the sandbox', () => {
         it('should be observed from within the sandbox', function() {
-            expect.assertions(8);
+            expect.assertions(10);
             globalThis.bar = { a: 1, b: 2 };
             Object.freeze(globalThis.bar)
             const evalScript = createSecureEnvironment();
@@ -20,8 +20,26 @@ describe('Freezing', () => {
             // verifying that in deep it is reflected as frozen
             evalScript(`
                 'use strict';
-                expect(() => {
+                let isTypeError = false;
+                try {
                     bar.c = 3; // because it is frozen
+                } catch (e) {
+                    isTypeError = e instanceof TypeError;
+                }
+                expect(isTypeError).toBe(true);
+                expect(bar.c).toBe(undefined);
+            `);
+            // verifying that when observed from outside, it is still reflected
+            evalScript(`
+                'use strict';
+                let error = null;
+                try {
+                    bar.c = 3; // because it is frozen
+                } catch (e) {
+                    error = e;
+                }
+                expect(() => {
+                    bar.c = 3;
                 }).toThrow(TypeError);
                 expect(bar.c).toBe(undefined);
             `);
