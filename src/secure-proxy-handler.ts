@@ -91,7 +91,7 @@ export const serializedSecureProxyFactory = (function secureProxyFactory(rawEnv:
 
     function getSecureDescriptor(rawDescriptor: PropertyDescriptor): PropertyDescriptor {
         const secureDescriptor = assign(create(null), rawDescriptor);
-        const { value: rawValue, get: rawGet, rawSet } = secureDescriptor;
+        const { value: rawValue, get: rawGet, set: rawSet } = secureDescriptor;
         if ('writable' in secureDescriptor) {
             // we are dealing with a value descriptor
             secureDescriptor.value = isFunction(rawValue) ?
