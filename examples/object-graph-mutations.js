@@ -1,8 +1,9 @@
 import createSecureEnvironment from '../lib/browser-realm.js';
 
-const secureGlobalThis = createSecureEnvironment();
+const evalScript = createSecureEnvironment();
 
-secureGlobalThis.eval(`
+evalScript(`
+    'use strict';
     debugger;
 
     const originalProto = HTMLParagraphElement.prototype.__proto__;

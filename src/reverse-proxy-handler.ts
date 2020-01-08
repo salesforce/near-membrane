@@ -7,6 +7,13 @@ import {
     isFunction,
     hasOwnProperty,
     ObjectCreate,
+    isUndefined,
+    ReflectGetOwnPropertyDescriptor,
+    isTrue,
+    ReflectDefineProperty,
+    renameFunction,
+    ProxyRevocable,
+    ErrorCreate,
 } from './shared';
 import {
     SecureEnvironment,
@@ -18,8 +25,34 @@ import {
     SecureConstructor,
     SecureFunction,
     ReverseShadowTarget,
+    SecureProxyTarget,
 } from './membrane';
-import { TargetMeta, installDescriptorIntoShadowTarget } from './membrane';
+import { TargetMeta } from './membrane';
+
+export type ReverseRevocableInitializableProxyFactory = <ReverseProxy>(raw: ReverseProxyTarget, meta: TargetMeta) => {
+    proxy: ReverseProxy;
+    revoke: () => void;
+    initialize: () => void;
+};
+
+function installDescriptorIntoShadowTarget(shadowTarget: SecureProxyTarget | ReverseProxyTarget, key: PropertyKey, originalDescriptor: PropertyDescriptor) {
+    const shadowTargetDescriptor = ReflectGetOwnPropertyDescriptor(shadowTarget, key);
+    if (!isUndefined(shadowTargetDescriptor)) {
+        if (hasOwnProperty(shadowTargetDescriptor, 'configurable') &&
+                isTrue(shadowTargetDescriptor.configurable)) {
+            ReflectDefineProperty(shadowTarget, key, originalDescriptor);
+        } else if (hasOwnProperty(shadowTargetDescriptor, 'writable') &&
+                isTrue(shadowTargetDescriptor.writable)) {
+            // just in case
+            shadowTarget[key] = originalDescriptor.value;
+        } else {
+            // ignoring... since it is non configurable and non-writable
+            // usually, arguments, callee, etc.
+        }
+    } else {
+        ReflectDefineProperty(shadowTarget, key, originalDescriptor);
+    }
+}
 
 function getReverseDescriptor(descriptor: PropertyDescriptor, env: SecureEnvironment): PropertyDescriptor {
     const reverseDescriptor = assign(ObjectCreate(null), descriptor);
@@ -31,7 +64,7 @@ function getReverseDescriptor(descriptor: PropertyDescriptor, env: SecureEnviron
             env.getRawFunction(value) : env.getRawValue(value);
     } else {
         // we are dealing with accessors
-        if (isFunction(set)) { 
+        if (isFunction(set)) {
             reverseDescriptor.set = env.getRawFunction(set);
         }
         if (isFunction(get)) {
@@ -49,28 +82,6 @@ function copyReverseOwnDescriptors(env: SecureEnvironment, shadowTarget: Reverse
             installDescriptorIntoShadowTarget(shadowTarget, key, originalDescriptor);
         }
     }
-}
-
-function callWithErrorBoundaryProtection(env: SecureEnvironment, fn: () => RawValue): RawValue {
-    let raw;
-    try {
-        raw = fn();
-    } catch (e) {
-        // This error occurred when the outer realm invokes a function from the sandbox.
-        if (e instanceof Error) {
-            throw e;
-        }
-        let rawError;
-        try {
-            rawError = construct(env.getRawValue(e.constructor), [e.message]);
-        } catch (ignored) {
-            // in case the constructor inference fails
-            rawError = construct(Error, [e.message]);
-        }
-        // by throwing a new raw error, we eliminate the stack information from the sandbox
-        throw rawError;
-    }
-    return raw;
 }
 
 /**
@@ -106,10 +117,24 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
         const { target, env } = this;
         const secThisArg = env.getSecureValue(thisArg);
         const secArgArray = env.getSecureArray(argArray);
-        return callWithErrorBoundaryProtection(env, () => {
-            const sec = apply(target as SecureFunction, secThisArg, secArgArray);
-            return env.getRawValue(sec);
-        });
+        let sec;
+        try {
+            sec = apply(target as SecureFunction, secThisArg, secArgArray);
+        } catch (e) {
+            // This error occurred when the outer realm attempts to call a
+            // function from the sandbox. By throwing a new raw error, we eliminates the stack
+            // information from the sandbox as a consequence.
+            let rawError;
+            const { message, constructor } = e;
+            try {
+                rawError = construct(env.getRawRef(constructor), [message]);
+            } catch (ignored) {
+                // in case the constructor inference fails
+                rawError = ErrorCreate(message);
+            }
+            throw rawError;
+        }
+        return env.getRawValue(sec);
     }
     construct(shadowTarget: ReverseShadowTarget, argArray: RawValue[], newTarget: RawObject): RawObject {
         const { target: SecCtor, env } = this;
@@ -118,11 +143,51 @@ export class ReverseProxyHandler implements ProxyHandler<ReverseProxyTarget> {
         }
         const secArgArray = env.getSecureArray(argArray);
         // const secNewTarget = env.getSecureValue(newTarget);
-        return callWithErrorBoundaryProtection(env, () => {
-            const sec = construct(SecCtor as SecureConstructor, secArgArray);
-            return env.getRawValue(sec);
-        });
+        let sec;
+        try {
+            sec = construct(SecCtor as SecureConstructor, secArgArray);
+        } catch (e) {
+            // This error occurred when the outer realm attempts to new a
+            // constructor from the sandbox. By throwing a new raw error, we eliminates the stack
+            // information from the sandbox as a consequence.
+            let rawError;
+            const { message, constructor } = e;
+            try {
+                rawError = construct(env.getRawRef(constructor), [message]);
+            } catch (ignored) {
+                // in case the constructor inference fails
+                rawError = ErrorCreate(message);
+            }
+            throw rawError;
+        }
+        return env.getRawValue(sec);
     }
 }
 
 ReflectSetPrototypeOf(ReverseProxyHandler.prototype, null);
+
+function createReverseShadowTarget(target: ReverseProxyTarget): ReverseShadowTarget {
+    let shadowTarget;
+    if (isFunction(target)) {
+        // this is never invoked just needed to anchor the realm
+        shadowTarget = function () {};
+        renameFunction(target as (...args: any[]) => any, shadowTarget as (...args: any[]) => any);
+    } else {
+        // o is object
+        shadowTarget = {};
+    }
+    return shadowTarget;
+}
+
+export function reverseProxyFactory(env: SecureEnvironment) {
+    return function createReverseProxy(sec: ReverseProxyTarget, meta: TargetMeta) {
+        const shadowTarget = createReverseShadowTarget(sec);
+        const proxyHandler = new ReverseProxyHandler(env, sec, meta);
+        const { proxy, revoke } = ProxyRevocable(shadowTarget, proxyHandler);
+        return {
+            proxy,
+            revoke,
+            initialize: () => proxyHandler.initialize(shadowTarget),
+        };
+    } as ReverseRevocableInitializableProxyFactory;
+}

@@ -10,9 +10,9 @@ const distortionMap = new Map([
     }],
 ]);
 
-const secureGlobalThis = createSecureEnvironment(distortionMap);
+const evalScript = createSecureEnvironment(distortionMap);
 
-secureGlobalThis.eval(`
+evalScript(`
     debugger;
 
     // the distortion of ShadowRoot.prototype.host returns null
