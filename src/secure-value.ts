@@ -10,25 +10,27 @@
  *    be serialized, and therefore it will loose the reference.
  */
 import {
-    SecureEnvironment,
-} from './environment';
-import {
     SecureProxyTarget,
     SecureValue,
     SecureObject,
     SecureShadowTarget,
+    SecureFunction,
+    SecureArray,
+    SecureProxy,
     RawConstructor,
     RawFunction,
-} from './membrane';
-import { TargetMeta } from './membrane';
+    RawValue,
+    RawObject,
+    RawArray,
+    SecureRecord,
+    TargetMeta,
+    EnvironmentMaps,
+} from './types';
 
-export type SecureRevocableInitializableProxyFactory = <SecureProxy>(raw: SecureProxyTarget, meta: TargetMeta) => {
-    proxy: SecureProxy;
-    revoke: () => void;
-};
-
-export const serializedSecureProxyFactory = (function secureProxyFactory(rawEnv: SecureEnvironment) {
+export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: EnvironmentMaps) {
     'use strict';
+
+    const { rom, distortionMap } = rawEnv;
 
     const {
         apply,
@@ -42,10 +44,34 @@ export const serializedSecureProxyFactory = (function secureProxyFactory(rawEnv:
         ownKeys,
         defineProperty,
     } = Reflect;
-    const { seal, freeze, defineProperty: ObjectDefineProperty, create, assign, hasOwnProperty } = Object;
+    const {
+        assign,
+        create,
+        defineProperty: ObjectDefineProperty,
+        getOwnPropertyDescriptors,
+        freeze,
+        seal,
+        isSealed,
+        isFrozen,
+        hasOwnProperty,
+    } = Object;
     const ProxyRevocable = Proxy.revocable;
+    const ProxyCreate = unconstruct(Proxy);
+    const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
     const emptyArray: [] = [];
     const noop = () => undefined;
+    const map = unapply(Array.prototype.map);
+    const WeakMapGet = unapply(WeakMap.prototype.get);
+    const WeakMapHas = unapply(WeakMap.prototype.has);
+    const ErrorCreate = unconstruct(Error);
+
+    function unapply(func: Function): Function {
+        return (thisArg: any, ...args: any[]) => apply(func, thisArg, args);
+    }
+
+    function unconstruct(func: Function): Function {
+        return (...args: any[]) => construct(func, args);
+    }
 
     function isUndefined(obj: any): obj is undefined {
         return obj === undefined;
@@ -53,6 +79,69 @@ export const serializedSecureProxyFactory = (function secureProxyFactory(rawEnv:
 
     function isFunction(obj: any): obj is Function {
         return typeof obj === 'function';
+    }
+
+    function isNullish(obj: any): obj is null {
+        // eslint-disable-next-line eqeqeq
+        return obj == null;
+    }
+
+    function getSecureValue(raw: RawValue): SecureValue {
+        let isRawArray = false;
+        try {
+            isRawArray = isArrayOrNotOrThrowForRevoked(raw);
+        } catch (ignored) {
+            // raw was revoked
+            return createSecureProxy(raw);
+        }
+        if (isRawArray) {
+            return getSecureArray(raw);
+        } else if (isProxyTarget(raw)) {
+            const sr: SecureRecord | undefined = WeakMapGet(rom, raw);
+            if (isUndefined(sr)) {
+                return createSecureProxy(raw);
+            }
+            return sr.sec;
+        } else {
+            return raw as SecureValue;
+        }
+    }
+
+    function getSecureArray(a: RawArray): SecureArray {
+        const b: SecureValue[] = map(a, (raw: RawValue) => getSecureValue(raw));
+        // identity of the new array correspond to the inner realm
+        return [...b];
+    }
+
+    function getSecureFunction(fn: RawFunction): SecureFunction {
+        const sr: SecureRecord | undefined = WeakMapGet(rom, fn);
+        if (isUndefined(sr)) {
+            return createSecureProxy(fn) as SecureFunction;
+        }
+        return sr.sec as SecureFunction;
+    }
+
+    function getDistortedValue(target: SecureProxyTarget): SecureProxyTarget {
+        if (!WeakMapHas(distortionMap, target)) {
+            return target;
+        }
+        // if a distortion entry is found, it must be a valid proxy target
+        const distortedTarget = WeakMapGet(distortionMap, target) as SecureProxyTarget;
+        if (!isProxyTarget(distortedTarget)) {
+            // TODO: needs to be resilience, cannot just throw, what should we do instead?
+            throw ErrorCreate(`Invalid distortion mechanism.`);
+        }
+        return distortedTarget;
+    }
+
+    // it means it does have identity and should be proxified.
+    function isProxyTarget(o: RawValue | SecureValue): o is (RawFunction | RawConstructor | RawObject) {
+        // hire-wired for the common case
+        if (isNullish(o)) {
+            return false;
+        }
+        const t = typeof o;
+        return t === 'object' || t === 'function';
     }
 
     function renameFunction(rawProvider: (...args: any[]) => any, receiver: (...args: any[]) => any) {
@@ -96,14 +185,14 @@ export const serializedSecureProxyFactory = (function secureProxyFactory(rawEnv:
             // we are dealing with a value descriptor
             secureDescriptor.value = isFunction(rawValue) ?
                 // we are dealing with a method (optimization)
-                rawEnv.getSecureFunction(rawValue) : rawEnv.getSecureValue(rawValue);
+                getSecureFunction(rawValue) : getSecureValue(rawValue);
         } else {
             // we are dealing with accessors
             if (isFunction(rawSet)) {
-                secureDescriptor.set = rawEnv.getSecureFunction(rawSet);
+                secureDescriptor.set = getSecureFunction(rawSet);
             }
             if (isFunction(rawGet)) {
-                secureDescriptor.get = rawEnv.getSecureFunction(rawGet);
+                secureDescriptor.get = getSecureFunction(rawGet);
             }
         }
         return secureDescriptor;
@@ -132,6 +221,35 @@ export const serializedSecureProxyFactory = (function secureProxyFactory(rawEnv:
         }
     }
 
+    function getTargetMeta(target: SecureProxyTarget): TargetMeta {
+        const meta: TargetMeta = create(null);
+        try {
+            // a revoked proxy will break the membrane when reading the meta
+            meta.proto = getPrototypeOf(target);
+            meta.descriptors = getOwnPropertyDescriptors(target);
+            if (isFrozen(target)) {
+                meta.isFrozen = meta.isSealed = meta.isExtensible = true;
+            } else if (isSealed(target)) {
+                meta.isSealed = meta.isExtensible = true;
+            } else if (isExtensible(target)) {
+                meta.isExtensible = true;
+            }
+            // if the target was revoked or become revoked during the extraction
+            // of the metadata, we mark it as broken in the catch.
+            isArrayOrNotOrThrowForRevoked(target);
+        } catch (_ignored) {
+            // intentionally swallowing the error because this method is just extracting the metadata
+            // in a way that it should always succeed except for the cases in which the target is a proxy
+            // that is either revoked or has some logic that is incompatible with the membrane, in which
+            // case we will just create the proxy for the membrane but revoke it right after to prevent
+            // any leakage.
+            meta.proto = null;
+            meta.descriptors = {};
+            meta.isBroken = true;
+        }
+        return meta;
+    }
+
     class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
         // original target for the proxy
         private readonly target: SecureProxyTarget;
@@ -150,7 +268,7 @@ export const serializedSecureProxyFactory = (function secureProxyFactory(rawEnv:
             // once the initialization is executed once... the rest is just noop 
             this.initialize = noop;
             // adjusting the proto chain of the shadowTarget (recursively)
-            const secProto = rawEnv.getSecureValue(rawMeta.proto);
+            const secProto = getSecureValue(rawMeta.proto);
             setPrototypeOf(shadowTarget, secProto);
             // defining own descriptors
             copySecureOwnDescriptors(shadowTarget, rawMeta.descriptors);
@@ -217,10 +335,10 @@ export const serializedSecureProxyFactory = (function secureProxyFactory(rawEnv:
         apply(shadowTarget: SecureShadowTarget, thisArg: SecureValue, argArray: SecureValue[]): SecureValue {
             const { target: rawTarget } = this;
             this.initialize(shadowTarget);
-            const rawThisArg = rawEnv.getRawValue(thisArg);
-            const rawArgArray = rawEnv.getRawArray(argArray);
             let raw;
             try {
+                const rawThisArg = rawEnv.getRawValue(thisArg);
+                const rawArgArray = rawEnv.getRawValue(argArray);
                 raw = apply(rawTarget as RawFunction, rawThisArg, rawArgArray);
             } catch (e) {
                 // This error occurred when the sandbox attempts to call a
@@ -229,14 +347,19 @@ export const serializedSecureProxyFactory = (function secureProxyFactory(rawEnv:
                 let secError;
                 const { message, constructor } = e;
                 try {
-                    secError = construct(rawEnv.getSecureRef(constructor), [message]);
+                    // the error constructor must be a raw error since it occur when calling
+                    // a function from the outer realm.
+                    const sr: SecureRecord | undefined = WeakMapGet(rom, constructor);
+                    // the secure constructor must be registered (done during construction of env)
+                    // otherwise we need to fallback to a regular error.
+                    secError = construct(sr!.sec as SecureFunction, [message]);
                 } catch (ignored) {
                     // in case the constructor inference fails
                     secError = new Error(message);
                 }
                 throw secError;
             }
-            return rawEnv.getSecureValue(raw);
+            return getSecureValue(raw);
         }
         construct(shadowTarget: SecureShadowTarget, argArray: SecureValue[], newTarget: SecureObject): SecureObject {
             const { target: rawCons } = this;
@@ -244,10 +367,10 @@ export const serializedSecureProxyFactory = (function secureProxyFactory(rawEnv:
             if (isUndefined(newTarget)) {
                 throw TypeError();
             }
-            const rawArgArray = rawEnv.getRawArray(argArray);
-            const rawNewTarget = rawEnv.getRawValue(newTarget);
             let raw;
             try {
+                const rawNewTarget = rawEnv.getRawValue(newTarget);
+                const rawArgArray = rawEnv.getRawValue(argArray);
                 raw = construct(rawCons as RawConstructor, rawArgArray, rawNewTarget);
             } catch (e) {
                 // This error occurred when the sandbox attempts to new a
@@ -256,14 +379,19 @@ export const serializedSecureProxyFactory = (function secureProxyFactory(rawEnv:
                 let secError;
                 const { message, constructor } = e;
                 try {
-                    secError = construct(rawEnv.getSecureRef(constructor), [message]);
+                    // the error constructor must be a raw error since it occur when calling
+                    // a function from the outer realm.
+                    const sr: SecureRecord | undefined = WeakMapGet(rom, constructor);
+                    // the secure constructor must be registered (done during construction of env)
+                    // otherwise we need to fallback to a regular error.
+                    secError = construct(sr!.sec as SecureFunction, [message]);
                 } catch (ignored) {
                     // in case the constructor inference fails
                     secError = new Error(message);
                 }
                 throw secError;
             }
-            return rawEnv.getSecureValue(raw);
+            return getSecureValue(raw);
         }
         has(shadowTarget: SecureShadowTarget, key: PropertyKey): boolean {
             this.initialize(shadowTarget);
@@ -323,10 +451,37 @@ export const serializedSecureProxyFactory = (function secureProxyFactory(rawEnv:
         return shadowTarget;
     }
 
-    return function createSecureProxy(raw: SecureProxyTarget, rawMeta: TargetMeta) {
+    function getRevokedSecureProxy(raw: SecureProxyTarget): SecureProxy {
         const shadowTarget = createSecureShadowTarget(raw);
-        const proxyHandler = new SecureProxyHandler(raw, rawMeta);
-        return ProxyRevocable(shadowTarget, proxyHandler);
-    } as SecureRevocableInitializableProxyFactory;
+        const { proxy, revoke } = ProxyRevocable(shadowTarget, {});
+        rawEnv.createSecureRecord(proxy, raw);
+        revoke();
+        return proxy;
+    }
+
+    function createSecureProxy(raw: SecureProxyTarget): SecureProxy {
+        raw = getDistortedValue(raw);
+        const rawMeta = getTargetMeta(raw);
+        let proxy;
+        if (rawMeta.isBroken) {
+            proxy = getRevokedSecureProxy(raw);
+        } else {
+            const shadowTarget = createSecureShadowTarget(raw);
+            const proxyHandler = new SecureProxyHandler(raw, rawMeta);
+            proxy = ProxyCreate(shadowTarget, proxyHandler);
+        }
+        try {
+            rawEnv.createSecureRecord(proxy, raw);
+        } catch (e) {
+            // This is a very edge case, it could happen if someone is very
+            // crafty, but basically can cause an overflow when invoking the
+            // createSecureRecord() method, which will report an error from
+            // the outer realm.
+            throw ErrorCreate('Internal Error');
+        }
+        return proxy;
+    }
+
+    return getSecureValue;
 
 }).toString();

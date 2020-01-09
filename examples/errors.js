@@ -9,6 +9,21 @@ const distortionMap = new Map([
 globalThis.bar = { a: 1, b: 2 };
 Object.freeze(globalThis.bar)
 
+var t0 = performance.now();
+createSecureEnvironment(distortionMap)('');
+var t1 = performance.now();
+console.log("Call to doSomething took " + (t1 - t0) + " milliseconds.");
+
+var t0 = performance.now();
+createSecureEnvironment(distortionMap)('');
+var t1 = performance.now();
+console.log("Call to doSomething took " + (t1 - t0) + " milliseconds.");
+
+var t0 = performance.now();
+createSecureEnvironment(distortionMap)('');
+var t1 = performance.now();
+console.log("Call to doSomething took " + (t1 - t0) + " milliseconds.");
+
 const evalScript = createSecureEnvironment(distortionMap);
 
 try {

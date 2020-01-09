@@ -1,11 +1,12 @@
 import { SecureEnvironment } from "./environment";
-import { SecureProxyTarget } from "./membrane";
+import { SecureProxyTarget, SecureRecord, RawFunction } from "./types";
 import { 
     ReflectGetPrototypeOf, 
     ReflectSetPrototypeOf, 
     getOwnPropertyDescriptors,
     construct,
     ErrorCreate,
+    WeakMapGet,
 } from "./shared";
 
 // caching references to object values that can't be replaced
@@ -80,7 +81,10 @@ export default function createSecureEnvironment(distortionMap?: Map<SecureProxyT
             let rawError;
             const { message, constructor } = e;
             try {
-                rawError = construct(env.getRawRef(constructor), [message]);
+                const sr: SecureRecord | undefined = WeakMapGet(env.som, constructor);
+                // the constructor must be registered (done during construction of env)
+                // otherwise we need to fallback to a regular error.
+                rawError = construct(sr!.raw as RawFunction, [message]);
             } catch (ignored) {
                 // in case the constructor inference fails
                 rawError = ErrorCreate(message);

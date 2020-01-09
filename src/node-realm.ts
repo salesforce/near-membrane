@@ -1,6 +1,6 @@
 import { SecureEnvironment } from "./environment";
-import { SecureProxyTarget } from "./membrane";
-import { getOwnPropertyDescriptors, construct, ErrorCreate } from "./shared";
+import { SecureProxyTarget, SecureRecord, RawFunction } from "./types";
+import { getOwnPropertyDescriptors, construct, ErrorCreate, WeakMapGet } from "./shared";
 import { runInNewContext } from 'vm';
 
 // note: in a node module, the top-level 'this' is not the global object
@@ -33,7 +33,10 @@ export default function createSecureEnvironment(distortionMap?: Map<SecureProxyT
             let rawError;
             const { message, constructor } = e;
             try {
-                rawError = construct(env.getRawRef(constructor), [message]);
+                const sr: SecureRecord | undefined = WeakMapGet(env.som, constructor);
+                // the constructor must be registered (done during construction of env)
+                // otherwise we need to fallback to a regular error.
+                rawError = construct(sr!.raw as RawFunction, [message]);
             } catch (ignored) {
                 // in case the constructor inference fails
                 rawError = ErrorCreate(message);
