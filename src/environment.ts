@@ -31,7 +31,7 @@ import {
     RawConstructor,
     SecureConstructor,
     SecureRecord,
-    EnvironmentMaps,
+    MembraneBroker,
     DistortionMap,
 } from './types';
 
@@ -55,7 +55,7 @@ interface SecureEnvironmentOptions {
     distortionMap?: Map<SecureProxyTarget, SecureProxyTarget>;
 }
 
-export class SecureEnvironment implements EnvironmentMaps {
+export class SecureEnvironment implements MembraneBroker {
     // secure object map
     som: WeakMap<SecureFunction | SecureObject, SecureRecord> = WeakMapCreate();
     // raw object map

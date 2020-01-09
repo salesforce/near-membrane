@@ -24,10 +24,10 @@ import {
     RawArray,
     SecureRecord,
     TargetMeta,
-    EnvironmentMaps,
+    MembraneBroker,
 } from './types';
 
-export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: EnvironmentMaps) {
+export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: MembraneBroker) {
     'use strict';
 
     const { rom, distortionMap } = rawEnv;

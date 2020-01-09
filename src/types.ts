@@ -40,7 +40,7 @@ export interface SecureRecord {
 
 export type DistortionMap = WeakMap<SecureProxyTarget, SecureProxyTarget>;
 
-export interface EnvironmentMaps {
+export interface MembraneBroker {
     // secure object map
     som: WeakMap<SecureFunction | SecureObject, SecureRecord>;
     // raw object map

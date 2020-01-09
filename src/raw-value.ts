@@ -36,7 +36,7 @@ import {
     SecureArray,
     RawArray,
     SecureValue,
-    EnvironmentMaps,
+    MembraneBroker,
     SecureObject,
     TargetMeta,
 } from './types';
@@ -128,7 +128,7 @@ function createReverseShadowTarget(target: ReverseProxyTarget): ReverseShadowTar
     return shadowTarget;
 }
 
-export function reverseProxyFactory(env: EnvironmentMaps) {
+export function reverseProxyFactory(env: MembraneBroker) {
 
     function getReverseDescriptor(descriptor: PropertyDescriptor): PropertyDescriptor {
         const reverseDescriptor = assign(ObjectCreate(null), descriptor);

@@ -14,7 +14,6 @@ export const {
 export const {
     apply,
     construct,
-    deleteProperty,
     getPrototypeOf: ReflectGetPrototypeOf,
     setPrototypeOf: ReflectSetPrototypeOf,
     defineProperty: ReflectDefineProperty,
