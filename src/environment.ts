@@ -17,6 +17,7 @@ import {
     WeakMapHas,
     WeakMapSet,
     ReflectiveIntrinsicObjectNames,
+    WeakMapGet,
 } from './shared';
 import { serializedSecureEnvSourceText } from './secure-value';
 import { reverseProxyFactory } from './raw-value';
@@ -90,6 +91,20 @@ export class SecureEnvironment implements MembraneBroker {
 
     getSecureValue(raw: RawValue): SecureValue {
         // placeholder since this will be assigned in construction
+    }
+
+    getRawRef(sec: SecureValue): RawValue | undefined {
+        const sr: SecureRecord | undefined = WeakMapGet(this.som, sec);
+        if (!isUndefined(sr)) {
+            return sr.raw;
+        }
+    }
+
+    getSecureRef(raw: RawValue): SecureValue | undefined {
+        const sr: SecureRecord | undefined = WeakMapGet(this.rom, raw);
+        if (!isUndefined(sr)) {
+            return sr.sec;
+        }
     }
 
     createSecureRecord(sec: SecureObject, raw: RawObject) {

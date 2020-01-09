@@ -50,5 +50,7 @@ export interface MembraneBroker {
 
     getRawValue(sec: SecureValue): RawValue;
     getSecureValue(raw: RawValue): SecureValue;
+    getRawRef(sec: SecureValue): RawValue | undefined;
+    getSecureRef(raw: RawValue): SecureValue | undefined;
     createSecureRecord(sec: SecureValue, raw: RawValue): void;
 }

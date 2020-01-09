@@ -12,7 +12,6 @@ import {
     isTrue,
     ReflectDefineProperty,
     ErrorCreate,
-    WeakMapGet,
     ReflectIsExtensible,
     isSealed,
     isFrozen,
@@ -31,7 +30,6 @@ import {
     ReverseShadowTarget,
     SecureProxyTarget,
     ReverseProxy,
-    SecureRecord,
     RawFunction,
     SecureArray,
     RawArray,
@@ -198,10 +196,10 @@ export function reverseProxyFactory(env: MembraneBroker) {
                 try {
                     // the error constructor must be a secure error since it occur when calling
                     // a function from the sandbox.
-                    const sr: SecureRecord | undefined = WeakMapGet(env.som, constructor);
+                    const rawErrorConstructor = env.getRawRef(constructor);
                     // the raw constructor must be registered (done during construction of env)
                     // otherwise we need to fallback to a regular error.
-                    rawError = construct(sr!.raw as RawFunction, [message]);
+                    rawError = construct(rawErrorConstructor as RawFunction, [message]);
                 } catch (ignored) {
                     // in case the constructor inference fails
                     rawError = ErrorCreate(message);
@@ -229,10 +227,10 @@ export function reverseProxyFactory(env: MembraneBroker) {
                 try {
                     // the error constructor must be a secure error since it occur when calling
                     // a function from the sandbox.
-                    const sr: SecureRecord | undefined = WeakMapGet(env.som, constructor);
+                    const rawErrorConstructor = env.getRawRef(constructor);
                     // the raw constructor must be registered (done during construction of env)
                     // otherwise we need to fallback to a regular error.
-                    rawError = construct(sr!.raw as RawFunction, [message]);
+                    rawError = construct(rawErrorConstructor as RawFunction, [message]);
                 } catch (ignored) {
                     // in case the constructor inference fails
                     rawError = ErrorCreate(message);
@@ -255,21 +253,21 @@ export function reverseProxyFactory(env: MembraneBroker) {
         if (isSecArray) {
             return getRawArray(sec);
         } else if (isProxyTarget(sec)) {
-            const sr: SecureRecord | undefined = WeakMapGet(env.som, sec);
-            if (isUndefined(sr)) {
+            const raw = env.getRawRef(sec);
+            if (isUndefined(raw)) {
                 return createReverseProxy(sec);
             }
-            return sr.raw;
+            return raw;
         }
         return sec as RawValue;
     }
 
     function getRawFunction(fn: SecureFunction): RawFunction {
-        const sr: SecureRecord | undefined = WeakMapGet(env.som, fn);
-        if (isUndefined(sr)) {
+        const raw = env.getRawRef(fn);
+        if (isUndefined(raw)) {
             return createReverseProxy(fn) as RawFunction;
         }
-        return sr.raw as SecureFunction;
+        return raw as SecureFunction;
     }
 
     function getRawArray(a: SecureArray): RawArray {

@@ -256,28 +256,29 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         // metadata about the shape of the target
         private readonly meta: TargetMeta;
     
-        constructor(raw: SecureProxyTarget, rawMeta: TargetMeta) {
+        constructor(raw: SecureProxyTarget, meta: TargetMeta) {
             this.target = raw;
-            this.meta = rawMeta;
+            this.meta = meta;
         }
         // initialization used to avoid the initialization cost
         // of an object graph, we want to do it when the
         // first interaction happens.
         initialize(shadowTarget: SecureShadowTarget) {
-            const { meta: rawMeta } = this;
+            const { meta } = this;
+            const { proto: rawProto } = meta;
             // once the initialization is executed once... the rest is just noop 
             this.initialize = noop;
             // adjusting the proto chain of the shadowTarget (recursively)
-            const secProto = getSecureValue(rawMeta.proto);
+            const secProto = getSecureValue(rawProto);
             setPrototypeOf(shadowTarget, secProto);
             // defining own descriptors
-            copySecureOwnDescriptors(shadowTarget, rawMeta.descriptors);
+            copySecureOwnDescriptors(shadowTarget, meta.descriptors);
             // preserving the semantics of the object
-            if (rawMeta.isFrozen) {
+            if (meta.isFrozen) {
                 freeze(shadowTarget);
-            } else if (rawMeta.isSealed) {
+            } else if (meta.isSealed) {
                 seal(shadowTarget);
-            } else if (!rawMeta.isExtensible) {
+            } else if (!meta.isExtensible) {
                 preventExtensions(shadowTarget);
             }
             // future optimization: hoping that proxies with frozen handlers can be faster
@@ -349,10 +350,10 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
                 try {
                     // the error constructor must be a raw error since it occur when calling
                     // a function from the outer realm.
-                    const sr: SecureRecord | undefined = WeakMapGet(rom, constructor);
+                    const secErrorConstructor = rawEnv.getSecureRef(constructor);
                     // the secure constructor must be registered (done during construction of env)
                     // otherwise we need to fallback to a regular error.
-                    secError = construct(sr!.sec as SecureFunction, [message]);
+                    secError = construct(secErrorConstructor as SecureFunction, [message]);
                 } catch (ignored) {
                     // in case the constructor inference fails
                     secError = new Error(message);
@@ -381,10 +382,10 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
                 try {
                     // the error constructor must be a raw error since it occur when calling
                     // a function from the outer realm.
-                    const sr: SecureRecord | undefined = WeakMapGet(rom, constructor);
+                    const secErrorConstructor = rawEnv.getSecureRef(constructor);
                     // the secure constructor must be registered (done during construction of env)
                     // otherwise we need to fallback to a regular error.
-                    secError = construct(sr!.sec as SecureFunction, [message]);
+                    secError = construct(secErrorConstructor as SecureFunction, [message]);
                 } catch (ignored) {
                     // in case the constructor inference fails
                     secError = new Error(message);
@@ -461,13 +462,13 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
 
     function createSecureProxy(raw: SecureProxyTarget): SecureProxy {
         raw = getDistortedValue(raw);
-        const rawMeta = getTargetMeta(raw);
+        const meta = getTargetMeta(raw);
         let proxy;
-        if (rawMeta.isBroken) {
+        if (meta.isBroken) {
             proxy = getRevokedSecureProxy(raw);
         } else {
             const shadowTarget = createSecureShadowTarget(raw);
-            const proxyHandler = new SecureProxyHandler(raw, rawMeta);
+            const proxyHandler = new SecureProxyHandler(raw, meta);
             proxy = ProxyCreate(shadowTarget, proxyHandler);
         }
         try {
