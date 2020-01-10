@@ -1,0 +1,23 @@
+<body>
+    <script>
+    const sourceText = `
+        // registering a component in a class that belongs to another realm
+        top.customElements.define('x-foo', class extends top.HTMLElement {
+            constructor() {
+                super();
+                this.attachShadow({ mode: 'open' }).innerHTML = '<p>worked!</p>';
+            }
+        });
+    `;
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
+    document.body.appendChild(iframe);
+    const { contentWindow } = iframe;
+    contentWindow.eval(sourceText);
+    // chrome is failing to create elements indirectly
+    document.body.innerHTML = '<x-foo></x-foo>';
+    document.body.appendChild(document.createElement('x-foo'));
+    // while still works if it is created directly
+    document.body.appendChild(new (customElements.get('x-foo')));
+    </script>
+</body>
