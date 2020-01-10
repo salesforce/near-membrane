@@ -34,6 +34,8 @@ const WeakMapSet = unapply(WeakMap.prototype.set);
 const hasOwnProperty = unapply(Object.prototype.hasOwnProperty);
 const map = unapply(Array.prototype.map);
 
+const MapEntries = unapply(Map.prototype.entries);
+
 export {
     ErrorCreate,
     ProxyRevocable,
@@ -45,6 +47,7 @@ export {
     WeakMapSet,
     hasOwnProperty,
     map,
+    MapEntries,
 };
 
 export function unapply(func: Function): Function {

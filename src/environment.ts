@@ -18,6 +18,7 @@ import {
     WeakMapSet,
     ReflectiveIntrinsicObjectNames,
     WeakMapGet,
+    MapEntries,
 } from './shared';
 import { serializedSecureEnvSourceText } from './secure-value';
 import { reverseProxyFactory } from './raw-value';
@@ -69,7 +70,7 @@ export class SecureEnvironment implements MembraneBroker {
             throw ErrorCreate(`Missing SecureEnvironmentOptions options bag.`);
         }
         const { rawGlobalThis, secureGlobalThis, distortionMap } = options;
-        this.distortionMap = WeakMapCreate(isUndefined(distortionMap) ? [] : distortionMap.entries());
+        this.distortionMap = WeakMapCreate(isUndefined(distortionMap) ? [] : MapEntries(distortionMap));
         // getting proxy factories ready per environment so we can produce
         // the proper errors without leaking instances into a sandbox
         const secureEnvFactory = secureGlobalThis.eval(`(${serializedSecureEnvSourceText})`);
