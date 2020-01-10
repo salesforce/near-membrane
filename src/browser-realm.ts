@@ -1,5 +1,5 @@
 import { SecureEnvironment } from "./environment";
-import { SecureProxyTarget } from "./membrane";
+import { SecureProxyTarget, RawFunction } from "./types";
 import { 
     ReflectGetPrototypeOf, 
     ReflectSetPrototypeOf, 
@@ -80,7 +80,10 @@ export default function createSecureEnvironment(distortionMap?: Map<SecureProxyT
             let rawError;
             const { message, constructor } = e;
             try {
-                rawError = construct(env.getRawRef(constructor), [message]);
+                const rawErrorConstructor = env.getRawRef(constructor);
+                // the constructor must be registered (done during construction of env)
+                // otherwise we need to fallback to a regular error.
+                rawError = construct(rawErrorConstructor as RawFunction, [message]);
             } catch (ignored) {
                 // in case the constructor inference fails
                 rawError = ErrorCreate(message);

@@ -1,6 +1,6 @@
-const { isArray: ArrayIsArray } = Array;
+export const { isArray: ArrayIsArray } = Array;
 
-const {
+export const {
     assign,
     create: ObjectCreate,
     defineProperty: ObjectDefineProperty,
@@ -11,10 +11,9 @@ const {
     isFrozen,
 } = Object;
 
-const {
+export const {
     apply,
     construct,
-    deleteProperty,
     getPrototypeOf: ReflectGetPrototypeOf,
     setPrototypeOf: ReflectSetPrototypeOf,
     defineProperty: ReflectDefineProperty,
@@ -36,54 +35,17 @@ const hasOwnProperty = unapply(Object.prototype.hasOwnProperty);
 const map = unapply(Array.prototype.map);
 
 export {
-    apply,
-    assign,
-    construct,
-    deleteProperty,
     ErrorCreate,
-    ReflectGetPrototypeOf,
-    ReflectSetPrototypeOf,
-    ObjectCreate,
-    ObjectDefineProperty,
     ProxyRevocable,
-    ReflectDefineProperty,
-    ReflectIsExtensible,
-    ReflectGetOwnPropertyDescriptor,
     SetCreate,
     SetHas,
     WeakMapCreate,
     WeakMapGet,
     WeakMapHas,
     WeakMapSet,
-    getOwnPropertyDescriptors,
-    ownKeys,
-    ReflectPreventExtensions,
     hasOwnProperty,
-    freeze,
     map,
-    seal,
-    isSealed,
-    isFrozen,
 };
-
-export function isArray(a: any): a is [] {
-    try {
-        // a revoked proxy will break the membrane, more info:
-        // https://github.com/tc39/ecma262/issues/1798#issuecomment-567317199
-        return ArrayIsArray(a);
-    } catch (_ignored) {
-        return false;
-    }
-}
-
-export function isRevokedProxy(a: any): boolean {
-    try {
-        ArrayIsArray(a);
-        return false;
-    } catch (_ignored) {
-        return true;
-    }
-}
 
 export function unapply(func: Function): Function {
     return (thisArg: any, ...args: any[]) => apply(func, thisArg, args);
@@ -193,18 +155,3 @@ export const ReflectiveIntrinsicObjectNames = [
     'EvalError',
     'Error',
 ];
-
-export function renameFunction(provider: (...args: any[]) => any, receiver: (...args: any[]) => any) {
-    let nameDescriptor: PropertyDescriptor | undefined;
-    try {
-        // a revoked proxy will break the membrane when reading the function name
-        nameDescriptor = ReflectGetOwnPropertyDescriptor(provider, 'name');
-    } catch (_ignored) {
-        // intentionally swallowing the error because this method is just extracting the function
-        // in a way that it should always succeed except for the cases in which the provider is a proxy
-        // that is either revoked or has some logic to prevent reading the name property descriptor.
-    }
-    if (!isUndefined(nameDescriptor)) {
-        ReflectDefineProperty(receiver, 'name', nameDescriptor);
-    }
-}

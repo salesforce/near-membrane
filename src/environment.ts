@@ -7,24 +7,20 @@ import {
     isFunction, 
     hasOwnProperty, 
     ReflectDefineProperty, 
-    emptyArray, 
-    isArray, 
-    map, 
-    construct,
+    emptyArray,
     ErrorCreate,
     ESGlobalKeys,
     ReflectGetOwnPropertyDescriptor, 
     ReflectIsExtensible,
     SetHas,
     WeakMapCreate,
-    WeakMapGet,
     WeakMapHas,
     WeakMapSet,
     ReflectiveIntrinsicObjectNames,
-    isRevokedProxy,
+    WeakMapGet,
 } from './shared';
-import { serializedSecureProxyFactory, SecureRevocableInitializableProxyFactory } from './secure-proxy-handler';
-import { reverseProxyFactory, ReverseRevocableInitializableProxyFactory } from './reverse-proxy-handler';
+import { serializedSecureEnvSourceText } from './secure-value';
+import { reverseProxyFactory } from './raw-value';
 import {
     SecureObject,
     SecureFunction,
@@ -35,22 +31,10 @@ import {
     SecureValue,
     RawConstructor,
     SecureConstructor,
-    ReverseProxyTarget,
-    RawArray,
-    SecureArray,
-    getTargetMeta,
-    SecureProxy,
-    ReverseProxy,
-} from './membrane';
-
-interface SecureRecord {
-    // Ref to a value created inside the sandbox or a reverse proxy from another sandbox.
-    raw: SecureProxyTarget | ReverseProxy;
-    // Proxy of an reference from the outer realm or from another sandbox.
-    sec: SecureProxy | ReverseProxyTarget;
-}
-
-export type DistortionMap = WeakMap<SecureProxyTarget, SecureProxyTarget>;
+    SecureRecord,
+    MembraneBroker,
+    DistortionMap,
+} from './types';
 
 // it means it does have identity and should be proxified.
 function isProxyTarget(o: RawValue | SecureValue):
@@ -72,18 +56,13 @@ interface SecureEnvironmentOptions {
     distortionMap?: Map<SecureProxyTarget, SecureProxyTarget>;
 }
 
-export class SecureEnvironment {
+export class SecureEnvironment implements MembraneBroker {
     // secure object map
-    private som: WeakMap<SecureFunction | SecureObject, SecureRecord> = WeakMapCreate();
+    som: WeakMap<SecureFunction | SecureObject, SecureRecord> = WeakMapCreate();
     // raw object map
-    private rom: WeakMap<RawFunction | RawObject, SecureRecord> = WeakMapCreate();
-    // distortion mechanism (default to noop)
-    private distortionMap: DistortionMap;
-
-    // cached utilities
-    private secureArrayConstructor: ArrayConstructor;
-    private createProxyInSandbox: SecureRevocableInitializableProxyFactory;
-    private createProxyInOuterRealm: ReverseRevocableInitializableProxyFactory;
+    rom: WeakMap<RawFunction | RawObject, SecureRecord> = WeakMapCreate();
+    // raw object distortion map
+    distortionMap: DistortionMap;
 
     constructor(options: SecureEnvironmentOptions) {
         if (isUndefined(options)) {
@@ -93,8 +72,9 @@ export class SecureEnvironment {
         this.distortionMap = WeakMapCreate(isUndefined(distortionMap) ? [] : distortionMap.entries());
         // getting proxy factories ready per environment so we can produce
         // the proper errors without leaking instances into a sandbox
-        this.createProxyInSandbox = secureGlobalThis.eval(`(${serializedSecureProxyFactory})`)(this);
-        this.createProxyInOuterRealm = reverseProxyFactory(this);
+        const secureEnvFactory = secureGlobalThis.eval(`(${serializedSecureEnvSourceText})`);
+        this.getSecureValue = secureEnvFactory(this);
+        this.getRawValue = reverseProxyFactory(this);
         // remapping intrinsics that are realm's agnostic
         for (let i = 0, len = ReflectiveIntrinsicObjectNames.length; i < len; i += 1) {
             const name = ReflectiveIntrinsicObjectNames[i];
@@ -103,63 +83,37 @@ export class SecureEnvironment {
             this.createSecureRecord(secure, raw);
             this.createSecureRecord(secure.prototype, raw.prototype);
         }
-        // caching utilities
-        this.secureArrayConstructor = secureGlobalThis.Array;
     }
 
-    private createSecureProxy(raw: SecureProxyTarget): SecureProxy {
-        if (WeakMapHas(this.som, raw)) {
-            // TODO: needs to be resilience, cannot just throw, what should we do instead?
-            throw new Error('Invariant Violation');
-        }
-        const meta = getTargetMeta(raw);
-        const { proxy, revoke } = this.createProxyInSandbox(raw, meta);
-        this.createSecureRecord(proxy, raw);
-        if (meta.isBroken || isRevokedProxy(raw)) {
-            // a failure during the meta extraction or the target is a revoked proxy
-            // in which case we prefer to make the new proxy unusable to avoid any leak.
-            revoke();
-        }
-        return proxy;
+    getRawValue(sec: SecureValue): RawValue {
+        // placeholder since this will be assigned in construction
     }
-    private createReverseProxy(sec: ReverseProxyTarget): ReverseProxy {
-        if (WeakMapHas(this.rom, sec)) {
-            // TODO: needs to be resilience, cannot just throw, what should we do instead?
-            throw new Error('Invariant Violation');
-        }
-        const meta = getTargetMeta(sec);
-        const { proxy, revoke, initialize } = this.createProxyInOuterRealm(sec, meta);
-        this.createSecureRecord(sec, proxy);
-        if (meta.isBroken || isRevokedProxy(sec)) {
-            // a failure during the meta extraction or the target is a revoked proxy
-            // in which case we prefer to make the new proxy unusable to avoid any leak.
-            revoke();
-        } else {
-            // eager initialization of reverse proxies
-            initialize();
-        }
-        return proxy;
+
+    getSecureValue(raw: RawValue): SecureValue {
+        // placeholder since this will be assigned in construction
     }
-    private createSecureRecord(sec: SecureObject, raw: RawObject) {
+
+    getRawRef(sec: SecureValue): RawValue | undefined {
+        const sr: SecureRecord | undefined = WeakMapGet(this.som, sec);
+        if (!isUndefined(sr)) {
+            return sr.raw;
+        }
+    }
+
+    getSecureRef(raw: RawValue): SecureValue | undefined {
+        const sr: SecureRecord | undefined = WeakMapGet(this.rom, raw);
+        if (!isUndefined(sr)) {
+            return sr.sec;
+        }
+    }
+
+    createSecureRecord(sec: SecureObject, raw: RawObject) {
         const sr: SecureRecord = ObjectCreate(null);
         sr.raw = raw;
         sr.sec = sec;
         // double index for perf
         WeakMapSet(this.som, sec, sr);
         WeakMapSet(this.rom, raw, sr);
-    }
-    private getDistortedValue(target: SecureProxyTarget): SecureProxyTarget {
-        const { distortionMap } = this;
-        if (!WeakMapHas(distortionMap, target)) {
-            return target;
-        }
-        // if a distortion entry is found, it must be a valid proxy target
-        const distortedTarget = WeakMapGet(distortionMap, target) as SecureProxyTarget;
-        if (!isProxyTarget(distortedTarget)) {
-            // TODO: needs to be resilience, cannot just throw, what should we do instead?
-            throw ErrorCreate(`Invalid distortion mechanism.`);
-        }
-        return distortedTarget;
     }
 
     remap(secureValue: SecureValue, rawValue: RawValue, rawDescriptors: PropertyDescriptorMap) {
@@ -257,69 +211,6 @@ export class SecureEnvironment {
             } else {
                 ReflectDefineProperty(secureValue, key, rawDescriptor);
             }
-        }
-    }
-
-    // membrane operations must be resilience to throw any error, otherwise
-    // it might leak references through the membrane.
-    getSecureValue(raw: RawValue): SecureValue {
-        if (isArray(raw)) {
-            return this.getSecureArray(raw);
-        } else if (isProxyTarget(raw)) {
-            const sr: SecureRecord | undefined = WeakMapGet(this.rom, raw);
-            if (isUndefined(sr)) {
-                return this.createSecureProxy(this.getDistortedValue(raw));
-            }
-            return sr.sec;
-        } else {
-            return raw as SecureValue;
-        }
-    }
-    getSecureArray(a: RawArray): SecureArray {
-        const b: SecureValue[] = map(a, (raw: RawValue) => this.getSecureValue(raw));
-        // identity of the new array correspond to the inner realm
-        return construct(this.secureArrayConstructor, b);
-    }
-    getSecureFunction(fn: RawFunction): SecureFunction {
-        const sr: SecureRecord | undefined = WeakMapGet(this.rom, fn);
-        if (isUndefined(sr)) {
-            return this.createSecureProxy(this.getDistortedValue(fn)) as SecureFunction;
-        }
-        return sr.sec as SecureFunction;
-    }
-    getSecureRef(raw: RawValue): SecureValue | undefined {
-        const sr: SecureRecord | undefined = WeakMapGet(this.rom, raw);
-        if (!isUndefined(sr)) {
-            return sr.sec;
-        }
-    }
-    getRawValue(sec: SecureValue): RawValue {
-        if (isArray(sec)) {
-            return this.getRawArray(sec);
-        } else if (isProxyTarget(sec)) {
-            const sr: SecureRecord | undefined = WeakMapGet(this.som, sec);
-            if (isUndefined(sr)) {
-                return this.createReverseProxy(sec);
-            }
-            return sr.raw;
-        }
-        return sec as RawValue;
-    }
-    getRawFunction(fn: SecureFunction): RawFunction {
-        const sr: SecureRecord | undefined = WeakMapGet(this.som, fn);
-        if (isUndefined(sr)) {
-            return this.createReverseProxy(fn) as RawFunction;
-        }
-        return sr.raw as SecureFunction;
-    }
-    getRawArray(a: SecureArray): RawArray {
-        // identity of the new array correspond to the outer realm
-        return map(a, (sec: SecureValue) => this.getRawValue(sec));
-    }
-    getRawRef(sec: SecureValue): RawValue | undefined {
-        const sr: SecureRecord | undefined = WeakMapGet(this.som, sec);
-        if (!isUndefined(sr)) {
-            return sr.raw;
         }
     }
 }
