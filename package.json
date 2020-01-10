@@ -1,6 +1,6 @@
 {
   "name": "@caridy/sjs",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Experimental JS Library to create a secure javascript sandbox in browsers and node",
   "module": "lib/index.js",
   "types": "types/index.js",
