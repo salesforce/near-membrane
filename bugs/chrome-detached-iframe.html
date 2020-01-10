@@ -1,0 +1,15 @@
+<body>
+    <script>
+    const sourceText = `
+        debugger;
+        console.log('worked!');
+    `;
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
+    document.body.appendChild(iframe);
+    const { contentWindow: { eval: iframeEval } } = iframe;
+    iframeEval(sourceText);
+    iframe.remove();
+    iframeEval(sourceText);
+    </script>
+</body>
