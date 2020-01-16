@@ -3,16 +3,15 @@
     const iframe = document.createElement('iframe');
     document.body.appendChild(iframe);
     const { contentWindow: { eval: iframeEval } } = iframe;
-    iframeEval('window');
     iframeEval(`
         // detached iframe has issues with global console, using the outer one
-        window.log = top.console.log;
-        window.foo = 1;
+        log = top.console.log;
+        foo = 1;
     `);
     iframe.remove();
     iframeEval(`
-        window.foo = 2;
-        if (window.foo !== 2) {
+        foo++;
+        if (foo !== 2) {
             log('fails!');
         } else {
             log('works!');
