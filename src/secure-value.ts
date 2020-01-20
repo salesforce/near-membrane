@@ -27,8 +27,6 @@ import {
     MembraneBroker,
 } from './types';
 
-Reflect.apply
-
 /**
  * Blink (Chrome) imposes certain restrictions for detached iframes, specifically,
  * any callback (or potentially a constructor) invoked from a detached iframe
