@@ -214,10 +214,10 @@ export function reverseProxyFactory(env: MembraneBroker) {
                 throw TypeError();
             }
             const secArgArray = env.getSecureValue(argArray);
-            // const secNewTarget = env.getSecureValue(newTarget);
+            const secNewTarget = env.getSecureValue(newTarget);
             let sec;
             try {
-                sec = construct(SecCtor as SecureConstructor, secArgArray);
+                sec = construct(SecCtor as SecureConstructor, secArgArray, secNewTarget);
             } catch (e) {
                 // This error occurred when the outer realm attempts to new a
                 // constructor from the sandbox. By throwing a new raw error, we eliminates the stack

@@ -27,10 +27,35 @@ import {
     MembraneBroker,
 } from './types';
 
-export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: MembraneBroker) {
+/**
+ * Blink (Chrome) imposes certain restrictions for detached iframes, specifically,
+ * any callback (or potentially a constructor) invoked from a detached iframe
+ * will throw an error as detailed here:
+ *
+ *  - https://bugs.chromium.org/p/chromium/issues/detail?id=1042435#c4
+ *
+ * This restriction seems some-how arbitrary at this point because you can easily
+ * bypass it by preserving the following two invariants:
+ *
+ * 1. a call to a dom DOM API must be done from the main window.
+ * 2. any callback passed into a DOM API must be wrapped with a
+ *    proxy from the main realm.
+ *
+ * For that, the environment must provide two hooks that when called
+ * they will delegate to Reflect.apply/Reflect.construct on the outer
+ * realm, you cannot call Reflect.* from inside the sandbox or the outer
+ * realm directly, it must be a wrapping function.
+ */
+export interface MarshalHooks {
+    apply(target: RawFunction, thisArgument: RawValue, argumentsList: ArrayLike<RawValue>): RawValue;
+    construct(target: RawConstructor, argumentsList: ArrayLike<RawValue>, newTarget?: any): RawValue;
+}
+
+export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: MembraneBroker, hooks: MarshalHooks) {
     'use strict';
 
     const { rom, distortionMap } = rawEnv;
+    const { apply: rawApplyHook, construct: rawConstructHook } = hooks;
 
     const {
         apply,
@@ -340,7 +365,7 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
             try {
                 const rawThisArg = rawEnv.getRawValue(thisArg);
                 const rawArgArray = rawEnv.getRawValue(argArray);
-                raw = apply(rawTarget as RawFunction, rawThisArg, rawArgArray);
+                raw = rawApplyHook(rawTarget as RawFunction, rawThisArg, rawArgArray);
             } catch (e) {
                 // This error occurred when the sandbox attempts to call a
                 // function from the outer realm. By throwing a new secure error,
@@ -372,7 +397,7 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
             try {
                 const rawNewTarget = rawEnv.getRawValue(newTarget);
                 const rawArgArray = rawEnv.getRawValue(argArray);
-                raw = construct(rawCons as RawConstructor, rawArgArray, rawNewTarget);
+                raw = rawConstructHook(rawCons as RawConstructor, rawArgArray, rawNewTarget);
             } catch (e) {
                 // This error occurred when the sandbox attempts to new a
                 // constructor from the outer realm. By throwing a new secure error,

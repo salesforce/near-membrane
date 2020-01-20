@@ -18,8 +18,9 @@ import {
     WeakMapSet,
     ReflectiveIntrinsicObjectNames,
     WeakMapGet,
+    construct,
 } from './shared';
-import { serializedSecureEnvSourceText } from './secure-value';
+import { serializedSecureEnvSourceText, MarshalHooks } from './secure-value';
 import { reverseProxyFactory } from './raw-value';
 import {
     SecureObject,
@@ -73,7 +74,11 @@ export class SecureEnvironment implements MembraneBroker {
         // getting proxy factories ready per environment so we can produce
         // the proper errors without leaking instances into a sandbox
         const secureEnvFactory = secureGlobalThis.eval(`(${serializedSecureEnvSourceText})`);
-        this.getSecureValue = secureEnvFactory(this);
+        const rawHooks: MarshalHooks = {
+            apply,
+            construct,
+        };
+        this.getSecureValue = secureEnvFactory(this, rawHooks);
         this.getRawValue = reverseProxyFactory(this);
         // remapping intrinsics that are realm's agnostic
         for (let i = 0, len = ReflectiveIntrinsicObjectNames.length; i < len; i += 1) {
