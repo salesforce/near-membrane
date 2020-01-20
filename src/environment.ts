@@ -75,8 +75,12 @@ export class SecureEnvironment implements MembraneBroker {
         // the proper errors without leaking instances into a sandbox
         const secureEnvFactory = secureGlobalThis.eval(`(${serializedSecureEnvSourceText})`);
         const rawHooks: MarshalHooks = {
-            apply,
-            construct,
+            apply(target: RawFunction, thisArgument: RawValue, argumentsList: ArrayLike<RawValue>): RawValue {
+                return apply(target, thisArgument, argumentsList);
+            },
+            construct(target: RawConstructor, argumentsList: ArrayLike<RawValue>, newTarget?: any): RawValue {
+                return construct(target, argumentsList, newTarget);
+            },
         };
         this.getSecureValue = secureEnvFactory(this, rawHooks);
         this.getRawValue = reverseProxyFactory(this);
