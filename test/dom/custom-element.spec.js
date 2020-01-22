@@ -1,7 +1,5 @@
 import createSecureEnvironment from '../../lib/browser-realm.js';
 
-const evalScript = createSecureEnvironment();
-
 // outer element declaration
 class ExternalElement extends HTMLElement {
     identity() {
@@ -9,6 +7,9 @@ class ExternalElement extends HTMLElement {
     }
 }
 customElements.define('x-external', ExternalElement);
+window.refToExternalElement = ExternalElement;
+
+const evalScript = createSecureEnvironment();
 
 describe('Outer Realm Custom Element', () => {
     it('should be accessible within the sandbox', function() {
@@ -39,6 +40,23 @@ describe('Outer Realm Custom Element', () => {
             expect(elm instanceof ExtenalElement).toBe(true);
         `);
     });
+    it('should get access to external registered elements', function() {
+        // expect.assertions(1);
+        evalScript(`
+            const E = customElements.get('x-external');
+            expect(E).toBe(refToExternalElement);
+        `);
+    });
+    it('should preserve the invariants of classes in outer realm', function() {
+        // expect.assertions(7);
+        expect(HTMLElement.__proto__ === Element).toBeTrue();
+        expect(HTMLElement.prototype.__proto__ === Element.prototype).toBeTrue();
+        expect(HTMLElement.prototype.constructor === HTMLElement).toBeTrue();
+        expect(ExternalElement.__proto__ === HTMLElement).toBeTrue();
+        expect(ExternalElement.prototype.__proto__ === HTMLElement.prototype).toBeTrue();
+        expect(ExternalElement.prototype.constructor === ExternalElement).toBeTrue();
+        expect(customElements.get('x-external') === ExternalElement).toBeTrue();
+    });
 });
 
 describe('Sandboxed Custom Element', () => {
@@ -46,25 +64,15 @@ describe('Sandboxed Custom Element', () => {
         class Bar extends HTMLElement {}
         customElements.define('x-bar', Bar);
     `);
-    xit('should preserve the invariants of classes', function() {
-        // expect.assertions(12);
+    it('should preserve the invariants of classes from within the sandbox', function() {
+        // expect.assertions(6);
         evalScript(`
-            const Bar = customElements.get('x-bar');
-            // checking class invariants from within the sandbox
-            expect(HTMLElement.__proto__).toBe(Element);
-            expect(HTMLElement.prototype.__proto__).toBe(Element.prototype);
-            expect(HTMLElement.prototype.constructor).toBe(HTMLElement);
-            expect(Bar.__proto__).toBe(HTMLElement);
-            expect(Bar.prototype.__proto__).toBe(HTMLElement.prototype);
-            expect(Bar.prototype.constructor).toBe(Bar);
+            expect(HTMLElement.__proto__ === Element).toBeTrue();
+            expect(HTMLElement.prototype.__proto__ === Element.prototype).toBeTrue();
+            expect(HTMLElement.prototype.constructor === HTMLElement).toBeTrue();
+            expect(refToExternalElement.__proto__ === HTMLElement).toBeTrue();
+            expect(refToExternalElement.prototype.__proto__ === HTMLElement.prototype).toBeTrue();
+            expect(refToExternalElement.prototype.constructor === refToExternalElement).toBeTrue();
         `);
-        // checking class invariants from outer realm
-        const SandboxedBar = customElements.get('x-bar');
-        expect(HTMLElement.__proto__).toBe(Element);
-        expect(HTMLElement.prototype.__proto__).toBe(Element.prototype);
-        expect(HTMLElement.prototype.constructor).toBe(HTMLElement);
-        expect(SandboxedBar.__proto__).toBe(HTMLElement);
-        expect(SandboxedBar.prototype.__proto__).toBe(HTMLElement.prototype);
-        expect(SandboxedBar.prototype.constructor).toBe(SandboxedBar);
     });
 });

@@ -6,7 +6,7 @@ function throwNewError(Ctor, msg) {
 
 let sandboxedValue;
 
-globalThis.foo = {
+globalThis.boundaryHooks = {
     set a(v) {
         throwNewError(Error, 'a() setter throws for argument: ' + v);
     },
@@ -25,15 +25,15 @@ describe('The Error Boundary', () => {
     it('should preserve identity of errors after a membrane roundtrip', function() {
         // expect.assertions(3);
         const evalScript = createSecureEnvironment();
-        evalScript(`foo.expose(() => { foo.a })`);
+        evalScript(`boundaryHooks.expose(() => { boundaryHooks.a })`);
         expect(() => {
             sandboxedValue();
         }).toThrowError(Error);
-        evalScript(`foo.expose(() => { foo.a = 1; })`);
+        evalScript(`boundaryHooks.expose(() => { boundaryHooks.a = 1; })`);
         expect(() => {
             sandboxedValue();
         }).toThrowError(Error);
-        evalScript(`foo.expose(() => { foo.b(2); })`);
+        evalScript(`boundaryHooks.expose(() => { boundaryHooks.b(2); })`);
         expect(() => {
             sandboxedValue();
         }).toThrowError(RangeError);
@@ -44,17 +44,17 @@ describe('The Error Boundary', () => {
 
         evalScript(`
             expect(() => {
-                foo.a;
+                boundaryHooks.a;
             }).toThrowError(Error);
         `);
         evalScript(`
             expect(() => {
-                foo.a = 1;
+                boundaryHooks.a = 1;
             }).toThrowError(Error);
         `);
         evalScript(`
             expect(() => {
-                foo.b(2);
+                boundaryHooks.b(2);
             }).toThrowError(RangeError);
         `);
     });
@@ -64,7 +64,7 @@ describe('The Error Boundary', () => {
         evalScript(`
             const revocable = Proxy.revocable(() => undefined, {});
             revocable.revoke();
-            foo.expose(revocable.proxy);
+            boundaryHooks.expose(revocable.proxy);
         `);
         expect(() => {
             sandboxedValue.x;

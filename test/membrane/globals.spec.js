@@ -1,7 +1,7 @@
 import createSecureEnvironment from '../../lib/browser-realm.js';
 
 describe('The Sandbox', () => {
-    xit('should allow creationg of sandboxed global expandos', function() {
+    it('should allow creation of sandboxed global expandos', function() {
         // expect.assertions(3);
         const evalScript = createSecureEnvironment();
         evalScript(`
