@@ -1,8 +1,8 @@
 import { SecureEnvironment } from "./environment";
 import { SecureProxyTarget, RawFunction } from "./types";
-import { 
-    ReflectGetPrototypeOf, 
-    ReflectSetPrototypeOf, 
+import {
+    ReflectGetPrototypeOf,
+    ReflectSetPrototypeOf,
     getOwnPropertyDescriptors,
     construct,
     ErrorCreate,
@@ -16,10 +16,46 @@ const rawWindowProto = ReflectGetPrototypeOf(rawWindow);
 const rawWindowPropertiesProto = ReflectGetPrototypeOf(rawWindowProto);
 const rawEventTargetProto = ReflectGetPrototypeOf(rawWindowPropertiesProto);
 
+// A comprehensive list of policy feature directives can be found at
+// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Feature-Policy#Directives
+// Directives not currently supported by Chrome are commented out because
+// Chrome logs warnings to the developer console.
+const IFRAME_ALLOW_ATTRIBUTE_VALUE =
+    "accelerometer 'none';" +
+    "ambient-light-sensor 'none';" +
+    "autoplay 'none';" +
+    // "battery 'none';" +
+    "camera 'none';" +
+    // "display-capture 'none';" +
+    "document-domain 'none';" +
+    "encrypted-media 'none';" +
+    // "execution-while-not-rendered 'none';" +
+    // "execution-while-out-of-viewport 'none';" +
+    "fullscreen 'none';" +
+    "geolocation 'none';" +
+    "gyroscope 'none';" +
+    // "layout-animations 'none';" +
+    // "legacy-image-formats 'none';" +
+    "magnetometer 'none';" +
+    "microphone 'none';" +
+    "midi 'none';" +
+    // "navigation-override 'none';" +
+    // "oversized-images 'none';" +
+    "payment 'none';" +
+    "picture-in-picture 'none';" +
+    // "publickey-credentials 'none';" +
+    "sync-xhr 'none';" +
+    "usb 'none';" +
+    // "wake-lock 'none';" +
+    "xr-spatial-tracking 'none';"
+
+const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
+
 export default function createSecureEnvironment(distortionMap?: Map<SecureProxyTarget, SecureProxyTarget>): (sourceText: string) => void {
     // @ts-ignore document global ref - in browsers
     const iframe = document.createElement('iframe');
-    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
+    iframe.setAttribute('allow', IFRAME_ALLOW_ATTRIBUTE_VALUE);
+    iframe.setAttribute('sandbox', IFRAME_SANDBOX_ATTRIBUTE_VALUE);
     iframe.style.display = 'none';
 
     // @ts-ignore document global ref - in browsers
