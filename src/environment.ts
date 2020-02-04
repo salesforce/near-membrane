@@ -149,11 +149,19 @@ export class SecureEnvironment implements MembraneBroker {
                // outer realm.
                 const env = this;
                 const { get: originalGetter } = rawDescriptor;
-                
-                let currentGetter = !isFunction(rawDescriptor.get) ? () => undefined : function(this: any): SecureValue {
-                    const value: RawValue = apply(originalGetter as () => any, env.getRawValue(this), emptyArray);
-                    return env.getSecureValue(value);
-                };
+
+                let currentGetter = () => undefined;
+                if (isFunction(originalGetter)) {
+                    const originalOrDistortedGetter: () => any = WeakMapGet(this.distortionMap, originalGetter) || originalGetter;
+                    if (!isProxyTarget(originalOrDistortedGetter)) {
+                        // TODO: needs to be resilience, cannot just throw, what should we do instead?
+                        throw ErrorCreate(`Invalid distortion.`);
+                    }
+                    currentGetter = function(this: any): SecureValue {
+                        const value: RawValue = apply(originalOrDistortedGetter, env.getRawValue(this), emptyArray);
+                        return env.getSecureValue(value);
+                    };
+                }
 
                 rawDescriptor.get = function(): SecureValue {
                     return apply(currentGetter, this, emptyArray);
