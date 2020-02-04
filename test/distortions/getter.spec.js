@@ -30,7 +30,7 @@ describe('Getter Function Distortion', () => {
             const elm = document.createElement('div');
             elm.attachShadow({ mode: 'open' });
             const hostGetter = Object.getOwnPropertyDescriptor(ShadowRoot.prototype, 'host').get;
-            expect(hostGetter.call(elm)).toBe(null);     
+            expect(hostGetter.call(elm)).toBe(null);
         `); 
     });
     it('should work for global property accessors (issue #64)', function () {
