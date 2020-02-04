@@ -36,7 +36,6 @@ describe('Getter Function Distortion', () => {
     it('should work for global property accessors (issue #64)', function () {
         // expect.assertions(1);
         evalScript(`
-            const elm = localStorage;
             expect(localStorage).toBe('distorted localStorage');
         `);
     });

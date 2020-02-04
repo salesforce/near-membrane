@@ -153,7 +153,7 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         // if a distortion entry is found, it must be a valid proxy target
         const distortedTarget = WeakMapGet(distortionMap, target) as SecureProxyTarget;
         if (!isProxyTarget(distortedTarget)) {
-            // TODO: needs to be resilience, cannot just throw, what should we do instead?
+            // TODO: needs to be resilient, cannot just throw, what should we do instead?
             throw ErrorCreate(`Invalid distortion.`);
         }
         return distortedTarget;
