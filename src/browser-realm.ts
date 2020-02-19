@@ -6,6 +6,7 @@ import {
     getOwnPropertyDescriptors,
     construct,
     ErrorCreate,
+    ReflectiveDOMObjectNames,
 } from "./shared";
 
 // caching references to object values that can't be replaced
@@ -64,12 +65,22 @@ export default function createSecureEnvironment(distortionMap?: Map<SecureProxyT
     env.remap(secureDocument, rawDocument, {/* it only has location, which is ignored for now */});
     ReflectSetPrototypeOf(secureDocument, env.getSecureValue(rawDocumentProto));
 
+    // remapping reflective global names
+    for (let i = 0, len = ReflectiveDOMObjectNames.length; i < len; i += 1) {
+        const key = ReflectiveDOMObjectNames[i];
+        if (rawWindow[key] !== undefined && secureWindow[key] !== undefined) {
+            delete rawGlobalThisDescriptors[key];
+            env.remap(rawWindow[key], secureWindow[key], getOwnPropertyDescriptors(rawWindow[key]));
+        }
+    }
+
     // remapping window proto chain backward
     env.remap(secureEventTargetProto, rawEventTargetProto, rawEventTargetProtoDescriptors);
     env.remap(secureWindowPropertiesProto, rawWindowPropertiesProto, rawWindowPropertiesProtoDescriptors);
     env.remap(secureWindowProto, rawWindowProto, rawWindowProtoDescriptors);
     env.remap(secureWindow, rawWindow, rawGlobalThisDescriptors);
 
+    // finally, we return the evaluator function
     return (sourceText: string): void => {
         try {
             secureIndirectEval(sourceText);

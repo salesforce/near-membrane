@@ -155,3 +155,11 @@ export const ReflectiveIntrinsicObjectNames = [
     'EvalError',
     'Error',
 ];
+
+// Some DOM APIs that are doing brand checks for some TypeArrays and others objects,
+// for those, when possible, we just remap them per namespace to avoid crossing the
+// membrane.
+// TODO: review this list
+export const ReflectiveDOMObjectNames = [
+    'crypto'
+];
