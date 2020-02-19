@@ -21,6 +21,7 @@ export const {
     getOwnPropertyDescriptor: ReflectGetOwnPropertyDescriptor,
     ownKeys,
     preventExtensions: ReflectPreventExtensions,
+    deleteProperty,
 } = Reflect;
 
 const ErrorCreate = unconstruct(Error);

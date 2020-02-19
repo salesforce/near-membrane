@@ -116,7 +116,7 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         try {
             isRawArray = isArrayOrNotOrThrowForRevoked(raw);
         } catch (ignored) {
-            // raw was revoked
+            // raw was revoked - but we call createSecureProxy to support distortions
             return createSecureProxy(raw);
         }
         if (isRawArray) {
@@ -387,16 +387,16 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
             }
             return getSecureValue(raw);
         }
-        construct(shadowTarget: SecureShadowTarget, argArray: SecureValue[], newTarget: SecureObject): SecureObject {
+        construct(shadowTarget: SecureShadowTarget, secArgArray: SecureValue[], secNewTarget: SecureObject): SecureObject {
             const { target: rawCons } = this;
             this.initialize(shadowTarget);
-            if (isUndefined(newTarget)) {
+            if (isUndefined(secNewTarget)) {
                 throw TypeError();
             }
             let raw;
             try {
-                const rawNewTarget = rawEnv.getRawValue(newTarget);
-                const rawArgArray = rawEnv.getRawValue(argArray);
+                const rawNewTarget = rawEnv.getRawValue(secNewTarget);
+                const rawArgArray = rawEnv.getRawValue(secArgArray);
                 raw = rawConstructHook(rawCons as RawConstructor, rawArgArray, rawNewTarget);
             } catch (e) {
                 // This error occurred when the sandbox attempts to new a
