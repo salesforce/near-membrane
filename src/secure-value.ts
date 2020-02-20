@@ -452,12 +452,12 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
             // this operation can only affect the env object graph
             return preventExtensions(shadowTarget);
         }
-        defineProperty(shadowTarget: SecureShadowTarget, key: PropertyKey, descriptor: PropertyDescriptor): boolean {
+        defineProperty(shadowTarget: SecureShadowTarget, key: PropertyKey, secPartialDesc: PropertyDescriptor): boolean {
             this.initialize(shadowTarget);
             // this operation can only affect the env object graph
             // intentionally using Object.defineProperty instead of Reflect.defineProperty
             // to throw for existing non-configurable descriptors.
-            ObjectDefineProperty(shadowTarget, key, descriptor);
+            ObjectDefineProperty(shadowTarget, key, secPartialDesc);
             return true;
         }
     }

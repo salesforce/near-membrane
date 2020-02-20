@@ -319,19 +319,24 @@ export function reverseProxyFactory(env: MembraneBroker) {
         preventExtensions(shadowTarget: ReverseShadowTarget): boolean {
             if (ReflectIsExtensible(shadowTarget)) {
                 const { target } = this;
+                if (!ReflectPreventExtensions(target)) {
+                    // if the target is a proxy manually created in the sandbox, it might reject
+                    // the preventExtension call, in which case we should not attempt to lock down
+                    // the shadow target.
+                    return false;
+                }
                 lockShadowTarget(shadowTarget, target);
-                ReflectPreventExtensions(target);
             }
             return true;
         }
-        defineProperty(shadowTarget: ReverseShadowTarget, key: PropertyKey, rawDesc: PropertyDescriptor): boolean {
+        defineProperty(shadowTarget: ReverseShadowTarget, key: PropertyKey, rawPartialDesc: PropertyDescriptor): boolean {
             const { target } = this;
             // todo: key could be a symbol, and leaked
-            if (ReflectDefineProperty(target, key, getSecureDescriptor(rawDesc))) {
+            if (ReflectDefineProperty(target, key, getSecureDescriptor(rawPartialDesc))) {
                 // intentionally testing against true since it could be undefined as well
-                if (rawDesc.configurable !== true) {
+                if (rawPartialDesc.configurable !== true) {
                     // defining the descriptor to non-configurable on the shadow target
-                    ReflectDefineProperty(shadowTarget, key, rawDesc);
+                    ReflectDefineProperty(shadowTarget, key, rawPartialDesc);
                 }
             }
             return true;
