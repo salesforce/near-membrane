@@ -54,6 +54,13 @@ export default function createSecureEnvironment(distortionMap?: Map<SecureProxyT
     delete rawGlobalThisDescriptors.document;
     delete rawGlobalThisDescriptors.window;
 
+    // Some DOM APIs do brand checks for TypeArrays and others objects,
+    // in this case, if the API is not dangerous, and works in a detached
+    // iframe, we can let the sandbox to use the iframe's api directly,
+    // instead of remapping it to the outer realm.
+    // TODO [issue #67]: review this list
+    delete rawGlobalThisDescriptors.crypto;
+
     const env = new SecureEnvironment({
         rawGlobalThis: rawWindow,
         secureGlobalThis: secureWindow,
@@ -70,6 +77,7 @@ export default function createSecureEnvironment(distortionMap?: Map<SecureProxyT
     env.remap(secureWindowProto, rawWindowProto, rawWindowProtoDescriptors);
     env.remap(secureWindow, rawWindow, rawGlobalThisDescriptors);
 
+    // finally, we return the evaluator function
     return (sourceText: string): void => {
         try {
             secureIndirectEval(sourceText);
