@@ -118,7 +118,7 @@ export function reverseProxyFactory(env: MembraneBroker) {
         return rawDesc;
     }
 
-    function getSecureDescriptor(rawPartialDesc: PropertyDescriptor): PropertyDescriptor {
+    function getSecurePartialDescriptor(rawPartialDesc: PropertyDescriptor): PropertyDescriptor {
         const secPartialDesc = assign(ObjectCreate(null), rawPartialDesc);
         if ('value' in secPartialDesc) {
             // we are dealing with a value descriptor
@@ -178,17 +178,16 @@ export function reverseProxyFactory(env: MembraneBroker) {
             const secValue = env.getSecureValue(value);
             const secDesc = getPropertyDescriptor(target, key);
             if (!isUndefined(secDesc)) {
-                const rawDesc = getRawDescriptor(secDesc);
                 // descriptor exists in the target or proto chain
-                const { set, get, writable } = rawDesc;
+                const { set, get, writable } = secDesc;
                 if (writable === false) {
                     // TypeError: Cannot assign to read only property '${key}' of object
                     return false;
                 }
                 if (isFunction(set)) {
-                    // a setter is available, just call it with the raw value because
-                    // the setter expects a raw value
-                    apply(set, receiver, [value]);
+                    // calling the setter with the raw receiver and the raw value
+                    // because the setter expects a raw value it also returns a raw value
+                    apply(env.getRawValue(set), receiver, [value]);
                     return true;
                 }
                 if (isFunction(get)) {
@@ -332,7 +331,7 @@ export function reverseProxyFactory(env: MembraneBroker) {
         defineProperty(shadowTarget: ReverseShadowTarget, key: PropertyKey, rawPartialDesc: PropertyDescriptor): boolean {
             const { target } = this;
             // todo: key could be a symbol, and leaked
-            if (ReflectDefineProperty(target, key, getSecureDescriptor(rawPartialDesc))) {
+            if (ReflectDefineProperty(target, key, getSecurePartialDescriptor(rawPartialDesc))) {
                 // intentionally testing against true since it could be undefined as well
                 if (rawPartialDesc.configurable !== true) {
                     // defining the descriptor to non-configurable on the shadow target
