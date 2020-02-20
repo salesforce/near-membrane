@@ -6,7 +6,6 @@ import {
     getOwnPropertyDescriptors,
     construct,
     ErrorCreate,
-    ReflectiveDOMObjectNames,
 } from "./shared";
 
 // caching references to object values that can't be replaced
@@ -55,6 +54,13 @@ export default function createSecureEnvironment(distortionMap?: Map<SecureProxyT
     delete rawGlobalThisDescriptors.document;
     delete rawGlobalThisDescriptors.window;
 
+    // Some DOM APIs do brand checks for TypeArrays and others objects,
+    // in this case, if the API is not dangerous, and works in a detached
+    // iframe, we can let the sandbox to use the iframe's api directly,
+    // instead of remapping it to the outer realm.
+    // TODO [issue #67]: review this list
+    delete rawGlobalThisDescriptors.crypto;
+
     const env = new SecureEnvironment({
         rawGlobalThis: rawWindow,
         secureGlobalThis: secureWindow,
@@ -64,15 +70,6 @@ export default function createSecureEnvironment(distortionMap?: Map<SecureProxyT
     // other maps
     env.remap(secureDocument, rawDocument, {/* it only has location, which is ignored for now */});
     ReflectSetPrototypeOf(secureDocument, env.getSecureValue(rawDocumentProto));
-
-    // remapping reflective global names
-    for (let i = 0, len = ReflectiveDOMObjectNames.length; i < len; i += 1) {
-        const key = ReflectiveDOMObjectNames[i];
-        if (rawWindow[key] !== undefined && secureWindow[key] !== undefined) {
-            delete rawGlobalThisDescriptors[key];
-            env.remap(rawWindow[key], secureWindow[key], getOwnPropertyDescriptors(rawWindow[key]));
-        }
-    }
 
     // remapping window proto chain backward
     env.remap(secureEventTargetProto, rawEventTargetProto, rawEventTargetProtoDescriptors);
