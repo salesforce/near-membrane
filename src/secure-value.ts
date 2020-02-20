@@ -462,13 +462,14 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         }
     }
     
+
     setPrototypeOf(SecureProxyHandler.prototype, null);
 
     function createSecureShadowTarget(raw: SecureProxyTarget): SecureShadowTarget {
         let shadowTarget;
         if (isFunction(raw)) {
             // this is never invoked just needed to anchor the realm for errors
-            shadowTarget = function () {};
+            shadowTarget = 'prototype' in raw ? function () {} : () => {};
             renameFunction(raw as (...args: any[]) => any, shadowTarget);
         } else {
             // o is object

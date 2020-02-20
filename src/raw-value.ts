@@ -117,7 +117,7 @@ function createReverseShadowTarget(target: ReverseProxyTarget): ReverseShadowTar
     let shadowTarget;
     if (isFunction(target)) {
         // this is never invoked just needed to anchor the realm
-        shadowTarget = function () {};
+        shadowTarget = 'prototype' in target ? function () {} : () => {};
         renameFunction(target as (...args: any[]) => any, shadowTarget as (...args: any[]) => any);
     } else {
         // o is object
