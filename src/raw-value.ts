@@ -135,7 +135,7 @@ export function reverseProxyFactory(env: MembraneBroker) {
     }
 
     function lockShadowTarget(shadowTarget: ReverseShadowTarget, originalTarget: ReverseProxyTarget) {
-        // todo: leaking symbols
+        // TODO [#60]: leaking symbols
         const targetKeys = ownKeys(originalTarget);
         for (let i = 0, len = targetKeys.length; i < len; i += 1) {
             const key = targetKeys[i];
@@ -159,7 +159,7 @@ export function reverseProxyFactory(env: MembraneBroker) {
         }
         get(shadowTarget: ReverseShadowTarget, key: PropertyKey, receiver: RawObject): SecureValue {
             const { target } = this;
-            // todo: leaking key as symbol
+            // TODO [#60]: leaking key as symbol
             const desc = getPropertyDescriptor(target, key);
             if (isUndefined(desc)) {
                 return desc;
@@ -174,8 +174,7 @@ export function reverseProxyFactory(env: MembraneBroker) {
         }
         set(shadowTarget: ReverseShadowTarget, key: PropertyKey, value: RawValue, receiver: RawObject): boolean {
             const { target } = this;
-            // todo: leaking key as symbol
-            const secValue = env.getSecureValue(value);
+            // TODO [#60]: leaking key as symbol
             const secDesc = getPropertyDescriptor(target, key);
             if (!isUndefined(secDesc)) {
                 // descriptor exists in the target or proto chain
@@ -201,12 +200,12 @@ export function reverseProxyFactory(env: MembraneBroker) {
                 return false;
             }
             // the descriptor is writable on the obj or proto chain, just assign it
-            target[key] = secValue;
+            target[key] = env.getSecureValue(value);
             return true;
         }
         deleteProperty(shadowTarget: ReverseShadowTarget, key: PropertyKey): boolean {
             const { target } = this;
-            // todo: leaking key as symbol
+            // TODO [#60]: leaking key as symbol
             return deleteProperty(target, key);
         }
         apply(shadowTarget: ReverseShadowTarget, rawThisArg: RawValue, rawArgArray: RawValue[]): RawValue {
@@ -270,12 +269,12 @@ export function reverseProxyFactory(env: MembraneBroker) {
         }
         has(shadowTarget: ReverseShadowTarget, key: PropertyKey): boolean {
             const { target } = this;
-            // todo: protect against leaking symbols
+            // TODO [#60]: protect against leaking symbols
             return key in target;
         }
         ownKeys(shadowTarget: ReverseShadowTarget): PropertyKey[] {
             const { target } = this;
-            // todo: protect against leaking symbols
+            // TODO [#60]: protect against leaking symbols
             return ownKeys(target);
         }
         isExtensible(shadowTarget: ReverseShadowTarget): boolean {
@@ -291,7 +290,7 @@ export function reverseProxyFactory(env: MembraneBroker) {
         }
         getOwnPropertyDescriptor(shadowTarget: ReverseShadowTarget, key: PropertyKey): PropertyDescriptor | undefined {
             const { target } = this;
-            // todo: leaking key as symbol
+            // TODO [#60]: leaking key as symbol
             let rawDesc = ReflectGetOwnPropertyDescriptor(shadowTarget, key);
             if (!isUndefined(rawDesc)) {
                 return rawDesc;
@@ -330,7 +329,7 @@ export function reverseProxyFactory(env: MembraneBroker) {
         }
         defineProperty(shadowTarget: ReverseShadowTarget, key: PropertyKey, rawPartialDesc: PropertyDescriptor): boolean {
             const { target } = this;
-            // todo: key could be a symbol, and leaked
+            // TODO [#60]: key could be a symbol, and leaked
             if (ReflectDefineProperty(target, key, getSecurePartialDescriptor(rawPartialDesc))) {
                 // intentionally testing against true since it could be undefined as well
                 if (rawPartialDesc.configurable !== true) {
