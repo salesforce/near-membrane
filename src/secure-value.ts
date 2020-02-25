@@ -469,7 +469,12 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         let shadowTarget;
         if (isFunction(raw)) {
             // this is never invoked just needed to anchor the realm for errors
-            shadowTarget = 'prototype' in raw ? function () {} : () => {};
+            try {
+                shadowTarget = 'prototype' in raw ? function () {} : () => {};
+            } catch (ignored) {
+                // TODO: target is a revoked proxy. This could be optimized if Meta becomes available here.
+                shadowTarget = () => {};
+            }
             renameFunction(raw as (...args: any[]) => any, shadowTarget);
         } else {
             // o is object

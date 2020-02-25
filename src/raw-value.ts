@@ -117,7 +117,12 @@ function createReverseShadowTarget(target: ReverseProxyTarget): ReverseShadowTar
     let shadowTarget;
     if (isFunction(target)) {
         // this is never invoked just needed to anchor the realm
-        shadowTarget = 'prototype' in target ? function () {} : () => {};
+        try {
+            shadowTarget = 'prototype' in target ? function () {} : () => {};
+        } catch (ignored) {
+            // TODO: target is a revoked proxy. This could be optimized if Meta becomes available here.
+            shadowTarget = () => {};
+        }
         renameFunction(target as (...args: any[]) => any, shadowTarget as (...args: any[]) => any);
     } else {
         // o is object
