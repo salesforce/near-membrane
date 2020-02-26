@@ -37,7 +37,7 @@ export default function createSecureEnvironment(distortionMap?: Map<SecureProxyT
                 // the constructor must be registered (done during construction of env)
                 // otherwise we need to fallback to a regular error.
                 rawError = construct(rawErrorConstructor as RawFunction, [message]);
-            } catch (ignored) {
+            } catch {
                 // in case the constructor inference fails
                 rawError = ErrorCreate(message);
             }

@@ -115,7 +115,7 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         let isRawArray = false;
         try {
             isRawArray = isArrayOrNotOrThrowForRevoked(raw);
-        } catch (ignored) {
+        } catch {
             // raw was revoked - but we call createSecureProxy to support distortions
             return createSecureProxy(raw);
         }
@@ -379,7 +379,7 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
                     // the secure constructor must be registered (done during construction of env)
                     // otherwise we need to fallback to a regular error.
                     secError = construct(secErrorConstructor as SecureFunction, [message]);
-                } catch (ignored) {
+                } catch {
                     // in case the constructor inference fails
                     secError = new Error(message);
                 }
@@ -411,7 +411,7 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
                     // the secure constructor must be registered (done during construction of env)
                     // otherwise we need to fallback to a regular error.
                     secError = construct(secErrorConstructor as SecureFunction, [message]);
-                } catch (ignored) {
+                } catch {
                     // in case the constructor inference fails
                     secError = new Error(message);
                 }
@@ -471,7 +471,7 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
             // this is never invoked just needed to anchor the realm for errors
             try {
                 shadowTarget = 'prototype' in raw ? function () {} : () => {};
-            } catch (ignored) {
+            } catch {
                 // TODO: target is a revoked proxy. This could be optimized if Meta becomes available here.
                 shadowTarget = () => {};
             }
