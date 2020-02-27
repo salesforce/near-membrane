@@ -115,8 +115,8 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         let isRawArray = false;
         try {
             isRawArray = isArrayOrNotOrThrowForRevoked(raw);
-        } catch (ignored) {
-            // raw was revoked
+        } catch {
+            // raw was revoked - but we call createSecureProxy to support distortions
             return createSecureProxy(raw);
         }
         if (isRawArray) {
@@ -379,7 +379,7 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
                     // the secure constructor must be registered (done during construction of env)
                     // otherwise we need to fallback to a regular error.
                     secError = construct(secErrorConstructor as SecureFunction, [message]);
-                } catch (ignored) {
+                } catch {
                     // in case the constructor inference fails
                     secError = new Error(message);
                 }
@@ -387,16 +387,16 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
             }
             return getSecureValue(raw);
         }
-        construct(shadowTarget: SecureShadowTarget, argArray: SecureValue[], newTarget: SecureObject): SecureObject {
+        construct(shadowTarget: SecureShadowTarget, secArgArray: SecureValue[], secNewTarget: SecureObject): SecureObject {
             const { target: rawCons } = this;
             this.initialize(shadowTarget);
-            if (isUndefined(newTarget)) {
+            if (isUndefined(secNewTarget)) {
                 throw TypeError();
             }
             let raw;
             try {
-                const rawNewTarget = rawEnv.getRawValue(newTarget);
-                const rawArgArray = rawEnv.getRawValue(argArray);
+                const rawNewTarget = rawEnv.getRawValue(secNewTarget);
+                const rawArgArray = rawEnv.getRawValue(secArgArray);
                 raw = rawConstructHook(rawCons as RawConstructor, rawArgArray, rawNewTarget);
             } catch (e) {
                 // This error occurred when the sandbox attempts to new a
@@ -411,7 +411,7 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
                     // the secure constructor must be registered (done during construction of env)
                     // otherwise we need to fallback to a regular error.
                     secError = construct(secErrorConstructor as SecureFunction, [message]);
-                } catch (ignored) {
+                } catch {
                     // in case the constructor inference fails
                     secError = new Error(message);
                 }
@@ -452,12 +452,12 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
             // this operation can only affect the env object graph
             return preventExtensions(shadowTarget);
         }
-        defineProperty(shadowTarget: SecureShadowTarget, key: PropertyKey, descriptor: PropertyDescriptor): boolean {
+        defineProperty(shadowTarget: SecureShadowTarget, key: PropertyKey, secPartialDesc: PropertyDescriptor): boolean {
             this.initialize(shadowTarget);
             // this operation can only affect the env object graph
             // intentionally using Object.defineProperty instead of Reflect.defineProperty
             // to throw for existing non-configurable descriptors.
-            ObjectDefineProperty(shadowTarget, key, descriptor);
+            ObjectDefineProperty(shadowTarget, key, secPartialDesc);
             return true;
         }
     }
@@ -471,7 +471,7 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
             // this is never invoked just needed to anchor the realm for errors
             try {
                 shadowTarget = 'prototype' in raw ? function () {} : () => {};
-            } catch (ignored) {
+            } catch {
                 // TODO: target is a revoked proxy. This could be optimized if Meta becomes available here.
                 shadowTarget = () => {};
             }

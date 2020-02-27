@@ -73,18 +73,31 @@ describe('Freezing', () => {
         });
     });
     describe('reverse proxies', () => {
-        it('should be frozen', () => {
-            expect.assertions(4);
+        it('can be freeze', () => {
+            expect.assertions(8);
             globalThis.outerObjectFactory = function (o: any, f: () => void) {
+                expect(Object.isFrozen(o)).toBe(false);
+                expect(Object.isFrozen(f)).toBe(false);
+                Object.freeze(o);
+                Object.freeze(f);
                 expect(Object.isFrozen(o)).toBe(true);
-                expect(Object.isFrozen(Object.getOwnPropertyDescriptor(o, 'y')!.get)).toBe(true);
                 expect(Object.isFrozen(f)).toBe(true);
                 expect(() => {
                     o.z = 3;
                 }).toThrowError();
             }
             const evalScript = createSecureEnvironment();
-            evalScript(`outerObjectFactory({ x: 1, get y() { return 2 } }, function() {})`);
+            evalScript(`
+                'use strict';
+                const o = { x: 1 };
+                const f = function() {};
+                outerObjectFactory(o, f);
+                expect(Object.isFrozen(o)).toBe(true);
+                expect(Object.isFrozen(f)).toBe(true);
+                expect(() => {
+                    o.z = 3;
+                }).toThrowError();
+            `);
         });
     });
 });

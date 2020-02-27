@@ -40,6 +40,18 @@ describe('Outer Realm Custom Element', () => {
             expect(elm instanceof ExtenalElement).toBe(true);
         `);
     });
+    it('should be extensible and can be new from within the sandbox', function() {
+        // expect.assertions(3);
+        evalScript(`
+            const ExtenalElement = customElements.get('x-external');
+            class Baz extends ExtenalElement {}
+            customElements.define('x-baz', Baz);
+            const elm = new Baz();
+            expect(elm.identity()).toBe('ExternalElement');
+            expect(elm instanceof Baz).toBe(true);
+            expect(elm instanceof ExtenalElement).toBe(true);
+        `);
+    });
     it('should get access to external registered elements', function() {
         // expect.assertions(1);
         evalScript(`
