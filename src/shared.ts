@@ -156,3 +156,7 @@ export const ReflectiveIntrinsicObjectNames = [
     'EvalError',
     'Error',
 ];
+
+export const AsyncFunction = (async () => {}).constructor;
+export const GeneratorFunction = (function* a() {}).constructor ();
+export const AsyncGeneratorFunction = (async function* a() {}).constructor;

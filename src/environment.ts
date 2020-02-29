@@ -19,6 +19,9 @@ import {
     ReflectiveIntrinsicObjectNames,
     WeakMapGet,
     construct,
+    AsyncFunction,
+    GeneratorFunction,
+    AsyncGeneratorFunction,
 } from './shared';
 import { serializedSecureEnvSourceText, MarshalHooks } from './secure-value';
 import { reverseProxyFactory } from './raw-value';
@@ -92,6 +95,19 @@ export class SecureEnvironment implements MembraneBroker {
             this.createSecureRecord(secure, raw);
             this.createSecureRecord(secure.prototype, raw.prototype);
         }
+        // remapping intrinsics that are not reachable via global names
+        const [
+            SecureAsyncFunction,
+            SecureGeneratorFunction,
+            SecureAsyncGeneratorFunction,
+        ] = secureGlobalThis.eval(`[
+            (async () => {}).constructor,
+            (function* a() {}).constructor,
+            (async function* a() {}).constructor,
+        ]`);
+        this.createSecureRecord(SecureAsyncFunction, AsyncFunction);
+        this.createSecureRecord(SecureGeneratorFunction, GeneratorFunction);
+        this.createSecureRecord(SecureAsyncGeneratorFunction, AsyncGeneratorFunction);
     }
 
     getRawValue(sec: SecureValue): RawValue {
