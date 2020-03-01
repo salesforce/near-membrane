@@ -16,12 +16,9 @@ import {
     WeakMapCreate,
     WeakMapHas,
     WeakMapSet,
-    ReflectiveIntrinsicObjectNames,
     WeakMapGet,
     construct,
-    AsyncFunction,
-    GeneratorFunction,
-    AsyncGeneratorFunction,
+    extractUndeniableIntrinsics,
 } from './shared';
 import { serializedSecureEnvSourceText, MarshalHooks } from './secure-value';
 import { reverseProxyFactory } from './raw-value';
@@ -87,27 +84,19 @@ export class SecureEnvironment implements MembraneBroker {
         };
         this.getSecureValue = secureEnvFactory(this, rawHooks);
         this.getRawValue = reverseProxyFactory(this);
-        // remapping intrinsics that are realm's agnostic
-        for (let i = 0, len = ReflectiveIntrinsicObjectNames.length; i < len; i += 1) {
-            const name = ReflectiveIntrinsicObjectNames[i];
-            const raw = rawGlobalThis[name];
-            const secure = secureGlobalThis[name];
-            this.createSecureRecord(secure, raw);
-            this.createSecureRecord(secure.prototype, raw.prototype);
+        // TODO: rawReflectiveIntrinsicsList could be cached at the module level
+        //       in which case we don't need to provide a rawGlobalThis anymore,
+        //       we should decide whether or not creating an env for two separate
+        //       realms that are not the outer realm is a use-case or not.
+        const rawReflectiveIntrinsicsList = extractUndeniableIntrinsics(rawGlobalThis);
+        const secReflectiveIntrinsicsList = extractUndeniableIntrinsics(secureGlobalThis);
+        // remapping undeniable intrinsics
+        for (let i = 0, len = rawReflectiveIntrinsicsList.length; i < len; i += 1) {
+            const raw = rawReflectiveIntrinsicsList[i];
+            const sec = secReflectiveIntrinsicsList[i];
+            this.createSecureRecord(sec, raw);
+            this.createSecureRecord(sec.prototype, raw.prototype);
         }
-        // remapping intrinsics that are not reachable via global names
-        const [
-            SecureAsyncFunction,
-            SecureGeneratorFunction,
-            SecureAsyncGeneratorFunction,
-        ] = secureGlobalThis.eval(`[
-            (async () => {}).constructor,
-            (function* a() {}).constructor,
-            (async function* a() {}).constructor,
-        ]`);
-        this.createSecureRecord(SecureAsyncFunction, AsyncFunction);
-        this.createSecureRecord(SecureGeneratorFunction, GeneratorFunction);
-        this.createSecureRecord(SecureAsyncGeneratorFunction, AsyncGeneratorFunction);
     }
 
     getRawValue(sec: SecureValue): RawValue {

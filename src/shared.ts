@@ -143,20 +143,23 @@ export const ESGlobalKeys = SetCreate([
     'Intl', // Unstable
 ]);
 
-// These are foundational things that should never be wrapped but are equivalent
+// These are intrinsics that can be reached by syntax, and must be mapped between realms.
 // TODO: revisit this list.
-export const ReflectiveIntrinsicObjectNames = [
-    'Object',
-    'Function',
-    'URIError',
-    'TypeError',
-    'SyntaxError',
-    'ReferenceError',
-    'RangeError',
-    'EvalError',
-    'Error',
-];
-
-export const AsyncFunction = (async () => {}).constructor;
-export const GeneratorFunction = (function* a() {}).constructor ();
-export const AsyncGeneratorFunction = (async function* a() {}).constructor;
+export function extractUndeniableIntrinsics(globalObj: typeof globalThis): any[] {
+    return globalObj.eval(`[
+        ({}).constructor,
+        (_=>1).constructor,
+        [].constructor,
+        (async () => {}).constructor,
+        (function* a() {}).constructor,
+        (async function* a() {}).constructor,
+        // Errors
+        URIError,
+        TypeError,
+        SyntaxError,
+        ReferenceError,
+        RangeError,
+        EvalError,
+        Error,
+    ]`);
+}
