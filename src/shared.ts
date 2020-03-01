@@ -150,10 +150,14 @@ export function extractUndeniableIntrinsics(globalObj: typeof globalThis): any[]
         ({}).constructor,
         (_=>1).constructor,
         [].constructor,
+        /x/.constructor,
+        true.constructor,
+        (1).constructor,
+        "".constructor,
         (async () => {}).constructor,
         (function* a() {}).constructor,
         (async function* a() {}).constructor,
-        // Errors
+        // TODO: Errors as undeniable must be reviewed
         URIError,
         TypeError,
         SyntaxError,
