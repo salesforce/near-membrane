@@ -95,7 +95,6 @@ export class SecureEnvironment implements MembraneBroker {
             const raw = rawReflectiveIntrinsicsList[i];
             const sec = secReflectiveIntrinsicsList[i];
             this.createSecureRecord(sec, raw);
-            this.createSecureRecord(sec.prototype, raw.prototype);
         }
     }
 

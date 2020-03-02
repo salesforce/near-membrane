@@ -146,25 +146,25 @@ export const ESGlobalKeys = SetCreate([
 // These are intrinsics that can be reached by syntax, and must be mapped between realms.
 // TODO: revisit this list.
 export function extractUndeniableIntrinsics(globalObj: typeof globalThis): any[] {
-    return globalObj.eval(`[
-        ({}).constructor,
-        (_=>1).constructor,
-        [].constructor,
-        /x/.constructor,
-        true.constructor,
-        (1).constructor,
-        "".constructor,
-        (async Promise=>1)().constructor,
-        (async AsyncFunc=>1).constructor,
-        (function* GeneratorFunc(){}).constructor,
-        (async function* AsyncGeneratorFunc(){}).constructor,
-        // TODO: Errors as undeniable must be reviewed
-        URIError,
-        TypeError,
-        SyntaxError,
-        ReferenceError,
-        RangeError,
-        EvalError,
-        Error,
-    ]`);
+    return map(globalObj.eval(`[
+        ({}),
+        (_=>1),
+        [],
+        /x/,
+        true,
+        (1),
+        "",
+        (async Promise=>1)(),
+        (async AsyncFunc=>1),
+        (function* GeneratorFunc(){}),
+        (async function* AsyncGeneratorFunc(){}),
+        // TODO: Errors as undeniable must be reviewed to avoid global lookup
+        new URIError,
+        new TypeError,
+        new SyntaxError,
+        new ReferenceError,
+        new RangeError,
+        new EvalError,
+        new Error,
+    ]`), (o: any) => o.__proto__);
 }
