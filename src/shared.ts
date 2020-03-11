@@ -145,6 +145,8 @@ export const ESGlobalKeys = SetCreate([
 
 // These are intrinsics that can be reached by syntax, and must be mapped between realms.
 // TODO: revisit this list.
+// NOTE: intentionally ignoring EvalError and Error since they are not produced
+//       by syntax anymore.
 export function extractUndeniableIntrinsics(globalObj: typeof globalThis): any[] {
     return map(globalObj.eval(`[
         ({}),
@@ -154,16 +156,15 @@ export function extractUndeniableIntrinsics(globalObj: typeof globalThis): any[]
         true,
         (1),
         "",
-        (async Promise=>1)(),
-        (async AsyncFunc=>1),
-        (function* GeneratorFunc(){}),
-        (async function* AsyncGeneratorFunc(){}),
-        // TODO: Errors as undeniable must be reviewed to avoid global lookup
-        new URIError,
-        new TypeError,
-        new SyntaxError,
-        new ReferenceError,
-        new RangeError,
+        (async aPromise=>1)(),
+        (async anAsyncFunc=>1),
+        (function* aGeneratorFunc(){}),
+        (async function* anAsyncGeneratorFunc(){}),
+        (()=>{try{decodeURIComponent('%')}catch(aURIError){return aURIError}})(),
+        (()=>{try{null.f()}catch(aTypeError){return aTypeError}})(),
+        (()=>{try{eval('return')}catch(aSyntaxError){return aSyntaxError}})(),
+        (()=>{try{arguments}catch(aReferenceError){return aReferenceError}})(),
+        (()=>{try{[].length=NaN}catch(aRangeError){return aRangeError}})(),
         new EvalError,
         new Error,
     ]`), (o: any) => o.__proto__);
