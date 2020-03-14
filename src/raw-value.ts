@@ -380,7 +380,7 @@ export function reverseProxyFactory(env: MembraneBroker) {
     function getRevokedReverseProxy(sec: ReverseProxyTarget): ReverseProxy {
         const shadowTarget = createReverseShadowTarget(sec);
         const { proxy, revoke } = ProxyRevocable(shadowTarget, {});
-        env.createSecureRecord(sec, proxy);
+        env.setRefMapEntries(sec, proxy);
         revoke();
         return proxy;
     }
@@ -389,7 +389,7 @@ export function reverseProxyFactory(env: MembraneBroker) {
         const shadowTarget = createReverseShadowTarget(sec);
         const proxyHandler = new ReverseProxyHandler(sec);
         const proxy = ProxyCreate(shadowTarget, proxyHandler);
-        env.createSecureRecord(sec, proxy);
+        env.setRefMapEntries(sec, proxy);
         return proxy;
     }
 

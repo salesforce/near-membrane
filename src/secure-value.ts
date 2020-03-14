@@ -22,7 +22,6 @@ import {
     RawValue,
     RawObject,
     RawArray,
-    SecureRecord,
     TargetMeta,
     MembraneBroker,
 } from './types';
@@ -122,11 +121,11 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         if (isRawArray) {
             return getSecureArray(raw);
         } else if (isProxyTarget(raw)) {
-            const sr: SecureRecord | undefined = WeakMapGet(rom, raw);
-            if (isUndefined(sr)) {
+            const sec: SecureValue | undefined = WeakMapGet(rom, raw);
+            if (isUndefined(sec)) {
                 return createSecureProxy(raw);
             }
-            return sr.sec;
+            return sec;
         } else {
             return raw as SecureValue;
         }
@@ -139,11 +138,11 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
     }
 
     function getSecureFunction(fn: RawFunction): SecureFunction {
-        const sr: SecureRecord | undefined = WeakMapGet(rom, fn);
-        if (isUndefined(sr)) {
+        const sec: SecureFunction | undefined = WeakMapGet(rom, fn);
+        if (isUndefined(sec)) {
             return createSecureProxy(fn) as SecureFunction;
         }
-        return sr.sec as SecureFunction;
+        return sec;
     }
 
     function getDistortedValue(target: SecureProxyTarget): SecureProxyTarget {
@@ -486,7 +485,7 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
     function getRevokedSecureProxy(raw: SecureProxyTarget): SecureProxy {
         const shadowTarget = createSecureShadowTarget(raw);
         const { proxy, revoke } = ProxyRevocable(shadowTarget, {});
-        rawEnv.createSecureRecord(proxy, raw);
+        rawEnv.setRefMapEntries(proxy, raw);
         revoke();
         return proxy;
     }
@@ -503,11 +502,11 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
             proxy = ProxyCreate(shadowTarget, proxyHandler);
         }
         try {
-            rawEnv.createSecureRecord(proxy, raw);
+            rawEnv.setRefMapEntries(proxy, raw);
         } catch (e) {
             // This is a very edge case, it could happen if someone is very
             // crafty, but basically can cause an overflow when invoking the
-            // createSecureRecord() method, which will report an error from
+            // setRefMapEntries() method, which will report an error from
             // the outer realm.
             throw ErrorCreate('Internal Error');
         }

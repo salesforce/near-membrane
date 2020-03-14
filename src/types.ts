@@ -31,20 +31,13 @@ export interface TargetMeta {
 export type SecureProxy = SecureObject | SecureFunction;
 export type ReverseProxy = RawObject | RawFunction;
 
-export interface SecureRecord {
-    // Ref to a value created inside the sandbox or a reverse proxy from another sandbox.
-    raw: SecureProxyTarget | ReverseProxy;
-    // Proxy of an reference from the outer realm or from another sandbox.
-    sec: SecureProxy | ReverseProxyTarget;
-}
-
 export type DistortionMap = WeakMap<SecureProxyTarget, SecureProxyTarget>;
 
 export interface MembraneBroker {
-    // secure object map
-    som: WeakMap<SecureFunction | SecureObject, SecureRecord>;
-    // raw object map
-    rom: WeakMap<RawFunction | RawObject, SecureRecord>;
+    // secure ref map to reverse proxy or raw ref
+    som: WeakMap<SecureFunction | SecureObject, SecureProxyTarget | ReverseProxy>;
+    // raw ref map to secure proxy or secure ref
+    rom: WeakMap<RawFunction | RawObject, SecureProxy | ReverseProxyTarget>;
     // raw object distortion map
     distortionMap: DistortionMap;
 
@@ -52,5 +45,5 @@ export interface MembraneBroker {
     getSecureValue(raw: RawValue): SecureValue;
     getRawRef(sec: SecureValue): RawValue | undefined;
     getSecureRef(raw: RawValue): SecureValue | undefined;
-    createSecureRecord(sec: SecureValue, raw: RawValue): void;
+    setRefMapEntries(sec: SecureValue, raw: RawValue): void;
 }

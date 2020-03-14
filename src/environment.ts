@@ -32,9 +32,11 @@ import {
     SecureValue,
     RawConstructor,
     SecureConstructor,
-    SecureRecord,
     MembraneBroker,
     DistortionMap,
+    SecureProxy,
+    ReverseProxy,
+    ReverseProxyTarget,
 } from './types';
 
 // it means it does have identity and should be proxified.
@@ -58,10 +60,10 @@ interface SecureEnvironmentOptions {
 }
 
 export class SecureEnvironment implements MembraneBroker {
-    // secure object map
-    som: WeakMap<SecureFunction | SecureObject, SecureRecord> = WeakMapCreate();
-    // raw object map
-    rom: WeakMap<RawFunction | RawObject, SecureRecord> = WeakMapCreate();
+    // secure ref map to reverse proxy or raw ref
+    som: WeakMap<SecureFunction | SecureObject, SecureProxyTarget | ReverseProxy> = WeakMapCreate();
+    // raw ref map to secure proxy or secure ref
+    rom: WeakMap<RawFunction | RawObject, SecureProxy | ReverseProxyTarget> = WeakMapCreate();
     // raw object distortion map
     distortionMap: DistortionMap;
 
@@ -89,8 +91,8 @@ export class SecureEnvironment implements MembraneBroker {
             const name = ReflectiveIntrinsicObjectNames[i];
             const raw = rawGlobalThis[name];
             const secure = secureGlobalThis[name];
-            this.createSecureRecord(secure, raw);
-            this.createSecureRecord(secure.prototype, raw.prototype);
+            this.setRefMapEntries(secure, raw);
+            this.setRefMapEntries(secure.prototype, raw.prototype);
         }
     }
 
@@ -103,30 +105,27 @@ export class SecureEnvironment implements MembraneBroker {
     }
 
     getRawRef(sec: SecureValue): RawValue | undefined {
-        const sr: SecureRecord | undefined = WeakMapGet(this.som, sec);
-        if (!isUndefined(sr)) {
-            return sr.raw;
+        const raw: SecureValue | undefined = WeakMapGet(this.som, sec);
+        if (!isUndefined(raw)) {
+            return raw;
         }
     }
 
     getSecureRef(raw: RawValue): SecureValue | undefined {
-        const sr: SecureRecord | undefined = WeakMapGet(this.rom, raw);
-        if (!isUndefined(sr)) {
-            return sr.sec;
+        const sec: SecureValue | undefined = WeakMapGet(this.rom, raw);
+        if (!isUndefined(sec)) {
+            return sec;
         }
     }
 
-    createSecureRecord(sec: SecureObject, raw: RawObject) {
-        const sr: SecureRecord = ObjectCreate(null);
-        sr.raw = raw;
-        sr.sec = sec;
+    setRefMapEntries(sec: SecureObject, raw: RawObject) {
         // double index for perf
-        WeakMapSet(this.som, sec, sr);
-        WeakMapSet(this.rom, raw, sr);
+        WeakMapSet(this.som, sec, raw);
+        WeakMapSet(this.rom, raw, sec);
     }
 
     remap(secureValue: SecureValue, rawValue: RawValue, rawDescriptors: PropertyDescriptorMap) {
-        this.createSecureRecord(secureValue, rawValue);
+        this.setRefMapEntries(secureValue, rawValue);
         for (const key in rawDescriptors) {
             // TODO: this whole loop needs cleanup and simplification avoid
             // overriding ECMA script global keys.
@@ -208,7 +207,7 @@ export class SecureEnvironment implements MembraneBroker {
                         if (secureDescriptorValue === secureValue[key]) {
                             // this is the case for window.document which is identity preserving getter
                             // const rawDescriptorValue = rawValue[key];
-                            // this.createSecureRecord(secureDescriptorValue, rawDescriptorValue);
+                            // this.setRefMapEntries(secureDescriptorValue, rawDescriptorValue);
                             // this.installDescriptors(secureDescriptorValue, rawDescriptorValue, getOwnPropertyDescriptors(rawDescriptorValue));
                             console.error('need remapping: ', key, rawValue, rawDescriptor);
                             if (ReflectIsExtensible(secureDescriptorValue)) {
