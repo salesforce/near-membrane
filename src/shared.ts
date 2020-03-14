@@ -22,6 +22,8 @@ export const {
     ownKeys,
     preventExtensions: ReflectPreventExtensions,
     deleteProperty,
+    get: ReflectGet,
+    set: ReflectSet,
 } = Reflect;
 
 const ErrorCreate = unconstruct(Error);

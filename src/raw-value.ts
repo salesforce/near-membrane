@@ -11,6 +11,8 @@ import {
     ReflectDefineProperty,
     ErrorCreate,
     ReflectGetPrototypeOf,
+    ReflectGet,
+    ReflectSet,
     map,
     isNullish,
     unconstruct,
@@ -63,7 +65,6 @@ function isProxyTarget(o: RawValue): o is (SecureFunction | SecureConstructor | 
 const ProxyRevocable = Proxy.revocable;
 const ProxyCreate = unconstruct(Proxy);
 const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
-const emptyArray: [] = [];
 
 function createReverseShadowTarget(target: ReverseProxyTarget): ReverseShadowTarget {
     let shadowTarget;
@@ -81,19 +82,6 @@ function createReverseShadowTarget(target: ReverseProxyTarget): ReverseShadowTar
         shadowTarget = {};
     }
     return shadowTarget;
-}
-
-// equivalent to Object.getOwnPropertyDescriptor, but looks into the whole proto chain
-function getPropertyDescriptor(o: any, p: PropertyKey): PropertyDescriptor | undefined {
-    do {
-        const d = ReflectGetOwnPropertyDescriptor(o, p);
-        if (!isUndefined(d)) {
-            ReflectSetPrototypeOf(d, null);
-            return d;
-        }
-        o = ReflectGetPrototypeOf(o);
-    } while (o !== null);
-    return undefined;
 }
 
 export function reverseProxyFactory(env: MembraneBroker) {
@@ -157,52 +145,13 @@ export function reverseProxyFactory(env: MembraneBroker) {
             freeze(this);
         }
         get(shadowTarget: ReverseShadowTarget, key: PropertyKey, receiver: RawObject): SecureValue {
-            const { target } = this;
-            const desc = getPropertyDescriptor(target, key);
-            if (isUndefined(desc)) {
-                return desc;
-            }
-            const { get } = desc;
-            if (isFunction(get)) {
-                // calling the getter with the raw receiver because the getter expects a raw value
-                // it also returns a raw value
-                return apply(env.getRawValue(get), receiver, emptyArray);
-            }
-            return env.getRawValue(desc.value);
+            return env.getRawValue(ReflectGet(this.target, key, env.getSecureValue(receiver)));
         }
         set(shadowTarget: ReverseShadowTarget, key: PropertyKey, value: RawValue, receiver: RawObject): boolean {
-            const { target } = this;
-            const secDesc = getPropertyDescriptor(target, key);
-            if (!isUndefined(secDesc)) {
-                // descriptor exists in the target or proto chain
-                const { set, get, writable } = secDesc;
-                if (writable === false) {
-                    // TypeError: Cannot assign to read only property '${key}' of object
-                    return false;
-                }
-                if (isFunction(set)) {
-                    // calling the setter with the raw receiver and the raw value
-                    // because the setter expects a raw value it also returns a raw value
-                    apply(env.getRawValue(set), receiver, [value]);
-                    return true;
-                }
-                if (isFunction(get)) {
-                    // a getter without a setter should fail to set in strict mode
-                    // TypeError: Cannot set property ${key} of object which has only a getter
-                    return false;
-                }
-            } else if (!ReflectIsExtensible(shadowTarget)) {
-                // non-extensible should throw in strict mode
-                // TypeError: Cannot add property ${key}, object is not extensible
-                return false;
-            }
-            // the descriptor is writable on the obj or proto chain, just assign it
-            target[key] = env.getSecureValue(value);
-            return true;
+            return ReflectSet(this.target, key, env.getSecureValue(value), env.getSecureValue(receiver));
         }
         deleteProperty(shadowTarget: ReverseShadowTarget, key: PropertyKey): boolean {
-            const { target } = this;
-            return deleteProperty(target, key);
+            return deleteProperty(this.target, key);
         }
         apply(shadowTarget: ReverseShadowTarget, rawThisArg: RawValue, rawArgArray: RawValue[]): RawValue {
             const { target } = this;
@@ -264,12 +213,10 @@ export function reverseProxyFactory(env: MembraneBroker) {
             return env.getRawValue(sec);
         }
         has(shadowTarget: ReverseShadowTarget, key: PropertyKey): boolean {
-            const { target } = this;
-            return key in target;
+            return key in this.target;
         }
         ownKeys(shadowTarget: ReverseShadowTarget): PropertyKey[] {
-            const { target } = this;
-            return ownKeys(target);
+            return ownKeys(this.target);
         }
         isExtensible(shadowTarget: ReverseShadowTarget): boolean {
             if (!ReflectIsExtensible(shadowTarget)) {
@@ -300,12 +247,10 @@ export function reverseProxyFactory(env: MembraneBroker) {
             return rawDesc;
         }
         getPrototypeOf(shadowTarget: ReverseShadowTarget): RawValue {
-            const { target } = this;
-            return env.getRawValue(ReflectGetPrototypeOf(target));
+            return env.getRawValue(ReflectGetPrototypeOf(this.target));
         }
         setPrototypeOf(shadowTarget: ReverseShadowTarget, prototype: RawValue): boolean {
-            const { target } = this;
-            return ReflectSetPrototypeOf(target, env.getSecureValue(prototype));
+            return ReflectSetPrototypeOf(this.target, env.getSecureValue(prototype));
         }
         preventExtensions(shadowTarget: ReverseShadowTarget): boolean {
             const { target } = this;
