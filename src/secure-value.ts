@@ -67,6 +67,8 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         deleteProperty,
         ownKeys,
         defineProperty,
+        get: ReflectGet,
+        set: ReflectSet,
     } = Reflect;
     const {
         assign,
@@ -82,7 +84,6 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
     const ProxyRevocable = Proxy.revocable;
     const ProxyCreate = unconstruct(Proxy);
     const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
-    const emptyArray: [] = [];
     const noop = () => undefined;
     const map = unapply(Array.prototype.map);
     const WeakMapGet = unapply(WeakMap.prototype.get);
@@ -222,19 +223,6 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         return secureDescriptor;
     }
 
-    // equivalent to Object.getOwnPropertyDescriptor, but looks into the whole proto chain
-    function getPropertyDescriptor(o: any, p: PropertyKey): PropertyDescriptor | undefined {
-        do {
-            const d = getOwnPropertyDescriptor(o, p);
-            if (!isUndefined(d)) {
-                setPrototypeOf(d, null);
-                return d;
-            }
-            o = getPrototypeOf(o);
-        } while (o !== null);
-        return undefined;
-    }
-
     function copySecureOwnDescriptors(shadowTarget: SecureShadowTarget, rawDescriptors: PropertyDescriptorMap) {
         for (const key in rawDescriptors) {
             // avoid poisoning by checking own properties from descriptors
@@ -311,47 +299,11 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
     
         get(shadowTarget: SecureShadowTarget, key: PropertyKey, receiver: SecureObject): SecureValue {
             this.initialize(shadowTarget);
-            const desc = getPropertyDescriptor(shadowTarget, key);
-            if (isUndefined(desc)) {
-                return desc;
-            }
-            const { get } = desc;
-            if (isFunction(get)) {
-                // calling the getter with the secure receiver because the getter expects a secure value
-                // it also returns a secure value
-                return apply(get, receiver, emptyArray);
-            }
-            return desc.value;
+            return ReflectGet(shadowTarget, key, receiver);
         }
         set(shadowTarget: SecureShadowTarget, key: PropertyKey, value: SecureValue, receiver: SecureObject): boolean {
             this.initialize(shadowTarget);
-            const shadowTargetDescriptor = getPropertyDescriptor(shadowTarget, key);
-            if (!isUndefined(shadowTargetDescriptor)) {
-                // descriptor exists in the shadowTarget or proto chain
-                const { set, get, writable } = shadowTargetDescriptor;
-                if (writable === false) {
-                    // TypeError: Cannot assign to read only property '${key}' of object
-                    return false;
-                }
-                if (isFunction(set)) {
-                    // a setter is available, just call it with the secure value because
-                    // the setter expects a secure value
-                    apply(set, receiver, [value]);
-                    return true;
-                }
-                if (isFunction(get)) {
-                    // a getter without a setter should fail to set in strict mode
-                    // TypeError: Cannot set property ${key} of object which has only a getter
-                    return false;
-                }
-            } else if (!isExtensible(shadowTarget)) {
-                // non-extensible should throw in strict mode
-                // TypeError: Cannot add property ${key}, object is not extensible
-                return false;
-            }
-            // the descriptor is writable on the obj or proto chain, just assign it
-            shadowTarget[key] = value;
-            return true;
+            return ReflectSet(shadowTarget, key, value, receiver);
         }
         deleteProperty(shadowTarget: SecureShadowTarget, key: PropertyKey): boolean {
             this.initialize(shadowTarget);

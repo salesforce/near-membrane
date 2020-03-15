@@ -15,8 +15,6 @@ describe('membrane', () => {
             const originalProto = HTMLLinkElement.prototype;
             const link = document.createElement('link');
             link.__proto__ = HTMLElement.prototype;
-            link.setAttribute('rel', 'import');
-
             // this attack is trying to change the proto chain, and therefore the instanceof checks and such on distortions,
             // but it doesn't work because the object graph mutation for the prototype is only visible inside the sandbox.
             link.setAttribute('rel', 'import');
