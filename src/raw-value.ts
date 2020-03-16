@@ -183,7 +183,7 @@ export function reverseProxyFactory(env: MembraneBroker) {
         }
         construct(shadowTarget: ReverseShadowTarget, rawArgArray: RawValue[], rawNewTarget: RawObject): RawObject {
             const { target: SecCtor } = this;
-            if (rawNewTarget === undefined) {
+            if (isUndefined(rawNewTarget)) {
                 throw TypeError();
             }
             const secArgArray = env.getSecureValue(rawArgArray);

@@ -62,9 +62,12 @@ export function isUndefined(obj: any): obj is undefined {
     return obj === undefined;
 }
 
-export function isNullish(obj: any): obj is null {
-    // eslint-disable-next-line eqeqeq
-    return obj == null;
+export function isNull(obj: any): obj is null {
+    return obj === null;
+}
+
+export function isNullish(obj: any): obj is (null | undefined) {
+    return isNull(obj) || isUndefined(obj);
 }
 
 export function isTrue(obj: any): obj is true {

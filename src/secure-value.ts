@@ -102,13 +102,16 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         return obj === undefined;
     }
 
+    function isNull(obj: any): obj is null {
+        return obj === null;
+    }
+
     function isFunction(obj: any): obj is Function {
         return typeof obj === 'function';
     }
 
-    function isNullish(obj: any): obj is null {
-        // eslint-disable-next-line eqeqeq
-        return obj == null;
+    function isNullish(obj: any): obj is (null | undefined) {
+        return isNull(obj) || isUndefined(obj);
     }
 
     function getSecureValue(raw: RawValue): SecureValue {
