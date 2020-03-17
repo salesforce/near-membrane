@@ -122,7 +122,7 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         // `typeof document.all === 'undefined'`, which is an exotic object with
         // a bizarre behavior described here:
         // * https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
-        // This check cover that case, but doesn't affect other unidefined values
+        // This check covers that case, but doesn't affect other undefined values
         // because those are covered by the previous condition anyways.
         if (t === 'function' || t === 'undefined') {
             return getSecureFunction(raw);
