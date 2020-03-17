@@ -20,7 +20,6 @@ import {
     RawConstructor,
     RawFunction,
     RawValue,
-    RawObject,
     RawArray,
     TargetMeta,
     MembraneBroker,
@@ -102,16 +101,32 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         return obj === undefined;
     }
 
+    function isNull(obj: any): obj is null {
+        return obj === null;
+    }
+
     function isFunction(obj: any): obj is Function {
         return typeof obj === 'function';
     }
 
-    function isNullish(obj: any): obj is null {
-        // eslint-disable-next-line eqeqeq
-        return obj == null;
+    function isNullOrUndefined(obj: any): obj is (null | undefined) {
+        return isNull(obj) || isUndefined(obj);
     }
 
     function getSecureValue(raw: RawValue): SecureValue {
+        if (isNullOrUndefined(raw)) {
+            return raw as SecureValue;
+        }
+        const t = typeof raw;
+        // NOTE: internationally checking for typeof 'undefined' for the case of
+        // `typeof document.all === 'undefined'`, which is an exotic object with
+        // a bizarre behavior described here:
+        // * https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+        // This check covers that case, but doesn't affect other undefined values
+        // because those are covered by the previous condition anyways.
+        if (t === 'function' || t === 'undefined') {
+            return getSecureFunction(raw);
+        }
         let isRawArray = false;
         try {
             isRawArray = isArrayOrNotOrThrowForRevoked(raw);
@@ -121,7 +136,7 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         }
         if (isRawArray) {
             return getSecureArray(raw);
-        } else if (isProxyTarget(raw)) {
+        } else if (t === 'object') {
             const sec: SecureValue | undefined = WeakMapGet(rom, raw);
             if (isUndefined(sec)) {
                 return createSecureProxy(raw);
@@ -152,21 +167,7 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         }
         // if a distortion entry is found, it must be a valid proxy target
         const distortedTarget = WeakMapGet(distortionMap, target) as SecureProxyTarget;
-        if (!isProxyTarget(distortedTarget)) {
-            // TODO: needs to be resilient, cannot just throw, what should we do instead?
-            throw ErrorCreate(`Invalid distortion.`);
-        }
         return distortedTarget;
-    }
-
-    // it means it does have identity and should be proxified.
-    function isProxyTarget(o: RawValue | SecureValue): o is (RawFunction | RawConstructor | RawObject) {
-        // hire-wired for the common case
-        if (isNullish(o)) {
-            return false;
-        }
-        const t = typeof o;
-        return t === 'object' || t === 'function';
     }
 
     function renameFunction(rawProvider: (...args: any[]) => any, receiver: (...args: any[]) => any) {

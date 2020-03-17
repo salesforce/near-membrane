@@ -14,7 +14,7 @@ import {
     ReflectGet,
     ReflectSet,
     map,
-    isNullish,
+    isNullOrUndefined,
     unconstruct,
     ownKeys,
     ReflectIsExtensible,
@@ -34,7 +34,6 @@ import {
     RawArray,
     SecureValue,
     MembraneBroker,
-    SecureObject,
 } from './types';
 
 function renameFunction(provider: (...args: any[]) => any, receiver: (...args: any[]) => any) {
@@ -50,16 +49,6 @@ function renameFunction(provider: (...args: any[]) => any, receiver: (...args: a
     if (!isUndefined(nameDescriptor)) {
         ReflectDefineProperty(receiver, 'name', nameDescriptor);
     }
-}
-
-// it means it does have identity and should be proxified.
-function isProxyTarget(o: RawValue): o is (SecureFunction | SecureConstructor | SecureObject) {
-    // hire-wired for the common case
-    if (isNullish(o)) {
-        return false;
-    }
-    const t = typeof o;
-    return t === 'object' || t === 'function';
 }
 
 const ProxyRevocable = Proxy.revocable;
@@ -183,7 +172,7 @@ export function reverseProxyFactory(env: MembraneBroker) {
         }
         construct(shadowTarget: ReverseShadowTarget, rawArgArray: RawValue[], rawNewTarget: RawObject): RawObject {
             const { target: SecCtor } = this;
-            if (rawNewTarget === undefined) {
+            if (isUndefined(rawNewTarget)) {
                 throw TypeError();
             }
             const secArgArray = env.getSecureValue(rawArgArray);
@@ -285,6 +274,15 @@ export function reverseProxyFactory(env: MembraneBroker) {
     ReflectSetPrototypeOf(ReverseProxyHandler.prototype, null);
 
     function getRawValue(sec: SecureValue): RawValue {
+        if (isNullOrUndefined(sec)) {
+            return sec as RawValue;
+        }
+        const t = typeof sec;
+        // internationally ignoring the case of (typeof document.all === 'undefined') because
+        // in the reserve membrane, you never get one of those exotic objects
+        if (t === 'function') {
+            return getRawFunction(sec);
+        }
         let isSecArray = false;
         try {
             isSecArray = isArrayOrNotOrThrowForRevoked(sec);
@@ -293,7 +291,7 @@ export function reverseProxyFactory(env: MembraneBroker) {
         }
         if (isSecArray) {
             return getRawArray(sec);
-        } else if (isProxyTarget(sec)) {
+        } else if (t === 'object') {
             const raw = env.getRawRef(sec);
             if (isUndefined(raw)) {
                 return createReverseProxy(sec);
