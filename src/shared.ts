@@ -66,7 +66,7 @@ export function isNull(obj: any): obj is null {
     return obj === null;
 }
 
-export function isNullish(obj: any): obj is (null | undefined) {
+export function isNullOrUndefined(obj: any): obj is (null | undefined) {
     return isNull(obj) || isUndefined(obj);
 }
 
