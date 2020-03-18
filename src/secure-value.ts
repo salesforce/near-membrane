@@ -117,14 +117,13 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         if (isNullOrUndefined(raw)) {
             return raw as SecureValue;
         }
-        const t = typeof raw;
         // NOTE: internationally checking for typeof 'undefined' for the case of
         // `typeof document.all === 'undefined'`, which is an exotic object with
         // a bizarre behavior described here:
         // * https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
         // This check covers that case, but doesn't affect other undefined values
         // because those are covered by the previous condition anyways.
-        if (t === 'function' || t === 'undefined') {
+        if (typeof raw === 'function' || typeof raw === 'undefined') {
             return getSecureFunction(raw);
         }
         let isRawArray = false;
@@ -136,7 +135,7 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         }
         if (isRawArray) {
             return getSecureArray(raw);
-        } else if (t === 'object') {
+        } else if (typeof raw === 'object') {
             const sec: SecureValue | undefined = WeakMapGet(rom, raw);
             if (isUndefined(sec)) {
                 return createSecureProxy(raw);

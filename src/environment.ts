@@ -63,9 +63,7 @@ export class SecureEnvironment implements MembraneBroker {
         this.distortionMap = WeakMapCreate();
         // validating distortion entries
         distortionMap?.forEach((value, key) => {
-            const o = typeof key;
-            const d = typeof value;
-            if (o !== d) {
+            if (typeof key !== typeof value) {
                 throw ErrorCreate(`Invalid distortion ${value}.`);
             }
             WeakMapSet(this.distortionMap, key, value);
@@ -175,13 +173,12 @@ export class SecureEnvironment implements MembraneBroker {
                 if (isNullOrUndefined(securePropertyValue)) {
                     continue;
                 }
-                const t = typeof securePropertyValue;
                 // this is the case where the secure env has a descriptor that was supposed to be
                 // overrule but can't be done because it is a non-configurable. Instead we try to
                 // fallback to some more advanced gymnastics
                 if (hasOwnProperty(secureDescriptor, 'value')) {
                     // valid proxy target (intentionally ignoring the case of document.all since it is not a value descriptor)
-                    if (t === 'function' || t === 'object') {
+                    if (typeof securePropertyValue === 'function' || typeof securePropertyValue === 'object') {
                         if (!WeakMapHas(this.som, securePropertyValue)) {
                             // remapping the value of the secure object graph to the outer realm graph
                             const { value: rawDescriptorValue } = rawDescriptor;
@@ -204,7 +201,7 @@ export class SecureEnvironment implements MembraneBroker {
                 } else if (hasOwnProperty(secureDescriptor, 'get')) {
                     // internationally ignoring the case of (typeof document.all === 'undefined') because
                     // it is specified as configurable, you never get one of those exotic objects in this branch
-                    if (t === 'function' || t === 'object') {
+                    if (typeof securePropertyValue === 'function' || typeof securePropertyValue === 'object') {
                         if (securePropertyValue === secureValue[key]) {
                             // this is the case for window.document which is identity preserving getter
                             // const rawDescriptorValue = rawValue[key];
