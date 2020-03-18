@@ -277,10 +277,9 @@ export function reverseProxyFactory(env: MembraneBroker) {
         if (isNullOrUndefined(sec)) {
             return sec as RawValue;
         }
-        const t = typeof sec;
         // internationally ignoring the case of (typeof document.all === 'undefined') because
         // in the reserve membrane, you never get one of those exotic objects
-        if (t === 'function') {
+        if (typeof sec === 'function') {
             return getRawFunction(sec);
         }
         let isSecArray = false;
@@ -291,7 +290,7 @@ export function reverseProxyFactory(env: MembraneBroker) {
         }
         if (isSecArray) {
             return getRawArray(sec);
-        } else if (t === 'object') {
+        } else if (typeof sec === 'object') {
             const raw = env.getRawRef(sec);
             if (isUndefined(raw)) {
                 return createReverseProxy(sec);
