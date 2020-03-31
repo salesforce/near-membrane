@@ -123,7 +123,10 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         // * https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
         // This check covers that case, but doesn't affect other undefined values
         // because those are covered by the previous condition anyways.
-        if (typeof raw === 'function' || typeof raw === 'undefined') {
+        if (typeof raw === 'undefined') {
+            return undefined;
+        }
+        if (typeof raw === 'function') {
             return getSecureFunction(raw);
         }
         let isRawArray = false;
