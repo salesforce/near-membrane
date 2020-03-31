@@ -1,8 +1,8 @@
 /**
  * This file implements a serializable factory function that is invoked once per sandbox
- * and it is used to create secure proxies where all identities are defined inside
+ * and it is used to create red proxies where all identities are defined inside
  * the sandbox, this guarantees that any error when interacting with those proxies, has
- * the proper identity to avoid leaking references from the outer realm into the sandbox
+ * the proper identity to avoid leaking references from the blue realm into the sandbox
  * this is especially important for out of memory errors.
  *
  * IMPORTANT:
@@ -10,17 +10,17 @@
  *    be serialized, and therefore it will loose the reference.
  */
 import {
-    SecureProxyTarget,
-    SecureValue,
-    SecureObject,
-    SecureShadowTarget,
-    SecureFunction,
-    SecureArray,
-    SecureProxy,
-    RawConstructor,
-    RawFunction,
-    RawValue,
-    RawArray,
+    RedProxyTarget,
+    RedValue,
+    RedObject,
+    RedShadowTarget,
+    RedFunction,
+    RedArray,
+    RedProxy,
+    BlueConstructor,
+    BlueFunction,
+    BlueValue,
+    BlueArray,
     TargetMeta,
     MembraneBroker,
 } from './types';
@@ -40,20 +40,20 @@ import {
  *    proxy from the main realm.
  *
  * For that, the environment must provide two hooks that when called
- * they will delegate to Reflect.apply/Reflect.construct on the outer
- * realm, you cannot call Reflect.* from inside the sandbox or the outer
+ * they will delegate to Reflect.apply/Reflect.construct on the blue
+ * realm, you cannot call Reflect.* from inside the sandbox or the blue
  * realm directly, it must be a wrapping function.
  */
 export interface MarshalHooks {
-    apply(target: RawFunction, thisArgument: RawValue, argumentsList: ArrayLike<RawValue>): RawValue;
-    construct(target: RawConstructor, argumentsList: ArrayLike<RawValue>, newTarget?: any): RawValue;
+    apply(target: BlueFunction, thisArgument: BlueValue, argumentsList: ArrayLike<BlueValue>): BlueValue;
+    construct(target: BlueConstructor, argumentsList: ArrayLike<BlueValue>, newTarget?: any): BlueValue;
 }
 
-export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: MembraneBroker, hooks: MarshalHooks) {
+export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: MembraneBroker, hooks: MarshalHooks) {
     'use strict';
 
-    const { rom, distortionMap } = rawEnv;
-    const { apply: rawApplyHook, construct: rawConstructHook } = hooks;
+    const { blueMap, distortionMap } = blueEnv;
+    const { apply: blueApplyHook, construct: blueConstructHook } = hooks;
 
     const {
         apply,
@@ -113,9 +113,9 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         return isNull(obj) || isUndefined(obj);
     }
 
-    function getSecureValue(raw: RawValue): SecureValue {
-        if (isNullOrUndefined(raw)) {
-            return raw as SecureValue;
+    function getRedValue(blue: BlueValue): RedValue {
+        if (isNullOrUndefined(blue)) {
+            return blue as RedValue;
         }
         // NOTE: internationally checking for typeof 'undefined' for the case of
         // `typeof document.all === 'undefined'`, which is an exotic object with
@@ -123,60 +123,60 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         // * https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
         // This check covers that case, but doesn't affect other undefined values
         // because those are covered by the previous condition anyways.
-        if (typeof raw === 'undefined') {
+        if (typeof blue === 'undefined') {
             return undefined;
         }
-        if (typeof raw === 'function') {
-            return getSecureFunction(raw);
+        if (typeof blue === 'function') {
+            return getRedFunction(blue);
         }
-        let isRawArray = false;
+        let isBlueArray = false;
         try {
-            isRawArray = isArrayOrNotOrThrowForRevoked(raw);
+            isBlueArray = isArrayOrNotOrThrowForRevoked(blue);
         } catch {
-            // raw was revoked - but we call createSecureProxy to support distortions
-            return createSecureProxy(raw);
+            // blue was revoked - but we call createRedProxy to support distortions
+            return createRedProxy(blue);
         }
-        if (isRawArray) {
-            return getSecureArray(raw);
-        } else if (typeof raw === 'object') {
-            const sec: SecureValue | undefined = WeakMapGet(rom, raw);
-            if (isUndefined(sec)) {
-                return createSecureProxy(raw);
+        if (isBlueArray) {
+            return getRedArray(blue);
+        } else if (typeof blue === 'object') {
+            const red: RedValue | undefined = WeakMapGet(blueMap, blue);
+            if (isUndefined(red)) {
+                return createRedProxy(blue);
             }
-            return sec;
+            return red;
         } else {
-            return raw as SecureValue;
+            return blue as RedValue;
         }
     }
 
-    function getSecureArray(a: RawArray): SecureArray {
-        const b: SecureValue[] = map(a, (raw: RawValue) => getSecureValue(raw));
+    function getRedArray(blueArray: BlueArray): RedArray {
+        const b: RedValue[] = map(blueArray, (blue: BlueValue) => getRedValue(blue));
         // identity of the new array correspond to the inner realm
         return [...b];
     }
 
-    function getSecureFunction(fn: RawFunction): SecureFunction {
-        const sec: SecureFunction | undefined = WeakMapGet(rom, fn);
-        if (isUndefined(sec)) {
-            return createSecureProxy(fn) as SecureFunction;
+    function getRedFunction(blueFn: BlueFunction): RedFunction {
+        const redFn: RedFunction | undefined = WeakMapGet(blueMap, blueFn);
+        if (isUndefined(redFn)) {
+            return createRedProxy(blueFn) as RedFunction;
         }
-        return sec;
+        return redFn;
     }
 
-    function getDistortedValue(target: SecureProxyTarget): SecureProxyTarget {
+    function getDistortedValue(target: RedProxyTarget): RedProxyTarget {
         if (!WeakMapHas(distortionMap, target)) {
             return target;
         }
         // if a distortion entry is found, it must be a valid proxy target
-        const distortedTarget = WeakMapGet(distortionMap, target) as SecureProxyTarget;
+        const distortedTarget = WeakMapGet(distortionMap, target) as RedProxyTarget;
         return distortedTarget;
     }
 
-    function renameFunction(rawProvider: (...args: any[]) => any, receiver: (...args: any[]) => any) {
+    function renameFunction(blueProvider: (...args: any[]) => any, receiver: (...args: any[]) => any) {
         let nameDescriptor: PropertyDescriptor | undefined;
         try {
             // a revoked proxy will break the membrane when reading the function name
-            nameDescriptor = getOwnPropertyDescriptor(rawProvider, 'name');
+            nameDescriptor = getOwnPropertyDescriptor(blueProvider, 'name');
         } catch (_ignored) {
             // intentionally swallowing the error because this method is just extracting the function
             // in a way that it should always succeed except for the cases in which the provider is a proxy
@@ -187,7 +187,7 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         }
     }    
 
-    function installDescriptorIntoShadowTarget(shadowTarget: SecureProxyTarget, key: PropertyKey, originalDescriptor: PropertyDescriptor) {
+    function installDescriptorIntoShadowTarget(shadowTarget: RedProxyTarget, key: PropertyKey, originalDescriptor: PropertyDescriptor) {
         const shadowTargetDescriptor = getOwnPropertyDescriptor(shadowTarget, key);
         if (!isUndefined(shadowTargetDescriptor)) {
             if (hasOwnProperty.call(shadowTargetDescriptor, 'configurable') &&
@@ -206,37 +206,37 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         }
     }
 
-    function getSecureDescriptor(rawDescriptor: PropertyDescriptor): PropertyDescriptor {
-        const secureDescriptor = assign(create(null), rawDescriptor);
-        const { value: rawValue, get: rawGet, set: rawSet } = secureDescriptor;
-        if ('writable' in secureDescriptor) {
+    function getRedDescriptor(blueDescriptor: PropertyDescriptor): PropertyDescriptor {
+        const redDescriptor = assign(create(null), blueDescriptor);
+        const { value: blueValue, get: blueGet, set: blueSet } = redDescriptor;
+        if ('writable' in redDescriptor) {
             // we are dealing with a value descriptor
-            secureDescriptor.value = isFunction(rawValue) ?
+            redDescriptor.value = isFunction(blueValue) ?
                 // we are dealing with a method (optimization)
-                getSecureFunction(rawValue) : getSecureValue(rawValue);
+                getRedFunction(blueValue) : getRedValue(blueValue);
         } else {
             // we are dealing with accessors
-            if (isFunction(rawSet)) {
-                secureDescriptor.set = getSecureFunction(rawSet);
+            if (isFunction(blueSet)) {
+                redDescriptor.set = getRedFunction(blueSet);
             }
-            if (isFunction(rawGet)) {
-                secureDescriptor.get = getSecureFunction(rawGet);
+            if (isFunction(blueGet)) {
+                redDescriptor.get = getRedFunction(blueGet);
             }
         }
-        return secureDescriptor;
+        return redDescriptor;
     }
 
-    function copySecureOwnDescriptors(shadowTarget: SecureShadowTarget, rawDescriptors: PropertyDescriptorMap) {
-        for (const key in rawDescriptors) {
+    function copyRedOwnDescriptors(shadowTarget: RedShadowTarget, blueDescriptors: PropertyDescriptorMap) {
+        for (const key in blueDescriptors) {
             // avoid poisoning by checking own properties from descriptors
-            if (hasOwnProperty.call(rawDescriptors, key)) {
-                const originalDescriptor = getSecureDescriptor(rawDescriptors[key]);
+            if (hasOwnProperty.call(blueDescriptors, key)) {
+                const originalDescriptor = getRedDescriptor(blueDescriptors[key]);
                 installDescriptorIntoShadowTarget(shadowTarget, key, originalDescriptor);
             }
         }
     }
 
-    function getTargetMeta(target: SecureProxyTarget): TargetMeta {
+    function getTargetMeta(target: RedProxyTarget): TargetMeta {
         const meta: TargetMeta = create(null);
         try {
             // a revoked proxy will break the membrane when reading the meta
@@ -265,29 +265,29 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         return meta;
     }
 
-    class SecureProxyHandler implements ProxyHandler<SecureProxyTarget> {
+    class RedProxyHandler implements ProxyHandler<RedProxyTarget> {
         // original target for the proxy
-        private readonly target: SecureProxyTarget;
+        private readonly target: RedProxyTarget;
         // metadata about the shape of the target
         private readonly meta: TargetMeta;
     
-        constructor(raw: SecureProxyTarget, meta: TargetMeta) {
-            this.target = raw;
+        constructor(blue: RedProxyTarget, meta: TargetMeta) {
+            this.target = blue;
             this.meta = meta;
         }
         // initialization used to avoid the initialization cost
         // of an object graph, we want to do it when the
         // first interaction happens.
-        initialize(shadowTarget: SecureShadowTarget) {
+        initialize(shadowTarget: RedShadowTarget) {
             const { meta } = this;
-            const { proto: rawProto } = meta;
+            const { proto: blueProto } = meta;
             // once the initialization is executed once... the rest is just noop 
             this.initialize = noop;
             // adjusting the proto chain of the shadowTarget (recursively)
-            const secProto = getSecureValue(rawProto);
-            setPrototypeOf(shadowTarget, secProto);
+            const redProto = getRedValue(blueProto);
+            setPrototypeOf(shadowTarget, redProto);
             // defining own descriptors
-            copySecureOwnDescriptors(shadowTarget, meta.descriptors);
+            copyRedOwnDescriptors(shadowTarget, meta.descriptors);
             // preserving the semantics of the object
             if (meta.isFrozen) {
                 freeze(shadowTarget);
@@ -300,136 +300,135 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
             freeze(this);
         }
     
-        get(shadowTarget: SecureShadowTarget, key: PropertyKey, receiver: SecureObject): SecureValue {
+        get(shadowTarget: RedShadowTarget, key: PropertyKey, receiver: RedObject): RedValue {
             this.initialize(shadowTarget);
             return ReflectGet(shadowTarget, key, receiver);
         }
-        set(shadowTarget: SecureShadowTarget, key: PropertyKey, value: SecureValue, receiver: SecureObject): boolean {
+        set(shadowTarget: RedShadowTarget, key: PropertyKey, value: RedValue, receiver: RedObject): boolean {
             this.initialize(shadowTarget);
             return ReflectSet(shadowTarget, key, value, receiver);
         }
-        deleteProperty(shadowTarget: SecureShadowTarget, key: PropertyKey): boolean {
+        deleteProperty(shadowTarget: RedShadowTarget, key: PropertyKey): boolean {
             this.initialize(shadowTarget);
             return deleteProperty(shadowTarget, key);
         }
-        apply(shadowTarget: SecureShadowTarget, thisArg: SecureValue, argArray: SecureValue[]): SecureValue {
-            const { target: rawTarget } = this;
+        apply(shadowTarget: RedShadowTarget, redThisArg: RedValue, redArgArray: RedValue[]): RedValue {
+            const { target: blueTarget } = this;
             this.initialize(shadowTarget);
-            let raw;
+            let blue;
             try {
-                const rawThisArg = rawEnv.getRawValue(thisArg);
-                const rawArgArray = rawEnv.getRawValue(argArray);
-                raw = rawApplyHook(rawTarget as RawFunction, rawThisArg, rawArgArray);
+                const blueThisArg = blueEnv.getBlueValue(redThisArg);
+                const blueArgArray = blueEnv.getBlueValue(redArgArray);
+                blue = blueApplyHook(blueTarget as BlueFunction, blueThisArg, blueArgArray);
             } catch (e) {
                 // This error occurred when the sandbox attempts to call a
-                // function from the outer realm. By throwing a new secure error,
-                // we eliminates the stack information from the outer realm as a consequence.
-                let secError;
+                // function from the blue realm. By throwing a new red error,
+                // we eliminates the stack information from the blue realm as a consequence.
+                let redError;
                 const { message, constructor } = e;
                 try {
-                    // the error constructor must be a raw error since it occur when calling
-                    // a function from the outer realm.
-                    const secErrorConstructor = rawEnv.getSecureRef(constructor);
-                    // the secure constructor must be registered (done during construction of env)
+                    // the error constructor must be a blue error since it occur when calling
+                    // a function from the blue realm.
+                    const redErrorConstructor = blueEnv.getRedRef(constructor);
+                    // the red constructor must be registered (done during construction of env)
                     // otherwise we need to fallback to a regular error.
-                    secError = construct(secErrorConstructor as SecureFunction, [message]);
+                    redError = construct(redErrorConstructor as RedFunction, [message]);
                 } catch {
                     // in case the constructor inference fails
-                    secError = new Error(message);
+                    redError = new Error(message);
                 }
-                throw secError;
+                throw redError;
             }
-            return getSecureValue(raw);
+            return getRedValue(blue);
         }
-        construct(shadowTarget: SecureShadowTarget, secArgArray: SecureValue[], secNewTarget: SecureObject): SecureObject {
-            const { target: rawCons } = this;
+        construct(shadowTarget: RedShadowTarget, redArgArray: RedValue[], redNewTarget: RedObject): RedObject {
+            const { target: BlueCtor } = this;
             this.initialize(shadowTarget);
-            if (isUndefined(secNewTarget)) {
+            if (isUndefined(redNewTarget)) {
                 throw TypeError();
             }
-            let raw;
+            let blue;
             try {
-                const rawNewTarget = rawEnv.getRawValue(secNewTarget);
-                const rawArgArray = rawEnv.getRawValue(secArgArray);
-                raw = rawConstructHook(rawCons as RawConstructor, rawArgArray, rawNewTarget);
+                const blueNewTarget = blueEnv.getBlueValue(redNewTarget);
+                const blueArgArray = blueEnv.getBlueValue(redArgArray);
+                blue = blueConstructHook(BlueCtor as BlueConstructor, blueArgArray, blueNewTarget);
             } catch (e) {
                 // This error occurred when the sandbox attempts to new a
-                // constructor from the outer realm. By throwing a new secure error,
-                // we eliminates the stack information from the outer realm as a consequence.
-                let secError;
+                // constructor from the blue realm. By throwing a new red error,
+                // we eliminates the stack information from the blue realm as a consequence.
+                let redError;
                 const { message, constructor } = e;
                 try {
-                    // the error constructor must be a raw error since it occur when calling
-                    // a function from the outer realm.
-                    const secErrorConstructor = rawEnv.getSecureRef(constructor);
-                    // the secure constructor must be registered (done during construction of env)
+                    // the error constructor must be a blue error since it occur when calling
+                    // a function from the blue realm.
+                    const redErrorConstructor = blueEnv.getRedRef(constructor);
+                    // the red constructor must be registered (done during construction of env)
                     // otherwise we need to fallback to a regular error.
-                    secError = construct(secErrorConstructor as SecureFunction, [message]);
+                    redError = construct(redErrorConstructor as RedFunction, [message]);
                 } catch {
                     // in case the constructor inference fails
-                    secError = new Error(message);
+                    redError = new Error(message);
                 }
-                throw secError;
+                throw redError;
             }
-            return getSecureValue(raw);
+            return getRedValue(blue);
         }
-        has(shadowTarget: SecureShadowTarget, key: PropertyKey): boolean {
+        has(shadowTarget: RedShadowTarget, key: PropertyKey): boolean {
             this.initialize(shadowTarget);
             return key in shadowTarget;
         }
-        ownKeys(shadowTarget: SecureShadowTarget): PropertyKey[] {
+        ownKeys(shadowTarget: RedShadowTarget): PropertyKey[] {
             this.initialize(shadowTarget);
             return ownKeys(shadowTarget);
         }
-        isExtensible(shadowTarget: SecureShadowTarget): boolean {
+        isExtensible(shadowTarget: RedShadowTarget): boolean {
             this.initialize(shadowTarget);
             // No DOM API is non-extensible, but in the sandbox, the author
             // might want to make them non-extensible
             return isExtensible(shadowTarget);
         }
-        getOwnPropertyDescriptor(shadowTarget: SecureShadowTarget, key: PropertyKey): PropertyDescriptor | undefined {
+        getOwnPropertyDescriptor(shadowTarget: RedShadowTarget, key: PropertyKey): PropertyDescriptor | undefined {
             this.initialize(shadowTarget);
             return getOwnPropertyDescriptor(shadowTarget, key);
         }
-        getPrototypeOf(shadowTarget: SecureShadowTarget): SecureValue {
+        getPrototypeOf(shadowTarget: RedShadowTarget): RedValue {
             this.initialize(shadowTarget);
             // nothing to be done here since the shadowTarget must have the right proto chain
             return getPrototypeOf(shadowTarget);
         }
-        setPrototypeOf(shadowTarget: SecureShadowTarget, prototype: SecureValue): boolean {
+        setPrototypeOf(shadowTarget: RedShadowTarget, prototype: RedValue): boolean {
             this.initialize(shadowTarget);
             // this operation can only affect the env object graph
             return setPrototypeOf(shadowTarget, prototype);
         }
-        preventExtensions(shadowTarget: SecureShadowTarget): boolean {
+        preventExtensions(shadowTarget: RedShadowTarget): boolean {
             this.initialize(shadowTarget);
             // this operation can only affect the env object graph
             return preventExtensions(shadowTarget);
         }
-        defineProperty(shadowTarget: SecureShadowTarget, key: PropertyKey, secPartialDesc: PropertyDescriptor): boolean {
+        defineProperty(shadowTarget: RedShadowTarget, key: PropertyKey, redPartialDesc: PropertyDescriptor): boolean {
             this.initialize(shadowTarget);
             // this operation can only affect the env object graph
             // intentionally using Object.defineProperty instead of Reflect.defineProperty
             // to throw for existing non-configurable descriptors.
-            ObjectDefineProperty(shadowTarget, key, secPartialDesc);
+            ObjectDefineProperty(shadowTarget, key, redPartialDesc);
             return true;
         }
     }
-    
 
-    setPrototypeOf(SecureProxyHandler.prototype, null);
+    setPrototypeOf(RedProxyHandler.prototype, null);
 
-    function createSecureShadowTarget(raw: SecureProxyTarget): SecureShadowTarget {
+    function createRedShadowTarget(blue: RedProxyTarget): RedShadowTarget {
         let shadowTarget;
-        if (isFunction(raw)) {
+        if (isFunction(blue)) {
             // this is never invoked just needed to anchor the realm for errors
             try {
-                shadowTarget = 'prototype' in raw ? function () {} : () => {};
+                shadowTarget = 'prototype' in blue ? function () {} : () => {};
             } catch {
                 // TODO: target is a revoked proxy. This could be optimized if Meta becomes available here.
                 shadowTarget = () => {};
             }
-            renameFunction(raw as (...args: any[]) => any, shadowTarget);
+            renameFunction(blue as (...args: any[]) => any, shadowTarget);
         } else {
             // o is object
             shadowTarget = {};
@@ -437,37 +436,37 @@ export const serializedSecureEnvSourceText = (function secureEnvFactory(rawEnv: 
         return shadowTarget;
     }
 
-    function getRevokedSecureProxy(raw: SecureProxyTarget): SecureProxy {
-        const shadowTarget = createSecureShadowTarget(raw);
+    function getRevokedRedProxy(blue: RedProxyTarget): RedProxy {
+        const shadowTarget = createRedShadowTarget(blue);
         const { proxy, revoke } = ProxyRevocable(shadowTarget, {});
-        rawEnv.setRefMapEntries(proxy, raw);
+        blueEnv.setRefMapEntries(proxy, blue);
         revoke();
         return proxy;
     }
 
-    function createSecureProxy(raw: SecureProxyTarget): SecureProxy {
-        raw = getDistortedValue(raw);
-        const meta = getTargetMeta(raw);
+    function createRedProxy(blue: RedProxyTarget): RedProxy {
+        blue = getDistortedValue(blue);
+        const meta = getTargetMeta(blue);
         let proxy;
         if (meta.isBroken) {
-            proxy = getRevokedSecureProxy(raw);
+            proxy = getRevokedRedProxy(blue);
         } else {
-            const shadowTarget = createSecureShadowTarget(raw);
-            const proxyHandler = new SecureProxyHandler(raw, meta);
+            const shadowTarget = createRedShadowTarget(blue);
+            const proxyHandler = new RedProxyHandler(blue, meta);
             proxy = ProxyCreate(shadowTarget, proxyHandler);
         }
         try {
-            rawEnv.setRefMapEntries(proxy, raw);
+            blueEnv.setRefMapEntries(proxy, blue);
         } catch (e) {
             // This is a very edge case, it could happen if someone is very
             // crafty, but basically can cause an overflow when invoking the
             // setRefMapEntries() method, which will report an error from
-            // the outer realm.
+            // the blue realm.
             throw ErrorCreate('Internal Error');
         }
         return proxy;
     }
 
-    return getSecureValue;
+    return getRedValue;
 
 }).toString();

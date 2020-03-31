@@ -20,46 +20,46 @@ import {
     WeakMapGet,
     construct,
 } from './shared';
-import { serializedSecureEnvSourceText, MarshalHooks } from './secure-value';
-import { reverseProxyFactory } from './raw-value';
+import { serializedRedEnvSourceText, MarshalHooks } from './red';
+import { blueProxyFactory } from './blue';
 import {
-    SecureObject,
-    SecureFunction,
-    RawFunction,
-    RawObject,
-    SecureProxyTarget,
-    RawValue,
-    SecureValue,
-    RawConstructor,
+    RedObject,
+    RedFunction,
+    BlueFunction,
+    BlueObject,
+    RedProxyTarget,
+    BlueValue,
+    RedValue,
+    BlueConstructor,
     MembraneBroker,
     DistortionMap,
-    SecureProxy,
-    ReverseProxy,
-    ReverseProxyTarget,
+    RedProxy,
+    BlueProxy,
+    BlueProxyTarget,
 } from './types';
 
 interface SecureEnvironmentOptions {
-    // Base global object used by the raw environment
-    rawGlobalThis: RawObject & typeof globalThis;
-    // Secure global object used by the secure environment
-    secureGlobalThis: SecureObject & typeof globalThis;
+    // Blue global object used by the blue environment
+    blueGlobalThis: BlueObject & typeof globalThis;
+    // Red global object used by the red environment
+    redGlobalThis: RedObject & typeof globalThis;
     // Optional distortion map to tame functionalities observed through the membrane
-    distortionMap?: Map<SecureProxyTarget, SecureProxyTarget>;
+    distortionMap?: Map<RedProxyTarget, RedProxyTarget>;
 }
 
 export class SecureEnvironment implements MembraneBroker {
-    // secure ref map to reverse proxy or raw ref
-    som: WeakMap<SecureFunction | SecureObject, SecureProxyTarget | ReverseProxy> = WeakMapCreate();
-    // raw ref map to secure proxy or secure ref
-    rom: WeakMap<RawFunction | RawObject, SecureProxy | ReverseProxyTarget> = WeakMapCreate();
-    // raw object distortion map
+    // map from red to blue references
+    redMap: WeakMap<RedFunction | RedObject, RedProxyTarget | BlueProxy> = WeakMapCreate();
+    // map from blue to red references
+    blueMap: WeakMap<BlueFunction | BlueObject, RedProxy | BlueProxyTarget> = WeakMapCreate();
+    // blue object distortion map
     distortionMap: DistortionMap;
 
     constructor(options: SecureEnvironmentOptions) {
         if (isUndefined(options)) {
             throw ErrorCreate(`Missing SecureEnvironmentOptions options bag.`);
         }
-        const { rawGlobalThis, secureGlobalThis, distortionMap } = options;
+        const { blueGlobalThis, redGlobalThis, distortionMap } = options;
         this.distortionMap = WeakMapCreate();
         // validating distortion entries
         distortionMap?.forEach((value, key) => {
@@ -70,160 +70,160 @@ export class SecureEnvironment implements MembraneBroker {
         });
         // getting proxy factories ready per environment so we can produce
         // the proper errors without leaking instances into a sandbox
-        const secureEnvFactory = secureGlobalThis.eval(`(${serializedSecureEnvSourceText})`);
-        const rawHooks: MarshalHooks = {
-            apply(target: RawFunction, thisArgument: RawValue, argumentsList: ArrayLike<RawValue>): RawValue {
+        const redEnvFactory = redGlobalThis.eval(`(${serializedRedEnvSourceText})`);
+        const blueHooks: MarshalHooks = {
+            apply(target: BlueFunction, thisArgument: BlueValue, argumentsList: ArrayLike<BlueValue>): BlueValue {
                 return apply(target, thisArgument, argumentsList);
             },
-            construct(target: RawConstructor, argumentsList: ArrayLike<RawValue>, newTarget?: any): RawValue {
+            construct(target: BlueConstructor, argumentsList: ArrayLike<BlueValue>, newTarget?: any): BlueValue {
                 return construct(target, argumentsList, newTarget);
             },
         };
-        this.getSecureValue = secureEnvFactory(this, rawHooks);
-        this.getRawValue = reverseProxyFactory(this);
+        this.getRedValue = redEnvFactory(this, blueHooks);
+        this.getBlueValue = blueProxyFactory(this);
         // remapping intrinsics that are realm's agnostic
         for (let i = 0, len = ReflectiveIntrinsicObjectNames.length; i < len; i += 1) {
             const name = ReflectiveIntrinsicObjectNames[i];
-            const raw = rawGlobalThis[name];
-            const secure = secureGlobalThis[name];
-            this.setRefMapEntries(secure, raw);
-            this.setRefMapEntries(secure.prototype, raw.prototype);
+            const blue = blueGlobalThis[name];
+            const red = redGlobalThis[name];
+            this.setRefMapEntries(red, blue);
+            this.setRefMapEntries(red.prototype, blue.prototype);
         }
     }
 
-    getRawValue(sec: SecureValue): RawValue {
+    getBlueValue(red: RedValue): BlueValue {
         // placeholder since this will be assigned in construction
     }
 
-    getSecureValue(raw: RawValue): SecureValue {
+    getRedValue(blue: BlueValue): RedValue {
         // placeholder since this will be assigned in construction
     }
 
-    getRawRef(sec: SecureValue): RawValue | undefined {
-        const raw: SecureValue | undefined = WeakMapGet(this.som, sec);
-        if (!isUndefined(raw)) {
-            return raw;
+    getBlueRef(red: RedValue): BlueValue | undefined {
+        const blue: RedValue | undefined = WeakMapGet(this.redMap, red);
+        if (!isUndefined(blue)) {
+            return blue;
         }
     }
 
-    getSecureRef(raw: RawValue): SecureValue | undefined {
-        const sec: SecureValue | undefined = WeakMapGet(this.rom, raw);
-        if (!isUndefined(sec)) {
-            return sec;
+    getRedRef(blue: BlueValue): RedValue | undefined {
+        const red: RedValue | undefined = WeakMapGet(this.blueMap, blue);
+        if (!isUndefined(red)) {
+            return red;
         }
     }
 
-    setRefMapEntries(sec: SecureObject, raw: RawObject) {
+    setRefMapEntries(red: RedObject, blue: BlueObject) {
         // double index for perf
-        WeakMapSet(this.som, sec, raw);
-        WeakMapSet(this.rom, raw, sec);
+        WeakMapSet(this.redMap, red, blue);
+        WeakMapSet(this.blueMap, blue, red);
     }
 
-    remap(secureValue: SecureValue, rawValue: RawValue, rawDescriptors: PropertyDescriptorMap) {
-        this.setRefMapEntries(secureValue, rawValue);
-        for (const key in rawDescriptors) {
+    remap(redValue: RedValue, blueValue: BlueValue, blueDescriptors: PropertyDescriptorMap) {
+        this.setRefMapEntries(redValue, blueValue);
+        for (const key in blueDescriptors) {
             // TODO: this whole loop needs cleanup and simplification avoid
             // overriding ECMA script global keys.
-            if (SetHas(ESGlobalKeys, key) || !hasOwnProperty(rawDescriptors, key)) {
+            if (SetHas(ESGlobalKeys, key) || !hasOwnProperty(blueDescriptors, key)) {
                 continue;
             }
 
-            // avoid poisoning by only installing own properties from rawDescriptors
-            const rawDescriptor = assign(ObjectCreate(null), rawDescriptors[key]);
-            if ('value' in rawDescriptor) {
+            // avoid poisoning by only installing own properties from blueDescriptors
+            const blueDescriptor = assign(ObjectCreate(null), blueDescriptors[key]);
+            if ('value' in blueDescriptor) {
                 // TODO: maybe we should make everything a getter/setter that way
                 // we don't pay the cost of creating the proxy in the first place
-                rawDescriptor.value = this.getSecureValue(rawDescriptor.value);
+                blueDescriptor.value = this.getRedValue(blueDescriptor.value);
             } else {
-               // Use the original getter to return a secure object, but if the 
-               // sandbox attempts to set it to a new value, this mutation will
-               // only affect the sandbox's global object, and the getter will
-               // start returning the new provided value rather than calling onto
-               // the outer realm. This is to preserve the object graph of the
-               // outer realm.
+                // Use the original getter to return a red object, but if the 
+                // sandbox attempts to set it to a new value, this mutation will
+                // only affect the sandbox's global object, and the getter will
+                // start returning the new provided value rather than calling onto
+                // the blue realm. This is to preserve the object graph of the
+                // blue realm.
                 const env = this;
-                const { get: originalGetter } = rawDescriptor;
+                const { get: originalGetter } = blueDescriptor;
 
                 let currentGetter = () => undefined;
                 if (isFunction(originalGetter)) {
                     const originalOrDistortedGetter: () => any = WeakMapGet(this.distortionMap, originalGetter) || originalGetter;
-                    currentGetter = function(this: any): SecureValue {
-                        const value: RawValue = apply(originalOrDistortedGetter, env.getRawValue(this), emptyArray);
-                        return env.getSecureValue(value);
+                    currentGetter = function(this: any): RedValue {
+                        const value: BlueValue = apply(originalOrDistortedGetter, env.getBlueValue(this), emptyArray);
+                        return env.getRedValue(value);
                     };
                 }
 
-                rawDescriptor.get = function(): SecureValue {
+                blueDescriptor.get = function(): RedValue {
                     return apply(currentGetter, this, emptyArray);
                 };
 
-                if (isFunction(rawDescriptor.set)) {
-                    rawDescriptor.set = function(v: SecureValue): void {
+                if (isFunction(blueDescriptor.set)) {
+                    blueDescriptor.set = function(v: RedValue): void {
                         // if a global setter is invoke, the value will be use as it is as the result of the getter operation
                         currentGetter = () => v;
                     };
                 }
             }
 
-            const secureDescriptor = ReflectGetOwnPropertyDescriptor(secureValue, key);
-            if (!isUndefined(secureDescriptor) && 
-                    hasOwnProperty(secureDescriptor, 'configurable') &&  
-                    secureDescriptor.configurable === false) {
-                const securePropertyValue = secureValue[key];
-                if (isNullOrUndefined(securePropertyValue)) {
+            const redDescriptor = ReflectGetOwnPropertyDescriptor(redValue, key);
+            if (!isUndefined(redDescriptor) && 
+                    hasOwnProperty(redDescriptor, 'configurable') &&  
+                    redDescriptor.configurable === false) {
+                const redPropertyValue = redValue[key];
+                if (isNullOrUndefined(redPropertyValue)) {
                     continue;
                 }
-                // this is the case where the secure env has a descriptor that was supposed to be
+                // this is the case where the red realm has a global descriptor that was supposed to be
                 // overrule but can't be done because it is a non-configurable. Instead we try to
                 // fallback to some more advanced gymnastics
-                if (hasOwnProperty(secureDescriptor, 'value')) {
+                if (hasOwnProperty(redDescriptor, 'value')) {
                     // valid proxy target (intentionally ignoring the case of document.all since it is not a value descriptor)
-                    if (typeof securePropertyValue === 'function' || typeof securePropertyValue === 'object') {
-                        if (!WeakMapHas(this.som, securePropertyValue)) {
-                            // remapping the value of the secure object graph to the outer realm graph
-                            const { value: rawDescriptorValue } = rawDescriptor;
-                            if (secureValue !== rawDescriptorValue) {
-                                if (this.getRawValue(secureValue) !== rawValue) {
-                                    console.error('need remapping: ',  key, rawValue, rawDescriptor);
+                    if (typeof redPropertyValue === 'function' || typeof redPropertyValue === 'object') {
+                        if (!WeakMapHas(this.redMap, redPropertyValue)) {
+                            // remapping the value of the red object graph to the blue realm graph
+                            const { value: blueDescriptorValue } = blueDescriptor;
+                            if (redValue !== blueDescriptorValue) {
+                                if (this.getBlueValue(redValue) !== blueValue) {
+                                    console.error('need remapping: ',  key, blueValue, blueDescriptor);
                                 } else {
                                     // it was already mapped
                                 }
                             } else {
-                                // window.top is the classic example of a descriptor that leaks access to the outer
+                                // window.top is the classic example of a descriptor that leaks access to the blue
                                 // window reference, and there is no containment for that case yet.
-                                console.error('leaking: ',  key, rawValue, rawDescriptor);
+                                console.error('leaking: ',  key, blueValue, blueDescriptor);
                             }
                         } else {
                             // an example of this is circular window.window ref
-                            console.info('circular: ',  key, rawValue, rawDescriptor);
+                            console.info('circular: ',  key, blueValue, blueDescriptor);
                         }
                     }
-                } else if (hasOwnProperty(secureDescriptor, 'get')) {
+                } else if (hasOwnProperty(redDescriptor, 'get')) {
                     // internationally ignoring the case of (typeof document.all === 'undefined') because
                     // it is specified as configurable, you never get one of those exotic objects in this branch
-                    if (typeof securePropertyValue === 'function' || typeof securePropertyValue === 'object') {
-                        if (securePropertyValue === secureValue[key]) {
+                    if (typeof redPropertyValue === 'function' || typeof redPropertyValue === 'object') {
+                        if (redPropertyValue === redValue[key]) {
                             // this is the case for window.document which is identity preserving getter
-                            // const rawDescriptorValue = rawValue[key];
-                            // this.setRefMapEntries(secureDescriptorValue, rawDescriptorValue);
-                            // this.installDescriptors(secureDescriptorValue, rawDescriptorValue, getOwnPropertyDescriptors(rawDescriptorValue));
-                            console.error('need remapping: ', key, rawValue, rawDescriptor);
-                            if (ReflectIsExtensible(securePropertyValue)) {
+                            // const blueDescriptorValue = blueValue[key];
+                            // this.setRefMapEntries(redDescriptorValue, blueDescriptorValue);
+                            // this.installDescriptors(redDescriptorValue, blueDescriptorValue, getOwnPropertyDescriptors(blueDescriptorValue));
+                            console.error('need remapping: ', key, blueValue, blueDescriptor);
+                            if (ReflectIsExtensible(redPropertyValue)) {
                                 // remapping proto chain
-                                // ReflectSetPrototypeOf(secureDescriptorValue, this.getSecureValue(ReflectGetPrototypeOf(secureDescriptorValue)));
-                                console.error('needs prototype remapping: ', key, rawValue);
+                                // ReflectSetPrototypeOf(redDescriptorValue, this.getRedValue(ReflectGetPrototypeOf(redDescriptorValue)));
+                                console.error('needs prototype remapping: ', key, blueValue);
                             } else {
-                                console.error('leaking prototype: ',  key, rawValue, rawDescriptor);
+                                console.error('leaking prototype: ',  key, blueValue, blueDescriptor);
                             }
                         } else {
-                            console.error('leaking a getter returning values without identity: ', key, rawValue, rawDescriptor);
+                            console.error('leaking a getter returning values without identity: ', key, blueValue, blueDescriptor);
                         }
                     } else {
-                        console.error('skipping: ', key, rawValue, rawDescriptor);
+                        console.error('skipping: ', key, blueValue, blueDescriptor);
                     }
                 }
             } else {
-                ReflectDefineProperty(secureValue, key, rawDescriptor);
+                ReflectDefineProperty(redValue, key, blueDescriptor);
             }
         }
     }
