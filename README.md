@@ -1,6 +1,6 @@
-# Sandboxed Javascript Environment
+# Sandboxed JavaScript Environment
 
-This is an experimental library to demonstrate that it is possible to use membranes to create an object graph of a javascript environment without introducing identity discontinuity.
+This is an experimental library to demonstrate that it is possible to use membranes to create an object graph of a JavaScript environment without introducing identity discontinuity.
 
 ## Goals
 
@@ -17,8 +17,8 @@ This is an experimental library to demonstrate that it is possible to use membra
 
 In order to make it easier to explain how this library works, we use a color code to identify objects and values in general from both sides of the sandbox:
 
-* Blue Realm is the Javascript Realm that is not sandboxed.
-* Red Realm is the Javascript Realm that is sandboxed by this library.
+* Blue Realm is the JavaScript Realm that is not sandboxed.
+* Red Realm is the JavaScript Realm that is sandboxed by this library.
 * Blue Object, Blue Array, Blue Function, and Blue Values denote values that belong to the Blue Realm.
 * Red Object, Red Array, Red Function, and Red Values denote values that belong to the Red Realm.
 * Blue Proxy denote a Proxy created in the Blue Realm with a target that belongs to the Red Value.
@@ -26,7 +26,7 @@ In order to make it easier to explain how this library works, we use a color cod
 
 ## Implementation Details
 
-This library implements a membrane to sandbox a javascript environment object graph. This membrane is responsible for connecting the Blue Realm with a Red Realm, and it does that by remapping global references in the Red Realm to be Red Proxies (proxies of Blue Values).
+This library implements a membrane to sandbox a JavaScript environment object graph. This membrane is responsible for connecting the Blue Realm with a Red Realm, and it does that by remapping global references in the Red Realm to be Red Proxies (proxies of Blue Values).
 
 This membrane modulates the communication between the two sides, specifically by creating proxies around objects and functions, while letting other primitives values to travel safely throughout the membrane.
 
@@ -38,7 +38,7 @@ Since you can have multiple sandboxes associated to the Blue Realm, there is a p
 
 Even though this library is still experimental, we want to showcase that it is possible to have a membrane that is fairly fast. The main feature of this library is the laziness aspect of the proxies when accessing blue values from the sandbox. Those proxies are only going to be initialized when one of the proxy's traps is invoked the first time. This allow us to have a sandbox creation process that is extremely fast.
 
-Additionally, since existing host javascript environments are immense due the the amount of APIs that they offer, most programs will only need a very small subset of those APIs, and this library only activate the portions of the object graph that are observed by the executed code, making it really light weight compared to other implementations.
+Additionally, since existing host JavaScript environments are immense due the the amount of APIs that they offer, most programs will only need a very small subset of those APIs, and this library only activate the portions of the object graph that are observed by the executed code, making it really light weight compared to other implementations.
 
 Finally, Blue Proxies are not lazy, they are initialized the first time they go through the membrane even if they are not used by the Blue Realm. This could be changed in the future if it becomes a bottleneck. For now, since this is a less common case, it seems to be fine.
 
