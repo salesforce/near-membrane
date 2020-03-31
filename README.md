@@ -20,13 +20,13 @@ In order to make it easier to explain how this library works, we use a color cod
 * Blue Realm is the Javascript Realm that is not sandboxed.
 * Red Realm is the Javascript Realm that is sandboxed by this library.
 * Blue Object, Blue Array, Blue Function, and Blue Values denote values that belong to the Blue Realm.
-* Red Object, Red Array, Red Function, and Red Values in general denote values that belong to the Red Realm.
-* Blue Proxy denote a Proxy created in the Blue Realm with a target that belongs to the  a Red Value.
+* Red Object, Red Array, Red Function, and Red Values denote values that belong to the Red Realm.
+* Blue Proxy denote a Proxy created in the Blue Realm with a target that belongs to the Red Value.
 * Red Proxy denote a proxy value accessible to the Red environment with the proxy target being a Blue Value.
 
 ## Implementation Details
 
-This library implements a membrane to sandbox a javascript environment object graph. This membrane is responsible to connect the Blue Realm with a Red Realm, and it does that by remapping global references in the Red Realm to be Red Proxies (proxies of Blue Values).
+This library implements a membrane to sandbox a javascript environment object graph. This membrane is responsible for connecting the Blue Realm with a Red Realm, and it does that by remapping global references in the Red Realm to be Red Proxies (proxies of Blue Values).
 
 This membrane modulates the communication between the two sides, specifically by creating proxies around objects and functions, while letting other primitives values to travel safely throughout the membrane.
 
