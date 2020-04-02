@@ -21,19 +21,19 @@ In order to make it easier to explain how this library works, we use a color cod
 * Blue Object, Blue Array, Blue Function, and Blue Values denote values that belong to the Blue Realm.
 * Red Object, Red Array, Red Function, and Red Values denote values that belong to the Red Realm.
 * Blue Proxy denote a Proxy created in the Blue Realm with a target that belongs to the Red Value.
-* Red Proxy denote a proxy value accessible to the Red environment with the proxy target being a Blue Value.
+* Red Proxy denotes a proxy created in the Red Realm with a target being a Blue Value.
 
 ## Design
 
 This library implements a membrane to sandbox a JavaScript environment object graph. This membrane is responsible for connecting the Blue Realm with a Red Realm, and it does that by remapping global references in the Red Realm to be Red Proxies (proxies of Blue Values).
 
-This membrane modulates the communication between the two sides, specifically by creating proxies around objects and functions, while letting other primitives values to travel safely throughout the membrane.
+This membrane modulates the communication between the two sides, specifically by creating proxies around objects and functions, while letting other primitives values travel safely throughout the membrane.
 
-An Array, on the other hand, will never travel through the membrane, instead, a new Blue Array will be created when a Red Array is passing throughout the membrane, and vise-versa. Array items will be processed individually, which means no live Arrays can be used as a communication channel between the two sides of the membrane.
+Arrays never travel through the membrane to mitigate them being used as a communication channel between the two sides of the membrane. Instead, a new Blue Array will be created when a Red Array is passed through the membrane and vise-versa with array items processed individually.
 
 ### Cross-sandbox communication
 
-Since you can have multiple sandboxes associated to the Blue Realm, there is a possibility that they communicate with each other. This communication relies on the marshaling principle to avoid wrapping proxies over proxies when values are bounced between sandboxes via the Blue Realm. It does that by preserving the identity of the Blue Proxies observed by the Blue Realm. The Blue Realm is in control at all times, and the only way to communicate between sandboxes is to go throughout the Blue Realm.
+Since you can have multiple sandboxes associated to the Blue Realm, there is a possibility that they communicate with each other. This communication relies on the marshaling principle to avoid wrapping proxies over proxies when values are bounced between sandboxes via the Blue Realm. It does that by preserving the identity of the Blue Proxies observed by the Blue Realm. The Blue Realm is in control at all times, and the only way to communicate between sandboxes is to go through the Blue Realm.
 
 ## Implementation Details
 
