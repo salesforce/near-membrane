@@ -6,15 +6,69 @@ import {
     getOwnPropertyDescriptors,
     construct,
     ErrorCreate,
+    WeakMapCreate,
+    isUndefined,
+    ObjectCreate,
+    WeakMapGet,
+    assign,
 } from "./shared";
 
-// caching references to object values that can't be replaced
-// window -> Window -> WindowProperties -> EventTarget
-const blueWindow = globalThis.window;
-const blueDocument = globalThis.document;
-const blueWindowProto = ReflectGetPrototypeOf(blueWindow);
-const blueWindowPropertiesProto = ReflectGetPrototypeOf(blueWindowProto);
-const blueEventTargetProto = ReflectGetPrototypeOf(blueWindowPropertiesProto);
+/**
+ * - Unforgeable prototype references
+ * - Descriptor maps for those unforgeable prototype references
+ */
+interface CachedReferencesRecord {
+    window: WindowProxy;
+    document: Document;
+    WindowProto: object;
+    WindowPropertiesProto: object;
+    EventTargetProto: object;
+    DocumentProto: object;
+    windowDescriptors: PropertyDescriptorMap;
+    WindowProtoDescriptors: PropertyDescriptorMap;
+    WindowPropertiesProtoDescriptors: PropertyDescriptorMap;
+    EventTargetProtoDescriptors: PropertyDescriptorMap;
+};
+
+const cachedGlobalMap: WeakMap<typeof globalThis, CachedReferencesRecord> = WeakMapCreate();
+
+/**
+ * Given a Window reference, extract a set of references that are important
+ * for the sandboxing mechanism, this includes:
+ * - Unforgeable prototypes
+ * - Descriptor maps for those unforgeable prototypes
+ */
+function getCachedReferences(global: typeof globalThis): CachedReferencesRecord {
+    let record: CachedReferencesRecord | undefined = WeakMapGet(cachedGlobalMap, global);
+    if (!isUndefined(record)) {
+        return record;
+    }
+    record = ObjectCreate(null) as CachedReferencesRecord;
+    // caching references to object values that can't be replaced
+    // window -> Window -> WindowProperties -> EventTarget
+    record.window = global.window;
+    record.document = global.document;
+    record.WindowProto = ReflectGetPrototypeOf(record.window);
+    record.WindowPropertiesProto = ReflectGetPrototypeOf(record.WindowProto);
+    record.EventTargetProto = ReflectGetPrototypeOf(record.WindowPropertiesProto);
+    record.DocumentProto = ReflectGetPrototypeOf(record.document);
+
+    // caching descriptors
+    record.windowDescriptors = getOwnPropertyDescriptors(record.window);
+    record.WindowProtoDescriptors = getOwnPropertyDescriptors(record.WindowProto);
+    record.WindowPropertiesProtoDescriptors = getOwnPropertyDescriptors(record.WindowPropertiesProto);
+    record.EventTargetProtoDescriptors = getOwnPropertyDescriptors(record.EventTargetProto);
+
+    return record;
+}
+
+/**
+ * Initialization operation to capture and cache all unforgeable references
+ * and their respective descriptor maps before any other code runs, this
+ * usually help because this library runs before anything else that can poison
+ * the environment.
+ */
+getCachedReferences(globalThis);
 
 // A comprehensive list of policy feature directives can be found at
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Feature-Policy#Directives
@@ -63,55 +117,54 @@ export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarg
 
     // For Chrome we evaluate the `window` object to kickstart the realm so that
     // `window` persists when the iframe is removed from the document.
-    const redWindow = (iframe.contentWindow as WindowProxy).window;
-    const { eval: redIndirectEval } = redWindow;
+    const redGlobalThis = (iframe.contentWindow as WindowProxy).window;
+    const { eval: redIndirectEval } = redGlobalThis;
     redIndirectEval('window');
+    const blueGlobalThis = globalThis;
 
     // In Chrome debugger statements will be ignored when the iframe is removed
     // from the document. Other browsers like Firefox and Safari work as expected.
     // https://bugs.chromium.org/p/chromium/issues/detail?id=1015462
     iframe.remove();
 
-    // window -> Window -> WindowProperties -> EventTarget
-    const redDocument = redWindow.document;
-    const redWindowProto = ReflectGetPrototypeOf(redWindow);
-    const redWindowPropertiesProto = ReflectGetPrototypeOf(redWindowProto);
-    const redEventTargetProto = ReflectGetPrototypeOf(redWindowPropertiesProto);
+    const blueRefs = getCachedReferences(blueGlobalThis);
+    const redRefs = getCachedReferences(redGlobalThis);
 
-    const blueDocumentProto = ReflectGetPrototypeOf(blueDocument);
-    const blueGlobalThisDescriptors = getOwnPropertyDescriptors(blueWindow) as PropertyDescriptorMap;
-    const blueWindowProtoDescriptors = getOwnPropertyDescriptors(blueWindowProto);
-    const blueWindowPropertiesProtoDescriptors = getOwnPropertyDescriptors(blueWindowPropertiesProto);
-    const blueEventTargetProtoDescriptors = getOwnPropertyDescriptors(blueEventTargetProto);
+    const env = new SecureEnvironment({
+        blueGlobalThis,
+        redGlobalThis,
+        distortionMap,
+    });
 
+    // for window descriptors, we read the cached one and the fresh one, and
+    // combine them in case you have new globals that you now want to share.
+    // In this case, the cached one will always win. We intentionally don't
+    // do this for other descriptors because they normally don't change.
+    const windowDescriptors: PropertyDescriptorMap = assign(
+        getOwnPropertyDescriptors(blueRefs.window),
+        blueRefs.windowDescriptors
+    );
     // removing problematic descriptors that should never be installed
-    delete blueGlobalThisDescriptors.location;
-    delete blueGlobalThisDescriptors.EventTarget;
-    delete blueGlobalThisDescriptors.document;
-    delete blueGlobalThisDescriptors.window;
-
+    delete windowDescriptors.location;
+    delete windowDescriptors.EventTarget;
+    delete windowDescriptors.document;
+    delete windowDescriptors.window;
     // Some DOM APIs do brand checks for TypeArrays and others objects,
     // in this case, if the API is not dangerous, and works in a detached
     // iframe, we can let the sandbox to use the iframe's api directly,
     // instead of remapping it to the blue realm.
     // TODO [issue #67]: review this list
-    delete blueGlobalThisDescriptors.crypto;
+    delete windowDescriptors.crypto;
 
-    const env = new SecureEnvironment({
-        blueGlobalThis: blueWindow,
-        redGlobalThis: redWindow,
-        distortionMap,
-    });
+    // remapping unforgeable objects
+    env.remap(redRefs.EventTargetProto, blueRefs.EventTargetProto, blueRefs.EventTargetProtoDescriptors);
+    env.remap(redRefs.WindowPropertiesProto, blueRefs.WindowPropertiesProto, blueRefs.WindowPropertiesProtoDescriptors);
+    env.remap(redRefs.WindowProto, blueRefs.WindowProto, blueRefs.WindowProtoDescriptors);
+    env.remap(redRefs.window, blueRefs.window, windowDescriptors);
+    env.remap(redRefs.document, blueRefs.document, {/* it only has location, which is ignored for now */});
 
-    // other maps
-    env.remap(redDocument, blueDocument, {/* it only has location, which is ignored for now */});
-    ReflectSetPrototypeOf(redDocument, env.getRedValue(blueDocumentProto));
-
-    // remapping window proto chain backward
-    env.remap(redEventTargetProto, blueEventTargetProto, blueEventTargetProtoDescriptors);
-    env.remap(redWindowPropertiesProto, blueWindowPropertiesProto, blueWindowPropertiesProtoDescriptors);
-    env.remap(redWindowProto, blueWindowProto, blueWindowProtoDescriptors);
-    env.remap(redWindow, blueWindow, blueGlobalThisDescriptors);
+    // adjusting proto chains when possible
+    ReflectSetPrototypeOf(redRefs.document, env.getRedValue(blueRefs.DocumentProto));
 
     // finally, we return the evaluator function
     return (sourceText: string): void => {

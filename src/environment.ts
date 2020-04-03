@@ -47,6 +47,28 @@ interface SecureEnvironmentOptions {
     distortionMap?: Map<RedProxyTarget, RedProxyTarget>;
 }
 
+// TODO: type this better based on ReflectiveIntrinsicObjectNames
+type ReflectiveIntrinsicsMap = Record<string, any>;
+
+const cachedReflectiveIntrinsicsMap: WeakMap<typeof globalThis, ReflectiveIntrinsicsMap> = WeakMapCreate();
+
+function getReflectiveIntrinsics(global: typeof globalThis): ReflectiveIntrinsicsMap {
+    let reflectiveIntrinsics: ReflectiveIntrinsicsMap | undefined = WeakMapGet(cachedReflectiveIntrinsicsMap, global);
+    if (!isUndefined(reflectiveIntrinsics)) {
+        return reflectiveIntrinsics;
+    }
+    reflectiveIntrinsics = ObjectCreate(null) as ReflectiveIntrinsicsMap;
+    // remapping intrinsics that are realm's agnostic
+    for (let i = 0, len = ReflectiveIntrinsicObjectNames.length; i < len; i += 1) {
+        const name = ReflectiveIntrinsicObjectNames[i];
+        reflectiveIntrinsics[name] = global[name];
+    }
+    return reflectiveIntrinsics;
+}
+
+// caching from the blue realm right away to avoid picking up modified entries
+getReflectiveIntrinsics(globalThis);
+
 export class SecureEnvironment implements MembraneBroker {
     // map from red to blue references
     redMap: WeakMap<RedFunction | RedObject, RedProxyTarget | BlueProxy> = WeakMapCreate();
@@ -82,10 +104,12 @@ export class SecureEnvironment implements MembraneBroker {
         this.getRedValue = redEnvFactory(this, blueHooks);
         this.getBlueValue = blueProxyFactory(this);
         // remapping intrinsics that are realm's agnostic
+        const blueIntrinsics = getReflectiveIntrinsics(blueGlobalThis);
+        const redIntrinsics = getReflectiveIntrinsics(redGlobalThis);
         for (let i = 0, len = ReflectiveIntrinsicObjectNames.length; i < len; i += 1) {
             const name = ReflectiveIntrinsicObjectNames[i];
-            const blue = blueGlobalThis[name];
-            const red = redGlobalThis[name];
+            const blue = blueIntrinsics[name];
+            const red = redIntrinsics[name];
             this.setRefMapEntries(red, blue);
             this.setRefMapEntries(red.prototype, blue.prototype);
         }
@@ -123,7 +147,7 @@ export class SecureEnvironment implements MembraneBroker {
         this.setRefMapEntries(redValue, blueValue);
         for (const key in blueDescriptors) {
             // TODO: this whole loop needs cleanup and simplification avoid
-            // overriding ECMA script global keys.
+            // overriding ECMAScript global keys.
             if (SetHas(ESGlobalKeys, key) || !hasOwnProperty(blueDescriptors, key)) {
                 continue;
             }
