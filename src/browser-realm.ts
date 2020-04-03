@@ -1,5 +1,5 @@
 import { SecureEnvironment } from "./environment";
-import { SecureProxyTarget, RawFunction } from "./types";
+import { RedProxyTarget, BlueFunction } from "./types";
 import {
     ReflectGetPrototypeOf,
     ReflectSetPrototypeOf,
@@ -10,11 +10,11 @@ import {
 
 // caching references to object values that can't be replaced
 // window -> Window -> WindowProperties -> EventTarget
-const rawWindow = globalThis.window;
-const rawDocument = globalThis.document;
-const rawWindowProto = ReflectGetPrototypeOf(rawWindow);
-const rawWindowPropertiesProto = ReflectGetPrototypeOf(rawWindowProto);
-const rawEventTargetProto = ReflectGetPrototypeOf(rawWindowPropertiesProto);
+const blueWindow = globalThis.window;
+const blueDocument = globalThis.document;
+const blueWindowProto = ReflectGetPrototypeOf(blueWindow);
+const blueWindowPropertiesProto = ReflectGetPrototypeOf(blueWindowProto);
+const blueEventTargetProto = ReflectGetPrototypeOf(blueWindowPropertiesProto);
 
 // A comprehensive list of policy feature directives can be found at
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Feature-Policy#Directives
@@ -51,7 +51,7 @@ const IFRAME_ALLOW_ATTRIBUTE_VALUE =
 
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 
-export default function createSecureEnvironment(distortionMap?: Map<SecureProxyTarget, SecureProxyTarget>): (sourceText: string) => void {
+export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarget, RedProxyTarget>): (sourceText: string) => void {
     // @ts-ignore document global ref - in browsers
     const iframe = document.createElement('iframe');
     iframe.setAttribute('allow', IFRAME_ALLOW_ATTRIBUTE_VALUE);
@@ -63,9 +63,9 @@ export default function createSecureEnvironment(distortionMap?: Map<SecureProxyT
 
     // For Chrome we evaluate the `window` object to kickstart the realm so that
     // `window` persists when the iframe is removed from the document.
-    const secureWindow = (iframe.contentWindow as WindowProxy).window;
-    const { eval: secureIndirectEval } = secureWindow;
-    secureIndirectEval('window');
+    const redWindow = (iframe.contentWindow as WindowProxy).window;
+    const { eval: redIndirectEval } = redWindow;
+    redIndirectEval('window');
 
     // In Chrome debugger statements will be ignored when the iframe is removed
     // from the document. Other browsers like Firefox and Safari work as expected.
@@ -73,66 +73,66 @@ export default function createSecureEnvironment(distortionMap?: Map<SecureProxyT
     iframe.remove();
 
     // window -> Window -> WindowProperties -> EventTarget
-    const secureDocument = secureWindow.document;
-    const secureWindowProto = ReflectGetPrototypeOf(secureWindow);
-    const secureWindowPropertiesProto = ReflectGetPrototypeOf(secureWindowProto);
-    const secureEventTargetProto = ReflectGetPrototypeOf(secureWindowPropertiesProto);
+    const redDocument = redWindow.document;
+    const redWindowProto = ReflectGetPrototypeOf(redWindow);
+    const redWindowPropertiesProto = ReflectGetPrototypeOf(redWindowProto);
+    const redEventTargetProto = ReflectGetPrototypeOf(redWindowPropertiesProto);
 
-    const rawDocumentProto = ReflectGetPrototypeOf(rawDocument);
-    const rawGlobalThisDescriptors = getOwnPropertyDescriptors(rawWindow) as PropertyDescriptorMap;
-    const rawWindowProtoDescriptors = getOwnPropertyDescriptors(rawWindowProto);
-    const rawWindowPropertiesProtoDescriptors = getOwnPropertyDescriptors(rawWindowPropertiesProto);
-    const rawEventTargetProtoDescriptors = getOwnPropertyDescriptors(rawEventTargetProto);
+    const blueDocumentProto = ReflectGetPrototypeOf(blueDocument);
+    const blueGlobalThisDescriptors = getOwnPropertyDescriptors(blueWindow) as PropertyDescriptorMap;
+    const blueWindowProtoDescriptors = getOwnPropertyDescriptors(blueWindowProto);
+    const blueWindowPropertiesProtoDescriptors = getOwnPropertyDescriptors(blueWindowPropertiesProto);
+    const blueEventTargetProtoDescriptors = getOwnPropertyDescriptors(blueEventTargetProto);
 
     // removing problematic descriptors that should never be installed
-    delete rawGlobalThisDescriptors.location;
-    delete rawGlobalThisDescriptors.EventTarget;
-    delete rawGlobalThisDescriptors.document;
-    delete rawGlobalThisDescriptors.window;
+    delete blueGlobalThisDescriptors.location;
+    delete blueGlobalThisDescriptors.EventTarget;
+    delete blueGlobalThisDescriptors.document;
+    delete blueGlobalThisDescriptors.window;
 
     // Some DOM APIs do brand checks for TypeArrays and others objects,
     // in this case, if the API is not dangerous, and works in a detached
     // iframe, we can let the sandbox to use the iframe's api directly,
-    // instead of remapping it to the outer realm.
+    // instead of remapping it to the blue realm.
     // TODO [issue #67]: review this list
-    delete rawGlobalThisDescriptors.crypto;
+    delete blueGlobalThisDescriptors.crypto;
 
     const env = new SecureEnvironment({
-        rawGlobalThis: rawWindow,
-        secureGlobalThis: secureWindow,
+        blueGlobalThis: blueWindow,
+        redGlobalThis: redWindow,
         distortionMap,
     });
 
     // other maps
-    env.remap(secureDocument, rawDocument, {/* it only has location, which is ignored for now */});
-    ReflectSetPrototypeOf(secureDocument, env.getSecureValue(rawDocumentProto));
+    env.remap(redDocument, blueDocument, {/* it only has location, which is ignored for now */});
+    ReflectSetPrototypeOf(redDocument, env.getRedValue(blueDocumentProto));
 
     // remapping window proto chain backward
-    env.remap(secureEventTargetProto, rawEventTargetProto, rawEventTargetProtoDescriptors);
-    env.remap(secureWindowPropertiesProto, rawWindowPropertiesProto, rawWindowPropertiesProtoDescriptors);
-    env.remap(secureWindowProto, rawWindowProto, rawWindowProtoDescriptors);
-    env.remap(secureWindow, rawWindow, rawGlobalThisDescriptors);
+    env.remap(redEventTargetProto, blueEventTargetProto, blueEventTargetProtoDescriptors);
+    env.remap(redWindowPropertiesProto, blueWindowPropertiesProto, blueWindowPropertiesProtoDescriptors);
+    env.remap(redWindowProto, blueWindowProto, blueWindowProtoDescriptors);
+    env.remap(redWindow, blueWindow, blueGlobalThisDescriptors);
 
     // finally, we return the evaluator function
     return (sourceText: string): void => {
         try {
-            secureIndirectEval(sourceText);
+            redIndirectEval(sourceText);
         } catch (e) {
-            // This error occurred when the outer realm attempts to evaluate a
-            // sourceText into the sandbox. By throwing a new raw error, which
+            // This error occurred when the blue realm attempts to evaluate a
+            // sourceText into the sandbox. By throwing a new blue error, which
             // eliminates the stack information from the sandbox as a consequence.
-            let rawError;
+            let blueError;
             const { message, constructor } = e;
             try {
-                const rawErrorConstructor = env.getRawRef(constructor);
+                const blueErrorConstructor = env.getBlueRef(constructor);
                 // the constructor must be registered (done during construction of env)
                 // otherwise we need to fallback to a regular error.
-                rawError = construct(rawErrorConstructor as RawFunction, [message]);
+                blueError = construct(blueErrorConstructor as BlueFunction, [message]);
             } catch {
                 // in case the constructor inference fails
-                rawError = ErrorCreate(message);
+                blueError = ErrorCreate(message);
             }
-            throw rawError;
+            throw blueError;
         }
     };
 }

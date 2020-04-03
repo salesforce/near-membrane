@@ -1,26 +1,26 @@
-export type RawValue = any;
-export type RawArray = RawValue[];
-export type RawFunction = (...args: RawValue[]) => RawValue;
-export type RawObject = object;
-export interface RawConstructor {
-    new(...args: any[]): RawObject;
+export type BlueValue = any;
+export type BlueArray = BlueValue[];
+export type BlueFunction = (...args: BlueValue[]) => BlueValue;
+export type BlueObject = object;
+export interface BlueConstructor {
+    new(...args: any[]): BlueObject;
 }
-export type SecureProxyTarget = RawObject | RawFunction | RawConstructor;
-export type ReverseProxyTarget = SecureObject | SecureFunction | SecureConstructor;
+export type RedProxyTarget = BlueObject | BlueFunction | BlueConstructor;
+export type BlueProxyTarget = RedObject | RedFunction | RedConstructor;
 // TODO: how to doc the ProxyOf<>
-export type SecureShadowTarget = SecureProxyTarget; // Proxy<SecureProxyTarget>;
-export type ReverseShadowTarget = ReverseProxyTarget; // Proxy<ReverseProxyTarget>;
+export type RedShadowTarget = RedProxyTarget; // Proxy<RedProxyTarget>;
+export type BlueShadowTarget = BlueProxyTarget; // Proxy<BlueProxyTarget>;
 
-export type SecureValue = any;
-export type SecureFunction = (...args: SecureValue[]) => SecureValue;
-export type SecureArray = SecureValue[];
-export type SecureObject = object;
-export interface SecureConstructor {
-    new(...args: any[]): SecureObject;
+export type RedValue = any;
+export type RedFunction = (...args: RedValue[]) => RedValue;
+export type RedArray = RedValue[];
+export type RedObject = object;
+export interface RedConstructor {
+    new(...args: any[]): RedObject;
 }
 
 export interface TargetMeta {
-    proto: null | SecureProxyTarget | ReverseProxyTarget;
+    proto: null | RedProxyTarget | BlueProxyTarget;
     descriptors: PropertyDescriptorMap;
     isFrozen?: true;
     isSealed?: true;
@@ -28,22 +28,22 @@ export interface TargetMeta {
     isBroken?: true;
 }
 
-export type SecureProxy = SecureObject | SecureFunction;
-export type ReverseProxy = RawObject | RawFunction;
+export type RedProxy = RedObject | RedFunction;
+export type BlueProxy = BlueObject | BlueFunction;
 
-export type DistortionMap = WeakMap<SecureProxyTarget, SecureProxyTarget>;
+export type DistortionMap = WeakMap<RedProxyTarget, RedProxyTarget>;
 
 export interface MembraneBroker {
-    // secure ref map to reverse proxy or raw ref
-    som: WeakMap<SecureFunction | SecureObject, SecureProxyTarget | ReverseProxy>;
-    // raw ref map to secure proxy or secure ref
-    rom: WeakMap<RawFunction | RawObject, SecureProxy | ReverseProxyTarget>;
-    // raw object distortion map
+    // map from red to blue references
+    redMap: WeakMap<RedFunction | RedObject, RedProxyTarget | BlueProxy>;
+    // map from blue to red references
+    blueMap: WeakMap<BlueFunction | BlueObject, RedProxy | BlueProxyTarget>;
+    // blue object distortion map
     distortionMap: DistortionMap;
 
-    getRawValue(sec: SecureValue): RawValue;
-    getSecureValue(raw: RawValue): SecureValue;
-    getRawRef(sec: SecureValue): RawValue | undefined;
-    getSecureRef(raw: RawValue): SecureValue | undefined;
-    setRefMapEntries(sec: SecureValue, raw: RawValue): void;
+    getBlueValue(red: RedValue): BlueValue;
+    getRedValue(blue: BlueValue): RedValue;
+    getBlueRef(red: RedValue): BlueValue | undefined;
+    getRedRef(blue: BlueValue): RedValue | undefined;
+    setRefMapEntries(red: RedValue, blue: BlueValue): void;
 }

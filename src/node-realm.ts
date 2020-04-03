@@ -1,5 +1,5 @@
 import { SecureEnvironment } from "./environment";
-import { SecureProxyTarget, RawFunction } from "./types";
+import { RedProxyTarget, BlueFunction } from "./types";
 import { getOwnPropertyDescriptors, construct, ErrorCreate } from "./shared";
 import { runInNewContext } from 'vm';
 
@@ -8,40 +8,40 @@ import { runInNewContext } from 'vm';
 // 'this' will be the correct global object.
 const unsafeGlobalEvalSrc = `(0, eval)("'use strict'; this")`;
 
-export default function createSecureEnvironment(distortionMap?: Map<SecureProxyTarget, SecureProxyTarget>): (sourceText: string) => void {
+export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarget, RedProxyTarget>): (sourceText: string) => void {
     // Use unsafeGlobalEvalSrc to ensure we get the right 'this'.
-    const secureGlobalThis = runInNewContext(unsafeGlobalEvalSrc);
-    const { eval: secureIndirectEval } = secureGlobalThis;
-    const rawGlobalThis = globalThis as any;
-    const rawGlobalThisDescriptors = getOwnPropertyDescriptors(rawGlobalThis);
+    const redGlobalThis = runInNewContext(unsafeGlobalEvalSrc);
+    const { eval: redIndirectEval } = redGlobalThis;
+    const blueGlobalThis = globalThis as any;
+    const blueGlobalThisDescriptors = getOwnPropertyDescriptors(blueGlobalThis);
     const env = new SecureEnvironment({
-        rawGlobalThis,
-        secureGlobalThis,
+        blueGlobalThis,
+        redGlobalThis,
         distortionMap,
     });
 
     // remapping globals
-    env.remap(secureGlobalThis, rawGlobalThis, rawGlobalThisDescriptors);
+    env.remap(redGlobalThis, blueGlobalThis, blueGlobalThisDescriptors);
 
     return (sourceText: string): void => {
         try {
-            secureIndirectEval(sourceText);
+            redIndirectEval(sourceText);
         } catch (e) {
-            // This error occurred when the outer realm attempts to evaluate a
-            // sourceText into the sandbox. By throwing a new raw error, which
+            // This error occurred when the blue realm attempts to evaluate a
+            // sourceText into the sandbox. By throwing a new blue error, which
             // eliminates the stack information from the sandbox as a consequence.
-            let rawError;
+            let blueError;
             const { message, constructor } = e;
             try {
-                const rawErrorConstructor = env.getRawRef(constructor);
+                const blueErrorConstructor = env.getBlueRef(constructor);
                 // the constructor must be registered (done during construction of env)
                 // otherwise we need to fallback to a regular error.
-                rawError = construct(rawErrorConstructor as RawFunction, [message]);
+                blueError = construct(blueErrorConstructor as BlueFunction, [message]);
             } catch {
                 // in case the constructor inference fails
-                rawError = ErrorCreate(message);
+                blueError = ErrorCreate(message);
             }
-            throw rawError;
+            throw blueError;
         }
     };
 }

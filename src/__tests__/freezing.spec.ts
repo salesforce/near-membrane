@@ -7,7 +7,7 @@ describe('Freezing', () => {
             globalThis.bar = { a: 1, b: 2 };
             Object.freeze(globalThis.bar)
             const evalScript = createSecureEnvironment();
-            // checking the state of bar in the outer realm
+            // checking the state of bar in the blue realm
             expect(Object.isExtensible(globalThis.bar)).toBe(false);
             expect(Object.isSealed(globalThis.bar)).toBe(true);
             expect(Object.isFrozen(globalThis.bar)).toBe(true);
@@ -56,7 +56,7 @@ describe('Freezing', () => {
                 expect(Object.isSealed(globalThis.baz)).toBe(false);
                 expect(Object.isFrozen(globalThis.baz)).toBe(false);
             `);
-            // freezing the raw value after being observed by the sandbox
+            // freezing the blue value after being observed by the sandbox
             Object.freeze(globalThis.baz);
             expect(Object.isExtensible(globalThis.baz)).toBe(false);
             expect(Object.isSealed(globalThis.baz)).toBe(true);
@@ -75,7 +75,7 @@ describe('Freezing', () => {
     describe('reverse proxies', () => {
         it('can be freeze', () => {
             expect.assertions(8);
-            globalThis.outerObjectFactory = function (o: any, f: () => void) {
+            globalThis.blueObjectFactory = function (o: any, f: () => void) {
                 expect(Object.isFrozen(o)).toBe(false);
                 expect(Object.isFrozen(f)).toBe(false);
                 Object.freeze(o);
@@ -91,7 +91,7 @@ describe('Freezing', () => {
                 'use strict';
                 const o = { x: 1 };
                 const f = function() {};
-                outerObjectFactory(o, f);
+                blueObjectFactory(o, f);
                 expect(Object.isFrozen(o)).toBe(true);
                 expect(Object.isFrozen(f)).toBe(true);
                 expect(() => {

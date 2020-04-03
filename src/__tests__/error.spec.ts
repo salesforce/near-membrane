@@ -38,7 +38,7 @@ describe('The Error Boundary', () => {
             sandboxedValue();
         }).toThrowError(RangeError);
     });
-    it('should remap the Outer Realm Error instance to the sandbox errors', function() {
+    it('should remap the Blue Realm Error instance to the sandbox errors', function() {
         expect.assertions(3);
         const evalScript = createSecureEnvironment();
 
