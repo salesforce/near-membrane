@@ -105,7 +105,7 @@ const IFRAME_ALLOW_ATTRIBUTE_VALUE =
 
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 
-export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarget, RedProxyTarget>): (sourceText: string) => void {
+export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarget, RedProxyTarget>, endowments?: object): (sourceText: string) => void {
     // @ts-ignore document global ref - in browsers
     const iframe = document.createElement('iframe');
     iframe.setAttribute('allow', IFRAME_ALLOW_ATTRIBUTE_VALUE);
@@ -136,32 +136,29 @@ export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarg
         distortionMap,
     });
 
-    // for window descriptors, we read the cached one and the fresh one, and
-    // combine them in case you have new globals that you now want to share.
-    // In this case, the cached one will always win. We intentionally don't
-    // do this for other descriptors because they normally don't change.
-    const windowDescriptors: PropertyDescriptorMap = assign(
-        getOwnPropertyDescriptors(blueRefs.window),
-        blueRefs.windowDescriptors
-    );
-    // removing problematic descriptors that should never be installed
-    delete windowDescriptors.location;
-    delete windowDescriptors.EventTarget;
-    delete windowDescriptors.document;
-    delete windowDescriptors.window;
+    // global descriptors are a combination of cached blue realm descriptors + endowments descriptors
+    const globalDescriptors = assign(blueRefs.windowDescriptors, endowments && getOwnPropertyDescriptors(endowments));
+
+    // removing unforgeable descriptors that cannot be installed
+    delete globalDescriptors.location;
+    delete globalDescriptors.EventTarget;
+    delete globalDescriptors.document;
+    delete globalDescriptors.window;
     // Some DOM APIs do brand checks for TypeArrays and others objects,
     // in this case, if the API is not dangerous, and works in a detached
     // iframe, we can let the sandbox to use the iframe's api directly,
     // instead of remapping it to the blue realm.
     // TODO [issue #67]: review this list
-    delete windowDescriptors.crypto;
+    delete globalDescriptors.crypto;
+
+    // remapping globals
+    env.remap(redRefs.window, blueRefs.window, globalDescriptors);
 
     // remapping unforgeable objects
+    env.remap(redRefs.document, blueRefs.document, { /* only location by that is unforgeable */ });
     env.remap(redRefs.EventTargetProto, blueRefs.EventTargetProto, blueRefs.EventTargetProtoDescriptors);
     env.remap(redRefs.WindowPropertiesProto, blueRefs.WindowPropertiesProto, blueRefs.WindowPropertiesProtoDescriptors);
     env.remap(redRefs.WindowProto, blueRefs.WindowProto, blueRefs.WindowProtoDescriptors);
-    env.remap(redRefs.window, blueRefs.window, windowDescriptors);
-    env.remap(redRefs.document, blueRefs.document, {/* it only has location, which is ignored for now */});
 
     // adjusting proto chains when possible
     ReflectSetPrototypeOf(redRefs.document, env.getRedValue(blueRefs.DocumentProto));
