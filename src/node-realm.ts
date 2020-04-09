@@ -20,7 +20,7 @@ export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarg
     });
 
     // remapping globals
-    env.remap(redGlobalThis, blueGlobalThis, getOwnPropertyDescriptors(endowments || {}));
+    env.remap(redGlobalThis, blueGlobalThis, endowments && getOwnPropertyDescriptors(endowments));
 
     return (sourceText: string): void => {
         try {

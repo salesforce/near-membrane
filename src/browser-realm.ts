@@ -101,7 +101,7 @@ getCachedReferences(globalThis);
 function aggregateGlobalDescriptors(
     redDescriptors: PropertyDescriptorMap,
     blueDescriptors: PropertyDescriptorMap,
-    globalDescriptors: PropertyDescriptorMap
+    globalDescriptors: PropertyDescriptorMap | undefined
 ): PropertyDescriptorMap {
     const to: PropertyDescriptorMap = ObjectCreate(null);
     const baseKeys = ownKeys(redDescriptors);
@@ -200,14 +200,14 @@ export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarg
     const globalDescriptors = aggregateGlobalDescriptors(
         redRefs.windowDescriptors,
         blueRefs.windowDescriptors,
-        endowments ? getOwnPropertyDescriptors(endowments) : {}
+        endowments && getOwnPropertyDescriptors(endowments)
     );
 
     // remapping globals
     env.remap(redRefs.window, blueRefs.window, globalDescriptors);
 
     // remapping unforgeable objects
-    env.remap(redRefs.document, blueRefs.document, { /* only location by that is unforgeable */ });
+    env.remap(redRefs.document, blueRefs.document); // no descriptors needed, document.location is unforgeable
     env.remap(redRefs.EventTargetProto, blueRefs.EventTargetProto, blueRefs.EventTargetProtoDescriptors);
     env.remap(redRefs.WindowPropertiesProto, blueRefs.WindowPropertiesProto, blueRefs.WindowPropertiesProtoDescriptors);
     env.remap(redRefs.WindowProto, blueRefs.WindowProto, blueRefs.WindowProtoDescriptors);
