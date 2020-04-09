@@ -9,7 +9,7 @@ const distortionMap = new Map([
         throw new Error('forbidden');
     }],
 ]);
-const evalScript = createSecureEnvironment(distortionMap);
+const evalScript = createSecureEnvironment(distortionMap, window);
 
 describe('Method Distortion', () => {
     it('should be invoked when invoked directly', function() {

@@ -3,7 +3,7 @@ import createSecureEnvironment from '../../lib/browser-realm.js';
 describe('The object graph', () => {
     it('should be shadowed by a sandbox', function() {
         // expect.assertions(3);
-        const evalScript = createSecureEnvironment();
+        const evalScript = createSecureEnvironment(undefined, window);
         evalScript(`
             'use strict';
 

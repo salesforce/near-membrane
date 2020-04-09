@@ -11,6 +11,7 @@ import {
     ObjectCreate,
     WeakMapGet,
     assign,
+    ownKeys,
 } from "./shared";
 
 /**
@@ -69,6 +70,66 @@ function getCachedReferences(global: typeof globalThis): CachedReferencesRecord 
  * the environment.
  */
 getCachedReferences(globalThis);
+
+/**
+ * global descriptors are a combination of 3 set of descriptors:
+ * - first, the key of the red descriptors define the descriptors
+ *   provided by the browser when creating a brand new window.
+ * - second, once we know the base keys, we get the actual descriptors
+ *   from the blueDescriptors, since those are the one we want to provide
+ *   access to via the membrane.
+ * - third, the user of this library can provide endowments, which define
+ *   global descriptors that should be installed into the sandbox on top
+ *   of the base descriptors.
+ *
+ * Note: The main reason for using redDescriptors as the base keys instead
+ * of blueDescriptor is because there is no guarantee that this library is
+ * the first one to be evaluated in the host app, which means it has no ways
+ * to determine what is a real DOM API vs app specific globals.
+ *
+ * Quirk: The only quirk here is for the case in which this library runs
+ * after some other code that patches some of the DOM APIs. This means
+ * the installed proxy in the sandbox will point to the patched global
+ * API in the blue realm, rather than the original, because we don't have
+ * a way to access the original anymore. This should not be a deal-breaker
+ * if the patched API behaves according to the spec.
+ *
+ * The result of this method is a descriptor map that contains everything
+ * that will be installed (via the membrane) as global descriptors in
+ * the red realm.
+ */
+function aggregateGlobalDescriptors(
+    redDescriptors: PropertyDescriptorMap,
+    blueDescriptors: PropertyDescriptorMap,
+    globalDescriptors: PropertyDescriptorMap
+): PropertyDescriptorMap {
+    const to: PropertyDescriptorMap = ObjectCreate(null);
+    const baseKeys = ownKeys(redDescriptors);
+
+    for (let i = 0, len = baseKeys.length; i < len; i++) {
+        const key = baseKeys[i] as string;
+        to[key] = blueDescriptors[key];
+    }
+
+    // global descriptors are user provided descriptors via endowments
+    // which will overrule any default descriptor inferred from the
+    // detached iframe.
+    assign(to, globalDescriptors);
+
+    // removing unforgeable descriptors that cannot be installed
+    delete to.location;
+    delete to.EventTarget;
+    delete to.document;
+    delete to.window;
+    // Some DOM APIs do brand checks for TypeArrays and others objects,
+    // in this case, if the API is not dangerous, and works in a detached
+    // iframe, we can let the sandbox to use the iframe's api directly,
+    // instead of remapping it to the blue realm.
+    // TODO [issue #67]: review this list
+    delete to.crypto;
+
+    return to;
+}
 
 // A comprehensive list of policy feature directives can be found at
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Feature-Policy#Directives
@@ -136,20 +197,11 @@ export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarg
         distortionMap,
     });
 
-    // global descriptors are a combination of cached blue realm descriptors + endowments descriptors
-    const globalDescriptors = assign(blueRefs.windowDescriptors, endowments && getOwnPropertyDescriptors(endowments));
-
-    // removing unforgeable descriptors that cannot be installed
-    delete globalDescriptors.location;
-    delete globalDescriptors.EventTarget;
-    delete globalDescriptors.document;
-    delete globalDescriptors.window;
-    // Some DOM APIs do brand checks for TypeArrays and others objects,
-    // in this case, if the API is not dangerous, and works in a detached
-    // iframe, we can let the sandbox to use the iframe's api directly,
-    // instead of remapping it to the blue realm.
-    // TODO [issue #67]: review this list
-    delete globalDescriptors.crypto;
+    const globalDescriptors = aggregateGlobalDescriptors(
+        redRefs.windowDescriptors,
+        blueRefs.windowDescriptors,
+        endowments ? getOwnPropertyDescriptors(endowments) : {}
+    );
 
     // remapping globals
     env.remap(redRefs.window, blueRefs.window, globalDescriptors);
