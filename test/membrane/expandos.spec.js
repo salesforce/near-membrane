@@ -5,7 +5,7 @@ window.expandable = { x: 1 };
 describe('The membrane', () => {
     it('should allow global inside the sandbox', function() {
         // expect.assertions(4);
-        const evalScript = createSecureEnvironment();
+        const evalScript = createSecureEnvironment(undefined, window);
         evalScript(`
             expandable.y = 2;
             expect(expandable.y).toBe(2);    

@@ -8,7 +8,7 @@ describe('membrane', () => {
             expect(attributeName).toBe('rel');
             expect(value).toBe('import');
             expect(this instanceof HTMLLinkElement).toBeTrue();
-        }));
+        }), window);
         evalScript(`
             'use strict';
 

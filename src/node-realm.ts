@@ -8,12 +8,11 @@ import { runInNewContext } from 'vm';
 // 'this' will be the correct global object.
 const unsafeGlobalEvalSrc = `(0, eval)("'use strict'; this")`;
 
-export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarget, RedProxyTarget>): (sourceText: string) => void {
+export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarget, RedProxyTarget>, endowments?: object): (sourceText: string) => void {
     // Use unsafeGlobalEvalSrc to ensure we get the right 'this'.
     const redGlobalThis = runInNewContext(unsafeGlobalEvalSrc);
     const { eval: redIndirectEval } = redGlobalThis;
     const blueGlobalThis = globalThis as any;
-    const blueGlobalThisDescriptors = getOwnPropertyDescriptors(blueGlobalThis);
     const env = new SecureEnvironment({
         blueGlobalThis,
         redGlobalThis,
@@ -21,7 +20,7 @@ export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarg
     });
 
     // remapping globals
-    env.remap(redGlobalThis, blueGlobalThis, blueGlobalThisDescriptors);
+    env.remap(redGlobalThis, blueGlobalThis, endowments && getOwnPropertyDescriptors(endowments));
 
     return (sourceText: string): void => {
         try {

@@ -13,7 +13,7 @@ const distortionMap = new Map([
     }]
 ]);
 
-const evalScript = createSecureEnvironment(distortionMap);
+const evalScript = createSecureEnvironment(distortionMap, window);
 
 describe('Getter Function Distortion', () => {
     it('should be invoked when invoked directly', function() {
