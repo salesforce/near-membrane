@@ -20,7 +20,7 @@ import { SandboxRegistry } from "./registry";
 import { serializedRedEnvSourceText } from "./red";
 import { linkIntrinsics, ESGlobalKeys, getFilteredEndowmentDescriptors } from "./intrinsics";
 import { blueProxyFactory, controlledEvaluator } from "./blue";
-import { MarshalHooks, RedProxyTarget, RedEvaluator } from "./types";
+import { RedProxyTarget, RedEvaluator } from "./types";
 
 /**
  * - Unforgeable prototype references
@@ -37,7 +37,7 @@ interface CachedReferencesRecord {
     WindowProtoDescriptors: PropertyDescriptorMap;
     WindowPropertiesProtoDescriptors: PropertyDescriptorMap;
     EventTargetProtoDescriptors: PropertyDescriptorMap;
-    hooks: MarshalHooks;
+    hooks: typeof Reflect;
 };
 
 const cachedGlobalMap: WeakMap<typeof globalThis, CachedReferencesRecord> = WeakMapCreate();
@@ -78,10 +78,7 @@ function getCachedReferences(window: Window & typeof globalThis): CachedReferenc
     record.EventTargetProtoDescriptors = getOwnPropertyDescriptors(record.EventTargetProto);
 
     // extra hooks
-    record.hooks = {
-        apply: window.Reflect.apply,
-        construct: window.Reflect.construct,
-    };
+    record.hooks = assign(ObjectCreate(null), window.Reflect);
     return record;
 }
 

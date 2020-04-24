@@ -22,7 +22,6 @@ import {
     BlueValue,
     BlueArray,
     TargetMeta,
-    MarshalHooks,
 } from './types';
 import { MembraneBroker } from './environment';
 
@@ -46,7 +45,7 @@ import { MembraneBroker } from './environment';
  * realm directly, it must be a wrapping function.
  */
 
-export const serializedRedEnvSourceText = (function redEnvFactory(blueBroker: MembraneBroker, hooks: MarshalHooks) {
+export const serializedRedEnvSourceText = (function redEnvFactory(blueBroker: MembraneBroker, hooks: typeof Reflect) {
     'use strict';
 
     const { blueMap, distortionMap } = blueBroker;

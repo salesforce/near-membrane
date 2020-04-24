@@ -87,32 +87,32 @@ export const ESGlobalKeys = SetCreate([
 // These are foundational things that should never be wrapped but are equivalent
 // TODO: revisit this list.
 const ReflectiveIntrinsicObjectNames = [
-    'Object',
-    'Function',
-    'URIError',
-    'TypeError',
-    'SyntaxError',
-    'ReferenceError',
-    'RangeError',
-    'EvalError',
     'Error',
+    'EvalError',
+    'Function',
+    'Object',
+    'RangeError',
+    'ReferenceError',
+    'SyntaxError',
+    'TypeError',
+    'URIError',
 ];
 
 export const UndeniableGlobalNames = SetCreate([
-    'Object',
-    'Function',
     'Array',
-    'RegExp',
     'Boolean',
-    'String',
-    'Promise',
-    'URIError',
-    'TypeError',
-    'SyntaxError',
-    'ReferenceError',
-    'RangeError',
-    'EvalError',
     'Error',
+    'EvalError',
+    'Function',
+    'Object',
+    'Promise',
+    'RangeError',
+    'ReferenceError',
+    'RegExp',
+    'String',
+    'SyntaxError',
+    'TypeError',
+    'URIError',
 ]);
 
 function getReflectiveIntrinsics(global: typeof globalThis): ReflectiveIntrinsicsMap {
@@ -155,6 +155,8 @@ export function getFilteredEndowmentDescriptors(endowments: object): PropertyDes
     const endowmentsDescriptors = getOwnPropertyDescriptors(endowments);
     const globalKeys = ownKeys(endowmentsDescriptors);
     for (let i = 0, len = globalKeys.length; i < len; i++) {
+        // forcing to string here because of TypeScript's PropertyDescriptorMap definition, which doesn't
+        // support symbols as entries.
         const key = globalKeys[i] as string;
         // avoid overriding ECMAScript global names that correspond
         // to undeniable intrinsics. This guarantee that those entries

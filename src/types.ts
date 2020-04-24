@@ -40,8 +40,3 @@ export type RedEvaluator = (
     beforeEvaluateCallback: EvaluateCallback,
     afterEvaluateCallback: EvaluateCallback
 ) => void
-
-export interface MarshalHooks {
-    apply(target: any, thisArgument: any, argumentsList: ArrayLike<any>): any;
-    construct(target: any, argumentsList: ArrayLike<any>, newTarget?: any): any;
-}

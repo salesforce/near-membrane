@@ -32,7 +32,6 @@ import {
     RedArray,
     BlueArray,
     RedValue,
-    MarshalHooks,
 } from './types';
 import { MembraneBroker } from './environment';
 import { SandboxRegistry } from "./registry";
@@ -75,7 +74,7 @@ function createBlueShadowTarget(target: BlueProxyTarget): BlueShadowTarget {
     return shadowTarget;
 }
 
-export function blueProxyFactory(broker: MembraneBroker, hooks: MarshalHooks) {
+export function blueProxyFactory(broker: MembraneBroker, hooks: typeof Reflect) {
     const { apply: redReflectApply, construct: redReflectConstruct } = hooks;
 
     function getBlueDescriptor(redDesc: PropertyDescriptor): PropertyDescriptor {
