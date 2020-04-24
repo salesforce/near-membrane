@@ -1,5 +1,4 @@
 import {
-    apply,
     assign,
     construct,
     ReflectSetPrototypeOf,
@@ -33,8 +32,11 @@ import {
     RedArray,
     BlueArray,
     RedValue,
-    MembraneBroker,
+    MarshalHooks,
 } from './types';
+import { MembraneBroker } from './environment';
+import { SandboxRegistry } from "./registry";
+import { Evaluator } from "./types";
 
 function renameFunction(provider: (...args: any[]) => any, receiver: (...args: any[]) => any) {
     let nameDescriptor: PropertyDescriptor | undefined;
@@ -73,7 +75,8 @@ function createBlueShadowTarget(target: BlueProxyTarget): BlueShadowTarget {
     return shadowTarget;
 }
 
-export function blueProxyFactory(env: MembraneBroker) {
+export function blueProxyFactory(broker: MembraneBroker, hooks: MarshalHooks) {
+    const { apply: redReflectApply, construct: redReflectConstruct } = hooks;
 
     function getBlueDescriptor(redDesc: PropertyDescriptor): PropertyDescriptor {
         const blueDesc = assign(ObjectCreate(null), redDesc);
@@ -99,14 +102,14 @@ export function blueProxyFactory(env: MembraneBroker) {
         const redPartialDesc = assign(ObjectCreate(null), bluePartialDesc);
         if ('value' in redPartialDesc) {
             // we are dealing with a value descriptor
-            redPartialDesc.value = env.getRedValue(redPartialDesc.value);
+            redPartialDesc.value = broker.getRedValue(redPartialDesc.value);
         }
         if ('set' in redPartialDesc) {
             // we are dealing with accessors
-            redPartialDesc.set = env.getRedValue(redPartialDesc.set);
+            redPartialDesc.set = broker.getRedValue(redPartialDesc.set);
         }
         if ('get' in redPartialDesc) {
-            redPartialDesc.get = env.getRedValue(redPartialDesc.get);
+            redPartialDesc.get = broker.getRedValue(redPartialDesc.get);
         }
         return redPartialDesc;
     }
@@ -134,21 +137,21 @@ export function blueProxyFactory(env: MembraneBroker) {
             freeze(this);
         }
         get(shadowTarget: BlueShadowTarget, key: PropertyKey, receiver: BlueObject): RedValue {
-            return env.getBlueValue(ReflectGet(this.target, key, env.getRedValue(receiver)));
+            return broker.getBlueValue(ReflectGet(this.target, key, broker.getRedValue(receiver)));
         }
         set(shadowTarget: BlueShadowTarget, key: PropertyKey, value: BlueValue, receiver: BlueObject): boolean {
-            return ReflectSet(this.target, key, env.getRedValue(value), env.getRedValue(receiver));
+            return ReflectSet(this.target, key, broker.getRedValue(value), broker.getRedValue(receiver));
         }
         deleteProperty(shadowTarget: BlueShadowTarget, key: PropertyKey): boolean {
             return deleteProperty(this.target, key);
         }
         apply(shadowTarget: BlueShadowTarget, blueThisArg: BlueValue, blueArgArray: BlueValue[]): BlueValue {
             const { target } = this;
-            const redThisArg = env.getRedValue(blueThisArg);
-            const redArgArray = env.getRedValue(blueArgArray);
+            const redThisArg = broker.getRedValue(blueThisArg);
+            const redArgArray = broker.getRedValue(blueArgArray);
             let red;
             try {
-                red = apply(target as RedFunction, redThisArg, redArgArray);
+                red = redReflectApply(target as RedFunction, redThisArg, redArgArray);
             } catch (e) {
                 // This error occurred when the blue realm attempts to call a
                 // function from the sandbox. By throwing a new blue error, we eliminates the stack
@@ -158,7 +161,7 @@ export function blueProxyFactory(env: MembraneBroker) {
                 try {
                     // the error constructor must be a red error since it occur when calling
                     // a function from the sandbox.
-                    const blueErrorConstructor = env.getBlueRef(constructor);
+                    const blueErrorConstructor = broker.getBlueRef(constructor);
                     // the blue constructor must be registered (done during construction of env)
                     // otherwise we need to fallback to a regular error.
                     blueError = construct(blueErrorConstructor as BlueFunction, [message]);
@@ -168,18 +171,18 @@ export function blueProxyFactory(env: MembraneBroker) {
                 }
                 throw blueError;
             }
-            return env.getBlueValue(red);
+            return broker.getBlueValue(red);
         }
         construct(shadowTarget: BlueShadowTarget, blueArgArray: BlueValue[], blueNewTarget: BlueObject): BlueObject {
             const { target: RedCtor } = this;
             if (isUndefined(blueNewTarget)) {
                 throw TypeError();
             }
-            const redArgArray = env.getRedValue(blueArgArray);
-            const redNewTarget = env.getRedValue(blueNewTarget);
+            const redArgArray = broker.getRedValue(blueArgArray);
+            const redNewTarget = broker.getRedValue(blueNewTarget);
             let red;
             try {
-                red = construct(RedCtor as RedConstructor, redArgArray, redNewTarget);
+                red = redReflectConstruct(RedCtor as RedConstructor, redArgArray, redNewTarget);
             } catch (e) {
                 // This error occurred when the blue realm attempts to new a
                 // constructor from the sandbox. By throwing a new blue error, we eliminates the stack
@@ -189,7 +192,7 @@ export function blueProxyFactory(env: MembraneBroker) {
                 try {
                     // the error constructor must be a red error since it occur when calling
                     // a function from the sandbox.
-                    const blueErrorConstructor = env.getBlueRef(constructor);
+                    const blueErrorConstructor = broker.getBlueRef(constructor);
                     // the blue constructor must be registered (done during construction of env)
                     // otherwise we need to fallback to a regular error.
                     blueError = construct(blueErrorConstructor as BlueFunction, [message]);
@@ -199,7 +202,7 @@ export function blueProxyFactory(env: MembraneBroker) {
                 }
                 throw blueError;
             }
-            return env.getBlueValue(red);
+            return broker.getBlueValue(red);
         }
         has(shadowTarget: BlueShadowTarget, key: PropertyKey): boolean {
             return key in this.target;
@@ -236,10 +239,10 @@ export function blueProxyFactory(env: MembraneBroker) {
             return blueDesc;
         }
         getPrototypeOf(shadowTarget: BlueShadowTarget): BlueValue {
-            return env.getBlueValue(ReflectGetPrototypeOf(this.target));
+            return broker.getBlueValue(ReflectGetPrototypeOf(this.target));
         }
         setPrototypeOf(shadowTarget: BlueShadowTarget, prototype: BlueValue): boolean {
-            return ReflectSetPrototypeOf(this.target, env.getRedValue(prototype));
+            return ReflectSetPrototypeOf(this.target, broker.getRedValue(prototype));
         }
         preventExtensions(shadowTarget: BlueShadowTarget): boolean {
             const { target } = this;
@@ -291,7 +294,7 @@ export function blueProxyFactory(env: MembraneBroker) {
         if (isRedArray) {
             return getBlueArray(red);
         } else if (typeof red === 'object') {
-            const blue = env.getBlueRef(red);
+            const blue = broker.getBlueRef(red);
             if (isUndefined(blue)) {
                 return createBlueProxy(red);
             }
@@ -301,7 +304,7 @@ export function blueProxyFactory(env: MembraneBroker) {
     }
 
     function getBlueFunction(redFn: RedFunction): BlueFunction {
-        const blueFn = env.getBlueRef(redFn);
+        const blueFn = broker.getBlueRef(redFn);
         if (isUndefined(blueFn)) {
             try {
                 // just in case the fn is a revoked proxy (extra protection)
@@ -322,7 +325,7 @@ export function blueProxyFactory(env: MembraneBroker) {
     function getRevokedBlueProxy(red: BlueProxyTarget): BlueProxy {
         const shadowTarget = createBlueShadowTarget(red);
         const { proxy, revoke } = ProxyRevocable(shadowTarget, {});
-        env.setRefMapEntries(red, proxy);
+        broker.setRefMapEntries(red, proxy);
         revoke();
         return proxy;
     }
@@ -331,10 +334,39 @@ export function blueProxyFactory(env: MembraneBroker) {
         const shadowTarget = createBlueShadowTarget(red);
         const proxyHandler = new BlueProxyHandler(red);
         const proxy = ProxyCreate(shadowTarget, proxyHandler);
-        env.setRefMapEntries(red, proxy);
+        broker.setRefMapEntries(red, proxy);
         return proxy;
     }
 
     return getBlueValue;
 
+}
+
+/**
+ * This method is responsible for guaranteeing that the evaluator function
+ * does not leak an instance of an error from within the sandbox.
+ */
+export function controlledEvaluator(registry: SandboxRegistry, evaluator: Evaluator): Evaluator {
+    // finally, we return the evaluator function wrapped by an error control flow
+    return (sourceText: string): void => {
+        try {
+            evaluator(sourceText);
+        } catch (e) {
+            // This error occurred when the blue realm attempts to evaluate a
+            // sourceText into the sandbox. By throwing a new blue error, which
+            // eliminates the stack information from the sandbox as a consequence.
+            let blueError;
+            const { message, constructor } = e;
+            try {
+                const blueErrorConstructor = registry.getBlueRef(constructor);
+                // the constructor must be registered (done during construction of env)
+                // otherwise we need to fallback to a regular error.
+                blueError = construct(blueErrorConstructor as BlueFunction, [message]);
+            } catch {
+                // in case the constructor inference fails
+                blueError = ErrorCreate(message);
+            }
+            throw blueError;
+        }
+    };
 }

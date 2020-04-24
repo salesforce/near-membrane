@@ -22,8 +22,9 @@ import {
     BlueValue,
     BlueArray,
     TargetMeta,
-    MembraneBroker,
+    MarshalHooks,
 } from './types';
+import { MembraneBroker } from './environment';
 
 /**
  * Blink (Chrome) imposes certain restrictions for detached iframes, specifically,
@@ -44,16 +45,12 @@ import {
  * realm, you cannot call Reflect.* from inside the sandbox or the blue
  * realm directly, it must be a wrapping function.
  */
-export interface MarshalHooks {
-    apply(target: BlueFunction, thisArgument: BlueValue, argumentsList: ArrayLike<BlueValue>): BlueValue;
-    construct(target: BlueConstructor, argumentsList: ArrayLike<BlueValue>, newTarget?: any): BlueValue;
-}
 
-export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: MembraneBroker, hooks: MarshalHooks) {
+export const serializedRedEnvSourceText = (function redEnvFactory(blueBroker: MembraneBroker, hooks: MarshalHooks) {
     'use strict';
 
-    const { blueMap, distortionMap } = blueEnv;
-    const { apply: blueApplyHook, construct: blueConstructHook } = hooks;
+    const { blueMap, distortionMap } = blueBroker;
+    const { apply: blueReflectApply, construct: blueReflectConstruct } = hooks;
 
     const {
         apply,
@@ -317,9 +314,9 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             this.initialize(shadowTarget);
             let blue;
             try {
-                const blueThisArg = blueEnv.getBlueValue(redThisArg);
-                const blueArgArray = blueEnv.getBlueValue(redArgArray);
-                blue = blueApplyHook(blueTarget as BlueFunction, blueThisArg, blueArgArray);
+                const blueThisArg = blueBroker.getBlueValue(redThisArg);
+                const blueArgArray = blueBroker.getBlueValue(redArgArray);
+                blue = blueReflectApply(blueTarget as BlueFunction, blueThisArg, blueArgArray);
             } catch (e) {
                 // This error occurred when the sandbox attempts to call a
                 // function from the blue realm. By throwing a new red error,
@@ -329,7 +326,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
                 try {
                     // the error constructor must be a blue error since it occur when calling
                     // a function from the blue realm.
-                    const redErrorConstructor = blueEnv.getRedRef(constructor);
+                    const redErrorConstructor = blueBroker.getRedRef(constructor);
                     // the red constructor must be registered (done during construction of env)
                     // otherwise we need to fallback to a regular error.
                     redError = construct(redErrorConstructor as RedFunction, [message]);
@@ -349,9 +346,9 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             }
             let blue;
             try {
-                const blueNewTarget = blueEnv.getBlueValue(redNewTarget);
-                const blueArgArray = blueEnv.getBlueValue(redArgArray);
-                blue = blueConstructHook(BlueCtor as BlueConstructor, blueArgArray, blueNewTarget);
+                const blueNewTarget = blueBroker.getBlueValue(redNewTarget);
+                const blueArgArray = blueBroker.getBlueValue(redArgArray);
+                blue = blueReflectConstruct(BlueCtor as BlueConstructor, blueArgArray, blueNewTarget);
             } catch (e) {
                 // This error occurred when the sandbox attempts to new a
                 // constructor from the blue realm. By throwing a new red error,
@@ -361,7 +358,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
                 try {
                     // the error constructor must be a blue error since it occur when calling
                     // a function from the blue realm.
-                    const redErrorConstructor = blueEnv.getRedRef(constructor);
+                    const redErrorConstructor = blueBroker.getRedRef(constructor);
                     // the red constructor must be registered (done during construction of env)
                     // otherwise we need to fallback to a regular error.
                     redError = construct(redErrorConstructor as RedFunction, [message]);
@@ -439,7 +436,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     function getRevokedRedProxy(blue: RedProxyTarget): RedProxy {
         const shadowTarget = createRedShadowTarget(blue);
         const { proxy, revoke } = ProxyRevocable(shadowTarget, {});
-        blueEnv.setRefMapEntries(proxy, blue);
+        blueBroker.setRefMapEntries(proxy, blue);
         revoke();
         return proxy;
     }
@@ -456,7 +453,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             proxy = ProxyCreate(shadowTarget, proxyHandler);
         }
         try {
-            blueEnv.setRefMapEntries(proxy, blue);
+            blueBroker.setRefMapEntries(proxy, blue);
         } catch (e) {
             // This is a very edge case, it could happen if someone is very
             // crafty, but basically can cause an overflow when invoking the
