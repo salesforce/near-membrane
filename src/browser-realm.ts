@@ -366,7 +366,10 @@ interface BrowserEvaluationOptions {
 }
 
 export default function createSandboxEvaluator(registry: SandboxRegistry, options: BrowserEvaluationOptions): (sourceText: string) => void {
-    const { window: blueWindow } = options;
+    const { window: blueWindow, type } = options;
+    if (type !== 'new-dom' && type !== 'no-dom') {
+        throw new RangeError(`Invalid options.type value "${type}", it only accept "new-dom" and "no-dom".`);
+    }
     const iframe = createDetachableIframe();
     const redWindow = (iframe.contentWindow as WindowProxy).window;
     // extra the global references and descriptors before any interference

@@ -130,9 +130,6 @@ function getReflectiveIntrinsics(global: typeof globalThis): ReflectiveIntrinsic
     return reflectiveIntrinsics;
 }
 
-// caching from the blue realm right away to avoid picking up modified entries
-getReflectiveIntrinsics(globalThis);
-
 export function linkIntrinsics(
     registry: SandboxRegistry,
     blueGlobalThis: typeof globalThis,
