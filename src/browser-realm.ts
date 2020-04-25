@@ -78,7 +78,7 @@ function getCachedReferences(window: Window & typeof globalThis): CachedReferenc
     record.EventTargetProtoDescriptors = getOwnPropertyDescriptors(record.EventTargetProto);
 
     // extra hooks
-    record.hooks = assign(ObjectCreate(null), window.Reflect);
+    record.hooks = ObjectCreate(null, getOwnPropertyDescriptors(window.Reflect));
     return record;
 }
 
@@ -222,7 +222,8 @@ const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 const appendChildCall = unapply(Node.prototype.appendChild);
 const removeCall = unapply(Element.prototype.remove);
 const isConnectedGetterCall = unapply((ReflectGetOwnPropertyDescriptor(Node.prototype, 'isConnected') as any).get);
-const { body } = document;
+const nodeLastChildGetterCall = unapply((ReflectGetOwnPropertyDescriptor(Node.prototype, 'lastChild') as any).get);
+const documentBodyGetterCall = unapply((ReflectGetOwnPropertyDescriptor(Document.prototype, 'body') as any).get);
 const createElementCall = unapply(document.createElement);
 
 function createDetachableIframe(): HTMLIFrameElement {
@@ -231,7 +232,8 @@ function createDetachableIframe(): HTMLIFrameElement {
     iframe.setAttribute('allow', IFRAME_ALLOW_ATTRIBUTE_VALUE);
     iframe.setAttribute('sandbox', IFRAME_SANDBOX_ATTRIBUTE_VALUE);
     iframe.style.display = 'none';
-    appendChildCall(body, iframe);
+    const parent = documentBodyGetterCall(document) || nodeLastChildGetterCall(document);
+    appendChildCall(parent, iframe);
     return iframe;
 }
 
