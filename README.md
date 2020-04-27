@@ -98,7 +98,7 @@ We do not know the applications of this library just yet, but we suspect that th
 
 ### Debuggability
 
-* Debugging is still very challenging considering that dev-tools are still caching up with the Proxies. Chrome for example has differences displaying proxies in the console vs the watch panel.
+* Debugging is still very challenging considering that dev-tools are still catching up with the Proxies. Chrome for example has differences displaying proxies in the console vs the watch panel.
 
 Additionally, there is an existing bug in ChromeDev-tools that prevent a detached iframe to be debugged (https://bugs.chromium.org/p/chromium/issues/detail?id=1015462).
 
