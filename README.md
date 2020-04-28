@@ -23,6 +23,33 @@ In order to make it easier to explain how this library works, we use a color cod
 * Blue Proxy denote a Proxy created in the Blue Realm with a target that belongs to the Red Value.
 * Red Proxy denotes a proxy created in the Red Realm with a target being a Blue Value.
 
+## APIs
+
+High Level API with two types, `new-dom` and `no-dom`:
+
+```js
+evaluateSourceText('1', {
+    type: 'new-dom', // or 'no-dom',
+    window,
+    endowments: {},
+});
+
+evaluateSourceText('pluginAPI.run(2)', { type: 'no-dom', endowments: { pluginAPI } });
+```
+
+While the low level api is still available:
+
+```js
+const sb = new SandboxRegistry();
+sb.addDistortions(myDistortionMap);
+const evaluator = createSandboxEvaluator(sb, {
+    endowments, // optional
+    type: 'new-dom', // or no-dom
+    window: anotherWindow, // in case you want to add another new window to the sandbox
+});
+evaluator(`...`);
+```
+
 ## Design
 
 This library implements a membrane to sandbox a JavaScript environment object graph. This membrane is responsible for connecting the Blue Realm with a Red Realm, and it does that by remapping global references in the Red Realm to be Red Proxies (proxies of Blue Values).
