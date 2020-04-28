@@ -1,17 +1,16 @@
-import createSecureEnvironment from '../../lib/browser-realm.js';
+import { evaluateSourceText } from '../../lib/browser-realm.js';
 
 // getting reference to the function to be distorted
 const { get: ShadowRootHostGetter } = Object.getOwnPropertyDescriptor(ShadowRoot.prototype, 'host');
 const { assignedNodes, assignedElements } = HTMLSlotElement.prototype;
 
-const distortionMap = new Map();
-distortionMap.set(ShadowRootHostGetter, _ => { throw new Error(`Forbidden`); });
-distortionMap.set(assignedNodes, _ => { throw new Error(`Forbidden`); });
-distortionMap.set(assignedElements, _ => { throw new Error(`Forbidden`); });
+const distortions = new Map();
+distortions.set(ShadowRootHostGetter, _ => { throw new Error(`Forbidden`); });
+distortions.set(assignedNodes, _ => { throw new Error(`Forbidden`); });
+distortions.set(assignedElements, _ => { throw new Error(`Forbidden`); });
 
 function evaluateInNewSandbox(sourceText) {
-    const evalScript = createSecureEnvironment(distortionMap);
-    evalScript(sourceText);
+    evaluateSourceText(sourceText, { distortions });
 }
 
 document.querySelector('button').addEventListener('click', function (e) {

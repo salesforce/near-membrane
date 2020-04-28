@@ -1,13 +1,11 @@
-import createSecureEnvironment from '../lib/browser-realm.js';
-
-const evalScript = createSecureEnvironment();
+import { evaluateSourceText } from '../lib/browser-realm.js';
 
 // listening for x from outer realm
 document.body.addEventListener('x', function (e) {
     console.log(e, e.target, e.currentTarget);
 });
 
-evalScript(`
+evaluateSourceText(`
     debugger;
 
     // custom elements

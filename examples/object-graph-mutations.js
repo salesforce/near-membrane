@@ -1,8 +1,6 @@
-import createSecureEnvironment from '../lib/browser-realm.js';
+import { evaluateSourceText } from '../lib/browser-realm.js';
 
-const evalScript = createSecureEnvironment();
-
-evalScript(`
+evaluateSourceText(`
     'use strict';
     debugger;
 

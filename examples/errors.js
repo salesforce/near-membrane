@@ -1,6 +1,6 @@
-import createSecureEnvironment from '../lib/browser-realm.js';
+import { evaluateSourceText } from '../lib/browser-realm.js';
 
-const distortionMap = new Map([
+const distortions = new Map([
     [alert, () => {
         console.error('forbidden');
     }],
@@ -9,10 +9,8 @@ const distortionMap = new Map([
 globalThis.bar = { a: 1, b: 2 };
 Object.freeze(globalThis.bar)
 
-const evalScript = createSecureEnvironment(distortionMap, window);
-
 try {
-    evalScript(`
+    evaluateSourceText(`
         return; // illegal return statement
     `);
 } catch (e) {
@@ -21,7 +19,7 @@ try {
 }
 
 try {
-    evalScript(`
+    evaluateSourceText(`
         throw new Error('test');
     `);
 } catch (e) {
@@ -30,7 +28,7 @@ try {
 }
 
 // verifying that in deep it is reflected as frozen
-evalScript(`
+evaluateSourceText(`
     'use strict';
     try {
         bar.c = 3; // because it is frozen
@@ -38,10 +36,10 @@ evalScript(`
         e instanceof TypeError;
     }
     bar.c === undefined;
-`);
+`, { window, distortions });
 
 
-evalScript(`
+evaluateSourceText(`
     'use strict';
     function getLimit (depth = 1) {
         try {
@@ -76,4 +74,4 @@ evalScript(`
     // exhausting the engine by calling a function from the sandbox
     exhaust(limit - 1, console.log)
     console.log('Outer fn (throw?/sandboxed?)', err !== undefined, err instanceof Error, err + '', err.stack + '')
-`);
+`, { window, distortions });
