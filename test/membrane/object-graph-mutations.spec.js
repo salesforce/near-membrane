@@ -1,10 +1,13 @@
-import createSecureEnvironment from '../../lib/browser-realm.js';
+import { evaluateSourceText } from '../../lib/browser-realm.js';
+
+const endowments = {
+    expect,
+};
 
 describe('The object graph', () => {
     it('should be shadowed by a sandbox', function() {
         // expect.assertions(3);
-        const evalScript = createSecureEnvironment(undefined, window);
-        evalScript(`
+        evaluateSourceText(`
             'use strict';
 
             const originalProto = HTMLParagraphElement.prototype.__proto__;
@@ -46,7 +49,7 @@ describe('The object graph', () => {
                 elm.w = 400;
             }).not.toThrow();
             expect(elm.w).toBe(400);
-        `);
+        `, { endowments });
 
         // Mutations on the object graph in the sandbox do not leak into the outer realm
         const elm = document.querySelector('p');

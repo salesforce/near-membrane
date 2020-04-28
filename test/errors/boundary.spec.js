@@ -1,4 +1,4 @@
-import createSecureEnvironment from '../../lib/browser-realm.js';
+import { evaluateSourceText } from '../../lib/browser-realm.js';
 
 function throwNewError(Ctor, msg) {
     throw new Ctor(msg);
@@ -6,66 +6,71 @@ function throwNewError(Ctor, msg) {
 
 let sandboxedValue;
 
-globalThis.boundaryHooks = {
-    set a(v) {
-        throwNewError(Error, 'a() setter throws for argument: ' + v);
+const endowments = {
+    boundaryHooks: {
+        set a(v) {
+            throwNewError(Error, 'a() setter throws for argument: ' + v);
+        },
+        get a() {
+            return throwNewError(Error, 'a() getter throws');
+        },
+        b(v) {
+            throwNewError(RangeError, 'b() method throws for argument: ' + v);
+        },
+        expose(fn) {
+            sandboxedValue = fn;
+        }
     },
-    get a() {
-        return throwNewError(Error, 'a() getter throws');
-    },
-    b(v) {
-        throwNewError(RangeError, 'b() method throws for argument: ' + v);
-    },
-    expose(fn) {
-        sandboxedValue = fn;
-    }
+    expect,
 };
 
 describe('The Error Boundary', () => {
     it('should preserve identity of errors after a membrane roundtrip', function() {
         // expect.assertions(3);
-        const evalScript = createSecureEnvironment(undefined, window);
-        evalScript(`boundaryHooks.expose(() => { boundaryHooks.a })`);
+        evaluateSourceText(`boundaryHooks.expose(() => { boundaryHooks.a })`, {
+            endowments
+        });
         expect(() => {
             sandboxedValue();
         }).toThrowError(Error);
-        evalScript(`boundaryHooks.expose(() => { boundaryHooks.a = 1; })`);
+        evaluateSourceText(`boundaryHooks.expose(() => { boundaryHooks.a = 1; })`, {
+            endowments
+        });
         expect(() => {
             sandboxedValue();
         }).toThrowError(Error);
-        evalScript(`boundaryHooks.expose(() => { boundaryHooks.b(2); })`);
+        evaluateSourceText(`boundaryHooks.expose(() => { boundaryHooks.b(2); })`, {
+            endowments
+        });
         expect(() => {
             sandboxedValue();
         }).toThrowError(RangeError);
     });
     it('should remap the Outer Realm Error instance to the sandbox errors', function() {
         // expect.assertions(3);
-        const evalScript = createSecureEnvironment(undefined, window);
-
-        evalScript(`
+        evaluateSourceText(`
             expect(() => {
                 boundaryHooks.a;
             }).toThrowError(Error);
-        `);
-        evalScript(`
+        `, { endowments });
+        evaluateSourceText(`
             expect(() => {
                 boundaryHooks.a = 1;
             }).toThrowError(Error);
-        `);
-        evalScript(`
+        `, { endowments });
+        evaluateSourceText(`
             expect(() => {
                 boundaryHooks.b(2);
             }).toThrowError(RangeError);
-        `);
+        `, { endowments });
     });
     it('should capture throwing from user proxy', function() {
         // expect.assertions(3);
-        const evalScript = createSecureEnvironment(undefined, window);
-        evalScript(`
+        evaluateSourceText(`
             const revocable = Proxy.revocable(() => undefined, {});
             revocable.revoke();
             boundaryHooks.expose(revocable.proxy);
-        `);
+        `, { endowments });
         expect(() => {
             sandboxedValue.x;
         }).toThrowError(Error);
@@ -77,19 +82,15 @@ describe('The Error Boundary', () => {
         }).toThrowError(Error);
     });
     it('should protect from leaking sandbox errors during evaluation', function() {
-        const evalScript = createSecureEnvironment(undefined, window);
-        
         expect(() => {
-            evalScript(`
+            evaluateSourceText(`
                 throw new TypeError('from sandbox');
             `);
         }).toThrowError(TypeError);
     });
     it('should protect from leaking sandbox errors during parsing', function() {
-        const evalScript = createSecureEnvironment(undefined, window);
-
         expect(() => {
-            evalScript(`
+            evaluateSourceText(`
                 return; // illegal return statement
             `);
         }).toThrowError(SyntaxError);

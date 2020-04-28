@@ -1,4 +1,4 @@
-import createSecureEnvironment from '../../lib/browser-realm.js';
+import { evaluateSourceText } from '../../lib/browser-realm.js';
 
 // outer element declaration
 class ExternalElement extends HTMLElement {
@@ -7,30 +7,32 @@ class ExternalElement extends HTMLElement {
     }
 }
 customElements.define('x-external', ExternalElement);
-window.refToExternalElement = ExternalElement;
 
-const evalScript = createSecureEnvironment(undefined, window);
+const endowments = {
+    expect,
+    refToExternalElement: ExternalElement,
+};
 
 describe('Outer Realm Custom Element', () => {
     it('should be accessible within the sandbox', function() {
         // expect.assertions(3);
-        evalScript(`
+        evaluateSourceText(`
             const elm = document.createElement('x-external');
             expect(elm.identity()).toBe('ExternalElement');
-        `);
-        evalScript(`
+        `, { endowments });
+        evaluateSourceText(`
             document.body.innerHTML = '<x-external></x-external>';
             const elm = document.body.firstChild;
             expect(elm.identity()).toBe('ExternalElement');
-        `);
-        evalScript(`
+        `, { endowments });
+        evaluateSourceText(`
             const elm = new (customElements.get('x-external'))();
             expect(elm.identity()).toBe('ExternalElement');
-        `);
+        `, { endowments });
     });
     it('should be extensible within the sandbox', function() {
         // expect.assertions(3);
-        evalScript(`
+        evaluateSourceText(`
             const ExtenalElement = customElements.get('x-external');
             class Foo extends ExtenalElement {}
             customElements.define('x-foo', Foo);
@@ -38,11 +40,11 @@ describe('Outer Realm Custom Element', () => {
             expect(elm.identity()).toBe('ExternalElement');
             expect(elm instanceof Foo).toBe(true);
             expect(elm instanceof ExtenalElement).toBe(true);
-        `);
+        `, { endowments });
     });
     it('should be extensible and can be new from within the sandbox', function() {
         // expect.assertions(3);
-        evalScript(`
+        evaluateSourceText(`
             const ExtenalElement = customElements.get('x-external');
             class Baz extends ExtenalElement {}
             customElements.define('x-baz', Baz);
@@ -50,14 +52,14 @@ describe('Outer Realm Custom Element', () => {
             expect(elm.identity()).toBe('ExternalElement');
             expect(elm instanceof Baz).toBe(true);
             expect(elm instanceof ExtenalElement).toBe(true);
-        `);
+        `, { endowments });
     });
     it('should get access to external registered elements', function() {
         // expect.assertions(1);
-        evalScript(`
+        evaluateSourceText(`
             const E = customElements.get('x-external');
             expect(E).toBe(refToExternalElement);
-        `);
+        `, { endowments });
     });
     it('should preserve the invariants of classes in outer realm', function() {
         // expect.assertions(7);
@@ -72,19 +74,15 @@ describe('Outer Realm Custom Element', () => {
 });
 
 describe('Sandboxed Custom Element', () => {
-    evalScript(`
-        class Bar extends HTMLElement {}
-        customElements.define('x-bar', Bar);
-    `);
     it('should preserve the invariants of classes from within the sandbox', function() {
         // expect.assertions(6);
-        evalScript(`
+        evaluateSourceText(`
             expect(HTMLElement.__proto__ === Element).toBeTrue();
             expect(HTMLElement.prototype.__proto__ === Element.prototype).toBeTrue();
             expect(HTMLElement.prototype.constructor === HTMLElement).toBeTrue();
             expect(refToExternalElement.__proto__ === HTMLElement).toBeTrue();
             expect(refToExternalElement.prototype.__proto__ === HTMLElement.prototype).toBeTrue();
             expect(refToExternalElement.prototype.constructor === refToExternalElement).toBeTrue();
-        `);
+        `, { endowments });
     });
 });
