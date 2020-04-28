@@ -1,24 +1,27 @@
-import createSecureEnvironment from '../node-realm';
+import { evaluateScriptSource } from '../node-realm';
+
+const endowments = {
+    expect,
+}
 
 describe('Freezing', () => {
     describe('before creating the sandbox', () => {
         it('should be observed from within the sandbox', function() {
             expect.assertions(10);
-            globalThis.bar = { a: 1, b: 2 };
-            Object.freeze(globalThis.bar)
-            const evalScript = createSecureEnvironment(undefined, window);
+            (endowments as any).bar = { a: 1, b: 2 };
+            Object.freeze((endowments as any).bar)
             // checking the state of bar in the blue realm
-            expect(Object.isExtensible(globalThis.bar)).toBe(false);
-            expect(Object.isSealed(globalThis.bar)).toBe(true);
-            expect(Object.isFrozen(globalThis.bar)).toBe(true);
+            expect(Object.isExtensible((endowments as any).bar)).toBe(false);
+            expect(Object.isSealed((endowments as any).bar)).toBe(true);
+            expect(Object.isFrozen((endowments as any).bar)).toBe(true);
             // checking the state of bar in the sandbox
-            evalScript(`
+            evaluateScriptSource(`
                 expect(Object.isExtensible(globalThis.bar)).toBe(false);
                 expect(Object.isSealed(globalThis.bar)).toBe(true);
                 expect(Object.isFrozen(globalThis.bar)).toBe(true);
-            `);
+            `, { endowments });
             // verifying that in deep it is reflected as frozen
-            evalScript(`
+            evaluateScriptSource(`
                 'use strict';
                 let isTypeError = false;
                 try {
@@ -28,9 +31,9 @@ describe('Freezing', () => {
                 }
                 expect(isTypeError).toBe(true);
                 expect(bar.c).toBe(undefined);
-            `);
+            `, { endowments });
             // verifying that when observed from outside, it is still reflected
-            evalScript(`
+            evaluateScriptSource(`
                 'use strict';
                 let error = null;
                 try {
@@ -42,40 +45,43 @@ describe('Freezing', () => {
                     bar.c = 3;
                 }).toThrow(TypeError);
                 expect(bar.c).toBe(undefined);
-            `);
+            `, { endowments });
         });
     });
     describe('after creating the sandbox', () => {
         it('should not be observed from within the sandbox', function() {
             expect.assertions(9);
-            globalThis.baz = { a:1, b: 2 };
-            const evalScript = createSecureEnvironment(undefined, window);
+            (endowments as any).baz = { a:1, b: 2 };
+            let callback = () => undefined;
+            (endowments as any).callbackAfterFreezing = (cb) => {
+                callback = cb;
+            }
             // checking the state of bar in the sandbox
-            evalScript(`
+            evaluateScriptSource(`
                 expect(Object.isExtensible(globalThis.baz)).toBe(true);
                 expect(Object.isSealed(globalThis.baz)).toBe(false);
                 expect(Object.isFrozen(globalThis.baz)).toBe(false);
-            `);
+                callbackAfterFreezing(() => {
+                    expect(() => {
+                        baz.c = 3;
+                    }).not.toThrowError();
+                    expect(baz.c).toBe(3);
+                });
+            `, { endowments });
             // freezing the blue value after being observed by the sandbox
-            Object.freeze(globalThis.baz);
-            expect(Object.isExtensible(globalThis.baz)).toBe(false);
-            expect(Object.isSealed(globalThis.baz)).toBe(true);
-            expect(Object.isFrozen(globalThis.baz)).toBe(true);
+            Object.freeze((endowments as any).baz);
+            expect(Object.isExtensible((endowments as any).baz)).toBe(false);
+            expect(Object.isSealed((endowments as any).baz)).toBe(true);
+            expect(Object.isFrozen((endowments as any).baz)).toBe(true);
             // verifying the state of the obj from within the sandbox
-            evalScript(`
-                'use strict';
-                expect(() => {
-                    baz.c = 3;
-                }).not.toThrowError();
-                expect(baz.c).toBe(3);
-            `);
-            expect(globalThis.baz.c).toBe(undefined); // because it is a sandboxed expando that doesn't leak out
+            callback();
+            expect((endowments as any).baz.c).toBe(undefined); // because it is a sandboxed expando that doesn't leak out
         });
     });
     describe('reverse proxies', () => {
         it('can be freeze', () => {
             expect.assertions(8);
-            globalThis.blueObjectFactory = function (o: any, f: () => void) {
+            (endowments as any).blueObjectFactory = function (o: any, f: () => void) {
                 expect(Object.isFrozen(o)).toBe(false);
                 expect(Object.isFrozen(f)).toBe(false);
                 Object.freeze(o);
@@ -86,8 +92,7 @@ describe('Freezing', () => {
                     o.z = 3;
                 }).toThrowError();
             }
-            const evalScript = createSecureEnvironment(undefined, window);
-            evalScript(`
+            evaluateScriptSource(`
                 'use strict';
                 const o = { x: 1 };
                 const f = function() {};
@@ -97,7 +102,7 @@ describe('Freezing', () => {
                 expect(() => {
                     o.z = 3;
                 }).toThrowError();
-            `);
+            `, { endowments });
         });
     });
 });
