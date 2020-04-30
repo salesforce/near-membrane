@@ -130,6 +130,15 @@ export function blueProxyFactory(env: MembraneBroker) {
 
         constructor(target: BlueProxyTarget) {
             this.target = target;
+        }
+        initialize(shadowTarget: BlueShadowTarget) {
+            if (isFunction(this.target)) {
+                // correcting the shadowTarget.prototype which is non-configurable
+                // which can mess up with the getOwnPropertyDescriptor trap logic
+                ReflectDefineProperty(shadowTarget, 'prototype', {
+                    value: getBlueValue(this.target.prototype),
+                });
+            }
             // future optimization: hoping that proxies with frozen handlers can be faster
             freeze(this);
         }
@@ -332,6 +341,7 @@ export function blueProxyFactory(env: MembraneBroker) {
         const proxyHandler = new BlueProxyHandler(red);
         const proxy = ProxyCreate(shadowTarget, proxyHandler);
         env.setRefMapEntries(red, proxy);
+        proxyHandler.initialize(shadowTarget);
         return proxy;
     }
 
