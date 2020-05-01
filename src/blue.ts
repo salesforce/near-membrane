@@ -39,7 +39,7 @@ import {
 function renameFunction(provider: RedFunction, receiver: BlueFunction) {
     try {
         // a revoked proxy will break the membrane when reading the function name
-        let nameDescriptor = ReflectGetOwnPropertyDescriptor(provider, 'name')!;
+        const nameDescriptor = ReflectGetOwnPropertyDescriptor(provider, 'name')!;
         ReflectDefineProperty(receiver, 'name', nameDescriptor);
     } catch {
         // intentionally swallowing the error because this method is just extracting the function

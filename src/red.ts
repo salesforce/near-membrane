@@ -175,7 +175,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     function renameFunction(blueProvider: (...args: any[]) => any, receiver: (...args: any[]) => any) {
         try {
             // a revoked proxy will break the membrane when reading the function name
-            let nameDescriptor = getOwnPropertyDescriptor(blueProvider, 'name')!;
+            const nameDescriptor = getOwnPropertyDescriptor(blueProvider, 'name')!;
             defineProperty(receiver, 'name', nameDescriptor);
         } catch {
             // intentionally swallowing the error because this method is just extracting the function
