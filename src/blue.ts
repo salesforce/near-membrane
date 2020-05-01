@@ -36,18 +36,15 @@ import {
     MembraneBroker,
 } from './types';
 
-function renameFunction(provider: (...args: any[]) => any, receiver: (...args: any[]) => any) {
-    let nameDescriptor: PropertyDescriptor | undefined;
+function renameFunction(provider: RedFunction, receiver: BlueFunction) {
     try {
         // a revoked proxy will break the membrane when reading the function name
-        nameDescriptor = ReflectGetOwnPropertyDescriptor(provider, 'name');
-    } catch (_ignored) {
+        let nameDescriptor = ReflectGetOwnPropertyDescriptor(provider, 'name')!;
+        ReflectDefineProperty(receiver, 'name', nameDescriptor);
+    } catch {
         // intentionally swallowing the error because this method is just extracting the function
         // in a way that it should always succeed except for the cases in which the provider is a proxy
         // that is either revoked or has some logic to prevent reading the name property descriptor.
-    }
-    if (!isUndefined(nameDescriptor)) {
-        ReflectDefineProperty(receiver, 'name', nameDescriptor);
     }
 }
 
@@ -65,6 +62,7 @@ function createBlueShadowTarget(target: BlueProxyTarget): BlueShadowTarget {
             // TODO: target is a revoked proxy. This could be optimized if Meta becomes available here.
             shadowTarget = () => {};
         }
+        // This is only really needed for debugging, it helps to identify the proxy by name
         renameFunction(target as (...args: any[]) => any, shadowTarget as (...args: any[]) => any);
     } else {
         // o is object
@@ -130,20 +128,20 @@ export function blueProxyFactory(env: MembraneBroker) {
 
         constructor(target: BlueProxyTarget) {
             this.target = target;
-        }
-        initialize(shadowTarget: BlueShadowTarget) {
-            if (isFunction(this.target)) {
-                // correcting the shadowTarget.prototype which is non-configurable
-                // which can mess up with the getOwnPropertyDescriptor trap logic
-                ReflectDefineProperty(shadowTarget, 'prototype', {
-                    value: getBlueValue(this.target.prototype),
-                });
-            }
             // future optimization: hoping that proxies with frozen handlers can be faster
             freeze(this);
         }
         get(shadowTarget: BlueShadowTarget, key: PropertyKey, receiver: BlueObject): RedValue {
-            return env.getBlueValue(ReflectGet(this.target, key, env.getRedValue(receiver)));
+            /**
+             * If the target has a non-configurable own data descriptor that was observed by the red side,
+             * and therefore installed in the shadowTarget, we might get into a situation where a writable,
+             * non-configurable value in the target is out of sync with the shadowTarget's value for the same
+             * key. This is fine because this does not violate the object invariants, and even though they
+             * are out of sync, the original descriptor can only change to something that is compatible with
+             * what was installed in shadowTarget, and in order to observe that, the getOwnPropertyDescriptor
+             * trap must be used, which will take care of synchronizing them again.
+             */
+            return env.getBlueValue(ReflectGet(this.target, key, env.getRedValue(receiver)));;
         }
         set(shadowTarget: BlueShadowTarget, key: PropertyKey, value: BlueValue, receiver: BlueObject): boolean {
             return ReflectSet(this.target, key, env.getRedValue(value), env.getRedValue(receiver));
@@ -217,6 +215,7 @@ export function blueProxyFactory(env: MembraneBroker) {
             return ownKeys(this.target);
         }
         isExtensible(shadowTarget: BlueShadowTarget): boolean {
+            // optimization to avoid attempting to lock down the shadowTarget multiple times
             if (!ReflectIsExtensible(shadowTarget)) {
                 return false; // was already locked down
             }
@@ -229,15 +228,11 @@ export function blueProxyFactory(env: MembraneBroker) {
         }
         getOwnPropertyDescriptor(shadowTarget: BlueShadowTarget, key: PropertyKey): PropertyDescriptor | undefined {
             const { target } = this;
-            let blueDesc = ReflectGetOwnPropertyDescriptor(shadowTarget, key);
-            if (!isUndefined(blueDesc)) {
-                return blueDesc;
-            }
             const redDesc = ReflectGetOwnPropertyDescriptor(target, key);
             if (isUndefined(redDesc)) {
                 return redDesc;
             }
-            blueDesc = getBlueDescriptor(redDesc);
+            const blueDesc = getBlueDescriptor(redDesc);
             if (redDesc.configurable === false) {
                 // updating the descriptor to non-configurable on the shadow
                 ReflectDefineProperty(shadowTarget, key, blueDesc);
@@ -273,6 +268,9 @@ export function blueProxyFactory(env: MembraneBroker) {
                 // intentionally testing against true since it could be undefined as well
                 if (redDesc.configurable === false) {
                     // defining the descriptor to non-configurable on the shadow target
+                    // Note: a property might get defined multiple times in the shadowTarget
+                    //       but it will always be compatible with the previous descriptor
+                    //       to preserve the object invariants, which makes this line safe.
                     ReflectDefineProperty(shadowTarget, key, bluePartialDesc);
                 }
             }
@@ -341,7 +339,6 @@ export function blueProxyFactory(env: MembraneBroker) {
         const proxyHandler = new BlueProxyHandler(red);
         const proxy = ProxyCreate(shadowTarget, proxyHandler);
         env.setRefMapEntries(red, proxy);
-        proxyHandler.initialize(shadowTarget);
         return proxy;
     }
 

@@ -173,17 +173,14 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     }
 
     function renameFunction(blueProvider: (...args: any[]) => any, receiver: (...args: any[]) => any) {
-        let nameDescriptor: PropertyDescriptor | undefined;
         try {
             // a revoked proxy will break the membrane when reading the function name
-            nameDescriptor = getOwnPropertyDescriptor(blueProvider, 'name');
-        } catch (_ignored) {
+            let nameDescriptor = getOwnPropertyDescriptor(blueProvider, 'name')!;
+            defineProperty(receiver, 'name', nameDescriptor);
+        } catch {
             // intentionally swallowing the error because this method is just extracting the function
             // in a way that it should always succeed except for the cases in which the provider is a proxy
             // that is either revoked or has some logic to prevent reading the name property descriptor.
-        }
-        if (!isUndefined(nameDescriptor)) {
-            defineProperty(receiver, 'name', nameDescriptor);
         }
     }    
 
