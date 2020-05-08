@@ -118,7 +118,6 @@ function aggregateGlobalDescriptors(
 
     // removing unforgeable descriptors that cannot be installed
     delete to.location;
-    delete to.EventTarget;
     delete to.document;
     delete to.window;
     // Some DOM APIs do brand checks for TypeArrays and others objects,
