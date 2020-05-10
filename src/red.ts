@@ -52,6 +52,7 @@ export interface MarshalHooks {
 export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: MembraneBroker, hooks: MarshalHooks) {
     'use strict';
 
+    const LockerLiveValueMarkerSymbol = Symbol.for('@@lockerLiveValue');
     const { blueMap, distortionMap } = blueEnv;
     const { apply: blueApplyHook, construct: blueConstructHook } = hooks;
 
@@ -233,6 +234,25 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         }
     }
 
+    function copyBlueDescriptorIntoShadowTarget(shadowTarget: RedShadowTarget, originalTarget: RedProxyTarget, key: PropertyKey) {
+        // Note: a property might get defined multiple times in the shadowTarget
+        //       but it will always be compatible with the previous descriptor
+        //       to preserve the object invariants, which makes these lines safe.
+        const normalizedBlueDescriptor = getOwnPropertyDescriptor(originalTarget, key);
+        if (!isUndefined(normalizedBlueDescriptor)) {
+            const redDesc = getRedDescriptor(normalizedBlueDescriptor);
+            defineProperty(shadowTarget, key, redDesc);
+        }
+    }
+
+    function lockShadowTarget(shadowTarget: RedShadowTarget, originalTarget: RedProxyTarget) {
+        const targetKeys = ownKeys(originalTarget);
+        for (let i = 0, len = targetKeys.length; i < len; i += 1) {
+            copyBlueDescriptorIntoShadowTarget(shadowTarget, originalTarget, targetKeys[i]);
+        }
+        preventExtensions(shadowTarget);
+    }
+
     function getTargetMeta(target: RedProxyTarget): TargetMeta {
         const meta: TargetMeta = create(null);
         try {
@@ -262,7 +282,88 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         return meta;
     }
 
-    class RedProxyHandler implements ProxyHandler<RedProxyTarget> {
+    function getBluePartialDescriptor(redPartialDesc: PropertyDescriptor): PropertyDescriptor {
+        const bluePartialDesc = assign(create(null), redPartialDesc);
+        if ('value' in bluePartialDesc) {
+            // we are dealing with a value descriptor
+            bluePartialDesc.value = blueEnv.getBlueValue(bluePartialDesc.value);
+        }
+        if ('set' in bluePartialDesc) {
+            // we are dealing with accessors
+            bluePartialDesc.set = blueEnv.getBlueValue(bluePartialDesc.set);
+        }
+        if ('get' in bluePartialDesc) {
+            bluePartialDesc.get = blueEnv.getBlueValue(bluePartialDesc.get);
+        }
+        return bluePartialDesc;
+    }
+
+    function redProxyApplyTrap(blueTarget: BlueFunction, redThisArg: RedValue, redArgArray: RedValue[]): RedValue {
+        let blue;
+        try {
+            const blueThisArg = blueEnv.getBlueValue(redThisArg);
+            const blueArgArray = blueEnv.getBlueValue(redArgArray);
+            blue = blueApplyHook(blueTarget, blueThisArg, blueArgArray);
+        } catch (e) {
+            // This error occurred when the sandbox attempts to call a
+            // function from the blue realm. By throwing a new red error,
+            // we eliminates the stack information from the blue realm as a consequence.
+            let redError;
+            const { message, constructor } = e;
+            try {
+                // the error constructor must be a blue error since it occur when calling
+                // a function from the blue realm.
+                const redErrorConstructor = blueEnv.getRedRef(constructor);
+                // the red constructor must be registered (done during construction of env)
+                // otherwise we need to fallback to a regular error.
+                redError = construct(redErrorConstructor as RedFunction, [message]);
+            } catch {
+                // in case the constructor inference fails
+                redError = new Error(message);
+            }
+            throw redError;
+        }
+        return getRedValue(blue);
+    }
+
+    function redProxyConstructTrap(BlueCtor: BlueConstructor, redArgArray: RedValue[], redNewTarget: RedObject): RedObject {
+        if (isUndefined(redNewTarget)) {
+            throw TypeError();
+        }
+        let blue;
+        try {
+            const blueNewTarget = blueEnv.getBlueValue(redNewTarget);
+            const blueArgArray = blueEnv.getBlueValue(redArgArray);
+            blue = blueConstructHook(BlueCtor, blueArgArray, blueNewTarget);
+        } catch (e) {
+            // This error occurred when the sandbox attempts to new a
+            // constructor from the blue realm. By throwing a new red error,
+            // we eliminates the stack information from the blue realm as a consequence.
+            let redError;
+            const { message, constructor } = e;
+            try {
+                // the error constructor must be a blue error since it occur when calling
+                // a function from the blue realm.
+                const redErrorConstructor = blueEnv.getRedRef(constructor);
+                // the red constructor must be registered (done during construction of env)
+                // otherwise we need to fallback to a regular error.
+                redError = construct(redErrorConstructor as RedFunction, [message]);
+            } catch {
+                // in case the constructor inference fails
+                redError = new Error(message);
+            }
+            throw redError;
+        }
+        return getRedValue(blue);
+    }
+
+    /**
+     * RedStaticProxyHandler class is used for any object or function coming from
+     * the blue realm. It implements a proxy handler that takes a snapshot
+     * of the object or function, and preserve them by preventing any mutation
+     * or operation that can cause a side-effect on the original target.
+     */
+    class RedStaticProxyHandler implements ProxyHandler<RedProxyTarget> {
         // original target for the proxy
         private readonly target: RedProxyTarget;
         // metadata about the shape of the target
@@ -275,7 +376,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         // initialization used to avoid the initialization cost
         // of an object graph, we want to do it when the
         // first interaction happens.
-        initialize(shadowTarget: RedShadowTarget) {
+        private initialize(shadowTarget: RedShadowTarget) {
             const { meta } = this;
             const { proto: blueProto } = meta;
             // once the initialization is executed once... the rest is just noop 
@@ -312,63 +413,12 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         apply(shadowTarget: RedShadowTarget, redThisArg: RedValue, redArgArray: RedValue[]): RedValue {
             const { target: blueTarget } = this;
             this.initialize(shadowTarget);
-            let blue;
-            try {
-                const blueThisArg = blueEnv.getBlueValue(redThisArg);
-                const blueArgArray = blueEnv.getBlueValue(redArgArray);
-                blue = blueApplyHook(blueTarget as BlueFunction, blueThisArg, blueArgArray);
-            } catch (e) {
-                // This error occurred when the sandbox attempts to call a
-                // function from the blue realm. By throwing a new red error,
-                // we eliminates the stack information from the blue realm as a consequence.
-                let redError;
-                const { message, constructor } = e;
-                try {
-                    // the error constructor must be a blue error since it occur when calling
-                    // a function from the blue realm.
-                    const redErrorConstructor = blueEnv.getRedRef(constructor);
-                    // the red constructor must be registered (done during construction of env)
-                    // otherwise we need to fallback to a regular error.
-                    redError = construct(redErrorConstructor as RedFunction, [message]);
-                } catch {
-                    // in case the constructor inference fails
-                    redError = new Error(message);
-                }
-                throw redError;
-            }
-            return getRedValue(blue);
+            return redProxyApplyTrap(blueTarget as BlueFunction, redThisArg, redArgArray);
         }
         construct(shadowTarget: RedShadowTarget, redArgArray: RedValue[], redNewTarget: RedObject): RedObject {
             const { target: BlueCtor } = this;
             this.initialize(shadowTarget);
-            if (isUndefined(redNewTarget)) {
-                throw TypeError();
-            }
-            let blue;
-            try {
-                const blueNewTarget = blueEnv.getBlueValue(redNewTarget);
-                const blueArgArray = blueEnv.getBlueValue(redArgArray);
-                blue = blueConstructHook(BlueCtor as BlueConstructor, blueArgArray, blueNewTarget);
-            } catch (e) {
-                // This error occurred when the sandbox attempts to new a
-                // constructor from the blue realm. By throwing a new red error,
-                // we eliminates the stack information from the blue realm as a consequence.
-                let redError;
-                const { message, constructor } = e;
-                try {
-                    // the error constructor must be a blue error since it occur when calling
-                    // a function from the blue realm.
-                    const redErrorConstructor = blueEnv.getRedRef(constructor);
-                    // the red constructor must be registered (done during construction of env)
-                    // otherwise we need to fallback to a regular error.
-                    redError = construct(redErrorConstructor as RedFunction, [message]);
-                } catch {
-                    // in case the constructor inference fails
-                    redError = new Error(message);
-                }
-                throw redError;
-            }
-            return getRedValue(blue);
+            return redProxyConstructTrap(BlueCtor as BlueConstructor, redArgArray, redNewTarget);
         }
         has(shadowTarget: RedShadowTarget, key: PropertyKey): boolean {
             this.initialize(shadowTarget);
@@ -412,8 +462,114 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             return true;
         }
     }
+    setPrototypeOf(RedStaticProxyHandler.prototype, null);
 
-    setPrototypeOf(RedProxyHandler.prototype, null);
+    /**
+     * RedDynamicProxyHandler class is used for any object or function coming from
+     * the blue realm that contains the magical symbol to force the proxy to be dynamic.
+     * It implements a proxy handler that delegates all operations to the original target.
+     */
+    class RedDynamicProxyHandler implements ProxyHandler<RedProxyTarget> {
+        // original target for the proxy
+        private readonly target: RedProxyTarget;
+
+        constructor(blue: RedProxyTarget, _meta: TargetMeta) {
+            this.target = blue;
+            // future optimization: hoping that proxies with frozen handlers can be faster
+            freeze(this);
+        }
+
+        get(shadowTarget: RedShadowTarget, key: PropertyKey, receiver: RedObject): RedValue {
+            /**
+             * If the target has a non-configurable own data descriptor that was observed by the red side,
+             * and therefore installed in the shadowTarget, we might get into a situation where a writable,
+             * non-configurable value in the target is out of sync with the shadowTarget's value for the same
+             * key. This is fine because this does not violate the object invariants, and even though they
+             * are out of sync, the original descriptor can only change to something that is compatible with
+             * what was installed in shadowTarget, and in order to observe that, the getOwnPropertyDescriptor
+             * trap must be used, which will take care of synchronizing them again.
+             */
+            return getRedValue(ReflectGet(this.target, key, blueEnv.getBlueValue(receiver)));
+        }
+        set(shadowTarget: RedShadowTarget, key: PropertyKey, value: RedValue, receiver: RedObject): boolean {
+            return ReflectSet(this.target, key, blueEnv.getBlueValue(value), blueEnv.getBlueValue(receiver));
+        }
+        deleteProperty(shadowTarget: RedShadowTarget, key: PropertyKey): boolean {
+            return deleteProperty(this.target, key);
+        }
+        apply(shadowTarget: RedShadowTarget, redThisArg: RedValue, redArgArray: RedValue[]): RedValue {
+            const { target: blueTarget } = this;
+            return redProxyApplyTrap(blueTarget as BlueFunction, redThisArg, redArgArray);
+        }
+        construct(shadowTarget: RedShadowTarget, redArgArray: RedValue[], redNewTarget: RedObject): RedObject {
+            const { target: BlueCtor } = this;
+            return redProxyConstructTrap(BlueCtor as BlueConstructor, redArgArray, redNewTarget);
+        }
+        has(shadowTarget: RedShadowTarget, key: PropertyKey): boolean {
+            return key in this.target;
+        }
+        ownKeys(shadowTarget: RedShadowTarget): PropertyKey[] {
+            return ownKeys(this.target);
+        }
+        isExtensible(shadowTarget: RedShadowTarget): boolean {
+            // optimization to avoid attempting to lock down the shadowTarget multiple times
+            if (!isExtensible(shadowTarget)) {
+                return false; // was already locked down
+            }
+            const { target } = this;
+            if (!isExtensible(target)) {
+                lockShadowTarget(shadowTarget, target);
+                return false;
+            }
+            return true;
+        }
+        getOwnPropertyDescriptor(shadowTarget: RedShadowTarget, key: PropertyKey): PropertyDescriptor | undefined {
+            const { target } = this;
+            const blueDesc = getOwnPropertyDescriptor(target, key);
+            if (isUndefined(blueDesc)) {
+                return blueDesc;
+            }
+            if (blueDesc.configurable === false) {
+                // updating the descriptor to non-configurable on the shadow
+                copyBlueDescriptorIntoShadowTarget(shadowTarget, target, key);
+            }
+            return getRedDescriptor(blueDesc);
+        }
+        getPrototypeOf(shadowTarget: RedShadowTarget): RedValue {
+            return getRedValue(getPrototypeOf(this.target));
+        }
+        setPrototypeOf(shadowTarget: RedShadowTarget, prototype: RedValue): boolean {
+            return setPrototypeOf(this.target, blueEnv.getBlueValue(prototype));
+        }
+        preventExtensions(shadowTarget: RedShadowTarget): boolean {
+            const { target } = this;
+            if (isExtensible(shadowTarget)) {
+                if (!preventExtensions(target)) {
+                    // if the target is a proxy manually created in the sandbox, it might reject
+                    // the preventExtension call, in which case we should not attempt to lock down
+                    // the shadow target.
+                    if (!isExtensible(target)) {
+                        lockShadowTarget(shadowTarget, target);
+                    }
+                    return false;
+                }
+                lockShadowTarget(shadowTarget, target);
+            }
+            return true;
+        }
+        defineProperty(shadowTarget: RedShadowTarget, key: PropertyKey, redPartialDesc: PropertyDescriptor): boolean {
+            const { target } = this;
+            const blueDesc = getBluePartialDescriptor(redPartialDesc);
+            if (defineProperty(target, key, blueDesc)) {
+                // intentionally testing against true since it could be undefined as well
+                if (blueDesc.configurable === false) {
+                    copyBlueDescriptorIntoShadowTarget(shadowTarget, target, key);
+                }
+            }
+            return true;
+        }
+    }
+    setPrototypeOf(RedDynamicProxyHandler.prototype, null);
 
     function createRedShadowTarget(blue: RedProxyTarget): RedShadowTarget {
         let shadowTarget;
@@ -449,7 +605,11 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             proxy = getRevokedRedProxy(blue);
         } else {
             const shadowTarget = createRedShadowTarget(blue);
-            const proxyHandler = new RedProxyHandler(blue, meta);
+            // when the target has the a descriptor for the magic symbol, it will use the Dynamic Handler
+            // otherwise the regular static handler.
+            const HandleConstructor = hasOwnProperty.call(meta.descriptors, LockerLiveValueMarkerSymbol)
+                ? RedDynamicProxyHandler : RedStaticProxyHandler;
+            const proxyHandler = new HandleConstructor(blue, meta);
             proxy = ProxyCreate(shadowTarget, proxyHandler);
         }
         try {
