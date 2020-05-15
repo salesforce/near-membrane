@@ -89,6 +89,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     const WeakMapGet = unapply(WeakMap.prototype.get);
     const WeakMapHas = unapply(WeakMap.prototype.has);
     const ErrorCreate = unconstruct(Error);
+    const hasOwnPropertyCall = unapply(hasOwnProperty);
 
     function unapply(func: Function): Function {
         return (thisArg: any, ...args: any[]) => apply(func, thisArg, args);
@@ -130,36 +131,55 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         if (typeof blue === 'function') {
             return getRedFunction(blue);
         }
-        let isBlueArray = false;
-        try {
-            isBlueArray = isArrayOrNotOrThrowForRevoked(blue);
-        } catch {
-            // blue was revoked - but we call createRedProxy to support distortions
-            return createRedProxy(blue);
-        }
-        if (isBlueArray) {
-            return getRedArray(blue);
-        } else if (typeof blue === 'object') {
+        if (typeof blue === 'object') {
             const red: RedValue | undefined = WeakMapGet(blueMap, blue);
-            if (isUndefined(red)) {
-                return createRedProxy(blue);
+            if (!isUndefined(red)) {
+                return red;
             }
-            return red;
+            let hasDynamicMark: boolean = false;
+            try {
+                hasDynamicMark = hasOwnPropertyCall(blue, LockerLiveValueMarkerSymbol);
+            } catch {}
+            if (hasDynamicMark) {
+                return createDynamicRedProxy(blue);
+            }
+            let isBlueArray = false;
+            try {
+                isBlueArray = isArrayOrNotOrThrowForRevoked(blue);
+            } catch {
+                // blue was revoked - but we call createRedProxy to support distortions
+                return createStaticRedProxy(blue);
+            }
+            if (isBlueArray) {
+                return getStaticRedArray(blue);
+            }
+            return createStaticRedProxy(blue);
         } else {
             return blue as RedValue;
         }
     }
 
-    function getRedArray(blueArray: BlueArray): RedArray {
-        const b: RedValue[] = map(blueArray, (blue: BlueValue) => getRedValue(blue));
-        // identity of the new array correspond to the inner realm
-        return [...b];
+    function getStaticBlueArray(redArray: RedArray): BlueArray {
+        return map(redArray, (red: RedValue) => blueEnv.getBlueValue(red));
+    }
+
+    function getStaticRedArray(blueArray: BlueArray): RedArray {
+        // TODO: static arrays have no identity at this point. If the
+        // same array is sent twice, you get two distinct red arrays. 
+        return map(blueArray, (blue: BlueValue) => getRedValue(blue));
     }
 
     function getRedFunction(blueFn: BlueFunction): RedFunction {
         const redFn: RedFunction | undefined = WeakMapGet(blueMap, blueFn);
         if (isUndefined(redFn)) {
-            return createRedProxy(blueFn) as RedFunction;
+            let hasDynamicMark: boolean = false;
+            try {
+                hasDynamicMark = hasOwnPropertyCall(blueFn, LockerLiveValueMarkerSymbol);
+            } catch {}
+            if (hasDynamicMark) {
+                return createDynamicRedProxy(blueFn) as RedFunction;
+            }
+            return createStaticRedProxy(blueFn) as RedFunction;
         }
         return redFn;
     }
@@ -188,10 +208,10 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     function installDescriptorIntoShadowTarget(shadowTarget: RedProxyTarget, key: PropertyKey, originalDescriptor: PropertyDescriptor) {
         const shadowTargetDescriptor = getOwnPropertyDescriptor(shadowTarget, key);
         if (!isUndefined(shadowTargetDescriptor)) {
-            if (hasOwnProperty.call(shadowTargetDescriptor, 'configurable') &&
+            if (hasOwnPropertyCall(shadowTargetDescriptor, 'configurable') &&
                     shadowTargetDescriptor.configurable === true) {
                 defineProperty(shadowTarget, key, originalDescriptor);
-            } else if (hasOwnProperty.call(shadowTargetDescriptor, 'writable') &&
+            } else if (hasOwnPropertyCall(shadowTargetDescriptor, 'writable') &&
                     shadowTargetDescriptor.writable === true) {
                 // just in case
                 shadowTarget[key] = originalDescriptor.value;
@@ -227,7 +247,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     function copyRedOwnDescriptors(shadowTarget: RedShadowTarget, blueDescriptors: PropertyDescriptorMap) {
         for (const key in blueDescriptors) {
             // avoid poisoning by checking own properties from descriptors
-            if (hasOwnProperty.call(blueDescriptors, key)) {
+            if (hasOwnPropertyCall(blueDescriptors, key)) {
                 const originalDescriptor = getRedDescriptor(blueDescriptors[key]);
                 installDescriptorIntoShadowTarget(shadowTarget, key, originalDescriptor);
             }
@@ -302,7 +322,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         let blue;
         try {
             const blueThisArg = blueEnv.getBlueValue(redThisArg);
-            const blueArgArray = blueEnv.getBlueValue(redArgArray);
+            const blueArgArray = getStaticBlueArray(redArgArray);
             blue = blueApplyHook(blueTarget, blueThisArg, blueArgArray);
         } catch (e) {
             // This error occurred when the sandbox attempts to call a
@@ -333,7 +353,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         let blue;
         try {
             const blueNewTarget = blueEnv.getBlueValue(redNewTarget);
-            const blueArgArray = blueEnv.getBlueValue(redArgArray);
+            const blueArgArray = getStaticBlueArray(redArgArray);
             blue = blueConstructHook(BlueCtor, blueArgArray, blueNewTarget);
         } catch (e) {
             // This error occurred when the sandbox attempts to new a
@@ -380,7 +400,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             const { meta } = this;
             const { proto: blueProto } = meta;
             // once the initialization is executed once... the rest is just noop 
-            this.initialize = noop;
+            defineProperty(this, 'initialize', { value: noop });
             // adjusting the proto chain of the shadowTarget (recursively)
             const redProto = getRedValue(blueProto);
             setPrototypeOf(shadowTarget, redProto);
@@ -463,6 +483,8 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         }
     }
     setPrototypeOf(RedStaticProxyHandler.prototype, null);
+    // future optimization: hoping that proxies with frozen handlers can be faster
+    freeze(RedStaticProxyHandler.prototype);
 
     /**
      * RedDynamicProxyHandler class is used for any object or function coming from
@@ -473,7 +495,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         // original target for the proxy
         private readonly target: RedProxyTarget;
 
-        constructor(blue: RedProxyTarget, _meta: TargetMeta) {
+        constructor(blue: RedProxyTarget) {
             this.target = blue;
             // future optimization: hoping that proxies with frozen handlers can be faster
             freeze(this);
@@ -570,6 +592,8 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         }
     }
     setPrototypeOf(RedDynamicProxyHandler.prototype, null);
+    // future optimization: hoping that proxies with frozen handlers can be faster
+    freeze(RedDynamicProxyHandler.prototype);
 
     function createRedShadowTarget(blue: RedProxyTarget): RedShadowTarget {
         let shadowTarget;
@@ -583,8 +607,15 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             }
             renameFunction(blue as (...args: any[]) => any, shadowTarget);
         } else {
-            // o is object
-            shadowTarget = {};
+            let isBlueArray = false;
+            try {
+                // try/catch in case Array.isArray throws when target is a revoked proxy
+                isBlueArray = isArrayOrNotOrThrowForRevoked(blue);
+            } catch {
+                // target is a revoked proxy, ignoring...
+            }
+            // target is array or object
+            shadowTarget = isBlueArray ? [] : {};
         }
         return shadowTarget;
     }
@@ -592,28 +623,56 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     function getRevokedRedProxy(blue: RedProxyTarget): RedProxy {
         const shadowTarget = createRedShadowTarget(blue);
         const { proxy, revoke } = ProxyRevocable(shadowTarget, {});
-        blueEnv.setRefMapEntries(proxy, blue);
         revoke();
         return proxy;
     }
 
-    function createRedProxy(blue: RedProxyTarget): RedProxy {
-        blue = getDistortedValue(blue);
-        const meta = getTargetMeta(blue);
-        let proxy;
-        if (meta.isBroken) {
-            proxy = getRevokedRedProxy(blue);
-        } else {
-            const shadowTarget = createRedShadowTarget(blue);
-            // when the target has the a descriptor for the magic symbol, it will use the Dynamic Handler
-            // otherwise the regular static handler.
-            const HandleConstructor = hasOwnProperty.call(meta.descriptors, LockerLiveValueMarkerSymbol)
-                ? RedDynamicProxyHandler : RedStaticProxyHandler;
-            const proxyHandler = new HandleConstructor(blue, meta);
-            proxy = ProxyCreate(shadowTarget, proxyHandler);
-        }
+    function getStaticRedProxy(blue: RedProxyTarget, meta: TargetMeta): RedProxy {
+        const shadowTarget = createRedShadowTarget(blue);
+        const proxyHandler = new RedStaticProxyHandler(blue, meta);
+        return ProxyCreate(shadowTarget, proxyHandler);
+    }
+
+    function getDynamicRedProxy(blue: RedProxyTarget) {
+        const shadowTarget = createRedShadowTarget(blue);
+        const proxyHandler = new RedDynamicProxyHandler(blue);
+        return ProxyCreate(shadowTarget, proxyHandler);
+    }
+
+    function createStaticRedProxy(blueOriginalValue: RedProxyTarget): RedProxy {
+        const blueOriginalOrDistortedValue = getDistortedValue(blueOriginalValue);
+        const meta = getTargetMeta(blueOriginalOrDistortedValue);
+        const proxy = meta.isBroken ?
+            getRevokedRedProxy(blueOriginalOrDistortedValue) :
+            getStaticRedProxy(blueOriginalOrDistortedValue, meta);
         try {
-            blueEnv.setRefMapEntries(proxy, blue);
+            // intentionally storing the original blue object, this way, if a distortion
+            // exists, and the sandbox passed back its reference to blue, it gets mapped
+            // to the distortion rather than the original. This protects against tricking
+            // the blue side to use the original value (unwrapping the provided proxy ref)
+            // while the blue side will mistakenly evaluate the original function.
+            blueEnv.setRefMapEntries(proxy, blueOriginalOrDistortedValue);
+        } catch (e) {
+            // This is a very edge case, it could happen if someone is very
+            // crafty, but basically can cause an overflow when invoking the
+            // setRefMapEntries() method, which will report an error from
+            // the blue realm.
+            throw ErrorCreate('Internal Error');
+        }
+        return proxy;
+    }
+
+    // when the target has the a descriptor for the magic symbol, it will use the Dynamic Handler
+    function createDynamicRedProxy(blueOriginalValue: RedProxyTarget): RedProxy {
+        const blueOriginalOrDistortedValue = getDistortedValue(blueOriginalValue);
+        const proxy = getDynamicRedProxy(blueOriginalOrDistortedValue);
+        try {
+            // intentionally storing the original blue object, this way, if a distortion
+            // exists, and the sandbox passed back its reference to blue, it gets mapped
+            // to the distortion rather than the original. This protects against tricking
+            // the blue side to use the original value (unwrapping the provided proxy ref)
+            // while the blue side will mistakenly evaluate the original function.
+            blueEnv.setRefMapEntries(proxy, blueOriginalOrDistortedValue);
         } catch (e) {
             // This is a very edge case, it could happen if someone is very
             // crafty, but basically can cause an overflow when invoking the

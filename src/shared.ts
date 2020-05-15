@@ -151,6 +151,7 @@ export const ESGlobalKeys = SetCreate([
 // These are foundational things that should never be wrapped but are equivalent
 // TODO: revisit this list.
 export const ReflectiveIntrinsicObjectNames = [
+    'Array',
     'Object',
     'Function',
     'URIError',
