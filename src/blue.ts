@@ -48,25 +48,31 @@ function renameFunction(provider: RedFunction, receiver: BlueFunction) {
     }
 }
 
-const ProxyRevocable = Proxy.revocable;
 const ProxyCreate = unconstruct(Proxy);
 const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
 
 function createBlueShadowTarget(target: BlueProxyTarget): BlueShadowTarget {
     let shadowTarget;
     if (isFunction(target)) {
-        // this is never invoked just needed to anchor the realm
+        // this new shadow target function is never invoked just needed to anchor the realm
         try {
             shadowTarget = 'prototype' in target ? function () {} : () => {};
         } catch {
-            // TODO: target is a revoked proxy. This could be optimized if Meta becomes available here.
+            // target is a revoked proxy
             shadowTarget = () => {};
         }
         // This is only really needed for debugging, it helps to identify the proxy by name
         renameFunction(target as (...args: any[]) => any, shadowTarget as (...args: any[]) => any);
     } else {
-        // o is object
-        shadowTarget = {};
+        let isRedArray = false;
+        try {
+            // try/catch in case Array.isArray throws when target is a revoked proxy
+            isRedArray = isArrayOrNotOrThrowForRevoked(target);
+        } catch {
+            // target is a revoked proxy, ignoring...
+        }
+        // target is array or object
+        shadowTarget = isRedArray ? [] : {};
     }
     return shadowTarget;
 }
@@ -109,20 +115,30 @@ export function blueProxyFactory(env: MembraneBroker) {
         return redPartialDesc;
     }
 
+    function copyRedDescriptorIntoShadowTarget(shadowTarget: BlueShadowTarget, originalTarget: BlueProxyTarget, key: PropertyKey) {
+        // Note: a property might get defined multiple times in the shadowTarget
+        //       but it will always be compatible with the previous descriptor
+        //       to preserve the object invariants, which makes these lines safe.
+        const normalizedRedDescriptor = ReflectGetOwnPropertyDescriptor(originalTarget, key);
+        if (!isUndefined(normalizedRedDescriptor)) {
+            const blueDesc = getBlueDescriptor(normalizedRedDescriptor);
+            ReflectDefineProperty(shadowTarget, key, blueDesc);
+        }
+    }
+
     function lockShadowTarget(shadowTarget: BlueShadowTarget, originalTarget: BlueProxyTarget) {
         const targetKeys = ownKeys(originalTarget);
         for (let i = 0, len = targetKeys.length; i < len; i += 1) {
-            const key = targetKeys[i];
-            const blueDesc = ReflectGetOwnPropertyDescriptor(shadowTarget, key);
-            if (isUndefined(blueDesc) || blueDesc.configurable === true) {
-                const redDesc = ReflectGetOwnPropertyDescriptor(originalTarget, key) as PropertyDescriptor;
-                ReflectDefineProperty(shadowTarget, key, getBlueDescriptor(redDesc));
-            }
+            copyRedDescriptorIntoShadowTarget(shadowTarget, originalTarget, targetKeys[i]);
         }
         ReflectPreventExtensions(shadowTarget);
     }
 
-    class BlueProxyHandler implements ProxyHandler<BlueProxyTarget> {
+    function getStaticRedArray(blueArray: BlueArray): RedArray {
+        return map(blueArray, (blue: BlueValue) => env.getRedValue(blue));
+    }
+
+    class BlueDynamicProxyHandler implements ProxyHandler<BlueProxyTarget> {
         // original target for the proxy
         private readonly target: BlueProxyTarget;
 
@@ -141,7 +157,7 @@ export function blueProxyFactory(env: MembraneBroker) {
              * what was installed in shadowTarget, and in order to observe that, the getOwnPropertyDescriptor
              * trap must be used, which will take care of synchronizing them again.
              */
-            return env.getBlueValue(ReflectGet(this.target, key, env.getRedValue(receiver)));;
+            return env.getBlueValue(ReflectGet(this.target, key, env.getRedValue(receiver)));
         }
         set(shadowTarget: BlueShadowTarget, key: PropertyKey, value: BlueValue, receiver: BlueObject): boolean {
             return ReflectSet(this.target, key, env.getRedValue(value), env.getRedValue(receiver));
@@ -152,7 +168,7 @@ export function blueProxyFactory(env: MembraneBroker) {
         apply(shadowTarget: BlueShadowTarget, blueThisArg: BlueValue, blueArgArray: BlueValue[]): BlueValue {
             const { target } = this;
             const redThisArg = env.getRedValue(blueThisArg);
-            const redArgArray = env.getRedValue(blueArgArray);
+            const redArgArray = getStaticRedArray(blueArgArray);
             let red;
             try {
                 red = apply(target as RedFunction, redThisArg, redArgArray);
@@ -182,8 +198,8 @@ export function blueProxyFactory(env: MembraneBroker) {
             if (isUndefined(blueNewTarget)) {
                 throw TypeError();
             }
-            const redArgArray = env.getRedValue(blueArgArray);
             const redNewTarget = env.getRedValue(blueNewTarget);
+            const redArgArray = getStaticRedArray(blueArgArray);
             let red;
             try {
                 red = construct(RedCtor as RedConstructor, redArgArray, redNewTarget);
@@ -232,12 +248,11 @@ export function blueProxyFactory(env: MembraneBroker) {
             if (isUndefined(redDesc)) {
                 return redDesc;
             }
-            const blueDesc = getBlueDescriptor(redDesc);
             if (redDesc.configurable === false) {
                 // updating the descriptor to non-configurable on the shadow
-                ReflectDefineProperty(shadowTarget, key, blueDesc);
+                copyRedDescriptorIntoShadowTarget(shadowTarget, target, key);
             }
-            return blueDesc;
+            return getBlueDescriptor(redDesc);
         }
         getPrototypeOf(shadowTarget: BlueShadowTarget): BlueValue {
             return env.getBlueValue(ReflectGetPrototypeOf(this.target));
@@ -267,76 +282,46 @@ export function blueProxyFactory(env: MembraneBroker) {
             if (ReflectDefineProperty(target, key, redDesc)) {
                 // intentionally testing against true since it could be undefined as well
                 if (redDesc.configurable === false) {
-                    // defining the descriptor to non-configurable on the shadow target
-                    // Note: a property might get defined multiple times in the shadowTarget
-                    //       but it will always be compatible with the previous descriptor
-                    //       to preserve the object invariants, which makes this line safe.
-                    ReflectDefineProperty(shadowTarget, key, bluePartialDesc);
+                    copyRedDescriptorIntoShadowTarget(shadowTarget, target, key);
                 }
             }
             return true;
         }
     }
-
-    ReflectSetPrototypeOf(BlueProxyHandler.prototype, null);
+    ReflectSetPrototypeOf(BlueDynamicProxyHandler.prototype, null);
+    // future optimization: hoping that proxies with frozen handlers can be faster
+    freeze(BlueDynamicProxyHandler.prototype);
 
     function getBlueValue(red: RedValue): BlueValue {
         if (isNullOrUndefined(red)) {
             return red as BlueValue;
         }
-        // internationally ignoring the case of (typeof document.all === 'undefined') because
-        // in the reserve membrane, you never get one of those exotic objects
         if (typeof red === 'function') {
             return getBlueFunction(red);
-        }
-        let isRedArray = false;
-        try {
-            isRedArray = isArrayOrNotOrThrowForRevoked(red);
-        } catch {
-            return getRevokedBlueProxy(red);
-        }
-        if (isRedArray) {
-            return getBlueArray(red);
         } else if (typeof red === 'object') {
+            // arrays and objects
             const blue = env.getBlueRef(red);
             if (isUndefined(blue)) {
                 return createBlueProxy(red);
             }
             return blue;
         }
+        // internationally ignoring the case of (typeof document.all === 'undefined') because
+        // in the reserve membrane, you never get one of those exotic objects
         return red as BlueValue;
     }
 
     function getBlueFunction(redFn: RedFunction): BlueFunction {
         const blueFn = env.getBlueRef(redFn);
         if (isUndefined(blueFn)) {
-            try {
-                // just in case the fn is a revoked proxy (extra protection)
-                isArrayOrNotOrThrowForRevoked(redFn);
-            } catch {
-                return getRevokedBlueProxy(redFn) as BlueFunction;
-            }
             return createBlueProxy(redFn) as BlueFunction;
         }
         return blueFn as RedFunction;
     }
 
-    function getBlueArray(redArray: RedArray): BlueArray {
-        // identity of the new array correspond to the blue realm
-        return map(redArray, (red: RedValue) => getBlueValue(red));
-    }
-
-    function getRevokedBlueProxy(red: BlueProxyTarget): BlueProxy {
-        const shadowTarget = createBlueShadowTarget(red);
-        const { proxy, revoke } = ProxyRevocable(shadowTarget, {});
-        env.setRefMapEntries(red, proxy);
-        revoke();
-        return proxy;
-    }
-
     function createBlueProxy(red: BlueProxyTarget): BlueProxy {
         const shadowTarget = createBlueShadowTarget(red);
-        const proxyHandler = new BlueProxyHandler(red);
+        const proxyHandler = new BlueDynamicProxyHandler(red);
         const proxy = ProxyCreate(shadowTarget, proxyHandler);
         env.setRefMapEntries(red, proxy);
         return proxy;
