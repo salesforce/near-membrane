@@ -204,9 +204,6 @@ export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarg
     redIndirectEval('window');
     const blueGlobalThis = globalThis;
 
-    // In Chrome debugger statements will be ignored when the iframe is removed
-    // from the document. Other browsers like Firefox and Safari work as expected.
-    // https://bugs.chromium.org/p/chromium/issues/detail?id=1015462
     removeIframe(iframe);
 
     const blueRefs = getCachedReferences(blueGlobalThis);
