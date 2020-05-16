@@ -12,6 +12,8 @@ import {
     WeakMapGet,
     assign,
     ownKeys,
+    unapply,
+    ReflectGetOwnPropertyDescriptor,
 } from "./shared";
 
 /**
@@ -164,16 +166,36 @@ const IFRAME_ALLOW_ATTRIBUTE_VALUE =
     "xr-spatial-tracking 'none';"
 
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
+const appendChildCall = unapply(Node.prototype.appendChild);
+const removeCall = unapply(Element.prototype.remove);
+const isConnectedGetterCall = unapply((ReflectGetOwnPropertyDescriptor(Node.prototype, 'isConnected') as any).get);
+const nodeLastChildGetterCall = unapply((ReflectGetOwnPropertyDescriptor(Node.prototype, 'lastChild') as any).get);
+const documentBodyGetterCall = unapply((ReflectGetOwnPropertyDescriptor(Document.prototype, 'body') as any).get);
+const createElementCall = unapply(document.createElement);
 
-export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarget, RedProxyTarget>, endowments?: object): (sourceText: string) => void {
+function createDetachableIframe(): HTMLIFrameElement {
     // @ts-ignore document global ref - in browsers
-    const iframe = document.createElement('iframe');
+    const iframe = createElementCall(document, 'iframe');
     iframe.setAttribute('allow', IFRAME_ALLOW_ATTRIBUTE_VALUE);
     iframe.setAttribute('sandbox', IFRAME_SANDBOX_ATTRIBUTE_VALUE);
     iframe.style.display = 'none';
+    const parent = documentBodyGetterCall(document) || nodeLastChildGetterCall(document);
+    appendChildCall(parent, iframe);
+    return iframe;
+}
 
-    // @ts-ignore document global ref - in browsers
-    document.body.appendChild(iframe);
+function removeIframe(iframe: HTMLIFrameElement) {
+    // In Chrome debugger statements will be ignored when the iframe is removed
+    // from the document. Other browsers like Firefox and Safari work as expected.
+    // https://bugs.chromium.org/p/chromium/issues/detail?id=1015462
+    if (isConnectedGetterCall(iframe)) {
+        removeCall(iframe);
+    }
+}
+
+
+export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarget, RedProxyTarget>, endowments?: object): (sourceText: string) => void {
+    const iframe = createDetachableIframe();
 
     // For Chrome we evaluate the `window` object to kickstart the realm so that
     // `window` persists when the iframe is removed from the document.
@@ -182,10 +204,7 @@ export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarg
     redIndirectEval('window');
     const blueGlobalThis = globalThis;
 
-    // In Chrome debugger statements will be ignored when the iframe is removed
-    // from the document. Other browsers like Firefox and Safari work as expected.
-    // https://bugs.chromium.org/p/chromium/issues/detail?id=1015462
-    iframe.remove();
+    removeIframe(iframe);
 
     const blueRefs = getCachedReferences(blueGlobalThis);
     const redRefs = getCachedReferences(redGlobalThis);
