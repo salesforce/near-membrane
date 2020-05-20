@@ -352,6 +352,13 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
 
     // reading traps
 
+    /**
+     * This trap cannot just use `Reflect.get` directly on the `target` because
+     * the red object graph might have mutations that are only visible on the red side,
+     * which means looking into `target` directly is not viable. Instead, we need to
+     * implement a more crafty solution that looks into target's own properties, or
+     * in the red proto chain when needed.
+     */
     function redProxyDynamicGetTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, key: PropertyKey, receiver: RedObject): RedValue {
         /**
          * If the target has a non-configurable own data descriptor that was observed by the red side,
@@ -466,6 +473,13 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         return setPrototypeOf(shadowTarget, prototype);
     }
 
+    /**
+     * This trap cannot just use `Reflect.set` directly on the `target` because
+     * the red object graph might have mutations that are only visible on the red side,
+     * which means looking into `target` directly is not viable. Instead, we need to
+     * implement a more crafty solution that looks into target's own properties, or
+     * in the red proto chain when needed.
+     */
     function redProxyDynamicSetTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, key: PropertyKey, value: RedValue, receiver: RedObject): boolean {
         const { target } = this;
         const blueDescriptor = getOwnPropertyDescriptor(target, key);
