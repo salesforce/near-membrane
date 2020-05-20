@@ -74,7 +74,6 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     const {
         assign,
         create,
-        defineProperty: ObjectDefineProperty,
         getOwnPropertyDescriptors,
         freeze,
         seal,
@@ -85,6 +84,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     const ProxyRevocable = Proxy.revocable;
     const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
     const noop = () => undefined;
+    const emptyArray: [] = [];
     const map = unapply(Array.prototype.map);
     const WeakMapGet = unapply(WeakMap.prototype.get);
     const WeakMapHas = unapply(WeakMap.prototype.has);
@@ -377,15 +377,14 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             return ReflectGet(redProto, key, receiver);
         }
         if (hasOwnPropertyCall(blueDescriptor, 'get')) {
-            return apply(getRedValue(blueDescriptor.get), receiver, []);
+            // Knowing that it is an own getter, we can't still not use Reflect.get
+            // because there might be a distortion for such getter, in which case we
+            // must get the red getter, and call it.
+            return apply(getRedValue(blueDescriptor.get), receiver, emptyArray);
         }
         // if it is not an accessor property, is either a setter only accessor
         // or a data property, in which case we could return undefined or the red value
         return getRedValue(blueDescriptor.value);
-    }
-
-    function redProxyStaticGetTrap(shadowTarget: RedShadowTarget, key: PropertyKey, receiver: RedObject): RedValue {
-        return ReflectGet(shadowTarget, key, receiver);
     }
 
     /**
@@ -405,16 +404,8 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         return ReflectHas(redProto, key);
     }
 
-    function redProxyStaticHasTrap(shadowTarget: RedShadowTarget, key: PropertyKey): boolean {
-        return key in shadowTarget;
-    }
-
     function redProxyDynamicOwnKeysTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget): PropertyKey[] {
         return ownKeys(this.target);
-    }
-
-    function redProxyStaticOwnKeysTrap(shadowTarget: RedShadowTarget): PropertyKey[] {
-        return ownKeys(shadowTarget);
     }
 
     function redProxyDynamicIsExtensibleTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget): boolean {
@@ -430,12 +421,6 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         return true;
     }
 
-    function redProxyStaticIsExtensibleTrap(shadowTarget: RedShadowTarget): boolean {
-        // No DOM API is non-extensible, but in the sandbox, the author
-        // might want to make them non-extensible
-        return isExtensible(shadowTarget);
-    }
-
     function redProxyDynamicGetOwnPropertyDescriptorTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, key: PropertyKey): PropertyDescriptor | undefined {
         const { target } = this;
         const blueDesc = getOwnPropertyDescriptor(target, key);
@@ -449,28 +434,14 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         return getRedDescriptor(blueDesc);
     }
 
-    function redProxyStaticGetOwnPropertyDescriptorTrap(shadowTarget: RedShadowTarget, key: PropertyKey): PropertyDescriptor | undefined {
-        return getOwnPropertyDescriptor(shadowTarget, key);
-    }
-
     function redProxyDynamicGetPrototypeOfTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget): RedValue {
         return getRedValue(getPrototypeOf(this.target));
-    }
-
-    function redProxyStaticGetPrototypeOfTrap(shadowTarget: RedShadowTarget): RedValue {
-        // nothing to be done here since the shadowTarget must have the right proto chain
-        return getPrototypeOf(shadowTarget);
     }
 
     // writing traps
 
     function redProxyDynamicSetPrototypeOfTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, prototype: RedValue): boolean {
         return setPrototypeOf(this.target, blueEnv.getBlueValue(prototype));
-    }
-
-    function redProxyStaticSetPrototypeOfTrap(shadowTarget: RedShadowTarget, prototype: RedValue): boolean {
-        // this operation can only affect the env object graph
-        return setPrototypeOf(shadowTarget, prototype);
     }
 
     /**
@@ -489,8 +460,11 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             return ReflectSet(redProto, key, value, receiver);
         }
         if (hasOwnPropertyCall(blueDescriptor, 'set')) {
+            // even though the setter function exists, we can't use Reflect.set because there might be
+            // a distortion for that setter function, in which case we must resolve the red setter
+            // and call it instead.
             apply(getRedValue(blueDescriptor.set), receiver, [value]);
-            return true; // because we don't know if the setter actually sets the value, we assume it does it
+            return true; // if there is a callable setter, it either throw or we can assume the value was set
         }
         // if it is not an accessor property, is either a getter only accessor
         // or a data property, in which case we use Reflect.set to set the value,
@@ -498,16 +472,8 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         return ReflectSet(target, key, blueEnv.getBlueValue(value));
     }
 
-    function redProxyStaticSetTrap(shadowTarget: RedShadowTarget, key: PropertyKey, value: RedValue, receiver: RedObject): boolean {
-        return ReflectSet(shadowTarget, key, value, receiver);
-    }
-
     function redProxyDynamicDeletePropertyTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, key: PropertyKey): boolean {
         return deleteProperty(this.target, key);
-    }
-
-    function redProxyStaticDeletePropertyTrap(shadowTarget: RedShadowTarget, key: PropertyKey): boolean {
-        return deleteProperty(shadowTarget, key);
     }
 
     function redProxyDynamicPreventExtensionsTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget): boolean {
@@ -527,11 +493,6 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         return true;
     }
 
-    function redProxyStaticPreventExtensionsTrap(shadowTarget: RedShadowTarget): boolean {
-        // this operation can only affect the env object graph
-        return preventExtensions(shadowTarget);
-    }
-
     function redProxyDynamicDefinePropertyTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, key: PropertyKey, redPartialDesc: PropertyDescriptor): boolean {
         const { target } = this;
         const blueDesc = getBluePartialDescriptor(redPartialDesc);
@@ -541,14 +502,6 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
                 copyBlueDescriptorIntoShadowTarget(shadowTarget, target, key);
             }
         }
-        return true;
-    }
-
-    function redProxyStaticDefinePropertyTrap(shadowTarget: RedShadowTarget, key: PropertyKey, redPartialDesc: PropertyDescriptor): boolean {
-        // this operation can only affect the env object graph
-        // intentionally using Object.defineProperty instead of Reflect.defineProperty
-        // to throw for existing non-configurable descriptors.
-        ObjectDefineProperty(shadowTarget, key, redPartialDesc);
         return true;
     }
 
@@ -610,19 +563,23 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         } else if (!meta.isExtensible) {
             preventExtensions(shadowTarget);
         }
-        // replacing traps with static traps that can work with the shadow target
-        // after the target's snapshot was taken.
-        proxyHandler.get = redProxyStaticGetTrap;
-        proxyHandler.set = redProxyStaticSetTrap;
-        proxyHandler.deleteProperty = redProxyStaticDeletePropertyTrap;
-        proxyHandler.has = redProxyStaticHasTrap;
-        proxyHandler.ownKeys = redProxyStaticOwnKeysTrap;
-        proxyHandler.isExtensible = redProxyStaticIsExtensibleTrap;
-        proxyHandler.getOwnPropertyDescriptor = redProxyStaticGetOwnPropertyDescriptorTrap;
-        proxyHandler.getPrototypeOf = redProxyStaticGetPrototypeOfTrap;
-        proxyHandler.setPrototypeOf = redProxyStaticSetPrototypeOfTrap;
-        proxyHandler.preventExtensions = redProxyStaticPreventExtensionsTrap;
-        proxyHandler.defineProperty = redProxyStaticDefinePropertyTrap;
+        // resetting all traps except apply and construct for static proxies since the
+        // proxy target is the shadow target and all operations are going to be applied
+        // to it rather than the real target.
+        delete proxyHandler.getOwnPropertyDescriptor;
+        delete proxyHandler.getPrototypeOf;
+        delete proxyHandler.get;
+        delete proxyHandler.has;
+        delete proxyHandler.ownKeys;
+        delete proxyHandler.isExtensible;
+        // those used by pending traps needs to exist so the pending trap can call them
+        proxyHandler.set = ReflectSet;
+        proxyHandler.defineProperty = defineProperty;
+        proxyHandler.deleteProperty = deleteProperty;
+        proxyHandler.setPrototypeOf = setPrototypeOf;
+        proxyHandler.preventExtensions = preventExtensions;
+        // future optimization: hoping that proxies with frozen handlers can be faster
+        freeze(proxyHandler);
     }
 
     function makeRedProxyUnambiguous(proxyHandler: RedProxyHandler, shadowTarget: RedShadowTarget) {
@@ -681,7 +638,8 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             try {
                 shadowTarget = 'prototype' in blue ? function () {} : () => {};
             } catch {
-                // TODO: target is a revoked proxy. This could be optimized if Meta becomes available here.
+                // target is either a revoked proxy, or a proxy that throws on the has trap,
+                // in which case going with the arrow function seems appropriate.
                 shadowTarget = () => {};
             }
             renameFunction(blue as (...args: any[]) => any, shadowTarget);
