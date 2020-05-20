@@ -39,6 +39,6 @@
     "typescript": "^3.8.3"
   },
   "engines": {
-    "node": ">=12"
+    "node": ">=10"
   }
 }
