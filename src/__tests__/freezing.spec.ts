@@ -46,7 +46,7 @@ describe('Freezing', () => {
         });
     });
     describe('after creating the sandbox', () => {
-        it('should not be observed from within the sandbox', function() {
+        it('should not be observed from within the sandbox after a mutation', function() {
             expect.assertions(9);
             globalThis.baz = { a:1, b: 2 };
             const evalScript = createSecureEnvironment(undefined, window);
@@ -55,6 +55,7 @@ describe('Freezing', () => {
                 expect(Object.isExtensible(globalThis.baz)).toBe(true);
                 expect(Object.isSealed(globalThis.baz)).toBe(false);
                 expect(Object.isFrozen(globalThis.baz)).toBe(false);
+                baz.mutation = 1; // this makes the proxy static via snapshot
             `);
             // freezing the blue value after being observed by the sandbox
             Object.freeze(globalThis.baz);

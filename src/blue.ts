@@ -135,7 +135,7 @@ export function blueProxyFactory(env: MembraneBroker) {
     }
 
     function getStaticRedArray(blueArray: BlueArray): RedArray {
-        return map(blueArray, (blue: BlueValue) => env.getRedValue(blue));
+        return map(blueArray, env.getRedValue);
     }
 
     class BlueDynamicProxyHandler implements ProxyHandler<BlueProxyTarget> {
