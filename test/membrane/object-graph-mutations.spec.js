@@ -22,7 +22,8 @@ describe('The object graph', () => {
 
             const elm = document.createElement('p');
             document.body.appendChild(elm);
-            
+
+            expect('x' in elm).toBe(true);
             expect(elm.x).toBe(1);
             expect(() => {
                 elm.x = 100;
