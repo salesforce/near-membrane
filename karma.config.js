@@ -1,6 +1,10 @@
+process.env.CHROME_BIN = require('puppeteer').executablePath();
+
 module.exports = function(config) {
   config.set({
     files: [{ pattern: 'test/**/*.spec.js', watched: true, type: 'module' }],
+
+    browsers: ['ChromeHeadless'],
 
     preprocessors: {
       'test/**/*.spec.js': ['rollup'],

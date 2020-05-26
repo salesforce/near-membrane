@@ -9,8 +9,8 @@
     "start": "ttsc -w & http-server",
     "test": "jest --runInBand --no-cache --config ./jest.config.js",
     "publish": "npm publish --access public",
-    "debug": "karma start karma.config.js --browsers Chrome",
-    "karma": "karma start karma.config.js --single-run --browsers Chrome"
+    "debug": "karma start karma.config.js --browsers ChromeHeadless",
+    "karma": "karma start karma.config.js --single-run --browsers ChromeHeadless,FirefoxHeadless"
   },
   "files": [
     "lib/",
@@ -33,6 +33,7 @@
     "karma-jasmine": "^2.0.1",
     "karma-rollup-preprocessor": "^7.0.2",
     "karma-safari-launcher": "^1.0.0",
+    "puppeteer": "^3.1.0",
     "rollup": "^1.21.3",
     "ts-jest": "^24.2.0",
     "ttypescript": "^1.5.10",
