@@ -22,6 +22,7 @@ export const {
     ownKeys,
     preventExtensions: ReflectPreventExtensions,
     deleteProperty,
+    has: ReflectHas,
     get: ReflectGet,
     set: ReflectSet,
 } = Reflect;

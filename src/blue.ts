@@ -13,6 +13,7 @@ import {
     ReflectGetPrototypeOf,
     ReflectGet,
     ReflectSet,
+    ReflectHas,
     map,
     isNullOrUndefined,
     unconstruct,
@@ -20,6 +21,8 @@ import {
     ReflectIsExtensible,
     ReflectPreventExtensions,
     deleteProperty,
+    hasOwnProperty,
+    emptyArray,
 } from './shared';
 import {
     BlueProxyTarget,
@@ -147,21 +150,6 @@ export function blueProxyFactory(env: MembraneBroker) {
             // future optimization: hoping that proxies with frozen handlers can be faster
             freeze(this);
         }
-        get(shadowTarget: BlueShadowTarget, key: PropertyKey, receiver: BlueObject): RedValue {
-            /**
-             * If the target has a non-configurable own data descriptor that was observed by the red side,
-             * and therefore installed in the shadowTarget, we might get into a situation where a writable,
-             * non-configurable value in the target is out of sync with the shadowTarget's value for the same
-             * key. This is fine because this does not violate the object invariants, and even though they
-             * are out of sync, the original descriptor can only change to something that is compatible with
-             * what was installed in shadowTarget, and in order to observe that, the getOwnPropertyDescriptor
-             * trap must be used, which will take care of synchronizing them again.
-             */
-            return env.getBlueValue(ReflectGet(this.target, key, env.getRedValue(receiver)));
-        }
-        set(shadowTarget: BlueShadowTarget, key: PropertyKey, value: BlueValue, receiver: BlueObject): boolean {
-            return ReflectSet(this.target, key, env.getRedValue(value), env.getRedValue(receiver));
-        }
         deleteProperty(shadowTarget: BlueShadowTarget, key: PropertyKey): boolean {
             return deleteProperty(this.target, key);
         }
@@ -224,8 +212,82 @@ export function blueProxyFactory(env: MembraneBroker) {
             }
             return env.getBlueValue(red);
         }
+        /**
+         * This trap cannot just use `Reflect.get` directly on the `target` because
+         * the red object graph might have mutations that are only visible on the red side,
+         * which means looking into `target` directly is not viable. Instead, we need to
+         * implement a more crafty solution that looks into target's own properties, or
+         * in the red proto chain when needed.
+         */
+        get(shadowTarget: BlueShadowTarget, key: PropertyKey, receiver: BlueObject): RedValue {
+            /**
+             * If the target has a non-configurable own data descriptor that was observed by the red side,
+             * and therefore installed in the shadowTarget, we might get into a situation where a writable,
+             * non-configurable value in the target is out of sync with the shadowTarget's value for the same
+             * key. This is fine because this does not violate the object invariants, and even though they
+             * are out of sync, the original descriptor can only change to something that is compatible with
+             * what was installed in shadowTarget, and in order to observe that, the getOwnPropertyDescriptor
+             * trap must be used, which will take care of synchronizing them again.
+             */
+            const { target } = this;
+            const redDescriptor = ReflectGetOwnPropertyDescriptor(target, key);
+            if (isUndefined(redDescriptor)) {
+                // looking in the blue proto chain to avoid switching sides
+                const blueProto = getBlueValue(ReflectGetPrototypeOf(target));
+                return ReflectGet(blueProto, key, receiver);
+            }
+            if (hasOwnProperty(redDescriptor, 'get')) {
+                // Knowing that it is an own getter, we can't still not use Reflect.get
+                // because there might be a distortion for such getter, and from the blue
+                // side, we should not be subject to those distortions.
+                return apply(getBlueValue(redDescriptor.get), receiver, emptyArray);
+            }
+            // if it is not an accessor property, is either a setter only accessor
+            // or a data property, in which case we could return undefined or the blue value
+            return getBlueValue(redDescriptor.value);
+        }
+        /**
+         * This trap cannot just use `Reflect.set` directly on the `target` on the
+         * red side because the red object graph might have mutations that are only visible
+         * on the red side, which means looking into `target` directly is not viable.
+         * Instead, we need to implement a more crafty solution that looks into target's
+         * own properties, or in the blue proto chain when needed.
+         */
+        set(shadowTarget: BlueShadowTarget, key: PropertyKey, value: BlueValue, receiver: BlueObject): boolean {
+            const { target } = this;
+            const redDescriptor = ReflectGetOwnPropertyDescriptor(target, key);
+            if (isUndefined(redDescriptor)) {
+                // looking in the blue proto chain to avoid switching sides
+                const blueProto = getBlueValue(ReflectGetPrototypeOf(target));
+                return ReflectSet(blueProto, key, value, receiver);
+            }
+            if (hasOwnProperty(redDescriptor, 'set')) {
+                // even though the setter function exists, we can't use Reflect.set because there might be
+                // a distortion for that setter function, and from the blue side, we should not be subject
+                // to those distortions.
+                apply(getBlueValue(redDescriptor.set), receiver, [value]);
+                return true; // if there is a callable setter, it either throw or we can assume the value was set
+            }
+            // if it is not an accessor property, is either a getter only accessor
+            // or a data property, in which case we use Reflect.set to set the value,
+            // and no receiver is needed since it will simply set the data property or nothing
+            return ReflectSet(target, key, env.getRedValue(value));
+        }
+        /**
+         * This trap cannot just use `Reflect.has` or the `in` operator directly on the
+         * red side because the red object graph might have mutations that are only visible
+         * on the red side, which means looking into `target` directly is not viable.
+         * Instead, we need to implement a more crafty solution that looks into target's
+         * own properties, or in the blue proto chain when needed.
+         */
         has(shadowTarget: BlueShadowTarget, key: PropertyKey): boolean {
-            return key in this.target;
+            const { target } = this;
+            if (hasOwnProperty(target, key)) {
+                return true;
+            }
+            // looking in the blue proto chain to avoid switching sides
+            const blueProto = getBlueValue(ReflectGetPrototypeOf(target));
+            return ReflectHas(blueProto, key);
         }
         ownKeys(shadowTarget: BlueShadowTarget): PropertyKey[] {
             return ownKeys(this.target);
