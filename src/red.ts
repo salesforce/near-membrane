@@ -23,6 +23,7 @@ import {
     BlueArray,
     TargetMeta,
     MembraneBroker,
+    BlueObject,
 } from './types';
 
 /**
@@ -126,9 +127,9 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         return hasDynamicMark;
     }
 
-    function getRedValue(blue: BlueValue): RedValue {
+    function getRedValue<T>(blue: T): T  {
         if (isNullOrUndefined(blue)) {
-            return blue as RedValue;
+            return blue;
         }
         // NOTE: internationally checking for typeof 'undefined' for the case of
         // `typeof document.all === 'undefined'`, which is an exotic object with
@@ -137,17 +138,18 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         // This check covers that case, but doesn't affect other undefined values
         // because those are covered by the previous condition anyways.
         if (typeof blue === 'undefined') {
+            // @ts-ignore blue at this point is type T because of the previous condition
             return undefined;
         }
         if (typeof blue === 'object' || typeof blue === 'function') {
-            const blueOriginalOrDistortedValue = getDistortedValue(blue);
+            const blueOriginalOrDistortedValue = getDistortedValue((blue as unknown) as BlueFunction | BlueObject | BlueArray);
             const red: RedValue | undefined = WeakMapGet(blueMap, blueOriginalOrDistortedValue);
             if (!isUndefined(red)) {
                 return red;
             }
-            return createRedProxy(blueOriginalOrDistortedValue);
+            return createRedProxy(blueOriginalOrDistortedValue) as unknown as T;
         }
-        return blue as RedValue;
+        return blue;
     }
 
     function getStaticBlueArray(redArray: RedArray): BlueArray {
@@ -318,7 +320,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         return getRedValue(blue);
     }
 
-    function redProxyConstructTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, redArgArray: RedValue[], redNewTarget: RedObject): RedObject {
+    function redProxyConstructTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, redArgArray: RedValue[], redNewTarget: RedObject): RedValue {
         const { target: BlueCtor } = this;
         if (isUndefined(redNewTarget)) {
             throw TypeError();
@@ -374,13 +376,16 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         if (isUndefined(blueDescriptor)) {
             // looking in the red proto chain in case the red proto chain has being mutated
             const redProto = getRedValue(getPrototypeOf(target));
+            if (isNull(redProto)) {
+                return undefined;
+            }
             return ReflectGet(redProto, key, receiver);
         }
         if (hasOwnPropertyCall(blueDescriptor, 'get')) {
             // Knowing that it is an own getter, we can't still not use Reflect.get
             // because there might be a distortion for such getter, in which case we
             // must get the red getter, and call it.
-            return apply(getRedValue(blueDescriptor.get), receiver, emptyArray);
+            return apply(getRedValue(blueDescriptor.get!), receiver, emptyArray);
         }
         // if it is not an accessor property, is either a setter only accessor
         // or a data property, in which case we could return undefined or the red value
@@ -401,7 +406,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         }
         // looking in the red proto chain in case the red proto chain has being mutated
         const redProto = getRedValue(getPrototypeOf(target));
-        return ReflectHas(redProto, key);
+        return !isNull(redProto) && ReflectHas(redProto, key);
     }
 
     function redProxyDynamicOwnKeysTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget): PropertyKey[] {
@@ -463,7 +468,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             // even though the setter function exists, we can't use Reflect.set because there might be
             // a distortion for that setter function, in which case we must resolve the red setter
             // and call it instead.
-            apply(getRedValue(blueDescriptor.set), receiver, [value]);
+            apply(getRedValue(blueDescriptor.set!), receiver, [value]);
             return true; // if there is a callable setter, it either throw or we can assume the value was set
         }
         // if it is not an accessor property, is either a getter only accessor

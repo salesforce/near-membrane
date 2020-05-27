@@ -15,6 +15,7 @@ import {
     ReflectSet,
     ReflectHas,
     map,
+    isNull,
     isNullOrUndefined,
     unconstruct,
     ownKeys,
@@ -181,7 +182,7 @@ export function blueProxyFactory(env: MembraneBroker) {
             }
             return env.getBlueValue(red);
         }
-        construct(shadowTarget: BlueShadowTarget, blueArgArray: BlueValue[], blueNewTarget: BlueObject): BlueObject {
+        construct(shadowTarget: BlueShadowTarget, blueArgArray: BlueValue[], blueNewTarget: BlueObject): BlueValue {
             const { target: RedCtor } = this;
             if (isUndefined(blueNewTarget)) {
                 throw TypeError();
@@ -234,13 +235,16 @@ export function blueProxyFactory(env: MembraneBroker) {
             if (isUndefined(redDescriptor)) {
                 // looking in the blue proto chain to avoid switching sides
                 const blueProto = getBlueValue(ReflectGetPrototypeOf(target));
+                if (isNull(blueProto)) {
+                    return undefined;
+                }
                 return ReflectGet(blueProto, key, receiver);
             }
             if (hasOwnProperty(redDescriptor, 'get')) {
                 // Knowing that it is an own getter, we can't still not use Reflect.get
                 // because there might be a distortion for such getter, and from the blue
                 // side, we should not be subject to those distortions.
-                return apply(getBlueValue(redDescriptor.get), receiver, emptyArray);
+                return apply(getBlueValue(redDescriptor.get!), receiver, emptyArray);
             }
             // if it is not an accessor property, is either a setter only accessor
             // or a data property, in which case we could return undefined or the blue value
@@ -259,13 +263,14 @@ export function blueProxyFactory(env: MembraneBroker) {
             if (isUndefined(redDescriptor)) {
                 // looking in the blue proto chain to avoid switching sides
                 const blueProto = getBlueValue(ReflectGetPrototypeOf(target));
-                return ReflectSet(blueProto, key, value, receiver);
-            }
-            if (hasOwnProperty(redDescriptor, 'set')) {
+                if (!isNull(blueProto)) {
+                    return ReflectSet(blueProto, key, value, receiver);
+                }
+            } else if (hasOwnProperty(redDescriptor, 'set')) {
                 // even though the setter function exists, we can't use Reflect.set because there might be
                 // a distortion for that setter function, and from the blue side, we should not be subject
                 // to those distortions.
-                apply(getBlueValue(redDescriptor.set), receiver, [value]);
+                apply(getBlueValue(redDescriptor.set!), receiver, [value]);
                 return true; // if there is a callable setter, it either throw or we can assume the value was set
             }
             // if it is not an accessor property, is either a getter only accessor
@@ -287,7 +292,7 @@ export function blueProxyFactory(env: MembraneBroker) {
             }
             // looking in the blue proto chain to avoid switching sides
             const blueProto = getBlueValue(ReflectGetPrototypeOf(target));
-            return ReflectHas(blueProto, key);
+            return !isNull(blueProto) && ReflectHas(blueProto, key);
         }
         ownKeys(shadowTarget: BlueShadowTarget): PropertyKey[] {
             return ownKeys(this.target);
@@ -354,17 +359,17 @@ export function blueProxyFactory(env: MembraneBroker) {
     // future optimization: hoping that proxies with frozen handlers can be faster
     freeze(BlueDynamicProxyHandler.prototype);
 
-    function getBlueValue(red: RedValue): BlueValue {
+    function getBlueValue<T>(red: T): T {
         if (isNullOrUndefined(red)) {
             return red as BlueValue;
         }
         if (typeof red === 'function') {
-            return getBlueFunction(red);
+            return (getBlueFunction((red as unknown) as RedFunction) as unknown) as T;
         } else if (typeof red === 'object') {
             // arrays and objects
             const blue = env.getBlueRef(red);
             if (isUndefined(blue)) {
-                return createBlueProxy(red);
+                return (createBlueProxy((red as unknown) as BlueProxyTarget) as unknown) as T;
             }
             return blue;
         }
