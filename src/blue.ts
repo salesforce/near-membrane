@@ -236,7 +236,7 @@ export function blueProxyFactory(env: MembraneBroker) {
                 // looking in the blue proto chain to avoid switching sides
                 const blueProto = getBlueValue(ReflectGetPrototypeOf(target));
                 if (isNull(blueProto)) {
-                    return;
+                    return undefined;
                 }
                 return ReflectGet(blueProto, key, receiver);
             }

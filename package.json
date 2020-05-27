@@ -9,7 +9,7 @@
     "start": "ttsc -w & http-server",
     "test": "jest --runInBand --no-cache --config ./jest.config.js",
     "publish": "npm publish --access public",
-    "debug": "karma start karma.config.js --browsers ChromeHeadless",
+    "debug": "karma start karma.config.js --browsers Chrome",
     "karma": "karma start karma.config.js --single-run --browsers ChromeHeadless,FirefoxHeadless"
   },
   "files": [

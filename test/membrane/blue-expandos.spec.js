@@ -12,7 +12,7 @@ function saveFoo(arg) {
 
 describe('The blue expandos', () => {
     it('should never be subject to red side mutations', function() {
-        // expect.assertions(4);
+        // expect.assertions(1);
         const evalScript = createSecureEnvironment(undefined, { Base, saveFoo });
         evalScript(`
             function mixin(Clazz) {

@@ -377,7 +377,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             // looking in the red proto chain in case the red proto chain has being mutated
             const redProto = getRedValue(getPrototypeOf(target));
             if (isNull(redProto)) {
-                return;
+                return undefined;
             }
             return ReflectGet(redProto, key, receiver);
         }
