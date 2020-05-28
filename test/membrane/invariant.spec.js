@@ -1,10 +1,10 @@
 import createSecureEnvironment from '../../lib/browser-realm.js';
 
+// This emulates LWC LightningElement proto chain and freezing mechanism
 class Base {}
 Object.freeze(Base.prototype);
 let FooClazz;
 function saveFoo(arg) {
-    debugger;
     Object.freeze(arg.prototype);
     FooClazz = arg;
 }
