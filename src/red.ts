@@ -237,10 +237,14 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     }
 
     function lockShadowTarget(shadowTarget: RedShadowTarget, originalTarget: RedProxyTarget) {
+        // copying all own properties into the shadowTarget
         const targetKeys = ownKeys(originalTarget);
         for (let i = 0, len = targetKeys.length; i < len; i += 1) {
             copyBlueDescriptorIntoShadowTarget(shadowTarget, originalTarget, targetKeys[i]);
         }
+        // setting up __proto__ of the shadowTarget
+        setPrototypeOf(shadowTarget, getRedValue(getPrototypeOf(originalTarget)));
+        // locking down the extensibility of shadowTarget
         preventExtensions(shadowTarget);
     }
 
