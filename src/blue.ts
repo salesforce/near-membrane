@@ -131,10 +131,14 @@ export function blueProxyFactory(env: MembraneBroker) {
     }
 
     function lockShadowTarget(shadowTarget: BlueShadowTarget, originalTarget: BlueProxyTarget) {
+        // copying all own properties into the shadowTarget
         const targetKeys = ownKeys(originalTarget);
         for (let i = 0, len = targetKeys.length; i < len; i += 1) {
             copyRedDescriptorIntoShadowTarget(shadowTarget, originalTarget, targetKeys[i]);
         }
+        // setting up __proto__ of the shadowTarget
+        ReflectSetPrototypeOf(shadowTarget, getBlueValue(ReflectGetPrototypeOf(originalTarget)));
+        // locking down the extensibility of shadowTarget
         ReflectPreventExtensions(shadowTarget);
     }
 
