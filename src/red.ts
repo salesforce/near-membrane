@@ -233,6 +233,14 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         if (!isUndefined(normalizedBlueDescriptor)) {
             const redDesc = getRedDescriptor(normalizedBlueDescriptor);
             defineProperty(shadowTarget, key, redDesc);
+            // this cover the case in which the descriptor is not configurable, but writable
+            // while the line above will fail to set the descriptor, but setting the value
+            // directly into the shadowTarget using Reflect.set, which copy the value.
+            // This is faster than trying to compare the two descriptors to decide if we
+            // use defineProperty or Reflect.set()
+            if (redDesc.configurable === false && redDesc.writable === true) {
+                ReflectSet(shadowTarget, key, redDesc.value);
+            }
         }
     }
 
