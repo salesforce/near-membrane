@@ -127,14 +127,6 @@ export function blueProxyFactory(env: MembraneBroker) {
         if (!isUndefined(normalizedRedDescriptor)) {
             const blueDesc = getBlueDescriptor(normalizedRedDescriptor);
             ReflectDefineProperty(shadowTarget, key, blueDesc);
-            // this cover the case in which the descriptor is not configurable, but writable
-            // while the line above will fail to set the descriptor, but setting the value
-            // directly into the shadowTarget using Reflect.set, which copy the value.
-            // This is faster than trying to compare the two descriptors to decide if we
-            // use defineProperty or Reflect.set()
-            if (blueDesc.configurable === false && blueDesc.writable === true) {
-                ReflectSet(shadowTarget, key, blueDesc.value);
-            }
         }
     }
 

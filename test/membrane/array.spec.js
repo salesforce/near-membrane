@@ -18,6 +18,10 @@ describe('arrays', () => {
             expect(blue.length).toBe(4);
             expect(blue[3]).toBe(4);
         `);
+        // the blue mutation from red realm should not leak into blue realm
+        expect(blue.length).toBe(3);
+        expect(blue[3]).toBe(undefined);
+        // mutating red from blue realm
         expect(red.length).toBe(3);
         expect(red[2]).toBe('c');
         red[3] = 'd';
