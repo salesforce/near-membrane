@@ -63,7 +63,7 @@ function createBlueShadowTarget(target: BlueProxyTarget): BlueShadowTarget {
             shadowTarget = 'prototype' in target ? function () {} : () => {};
         } catch {
             // target is a revoked proxy
-            shadowTarget = () => {};
+            shadowTarget = function () {};
         }
         // This is only really needed for debugging, it helps to identify the proxy by name
         renameFunction(target as (...args: any[]) => any, shadowTarget as (...args: any[]) => any);

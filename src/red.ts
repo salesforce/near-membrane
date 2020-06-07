@@ -51,8 +51,6 @@ export interface MarshalHooks {
 }
 
 export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: MembraneBroker, hooks: MarshalHooks) {
-    'use strict';
-
     const LockerLiveValueMarkerSymbol = Symbol.for('@@lockerLiveValue');
     const { blueMap, distortionMap } = blueEnv;
     const { apply: blueApplyHook, construct: blueConstructHook } = hooks;
@@ -175,7 +173,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             // in a way that it should always succeed except for the cases in which the provider is a proxy
             // that is either revoked or has some logic to prevent reading the name property descriptor.
         }
-    }    
+    }
 
     function installDescriptorIntoShadowTarget(shadowTarget: RedProxyTarget, key: PropertyKey, originalDescriptor: PropertyDescriptor) {
         const shadowTargetDescriptor = getOwnPropertyDescriptor(shadowTarget, key);
@@ -647,9 +645,10 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             try {
                 shadowTarget = 'prototype' in blue ? function () {} : () => {};
             } catch {
-                // target is either a revoked proxy, or a proxy that throws on the has trap,
-                // in which case going with the arrow function seems appropriate.
-                shadowTarget = () => {};
+                // target is either a revoked proxy, or a proxy that throws on the
+                // `has` trap, in which case going with a strict mode function seems
+                // appropriate.
+                shadowTarget = function () {};
             }
             renameFunction(blue as (...args: any[]) => any, shadowTarget);
         } else {
@@ -697,4 +696,9 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
 
     return getRedValue;
 
-}).toString();
+})
+.toString()
+// We cannot have 'use strict' directly in `redEnvFactory()` because bundlers and
+// minifiers may strip the directive. So, we inject 'use strict' after the function
+// is coerced to a string.
+.replace('{', `{'use strict'`);
