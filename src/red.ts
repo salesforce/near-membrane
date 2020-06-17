@@ -219,7 +219,8 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             const key = keys[i];
             // avoid poisoning by checking own properties from descriptors
             if (hasOwnPropertyCall(blueDescriptors, key)) {
-                const originalDescriptor = getRedDescriptor(ReflectGet(blueDescriptors, key));
+                // @ts-ignore PropertyDescriptorMap def defines properties as being only of string type
+                const originalDescriptor = getRedDescriptor(blueDescriptors[key]);
                 installDescriptorIntoShadowTarget(shadowTarget, key, originalDescriptor);
             }
         }
