@@ -116,7 +116,9 @@ export const ESGlobalKeys = SetCreate([
     'Map',
     'Number',
     'Object',
-    'Promise', // Unstable
+    // Allow Blue `Promise` constructor to overwrite the Red one so that promises
+    // created by the `Promise` constructor or APIs like `fetch` will work.
+    //'Promise',
     'Proxy', // Unstable
     'RangeError',
     'ReferenceError',
