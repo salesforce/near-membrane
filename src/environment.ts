@@ -19,6 +19,7 @@ import {
     ReflectiveIntrinsicObjectNames,
     WeakMapGet,
     construct,
+    ownKeys,
 } from './shared';
 import { serializedRedEnvSourceText, MarshalHooks } from './red';
 import { blueProxyFactory } from './blue';
@@ -147,7 +148,9 @@ export class SecureEnvironment implements MembraneBroker {
     remap(redValue: RedValue, blueValue: BlueValue, blueDescriptors?: PropertyDescriptorMap) {
         this.setRefMapEntries(redValue, blueValue);
         if (!isUndefined(blueDescriptors)) {
-            for (const key in blueDescriptors) {
+            const keys = ownKeys(blueDescriptors);
+            for (let i = 0, len = keys.length; i < len; i += 1) {
+                const key = keys[i];
                 // TODO: this whole loop needs cleanup and simplification avoid
                 // overriding ECMAScript global keys.
                 if (SetHas(ESGlobalKeys, key) || !hasOwnProperty(blueDescriptors, key)) {
@@ -155,6 +158,7 @@ export class SecureEnvironment implements MembraneBroker {
                 }
 
                 // avoid poisoning by only installing own properties from blueDescriptors
+                // @ts-ignore PropertyDescriptorMap def defines properties as being only of string type
                 const blueDescriptor = assign(ObjectCreate(null), blueDescriptors[key]);
                 if ('value' in blueDescriptor) {
                     // TODO: maybe we should make everything a getter/setter that way
