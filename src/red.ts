@@ -213,7 +213,6 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     }
 
     function copyRedOwnDescriptors(shadowTarget: RedShadowTarget, blueDescriptors: PropertyDescriptorMap) {
-        // using ownKeys here to get all string/symbol/number property names
         const keys = ownKeys(blueDescriptors);
 
         for(let i = 0, len = keys.length; i < len; i += 1) {
