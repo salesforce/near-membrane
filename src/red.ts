@@ -89,7 +89,6 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     const WeakMapHas = unapply(WeakMap.prototype.has);
     const ErrorCreate = unconstruct(Error);
     const hasOwnPropertyCall = unapply(hasOwnProperty);
-    const ArrayForEach = unapply(Array.prototype.forEach);
 
     function unapply(func: Function): Function {
         return (thisArg: any, ...args: any[]) => apply(func, thisArg, args);
@@ -217,13 +216,14 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         // using ownKeys here to get all string/symbol/number property names
         const keys = ownKeys(blueDescriptors);
 
-        ArrayForEach(keys, (key: string | symbol | number) => {
+        for(let i = 0, len = keys.length; i < len; i += 1) {
+            const key = keys[i];
             // avoid poisoning by checking own properties from descriptors
             if (hasOwnPropertyCall(blueDescriptors, key)) {
                 const originalDescriptor = getRedDescriptor(ReflectGet(blueDescriptors, key));
                 installDescriptorIntoShadowTarget(shadowTarget, key, originalDescriptor);
             }
-        });
+        }
     }
 
     function copyBlueDescriptorIntoShadowTarget(shadowTarget: RedShadowTarget, originalTarget: RedProxyTarget, key: PropertyKey) {
