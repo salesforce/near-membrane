@@ -213,9 +213,13 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     }
 
     function copyRedOwnDescriptors(shadowTarget: RedShadowTarget, blueDescriptors: PropertyDescriptorMap) {
-        for (const key in blueDescriptors) {
+        const keys = ownKeys(blueDescriptors);
+
+        for(let i = 0, len = keys.length; i < len; i += 1) {
+            const key = keys[i];
             // avoid poisoning by checking own properties from descriptors
             if (hasOwnPropertyCall(blueDescriptors, key)) {
+                // @ts-ignore PropertyDescriptorMap def defines properties as being only of string type
                 const originalDescriptor = getRedDescriptor(blueDescriptors[key]);
                 installDescriptorIntoShadowTarget(shadowTarget, key, originalDescriptor);
             }
