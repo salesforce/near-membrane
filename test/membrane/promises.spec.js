@@ -1,20 +1,36 @@
 import createSecureEnvironment from "../../lib/browser-realm.js";
 
 describe("Promise", () => {
-  it("should settle in 10ms", (done) => {
-    const evalScript = createSecureEnvironment(undefined, { done });
-    evalScript(`
-        function promise() {
-            return new Promise(resolve => {
-                setTimeout(resolve, 10);
+    it("can be constructed", (done) => {
+        const evalScript = createSecureEnvironment(undefined, { done, expect });
+        evalScript(`
+            const p = new Promise(resolve => {
+                resolve(1);
             });
-        }
-        promise().then(() => {
-            done();
-        });
-    `);
-    setTimeout(() => {
-      done(new Error("Promise was not fulfilled in 10ms"));
-    }, 100);
-  });
+            p.then((value) => {
+                expect(value).toBe(1);
+                done();
+            });
+        `);
+    });
+    it(".resolve() should be supported", (done) => {
+        const evalScript = createSecureEnvironment(undefined, { done, expect });
+        evalScript(`
+            const p = Promise.resolve(1);
+            p.then((value) => {
+                expect(value).toBe(1);
+                done();
+            });
+        `);
+    });
+    it(".reject() should be supported", (done) => {
+        const evalScript = createSecureEnvironment(undefined, { done, expect });
+        evalScript(`
+            const p = Promise.reject(new Error('foo'));
+            p.catch((e) => {
+                expect(e.message).toBe('foo');
+                done();
+            });
+        `);
+    });
 });
