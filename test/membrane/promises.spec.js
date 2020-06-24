@@ -33,4 +33,28 @@ describe("Promise", () => {
             });
         `);
     });
+    it("throw should be supported with errors", (done) => {
+        const evalScript = createSecureEnvironment(undefined, { done, expect });
+        evalScript(`
+            const p = new Promise(() => {
+                throw new Error('foo');
+            });
+            p.catch((e) => {
+                expect(e.message).toBe('foo');
+                done();
+            });
+        `);
+    });
+    it("throw should be supported with non-errors", (done) => {
+        const evalScript = createSecureEnvironment(undefined, { done, expect });
+        evalScript(`
+            const p = new Promise(() => {
+                throw { foo: 'bar' };
+            });
+            p.catch((e) => {
+                expect(e).toEqual({ foo: 'bar' });
+                done();
+            });
+        `);
+    });
 });
