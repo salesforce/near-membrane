@@ -705,4 +705,4 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
 // We cannot have 'use strict' directly in `redEnvFactory()` because bundlers and
 // minifiers may strip the directive. So, we inject 'use strict' after the function
 // is coerced to a string.
-.replace('{', `{'use strict'`);
+.replace('{', `{'use strict';`);
