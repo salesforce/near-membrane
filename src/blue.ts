@@ -174,7 +174,7 @@ export function blueProxyFactory(env: MembraneBroker) {
                 try {
                     // the error constructor must be a red error since it occur when calling
                     // a function from the sandbox.
-                    const blueErrorConstructor = env.getBlueRef(constructor);
+                    const blueErrorConstructor = env.getBlueValue(constructor);
                     // the blue constructor must be registered (done during construction of env)
                     // otherwise we need to fallback to a regular error.
                     blueError = construct(blueErrorConstructor as BlueFunction, [message]);
@@ -182,6 +182,7 @@ export function blueProxyFactory(env: MembraneBroker) {
                     // in case the constructor inference fails
                     blueError = ErrorCreate(message);
                 }
+                env.setRefMapEntries(e, blueError);
                 throw blueError;
             }
             return env.getBlueValue(red);
@@ -205,7 +206,7 @@ export function blueProxyFactory(env: MembraneBroker) {
                 try {
                     // the error constructor must be a red error since it occur when calling
                     // a function from the sandbox.
-                    const blueErrorConstructor = env.getBlueRef(constructor);
+                    const blueErrorConstructor = env.getBlueValue(constructor);
                     // the blue constructor must be registered (done during construction of env)
                     // otherwise we need to fallback to a regular error.
                     blueError = construct(blueErrorConstructor as BlueFunction, [message]);
@@ -213,6 +214,7 @@ export function blueProxyFactory(env: MembraneBroker) {
                     // in case the constructor inference fails
                     blueError = ErrorCreate(message);
                 }
+                env.setRefMapEntries(e, blueError);
                 throw blueError;
             }
             return env.getBlueValue(red);
