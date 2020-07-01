@@ -313,7 +313,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             try {
                 // the error constructor must be a blue error since it occur when calling
                 // a function from the blue realm.
-                const redErrorConstructor = blueEnv.getRedRef(constructor);
+                const redErrorConstructor = blueEnv.getRedValue(constructor);
                 // the red constructor must be registered (done during construction of env)
                 // otherwise we need to fallback to a regular error.
                 redError = construct(redErrorConstructor as RedFunction, [message]);
@@ -321,6 +321,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
                 // in case the constructor inference fails
                 redError = new Error(message);
             }
+            blueEnv.setRefMapEntries(redError, e);
             throw redError;
         }
         return getRedValue(blue);
@@ -345,7 +346,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             try {
                 // the error constructor must be a blue error since it occur when calling
                 // a function from the blue realm.
-                const redErrorConstructor = blueEnv.getRedRef(constructor);
+                const redErrorConstructor = blueEnv.getRedValue(constructor);
                 // the red constructor must be registered (done during construction of env)
                 // otherwise we need to fallback to a regular error.
                 redError = construct(redErrorConstructor as RedFunction, [message]);
@@ -353,6 +354,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
                 // in case the constructor inference fails
                 redError = new Error(message);
             }
+            blueEnv.setRefMapEntries(redError, e);
             throw redError;
         }
         return getRedValue(blue);

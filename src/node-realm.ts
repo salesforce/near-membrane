@@ -32,7 +32,7 @@ export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarg
             let blueError;
             const { message, constructor } = e;
             try {
-                const blueErrorConstructor = env.getBlueRef(constructor);
+                const blueErrorConstructor = env.getBlueValue(constructor);
                 // the constructor must be registered (done during construction of env)
                 // otherwise we need to fallback to a regular error.
                 blueError = construct(blueErrorConstructor as BlueFunction, [message]);
@@ -40,6 +40,7 @@ export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarg
                 // in case the constructor inference fails
                 blueError = ErrorCreate(message);
             }
+            env.setRefMapEntries(e, blueError);
             throw blueError;
         }
     };
