@@ -83,12 +83,16 @@ it('unhandled promise rejections with non-error objects', (done) => {
     const evalScript = createSecureEnvironment(undefined, { done, expect })
     evalScript(`
         const errorObj = { foo: 'bar' }
-        window.addEventListener("unhandledrejection", event => {
+
+        function handler(event) {
             expect(event.reason).toBe(errorObj)
             expect(event.reason.foo).toBe('bar')
             expect(event.reason.message).toBe(undefined)
+            window.removeEventListener('unhandledrejection', handler)
             done()
-        });
+        }
+        
+        window.addEventListener("unhandledrejection", handler);
 
         new Promise((resolve, reject) => {
             throw errorObj
@@ -97,11 +101,14 @@ it('unhandled promise rejections with non-error objects', (done) => {
 })
 
 it('unhandled promise rejections with non-error objects handled in blue', (done) => {
-    window.addEventListener("unhandledrejection", event => {
+    function handler(event) {
         expect(event.reason.foo === undefined).toBe(true)
         expect(event.reason.message === undefined).toBe(true)
+        window.removeEventListener('unhandledrejection', handler);
         done()
-    });
+    }
+
+    window.addEventListener("unhandledrejection", handler);
 
     const evalScript = createSecureEnvironment(undefined, {})
     evalScript(`
