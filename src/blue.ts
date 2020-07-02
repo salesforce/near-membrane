@@ -23,7 +23,6 @@ import {
     deleteProperty,
     hasOwnProperty,
     emptyArray,
-    remapToBlueError,
 } from './shared';
 import {
     BlueProxyTarget,
@@ -166,10 +165,7 @@ export function blueProxyFactory(env: MembraneBroker) {
             try {
                 red = apply(target as RedFunction, redThisArg, redArgArray);
             } catch (e) {
-                // This error occurred when the blue realm attempts to call a
-                // function from the sandbox. By throwing a new blue error, we eliminates the stack
-                // information from the sandbox as a consequence.
-                throw remapToBlueError(env, e);
+                throw env.getBlueValue(e);
             }
             return env.getBlueValue(red);
         }
@@ -184,10 +180,7 @@ export function blueProxyFactory(env: MembraneBroker) {
             try {
                 red = construct(RedCtor as RedConstructor, redArgArray, redNewTarget);
             } catch (e) {
-                // This error occurred when the blue realm attempts to new a
-                // constructor from the sandbox. By throwing a new blue error, we eliminates the stack
-                // information from the sandbox as a consequence.
-                throw remapToBlueError(env, e);
+                throw env.getBlueValue(e);
             }
             return env.getBlueValue(red);
         }

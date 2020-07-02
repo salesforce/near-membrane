@@ -1,5 +1,3 @@
-import { RedValue, BlueFunction, MembraneBroker } from "./types";
-
 export const { isArray: ArrayIsArray } = Array;
 
 export const {
@@ -168,24 +166,3 @@ export const ReflectiveIntrinsicObjectNames = [
     'EvalError',
     'Error',
 ];
-
-export function remapToBlueError(env: MembraneBroker, redError: RedValue) {
-    let blueError = env.getBlueValue(redError);
-    const { message, constructor } = blueError;
-    const blueErrorProto = ReflectGetPrototypeOf(blueError);
-    
-    if(blueErrorProto === null || blueErrorProto === ObjectPrototype) {
-        return blueError;
-    }
-
-    try {                   
-        // the blue constructor must be registered (done during construction of env)
-        // otherwise we need to fallback to a regular error.
-        blueError = construct(constructor as BlueFunction, [message]);
-    } catch {
-        // in case the constructor inference fails
-        blueError = ErrorCreate(message);
-    }
-    env.setRefMapEntries(redError, blueError);
-    return blueError;
-}

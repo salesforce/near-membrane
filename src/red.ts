@@ -14,7 +14,6 @@ import {
     RedValue,
     RedObject,
     RedShadowTarget,
-    RedFunction,
     RedArray,
     RedProxy,
     BlueConstructor,
@@ -79,7 +78,6 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         isSealed,
         isFrozen,
         hasOwnProperty,
-        prototype: ObjectPrototype
     } = Object;
     const ProxyRevocable = Proxy.revocable;
     const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
@@ -113,27 +111,6 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
 
     function isNullOrUndefined(obj: any): obj is (null | undefined) {
         return isNull(obj) || isUndefined(obj);
-    }
-
-    function remapToRedError(env: MembraneBroker, blueError: BlueValue) {
-        let redError = env.getRedValue(blueError);
-        const { message, constructor } = redError;
-        const redErrorProto = getPrototypeOf(redError);
-        
-        if(redErrorProto === null || redErrorProto === ObjectPrototype) {
-            return redError;
-        }
-
-        try {                   
-            // the blue constructor must be registered (done during construction of env)
-            // otherwise we need to fallback to a regular error.
-            redError = construct(constructor as RedFunction, [message]);
-        } catch {
-            // in case the constructor inference fails
-            redError = ErrorCreate(message);
-        }
-        env.setRefMapEntries(redError, blueError);
-        return redError;
     }
 
     function isMarkAsDynamic(blue: RedProxyTarget): boolean {
@@ -330,7 +307,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             // This error occurred when the sandbox attempts to call a
             // function from the blue realm. By throwing a new red error,
             // we eliminates the stack information from the blue realm as a consequence.
-            throw remapToRedError(blueEnv, e);
+            throw getRedValue(e);
         }
         return getRedValue(blue);
     }
@@ -349,7 +326,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             // This error occurred when the sandbox attempts to new a
             // constructor from the blue realm. By throwing a new red error,
             // we eliminates the stack information from the blue realm as a consequence.
-            throw remapToRedError(blueEnv, e);
+            throw getRedValue(e);
         }
         return getRedValue(blue);
     }

@@ -1,6 +1,6 @@
 import { SecureEnvironment } from "./environment";
 import { RedProxyTarget } from "./types";
-import { getOwnPropertyDescriptors, remapToBlueError } from "./shared";
+import { getOwnPropertyDescriptors } from "./shared";
 import { runInNewContext } from 'vm';
 
 // note: in a node module, the top-level 'this' is not the global object
@@ -26,10 +26,7 @@ export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarg
         try {
             redIndirectEval(sourceText);
         } catch (e) {
-            // This error occurred when the blue realm attempts to evaluate a
-            // sourceText into the sandbox. By throwing a new blue error, which
-            // eliminates the stack information from the sandbox as a consequence.
-            throw remapToBlueError(env, e);
+            throw env.getBlueValue(e);
         }
     };
 }

@@ -25,7 +25,7 @@ it('[red] non-error objects thrown in red constructors', () => {
         
         class Foo {
             constructor() {
-                throw errorObj;
+                throw errorObj
             }
         }
 
@@ -68,11 +68,11 @@ it('[red] unhandled promise rejections with non-error objects and red listener',
             done()
         }
         
-        window.addEventListener("unhandledrejection", handler);
+        window.addEventListener("unhandledrejection", handler)
 
         new Promise((resolve, reject) => {
             throw errorObj
-        });
+        })
     `)
 })
 
@@ -87,7 +87,7 @@ it('[red] Promise.reject non-error objects', (done) => {
             expect(e.message).toBe(undefined)
             expect(e.foo).toBe('bar')
             done()
-        });
+        })
     `)    
 })
 
@@ -104,7 +104,7 @@ it('[red] unhandled promise rejections and Promise.reject with non-error objects
             done()
         }
         
-        window.addEventListener("unhandledrejection", handler);
+        window.addEventListener("unhandledrejection", handler)
         new Promise((resolve, reject) => {
             reject(errorObj)
         })
@@ -159,7 +159,7 @@ it('[red] blue extended error objects', () => {
 
     class Foo {
         constructor() {
-            throw new CustomError('foo');
+            throw new CustomError('foo')
         }
     }
     
@@ -221,43 +221,79 @@ it('[red] non-error object with null proto from blue', () => {
     `)
 })
 
-// it('[red] blue promise non-error object thrown with red unhandled promise rejections listener', (done) => {
-//     new Promise(() => {
-//         throw {foo: 'bar'}
-//     })
+it('[red] instanceof Error', () => {
+    const evalScript = createSecureEnvironment(undefined, { expect })
+    evalScript(`
+        try {
+            throw new Error('foo')
+        } catch(e) {
+            expect(e instanceof Error).toBe(true)
+            expect(e.message).toBe('foo')
+        }
+    `)
+})
 
-//     let removeRedListener;
-//     function save(arg) {
-//         removeRedListener = arg;
-//     }
+it('[red] instanceof extended Error objects', () => {
+    const evalScript = createSecureEnvironment(undefined, { expect })
+    evalScript(`
+        class CustomError extends Error {}
+        try {
+            throw new CustomError('foo')
+        } catch(e) {
+            expect(e instanceof CustomError).toBe(true)
+            expect(e.message).toBe('foo')
+        }
+    `)
+})
 
-//     const evalScript = createSecureEnvironment(undefined, { expect, done, save })
-//     evalScript(`
-//         function handler() {
-//             // purposely not calling done so the test fails
-//             window.removeEventListener('unhandledrejection', handler);
-//         }
+it('[red] .catch instanceof Error', (done) => {
+    const evalScript = createSecureEnvironment(undefined, { done, expect })
+    evalScript(`
+        new Promise((resolve, reject) => {
+            reject(new Error('foo'))
+        }).catch(e => {
+            expect(e instanceof Error).toBe(true)
+            expect(e.message).toBe('foo')
+            done()
+        })
+    `)
+})
 
-//         save(handler)
-        
-//         window.addEventListener("unhandledrejection", handler);
-//     `)
+it('[red] instanceof blue Error objects', () => {
+    function foo() {
+        throw new Error('foo')
+    }
+    const evalScript = createSecureEnvironment(undefined, { foo, expect })
+    evalScript(`
+        try {
+            foo()
+        } catch(e) {
+            expect(e instanceof Error).toBe(true)
+            expect(e.message).toBe('foo')
+        }
+    `)
+})
 
-//     function handler(event) {
-//         expect(event.reason.foo).toBe(undefined)
-//         expect(event.reason.message).toBe(undefined)
-//         removeRedListener();
-//         done()
-//     }
-        
-//     window.addEventListener("unhandledrejection", handler);
-// })
+it('[red] .catch instanceof blue Error objects', (done) => {
+    const promise = new Promise((resolve, reject) => {
+        reject(new Error('foo'))
+    })
+
+    const evalScript = createSecureEnvironment(undefined, { promise, expect, done })
+    evalScript(`
+        promise.catch(e => {
+            expect(e instanceof Error).toBe(true)
+            expect(e.message).toBe('foo')
+            done()
+        })
+    `)
+})
 
 it('[blue] .catch on red promise', (done) => {
-    let promise;
+    let promise
 
     function save(arg) {
-        promise = arg;
+        promise = arg
     }
 
     const evalScript = createSecureEnvironment(undefined, { save })
@@ -267,7 +303,7 @@ it('[blue] .catch on red promise', (done) => {
             throw error
         })
         
-        save(p);
+        save(p)
     `)
 
     promise.catch((e) => {
@@ -281,18 +317,18 @@ it('[blue] unhandled promise rejections listener with red non-error objects', (d
     function handler(event) {
         expect(event.reason.foo).toBe('bar')
         expect(event.reason.message).toBe(undefined)
-        window.removeEventListener('unhandledrejection', handler);
+        window.removeEventListener('unhandledrejection', handler)
         done()
     }
 
-    window.addEventListener("unhandledrejection", handler);
+    window.addEventListener("unhandledrejection", handler)
 
     const evalScript = createSecureEnvironment(undefined, {})
     evalScript(`
         const errorObj = { foo: 'bar' }    
         new Promise((resolve, reject) => {
             throw errorObj
-        });
+        })
     `)
 })
 
@@ -307,14 +343,14 @@ it('[blue] non-error objects thrown in red functions', () => {
         function foo() {
             throw { foo: 'bar' }
         }
-        save(foo);
+        save(foo)
     `)
 
     try {
         fn()
     } catch(e) {
         expect(e.message).toBe(undefined)
-        expect(e.foo).toBe('bar');
+        expect(e.foo).toBe('bar')
     }
 })
 
@@ -331,7 +367,7 @@ it('[blue] non-error objects thrown in red consturctors', () => {
                 throw { foo: 'bar' }
             }
         }
-        save(Foo);
+        save(Foo)
     `)
 
     try {
@@ -363,7 +399,7 @@ it('[blue] red extended error objects', () => {
 
         class Foo {
             constructor() {
-                throw new CustomError('foo');
+                throw new CustomError('foo')
             }
         }
 
@@ -380,7 +416,7 @@ it('[blue] red extended error objects', () => {
 })
 
 it('[blue] non-error objects with null proto from red', () => {
-    let fn;
+    let fn
     function save(arg) {
         fn = arg
     }
@@ -388,7 +424,7 @@ it('[blue] non-error objects with null proto from red', () => {
     const evalScript = createSecureEnvironment(undefined, { save })
     evalScript(`
         function foo() {
-            const errorObj = Object.create(null, {foo: {value: 'bar'}});
+            const errorObj = Object.create(null, {foo: {value: 'bar'}})
             throw errorObj
         }
         
@@ -402,4 +438,49 @@ it('[blue] non-error objects with null proto from red', () => {
         expect(e.message).toBe(undefined)
         expect(e.foo).toBe('bar')
     }
+})
+
+it('[blue] instanceof red error', () => {
+    let fn
+    function save(arg) {
+        fn = arg
+    }
+
+    const evalScript = createSecureEnvironment(undefined, { save })
+    evalScript(`
+        function foo() {            
+            throw new Error('foo')
+        }
+        
+        save(foo)
+    `)
+
+    try {
+        fn()
+    } catch(e) {
+        expect(e instanceof Error).toBe(true)
+        expect(e.message).toBe('foo')
+    }
+})
+
+it('[blue] .catch instanceof red error', (done) => {
+    let promise
+    function save(arg) {
+        promise = arg
+    }
+
+    const evalScript = createSecureEnvironment(undefined, { save })
+    evalScript(`
+        const promise = new Promise((resolve, reject) => {
+            reject(new Error('foo'))
+        })
+        
+        save(promise)
+    `)
+
+    promise.catch(e => {
+        expect(e instanceof Error).toBe(true)
+        expect(e.message).toBe('foo')
+        done()
+    })
 })
