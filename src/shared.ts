@@ -9,7 +9,6 @@ export const {
     seal,
     isSealed,
     isFrozen,
-    prototype: ObjectPrototype
 } = Object;
 
 export const {
