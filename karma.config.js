@@ -1,8 +1,22 @@
+const globby = require('globby');
+
 process.env.CHROME_BIN = require('puppeteer').executablePath();
+
+let testFilesGlob = process.argv[process.argv.length - 1]; // last argv
+if (!testFilesGlob.includes('**/')) {
+  testFilesGlob = `test/**/${testFilesGlob}`;
+}
+if (!testFilesGlob.endsWith('*.spec.js')) {
+  testFilesGlob = testFilesGlob.endsWith('*') ? `${testFilesGlob}.spec.js` : `${testFilesGlob}*.spec.js`;
+}
+if (globby.sync(testFilesGlob).length === 0) {
+  testFilesGlob = 'test/**/*.spec.js'; // test all files
+}
+console.log(`Testing files matching "${testFilesGlob}"`);
 
 module.exports = function(config) {
   config.set({
-    files: [{ pattern: 'test/**/*.spec.js', watched: true, type: 'module' }],
+    files: [{ pattern: testFilesGlob, watched: true, type: 'module' }],
 
     browsers: ['ChromeHeadless'],
 

@@ -10,6 +10,7 @@
     "test": "jest --runInBand --no-cache --config ./jest.config.js",
     "publish": "npm publish --access public",
     "debug": "karma start karma.config.js --browsers Chrome",
+    "debug:firefox": "karma start karma.config.js --browsers Firefox",
     "karma": "karma start karma.config.js --single-run --browsers ChromeHeadless,FirefoxHeadless"
   },
   "files": [
