@@ -14,7 +14,6 @@ import {
     RedValue,
     RedObject,
     RedShadowTarget,
-    RedFunction,
     RedArray,
     RedProxy,
     BlueConstructor,
@@ -308,21 +307,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             // This error occurred when the sandbox attempts to call a
             // function from the blue realm. By throwing a new red error,
             // we eliminates the stack information from the blue realm as a consequence.
-            let redError;
-            const { message, constructor } = e;
-            try {
-                // the error constructor must be a blue error since it occur when calling
-                // a function from the blue realm.
-                const redErrorConstructor = blueEnv.getRedValue(constructor);
-                // the red constructor must be registered (done during construction of env)
-                // otherwise we need to fallback to a regular error.
-                redError = construct(redErrorConstructor as RedFunction, [message]);
-            } catch {
-                // in case the constructor inference fails
-                redError = new Error(message);
-            }
-            blueEnv.setRefMapEntries(redError, e);
-            throw redError;
+            throw getRedValue(e);
         }
         return getRedValue(blue);
     }
@@ -341,21 +326,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             // This error occurred when the sandbox attempts to new a
             // constructor from the blue realm. By throwing a new red error,
             // we eliminates the stack information from the blue realm as a consequence.
-            let redError;
-            const { message, constructor } = e;
-            try {
-                // the error constructor must be a blue error since it occur when calling
-                // a function from the blue realm.
-                const redErrorConstructor = blueEnv.getRedValue(constructor);
-                // the red constructor must be registered (done during construction of env)
-                // otherwise we need to fallback to a regular error.
-                redError = construct(redErrorConstructor as RedFunction, [message]);
-            } catch {
-                // in case the constructor inference fails
-                redError = new Error(message);
-            }
-            blueEnv.setRefMapEntries(redError, e);
-            throw redError;
+            throw getRedValue(e);
         }
         return getRedValue(blue);
     }

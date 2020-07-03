@@ -9,7 +9,6 @@ import {
     isUndefined,
     ReflectGetOwnPropertyDescriptor,
     ReflectDefineProperty,
-    ErrorCreate,
     ReflectGetPrototypeOf,
     ReflectGet,
     ReflectSet,
@@ -166,24 +165,7 @@ export function blueProxyFactory(env: MembraneBroker) {
             try {
                 red = apply(target as RedFunction, redThisArg, redArgArray);
             } catch (e) {
-                // This error occurred when the blue realm attempts to call a
-                // function from the sandbox. By throwing a new blue error, we eliminates the stack
-                // information from the sandbox as a consequence.
-                let blueError;
-                const { message, constructor } = e;
-                try {
-                    // the error constructor must be a red error since it occur when calling
-                    // a function from the sandbox.
-                    const blueErrorConstructor = env.getBlueValue(constructor);
-                    // the blue constructor must be registered (done during construction of env)
-                    // otherwise we need to fallback to a regular error.
-                    blueError = construct(blueErrorConstructor as BlueFunction, [message]);
-                } catch {
-                    // in case the constructor inference fails
-                    blueError = ErrorCreate(message);
-                }
-                env.setRefMapEntries(e, blueError);
-                throw blueError;
+                throw env.getBlueValue(e);
             }
             return env.getBlueValue(red);
         }
@@ -198,24 +180,7 @@ export function blueProxyFactory(env: MembraneBroker) {
             try {
                 red = construct(RedCtor as RedConstructor, redArgArray, redNewTarget);
             } catch (e) {
-                // This error occurred when the blue realm attempts to new a
-                // constructor from the sandbox. By throwing a new blue error, we eliminates the stack
-                // information from the sandbox as a consequence.
-                let blueError;
-                const { message, constructor } = e;
-                try {
-                    // the error constructor must be a red error since it occur when calling
-                    // a function from the sandbox.
-                    const blueErrorConstructor = env.getBlueValue(constructor);
-                    // the blue constructor must be registered (done during construction of env)
-                    // otherwise we need to fallback to a regular error.
-                    blueError = construct(blueErrorConstructor as BlueFunction, [message]);
-                } catch {
-                    // in case the constructor inference fails
-                    blueError = ErrorCreate(message);
-                }
-                env.setRefMapEntries(e, blueError);
-                throw blueError;
+                throw env.getBlueValue(e);
             }
             return env.getBlueValue(red);
         }
