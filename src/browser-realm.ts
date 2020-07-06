@@ -71,7 +71,7 @@ export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarg
     const redWindow = (iframe.contentWindow as WindowProxy).window;
     const endowmentsDescriptors = getFilteredEndowmentDescriptors(endowments || {});
     const { eval: redIndirectEval } = redWindow;
-    // extra the global references and descriptors before any interference
+    // extract the global references and descriptors before any interference
     const blueRefs = getCachedReferences(blueWindow);
     const redRefs = getCachedReferences(redWindow);
     // creating a new environment
