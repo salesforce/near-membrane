@@ -9,7 +9,10 @@ const distortionMap = new Map([
 globalThis.bar = { a: 1, b: 2 };
 Object.freeze(globalThis.bar)
 
-const evalScript = createSecureEnvironment(distortionMap, window);
+const evalScript = createSecureEnvironment({
+    distortionMap,
+    endowments: window
+});
 
 try {
     evalScript(`

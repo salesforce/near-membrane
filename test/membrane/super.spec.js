@@ -6,7 +6,7 @@ function exportData(arg) {
 }
 
 it('super should behave as expected in sandbox', () => {
-  const secureEvalOne = createSecureEnvironment(undefined, { exportData });
+  const secureEvalOne = createSecureEnvironment({ endowments: { exportData }});
   secureEvalOne(`
     exportData(class Foo {
       constructor() {
@@ -14,10 +14,9 @@ it('super should behave as expected in sandbox', () => {
       }
     });`,
   );
-  const secureEvalTwo = createSecureEnvironment(
-    undefined,
-    { expect, Foo: exported }
-  );
+  const secureEvalTwo = createSecureEnvironment({
+    endowments: { expect, Foo: exported }
+  });
   secureEvalTwo(`
     class Bar extends Foo {
       constructor() {

@@ -10,7 +10,7 @@ distortionMap.set(assignedNodes, _ => { throw new Error(`Forbidden`); });
 distortionMap.set(assignedElements, _ => { throw new Error(`Forbidden`); });
 
 function evaluateInNewSandbox(sourceText) {
-    const evalScript = createSecureEnvironment(distortionMap);
+    const evalScript = createSecureEnvironment({ distortionMap });
     evalScript(sourceText);
 }
 

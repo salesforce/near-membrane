@@ -9,7 +9,7 @@ function saveFoo(arg) {
 
 describe('arrays', () => {
     it('should preserve the length behavior across the membrane', () => {
-        const evalScript = createSecureEnvironment(undefined, { blue, saveFoo, expect });
+        const evalScript = createSecureEnvironment({ endowments: { blue, saveFoo, expect }});
         evalScript(`
             saveFoo(['a', 'b', 'c']);
             expect(blue.length).toBe(3);

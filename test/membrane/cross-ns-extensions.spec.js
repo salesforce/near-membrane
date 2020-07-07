@@ -10,7 +10,7 @@ function saveFoo(f) {
     Foo = f;
 }
 
-const evalScript = createSecureEnvironment(undefined, { Base, saveFoo });
+const evalScript = createSecureEnvironment({ endowments: { Base, saveFoo }});
 evalScript(`
     class Foo extends Base {
         foo() {
@@ -28,7 +28,7 @@ const endowments = {
 describe('The membrane', () => {
     it('should allow expandos on endowments inside the sandbox', function() {
         // expect.assertions(4);
-        const evalScript = createSecureEnvironment(undefined, endowments);
+        const evalScript = createSecureEnvironment({ endowments });
         evalScript(`
             'use strict';
             expect(Foo.prototype.base()).toBe('from base');

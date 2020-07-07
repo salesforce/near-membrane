@@ -47,3 +47,8 @@ export interface MembraneBroker {
     getRedRef(blue: BlueValue): RedValue | undefined;
     setRefMapEntries(red: RedValue, blue: BlueValue): void;
 }
+
+export interface EnvironmentOptions {
+    distortionMap?: Map<RedProxyTarget, RedProxyTarget>;
+    endowments?: object;
+}

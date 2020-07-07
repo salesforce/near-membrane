@@ -10,7 +10,7 @@ const distortionMap = new Map([
     }],
 ]);
 
-const evalScript = createSecureEnvironment(distortionMap);
+const evalScript = createSecureEnvironment({ distortionMap });
 
 evalScript(`
     debugger;

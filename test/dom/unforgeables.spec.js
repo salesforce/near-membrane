@@ -1,6 +1,6 @@
 import createSecureEnvironment from '../../lib/browser-realm.js';
 
-const evalScript = createSecureEnvironment(undefined, window);
+const evalScript = createSecureEnvironment({ endowments: window });
 
 describe('EventTarget unforgeable', () => {
     it('should be accessible from window', function() {
