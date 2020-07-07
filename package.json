@@ -1,6 +1,6 @@
 {
   "name": "@caridy/sjs",
-  "version": "0.2.13",
+  "version": "0.2.14",
   "description": "Experimental JS Library to create a sandboxed JavaScript environment in browsers and node",
   "module": "lib/index.js",
   "types": "types/index.js",
@@ -37,7 +37,7 @@
     "rollup": "^1.21.3",
     "ts-jest": "^24.2.0",
     "ttypescript": "^1.5.10",
-    "typescript": "^3.8.3"
+    "typescript": "^3.9.6"
   },
   "engines": {
     "node": ">=12"
