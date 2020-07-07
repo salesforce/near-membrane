@@ -13,6 +13,7 @@ import {
     WeakMapGet,
     construct,
     isTrue,
+    ownKeys,
 } from './shared';
 import { serializedRedEnvSourceText, MarshalHooks } from './red';
 import { blueProxyFactory } from './blue';
@@ -65,6 +66,11 @@ export class SecureEnvironment implements MembraneBroker {
         // getting proxy factories ready per environment so we can produce
         // the proper errors without leaking instances into a sandbox
         const redEnvFactory = redGlobalThis.eval(`(${serializedRedEnvSourceText})`);
+        // Important Note: removing the indirection for apply and construct breaks
+        // chrome karma tests for some unknown reasons. What is seems harmless turns out
+        // to be fatal, why? it seems that this is because Chrome does identity checks
+        // on those intrinsics, and fails if the detached iframe is calling an intrinsic
+        // from another realm.
         const blueHooks: MarshalHooks = {
             apply(target: BlueFunction, thisArgument: BlueValue, argumentsList: ArrayLike<BlueValue>): BlueValue {
                 return apply(target, thisArgument, argumentsList);
@@ -107,12 +113,15 @@ export class SecureEnvironment implements MembraneBroker {
 
     remap(redValue: RedValue, blueValue: BlueValue, blueDescriptors: PropertyDescriptorMap) {
         const broker = this;
-        for (const key in blueDescriptors) {
+        const keys = ownKeys(blueDescriptors);
+        for (let i = 0, len = keys.length; i < len; i += 1) {
+            const key = keys[i];
             if (!canRedPropertyBeTamed(redValue, key)) {
-                console.warn(`Property ${key} of ${redValue} cannot be remapped.`);
+                console.warn(`Property ${String(key)} of ${redValue} cannot be remapped.`);
                 continue;
             }
             // avoid poisoning by only installing own properties from blueDescriptors
+            // @ts-expect-error because PropertyDescriptorMap does not accept symbols ATM
             const blueDescriptor = assign(ObjectCreate(null), blueDescriptors[key]);
             const redDescriptor = assign(ObjectCreate(null), blueDescriptor);
             if ('value' in blueDescriptor) {
