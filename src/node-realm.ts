@@ -12,7 +12,7 @@ export default function createSecureEnvironment(options?: EnvironmentOptions): (
     const { distortionMap, endowments } = options || ObjectCreate(null);
     // Use unsafeGlobalEvalSrc to ensure we get the right 'this'.
     const redGlobalThis = runInNewContext(unsafeGlobalEvalSrc);
-    const endowmentsDescriptors = getFilteredEndowmentDescriptors(endowments || {});
+    const endowmentsDescriptors = getFilteredEndowmentDescriptors(endowments || ObjectCreate(null));
     const { eval: redIndirectEval } = redGlobalThis;
     const blueGlobalThis = globalThis as any;
     const env = new SecureEnvironment({
