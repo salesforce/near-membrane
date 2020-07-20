@@ -9,7 +9,7 @@ import { getFilteredEndowmentDescriptors, linkIntrinsics } from "./intrinsics";
 const unsafeGlobalEvalSrc = `(0, eval)("'use strict'; this")`;
 
 export default function createSecureEnvironment(options?: EnvironmentOptions): (sourceText: string) => void {
-    const { distortionMap, endowments } = options || {};
+    const { distortionMap, endowments } = options || ObjectCreate(null);
     // Use unsafeGlobalEvalSrc to ensure we get the right 'this'.
     const redGlobalThis = runInNewContext(unsafeGlobalEvalSrc);
     const endowmentsDescriptors = getFilteredEndowmentDescriptors(endowments || {});

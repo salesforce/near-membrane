@@ -70,7 +70,7 @@ interface BrowserEnvironmentOptions extends EnvironmentOptions {
 }
 
 export default function createSecureEnvironment(options?: BrowserEnvironmentOptions): (sourceText: string) => void {
-    const { distortionMap, endowments, keepAlive } = options || {};
+    const { distortionMap, endowments, keepAlive } = options || ObjectCreate(null);
     const iframe = createDetachableIframe();
     const blueWindow = window;
     const redWindow = (iframe.contentWindow as WindowProxy).window;
