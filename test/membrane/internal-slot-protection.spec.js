@@ -4,11 +4,12 @@ describe('membrane', () => {
     it('should prevent attacks that are changing the prototype for impersonation', function() {
         // expect.assertions(4);
         const { set } = Object.getOwnPropertyDescriptor(Element.prototype, 'setAttribute');
-        const evalScript = createSecureEnvironment(new Map(set, function (attributeName, value) {
+        const distortionMap = new Map(set, function (attributeName, value) {
             expect(attributeName).toBe('rel');
             expect(value).toBe('import');
             expect(this instanceof HTMLLinkElement).toBeTrue();
-        }), window);
+        });
+        const evalScript = createSecureEnvironment({ distortionMap, endowments: window });
         evalScript(`
             'use strict';
 

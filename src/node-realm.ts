@@ -1,5 +1,5 @@
 import { SecureEnvironment } from "./environment";
-import { RedProxyTarget } from "./types";
+import { EnvironmentOptions } from "./types";
 import { runInNewContext } from 'vm';
 import { getFilteredEndowmentDescriptors, linkIntrinsics } from "./intrinsics";
 
@@ -8,10 +8,11 @@ import { getFilteredEndowmentDescriptors, linkIntrinsics } from "./intrinsics";
 // 'this' will be the correct global object.
 const unsafeGlobalEvalSrc = `(0, eval)("'use strict'; this")`;
 
-export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarget, RedProxyTarget>, endowments?: object): (sourceText: string) => void {
+export default function createSecureEnvironment(options?: EnvironmentOptions): (sourceText: string) => void {
+    const { distortionMap, endowments } = options || ObjectCreate(null);
     // Use unsafeGlobalEvalSrc to ensure we get the right 'this'.
     const redGlobalThis = runInNewContext(unsafeGlobalEvalSrc);
-    const endowmentsDescriptors = getFilteredEndowmentDescriptors(endowments || {});
+    const endowmentsDescriptors = getFilteredEndowmentDescriptors(endowments || ObjectCreate(null));
     const { eval: redIndirectEval } = redGlobalThis;
     const blueGlobalThis = globalThis as any;
     const env = new SecureEnvironment({

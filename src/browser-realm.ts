@@ -1,5 +1,5 @@
 import { SecureEnvironment } from "./environment";
-import { RedProxyTarget } from "./types";
+import { EnvironmentOptions } from "./types";
 import { unapply, ReflectGetOwnPropertyDescriptor } from "./shared";
 import { linkIntrinsics, getFilteredEndowmentDescriptors } from "./intrinsics";
 import { getCachedReferences, linkUnforgeables, tameDOM } from "./window";
@@ -65,7 +65,12 @@ function removeIframe(iframe: HTMLIFrameElement) {
     }
 }
 
-export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarget, RedProxyTarget>, endowments?: object): (sourceText: string) => void {
+interface BrowserEnvironmentOptions extends EnvironmentOptions {
+    keepAlive?: boolean;
+}
+
+export default function createSecureEnvironment(options?: BrowserEnvironmentOptions): (sourceText: string) => void {
+    const { distortionMap, endowments, keepAlive } = options || ObjectCreate(null);
     const iframe = createDetachableIframe();
     const blueWindow = window;
     const redWindow = (iframe.contentWindow as WindowProxy).window;
@@ -83,8 +88,11 @@ export default function createSecureEnvironment(distortionMap?: Map<RedProxyTarg
     linkIntrinsics(env, blueWindow, redWindow);
     linkUnforgeables(env, blueRefs, redRefs);
     tameDOM(env, blueRefs, redRefs, endowmentsDescriptors);
-    // once we get the iframe info ready, and all mapped, we can proceed to detach the iframe
-    removeIframe(iframe);
+    // once we get the iframe info ready, and all mapped, we can proceed
+    // to detach the iframe only if the keepAlive option isn't true
+    if (keepAlive !== true) {
+        removeIframe(iframe);
+    }
     // finally, we return the evaluator function
     return (sourceText: string): void => {
         try {

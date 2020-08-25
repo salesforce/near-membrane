@@ -9,7 +9,7 @@ class ExternalElement extends HTMLElement {
 customElements.define('x-external', ExternalElement);
 window.refToExternalElement = ExternalElement;
 
-const evalScript = createSecureEnvironment(undefined, window);
+const evalScript = createSecureEnvironment({ endowments: window });
 
 describe('Outer Realm Custom Element', () => {
     it('should be accessible within the sandbox', function() {

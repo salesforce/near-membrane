@@ -9,7 +9,10 @@ const distortionMap = new Map([
         console.error('forbidden');
     }],
 ]);
-const evalScript = createSecureEnvironment(distortionMap, window);
+const evalScript = createSecureEnvironment({
+    distortionMap,
+    endowments: window
+});
 
 evalScript(`
     debugger;

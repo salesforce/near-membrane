@@ -11,7 +11,7 @@ const endowments = {
     o,
     expect,
 };
-const evalScript = createSecureEnvironment(undefined, endowments);
+const evalScript = createSecureEnvironment({ endowments });
 
 describe('A Live Red Proxy', () => {
     it('should surface new expandos from blue realm', function() {

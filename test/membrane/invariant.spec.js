@@ -9,7 +9,7 @@ function saveFoo(arg) {
     FooClazz = arg;
 }
 
-const evalScript = createSecureEnvironment(undefined, { Base, saveFoo });
+const evalScript = createSecureEnvironment({ endowments: { Base, saveFoo }});
 evalScript(`
     class Foo extends Base {};
     saveFoo(Foo);

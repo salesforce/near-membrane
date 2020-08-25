@@ -6,7 +6,7 @@ customElements.define('x-base', Base);
 
 describe('Extending Custom Element', () => {
 
-    const evalScript = createSecureEnvironment(undefined, window);
+    const evalScript = createSecureEnvironment({ endowments: window });
 
     it('should be allowed from blue to red', function() {
         // expect.assertions(1);
@@ -54,8 +54,8 @@ describe('Extending Custom Element', () => {
 
 describe('NS-to-NS custom element extension', () => {
 
-    const evalScriptNS1 = createSecureEnvironment(undefined, window);
-    const evalScriptNS2 = createSecureEnvironment(undefined, window);
+    const evalScriptNS1 = createSecureEnvironment({ endowments: window });
+    const evalScriptNS2 = createSecureEnvironment({ endowments: window });
 
     it('should work when using multiple namespaces in proto-chain', function() {
         // expect.assertions(6);

@@ -6,17 +6,16 @@ function exportData(arg) {
 }
 
 it('does not throw ownKeys trap invariant for classes or strict mode functions', () => {
-  const secureEvalOne = createSecureEnvironment(undefined, { exportData });
+  const secureEvalOne = createSecureEnvironment({ endowments: { exportData }});
   secureEvalOne(`
     exportData([
       class Foo {},
       function() {'use strict'}
     ]);
   `);
-  const secureEvalTwo = createSecureEnvironment(
-    undefined,
-    { exportData, imported: exported }
-  );
+  const secureEvalTwo = createSecureEnvironment({
+    endowments: { exportData, imported: exported }
+  });
   secureEvalTwo(`
     exportData(imported.map(Reflect.ownKeys));
   `);

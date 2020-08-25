@@ -14,7 +14,7 @@ describe('Blue Proxies', () => {
     it('should be preserved the JS Object semantics by allowing writable objects to change', () => {
         'use strict';
         // expect.assertions(9);
-        const evalScript = createSecureEnvironment(undefined, endowments);
+        const evalScript = createSecureEnvironment({ endowments });
         evalScript(`
             'use strict';
             const obj = {
