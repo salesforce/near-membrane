@@ -1,6 +1,6 @@
 import { SecureEnvironment } from "./environment";
 import { EnvironmentOptions } from "./types";
-import { unapply, ReflectGetOwnPropertyDescriptor } from "./shared";
+import { unapply, ReflectGetOwnPropertyDescriptor, ObjectCreate } from "./shared";
 import { linkIntrinsics, getFilteredEndowmentDescriptors } from "./intrinsics";
 import { getCachedReferences, linkUnforgeables, tameDOM } from "./window";
 
