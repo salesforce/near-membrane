@@ -21,6 +21,7 @@
         "noUnusedLocals": true,
         "suppressImplicitAnyIndexErrors": true,
         "noImplicitReturns": true,
+        "strictBindCallApply": false,
     },
     "include": ["src/"],
     "exclude": [
