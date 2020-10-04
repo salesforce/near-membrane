@@ -1,23 +1,26 @@
 import typescript from '@rollup/plugin-typescript'
 import { terser } from 'rollup-plugin-terser'
 
-function config(input, file, plugins) {
+function config(input, filePrefix) {
     return {
         input,
-        output: {
-            file,
+        output: [{
+            file: `lib/${filePrefix}.js`,
             format: 'es',
-            sourcemap: true,
-            plugins
-
+            sourcemap: true
         },
+        {
+            file: `lib/${filePrefix}.min.js`,
+            format: 'es',
+            sourcemap: false,
+            plugins: [terser()]
+
+        }],
         plugins: [typescript()]
     }
 };
 
 export default [
-    config('src/index.ts', 'lib/index.js'),
-    config('src/index.ts', 'lib/index.min.js', [terser()]),
-    config('src/browser-realm.ts', 'lib/browser-realm.js'),
-    config('src/browser-realm.ts', 'lib/browser-realm.min.js', [terser()])
+    config('src/index.ts', 'index'),
+    config('src/browser-realm.ts', 'browser-realm')
 ];

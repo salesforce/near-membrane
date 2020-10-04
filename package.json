@@ -5,10 +5,10 @@
   "module": "lib/index.js",
   "types": "types/index.js",
   "scripts": {
-    "build": "yarn build:types && yarn build:examples && rollup -c",
+    "build": "yarn build:types && rollup -c && yarn build:examples",
     "build:types": "tsc --declaration true --emitDeclarationOnly true --declarationDir types",
     "build:examples": "rollup -i examples/web-components/platform.js -o examples/web-components/bundle.js -f cjs",
-    "start": "yarn build --watch -w & http-server ./examples",
+    "start": "rollup -c --watch -w & http-server ./examples",
     "test": "jest --runInBand --no-cache --config ./jest.config.js",
     "test:bundlesize": "bundlesize",
     "publish": "npm publish --access public",

@@ -5,7 +5,6 @@
         "module": "es2015",
         "moduleResolution": "node",
         "esModuleInterop": true,
-        "sourceMap": true,
         "lib": ["es2015", "es2016", "es2017", "es2018", "DOM"],
 
         // Enhance Strictness
