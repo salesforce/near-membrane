@@ -4,39 +4,6 @@ import { unapply, ReflectGetOwnPropertyDescriptor, ObjectCreate } from "./shared
 import { linkIntrinsics, getFilteredEndowmentDescriptors } from "./intrinsics";
 import { getCachedReferences, linkUnforgeables, tameDOM } from "./window";
 
-// A comprehensive list of policy feature directives can be found at
-// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Feature-Policy#Directives
-// Directives not currently supported by Chrome are commented out because
-// Chrome logs warnings to the developer console.
-const IFRAME_ALLOW_ATTRIBUTE_VALUE =
-    "accelerometer 'none';" +
-    "ambient-light-sensor 'none';" +
-    "autoplay 'none';" +
-    // "battery 'none';" +
-    "camera 'none';" +
-    // "display-capture 'none';" +
-    "document-domain 'none';" +
-    "encrypted-media 'none';" +
-    // "execution-while-not-rendered 'none';" +
-    // "execution-while-out-of-viewport 'none';" +
-    "fullscreen 'none';" +
-    "geolocation 'none';" +
-    "gyroscope 'none';" +
-    // "layout-animations 'none';" +
-    // "legacy-image-formats 'none';" +
-    "magnetometer 'none';" +
-    "microphone 'none';" +
-    "midi 'none';" +
-    // "navigation-override 'none';" +
-    // "oversized-images 'none';" +
-    "payment 'none';" +
-    "picture-in-picture 'none';" +
-    // "publickey-credentials 'none';" +
-    "sync-xhr 'none';" +
-    "usb 'none';" +
-    // "wake-lock 'none';" +
-    "xr-spatial-tracking 'none';"
-
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 const appendChildCall = unapply(Node.prototype.appendChild);
 const removeCall = unapply(Element.prototype.remove);
@@ -48,7 +15,6 @@ const createElementCall = unapply(document.createElement);
 function createDetachableIframe(): HTMLIFrameElement {
     // @ts-ignore document global ref - in browsers
     const iframe = createElementCall(document, 'iframe');
-    iframe.setAttribute('allow', IFRAME_ALLOW_ATTRIBUTE_VALUE);
     iframe.setAttribute('sandbox', IFRAME_SANDBOX_ATTRIBUTE_VALUE);
     iframe.style.display = 'none';
     const parent = documentBodyGetterCall(document) || nodeLastChildGetterCall(document);
