@@ -69,6 +69,9 @@ interface BrowserEnvironmentOptions extends EnvironmentOptions {
     keepAlive?: boolean;
 }
 
+// caching references
+const { open, close } = document;
+
 export default function createSecureEnvironment(options?: BrowserEnvironmentOptions): (sourceText: string) => void {
     const { distortionMap, endowments, keepAlive } = options || ObjectCreate(null);
     const iframe = createDetachableIframe();
@@ -92,6 +95,11 @@ export default function createSecureEnvironment(options?: BrowserEnvironmentOpti
     // to detach the iframe only if the keepAlive option isn't true
     if (keepAlive !== true) {
         removeIframe(iframe);
+    } else {
+        // TODO: temporary hack to preserve the document reference in FF
+        // https://bugzilla.mozilla.org/show_bug.cgi?id=543435
+        open.call(redRefs.document);
+        close.call(redRefs.document);
     }
     // finally, we return the evaluator function
     return (sourceText: string): void => {
