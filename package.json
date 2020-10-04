@@ -5,9 +5,12 @@
   "module": "lib/index.js",
   "types": "types/index.js",
   "scripts": {
-    "build": "ttsc && rollup -c",
-    "start": "ttsc -w & http-server",
+    "build": "yarn build:types && yarn build:examples && rollup -c",
+    "build:types": "tsc --declaration true --emitDeclarationOnly true --declarationDir types",
+    "build:examples": "rollup -i examples/web-components/platform.js -o examples/web-components/bundle.js -f cjs",
+    "start": "yarn build --watch -w & http-server ./examples",
     "test": "jest --runInBand --no-cache --config ./jest.config.js",
+    "test:bundlesize": "bundlesize",
     "publish": "npm publish --access public",
     "debug": "karma start karma.config.js --browsers Chrome",
     "karma": "karma start karma.config.js --single-run --browsers ChromeHeadless,FirefoxHeadless"
@@ -19,8 +22,10 @@
   "author": "Caridy Patiño <caridy@gmail.com>",
   "license": "MIT",
   "devDependencies": {
+    "@rollup/plugin-node-resolve": "^9.0.0",
+    "@rollup/plugin-typescript": "^6.0.0",
     "@types/jest": "^24.0.23",
-    "@zoltu/typescript-transformer-append-js-extension": "^1.0.1",
+    "bundlesize": "^0.18.0",
     "chokidar": "^3.0.1",
     "http-server": "^0.11.1",
     "istanbul-api": "^2.0.6",
@@ -35,11 +40,26 @@
     "karma-safari-launcher": "^1.0.0",
     "puppeteer": "^3.1.0",
     "rollup": "^1.21.3",
+    "rollup-plugin-terser": "^7.0.2",
     "ts-jest": "^24.2.0",
-    "ttypescript": "^1.5.10",
     "typescript": "^3.9.6"
   },
   "engines": {
     "node": ">=12"
+  },
+  "bundlesize": [
+    {
+      "path": "lib/index.min.js",
+      "maxSize": "10 kB",
+      "compression": "none"
+    },
+    {
+      "path": "lib/browser-realm.min.js",
+      "maxSize": "13 kB",
+      "compression": "none"
+    }
+  ],
+  "dependencies": {
+    "tslib": "^2.0.1"
   }
 }
