@@ -16,6 +16,25 @@ type ReflectiveIntrinsicsMap = Record<string, any>;
 
 const cachedReflectiveIntrinsicsMap: WeakMap<typeof globalThis, ReflectiveIntrinsicsMap> = WeakMapCreate();
 
+/**
+ * This list must be in sync with ecma-262, anything new added to the global object
+ * should be considered, to decide whether or not they need remapping. The default
+ * behavior, if missing form the following list, is to be remapped, which is safer.
+ *
+ * Note: remapped means the functionality is provided by the blue realm, rather than
+ * the red one. This helps with the identity discontinuity issue, e.g.: all Set objects
+ * have the same identity because it is always derived from the outer realm's Set.
+ *
+ * Note 1: We have identified 3 types of intrinsics
+ * A: primitives driven intrinsics
+ * B: syntax driven intrinsics (they usually have a imperative form as well)
+ * C: imperative only intrinsics
+ *
+ * While A is not remapped, it is safe, and works fast that way, and C is remapped to
+ * preserve the identity of all produced objects from the same realm, B is really
+ * problematic, and requires a lot more work to guarantee that objects from both sides
+ * can be considered equivalents (without identity discontinuity).
+ */
 const ESGlobalKeys = SetCreate([
 
     // *** 18.1 Value Properties of the Global Object
@@ -35,11 +54,12 @@ const ESGlobalKeys = SetCreate([
     'encodeURIComponent',
 
     // *** 18.3 Constructor Properties of the Global Object
+    'AggregateError',
     'Array',
     'ArrayBuffer',
     'Boolean',
     'DataView',
-    'Date', // Unstable
+    // 'Date', // Unstable & Remapped
     'Error', // Unstable
     'EvalError',
     'Float32Array',
@@ -48,17 +68,17 @@ const ESGlobalKeys = SetCreate([
     'Int8Array',
     'Int16Array',
     'Int32Array',
-    'Map',
+    // 'Map', // Remapped
     'Number',
     'Object',
     // Allow Blue `Promise` constructor to overwrite the Red one so that promises
     // created by the `Promise` constructor or APIs like `fetch` will work.
-    //'Promise',
+    // 'Promise', // Remapped
     'Proxy', // Unstable
     'RangeError',
     'ReferenceError',
     'RegExp', // Unstable
-    'Set',
+    // 'Set', // Remapped
     'SharedArrayBuffer',
     'String',
     'Symbol',
@@ -69,8 +89,8 @@ const ESGlobalKeys = SetCreate([
     'Uint16Array',
     'Uint32Array',
     'URIError',
-    'WeakMap',
-    'WeakSet',
+    // 'WeakMap', // Remapped
+    // 'WeakSet', // Remapped
 
     // *** 18.4 Other Properties of the Global Object
     'Atomics',
@@ -83,12 +103,13 @@ const ESGlobalKeys = SetCreate([
     'unescape',
 
     // *** ECMA-402
-    'Intl', // Unstable
+    // 'Intl',  // Unstable & Remapped
 ]);
 
 // These are foundational things that should never be wrapped but are equivalent
 // TODO: revisit this list.
 const ReflectiveIntrinsicObjectNames = [
+    'AggregateError',
     'Array',
     'Error',
     'EvalError',
@@ -128,8 +149,11 @@ export function linkIntrinsics(
         const name = ReflectiveIntrinsicObjectNames[i];
         const blue = blueIntrinsics[name];
         const red = redIntrinsics[name];
-        env.setRefMapEntries(red, blue);
-        env.setRefMapEntries(red.prototype, blue.prototype);
+        // new intrinsics might not be available in some browsers, e.g.: AggregateError
+        if (!isUndefined(blue)) {
+            env.setRefMapEntries(red, blue);
+            env.setRefMapEntries(red.prototype, blue.prototype);
+        }
     }
 }
 
