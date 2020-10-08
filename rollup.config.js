@@ -12,7 +12,7 @@ function config(input, filePrefix, external = []) {
         {
             file: `lib/${filePrefix}.min.js`,
             format: 'es',
-            sourcemap: false,
+            sourcemap: true,
             plugins: [terser()]
 
         }],
