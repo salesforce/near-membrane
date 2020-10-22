@@ -1,4 +1,5 @@
 import {
+    isObjectLike,
     isUndefined,
     ObjectCreate,
     WeakMapCreate,
@@ -115,6 +116,7 @@ const ReflectiveIntrinsicObjectNames = [
     'EvalError',
     'Function',
     'Object',
+    'Proxy',
     'RangeError',
     'ReferenceError',
     'SyntaxError',
@@ -150,9 +152,11 @@ export function linkIntrinsics(
         const blue = blueIntrinsics[name];
         const red = redIntrinsics[name];
         // new intrinsics might not be available in some browsers, e.g.: AggregateError
-        if (!isUndefined(blue)) {
+        if (isObjectLike(blue)) {
             env.setRefMapEntries(red, blue);
-            env.setRefMapEntries(red.prototype, blue.prototype);
+            if (isObjectLike(blue.prototype)) {
+                env.setRefMapEntries(red.prototype, blue.prototype);
+            }
         }
     }
 }
