@@ -79,4 +79,12 @@ export function isFunction(obj: any): obj is Function {
     return typeof obj === 'function';
 }
 
+export function isObject(obj: any): boolean {
+    return typeof obj === 'object' && obj !== null;
+}
+
+export function isObjectLike(obj: any): boolean {
+    return isObject(obj) || isFunction(obj);
+}
+
 export const emptyArray: [] = [];
