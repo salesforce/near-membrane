@@ -2,7 +2,7 @@ import { SecureEnvironment } from "./environment";
 import { EnvironmentOptions } from "./types";
 import { unapply, ReflectGetOwnPropertyDescriptor, ObjectCreate } from "./shared";
 import { linkIntrinsics, getFilteredEndowmentDescriptors } from "./intrinsics";
-import { getCachedReferences, linkUnforgeables, tameDOM } from "./window";
+import { getCachedBlueReferences, getRedReferences, linkUnforgeables, tameDOM } from "./window";
 
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 const appendChildCall = unapply(Node.prototype.appendChild);
@@ -46,8 +46,8 @@ export default function createSecureEnvironment(options?: BrowserEnvironmentOpti
     const endowmentsDescriptors = getFilteredEndowmentDescriptors(endowments || {});
     const { eval: redIndirectEval } = redWindow;
     // extract the global references and descriptors before any interference
-    const blueRefs = getCachedReferences(blueWindow);
-    const redRefs = getCachedReferences(redWindow);
+    const blueRefs = getCachedBlueReferences(blueWindow);
+    const redRefs = getRedReferences(redWindow);
     // creating a new environment
     const env = new SecureEnvironment({
         blueGlobalThis: blueWindow,
