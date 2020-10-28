@@ -14,32 +14,41 @@ import {
 import { isIntrinsicGlobalName } from "./intrinsics";
 
 /**
- * - Unforgeable prototype references
- * - Descriptor maps for those unforgeable prototype references
+ * - Unforgeable object and prototype references
  */
-interface CachedReferencesRecord {
+interface BaseReferencesRecord {
     window: WindowProxy;
     document: Document;
     WindowProto: object;
     WindowPropertiesProto: object;
     EventTargetProto: object;
     DocumentProto: object;
+};
+
+/**
+ * - Unforgeable blue object and prototype references
+ * - Descriptor maps for those unforgeable references
+ */
+interface CachedBlueReferencesRecord extends BaseReferencesRecord {
     windowDescriptors: PropertyDescriptorMap;
     WindowProtoDescriptors: PropertyDescriptorMap;
     WindowPropertiesProtoDescriptors: PropertyDescriptorMap;
     EventTargetProtoDescriptors: PropertyDescriptorMap;
 };
 
-const cachedGlobalMap: WeakMap<typeof globalThis, CachedReferencesRecord> = WeakMapCreate();
+/**
+ * - Unforgeable red object and prototype references
+ * - Own keys for those unforgeable references
+ */
+interface RedReferencesRecord extends BaseReferencesRecord {
+    windowOwnKeys: PropertyKey[];
+    WindowPropertiesProtoOwnKeys: PropertyKey[];
+};
 
-export function getCachedReferences(window: Window & typeof globalThis): CachedReferencesRecord {
-    let record: CachedReferencesRecord | undefined = WeakMapGet(cachedGlobalMap, window);
-    if (!isUndefined(record)) {
-        return record;
-    }
-    record = ObjectCreate(null) as CachedReferencesRecord;
-    // caching the record
-    WeakMapSet(cachedGlobalMap, window, record);
+const cachedBlueGlobalMap: WeakMap<typeof globalThis, CachedBlueReferencesRecord> = WeakMapCreate();
+
+export function getBaseReferences(window: Window & typeof globalThis): BaseReferencesRecord {
+    const record = ObjectCreate(null) as BaseReferencesRecord;
     // caching references to object values that can't be replaced
     // window -> Window -> WindowProperties -> EventTarget
     record.window = window.window;
@@ -49,6 +58,17 @@ export function getCachedReferences(window: Window & typeof globalThis): CachedR
     record.EventTargetProto = ReflectGetPrototypeOf(record.WindowPropertiesProto);
     record.DocumentProto = ReflectGetPrototypeOf(record.document);
 
+    return record;
+}
+
+export function getCachedBlueReferences(window: Window & typeof globalThis): CachedBlueReferencesRecord {
+    let record: CachedBlueReferencesRecord | undefined = WeakMapGet(cachedBlueGlobalMap, window);
+    if (!isUndefined(record)) {
+        return record;
+    }
+    record = getBaseReferences(window) as CachedBlueReferencesRecord;
+    // caching the record
+    WeakMapSet(cachedBlueGlobalMap, window, record);
     // caching descriptors
     record.windowDescriptors = getOwnPropertyDescriptors(record.window);
     // intentionally avoiding remapping any Window.prototype descriptor,
@@ -64,13 +84,26 @@ export function getCachedReferences(window: Window & typeof globalThis): CachedR
     return record;
 }
 
+export function getRedReferences(window: Window & typeof globalThis): RedReferencesRecord {
+    const record = getBaseReferences(window) as RedReferencesRecord;
+    // caching descriptors
+    record.windowOwnKeys = ownKeys(record.window);
+    // intentionally avoiding remapping any WindowProperties.prototype descriptor
+    // because this object contains magical properties for HTMLObjectElement instances
+    // and co, based on their id attribute. These cannot, and should not, be
+    // remapped. Additionally, constructor is not relevant, and can't be used for anything.
+    record.WindowPropertiesProtoOwnKeys = [];
+
+    return record;
+}
+
 /**
  * Initialization operation to capture and cache all unforgeable references
  * and their respective descriptor maps before any other code runs, this
  * usually help because this library runs before anything else that can poison
  * the environment.
  */
-getCachedReferences(window);
+getCachedBlueReferences(window);
 
 /**
  * global descriptors are a combination of 3 set of descriptors:
@@ -100,15 +133,14 @@ getCachedReferences(window);
  * the red realm.
  */
 function aggregateWindowDescriptors(
-    redDescriptors: PropertyDescriptorMap,
+    redOwnKeys: PropertyKey[],
     blueDescriptors: PropertyDescriptorMap,
     endowmentsDescriptors: PropertyDescriptorMap | undefined
 ): PropertyDescriptorMap {
     const to: PropertyDescriptorMap = ObjectCreate(null);
-    const baseKeys = ownKeys(redDescriptors);
 
-    for (let i = 0, len = baseKeys.length; i < len; i++) {
-        const key = baseKeys[i] as string;
+    for (let i = 0, len = redOwnKeys.length; i < len; i++) {
+        const key = redOwnKeys[i] as string;
         if (!isIntrinsicGlobalName(key)) {
             to[key] = blueDescriptors[key];
         }
@@ -153,29 +185,28 @@ function aggregateWindowDescriptors(
  * new iframe, that way any magical entry from the blue window will not be
  * installed on the iframe.
  */
-export function aggregateWindowPropertiesDescriptors(
-    redDescriptors: PropertyDescriptorMap,
+function aggregateWindowPropertiesDescriptors(
+    redOwnKeys: PropertyKey[],
     blueDescriptors: PropertyDescriptorMap
 ): PropertyDescriptorMap {
     const to: PropertyDescriptorMap = ObjectCreate(null);
-    const baseKeys = ownKeys(redDescriptors);
-    for (let i = 0, len = baseKeys.length; i < len; i++) {
-        const key = baseKeys[i] as string;
+    for (let i = 0, len = redOwnKeys.length; i < len; i++) {
+        const key = redOwnKeys[i] as string;
         to[key] = blueDescriptors[key];
     }
     return to;
 }
 
-export function tameDOM(env: SecureEnvironment, blueRefs: CachedReferencesRecord, redRefs: CachedReferencesRecord, endowmentsDescriptors: PropertyDescriptorMap) {
+export function tameDOM(env: SecureEnvironment, blueRefs: CachedBlueReferencesRecord, redRefs: RedReferencesRecord, endowmentsDescriptors: PropertyDescriptorMap) {
     // adjusting proto chain of window.document
     ReflectSetPrototypeOf(redRefs.document, env.getRedValue(blueRefs.DocumentProto));
     const globalDescriptors = aggregateWindowDescriptors(
-        redRefs.windowDescriptors,
+        redRefs.windowOwnKeys,
         blueRefs.windowDescriptors,
         endowmentsDescriptors
     );
     const WindowPropertiesDescriptors = aggregateWindowPropertiesDescriptors(
-        redRefs.WindowPropertiesProtoDescriptors,
+        redRefs.WindowPropertiesProtoOwnKeys,
         blueRefs.WindowPropertiesProtoDescriptors
     );
     // remapping globals
@@ -188,8 +219,8 @@ export function tameDOM(env: SecureEnvironment, blueRefs: CachedReferencesRecord
 
 export function linkUnforgeables(
     env: SecureEnvironment,
-    blueRefs: CachedReferencesRecord,
-    redRefs: CachedReferencesRecord
+    blueRefs: CachedBlueReferencesRecord,
+    redRefs: RedReferencesRecord
 ) {
     env.setRefMapEntries(redRefs.window, blueRefs.window);
     env.setRefMapEntries(redRefs.document, blueRefs.document);
