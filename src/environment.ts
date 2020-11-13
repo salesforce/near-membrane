@@ -1,13 +1,14 @@
-import { 
+import {
     apply,
     assign,
     isUndefined,
     ObjectCreate,
     isFunction,
-    ReflectDefineProperty,
     emptyArray,
     ErrorCreate,
+    ObjectDefineProperties,
     ReflectGetOwnPropertyDescriptor,
+    RegExpTest,
     WeakMapCreate,
     WeakMapSet,
     WeakMapGet,
@@ -32,6 +33,8 @@ import {
     BlueProxy,
     BlueProxyTarget,
 } from './types';
+
+const frameGlobalNamesRegExp = /^\d+$/;
 
 interface SecureEnvironmentOptions {
     // Blue global object used by the blue environment
@@ -114,14 +117,19 @@ export class SecureEnvironment implements MembraneBroker {
     remap(redValue: RedValue, blueValue: BlueValue, blueDescriptors: PropertyDescriptorMap) {
         const broker = this;
         const keys = ownKeys(blueDescriptors);
+        const redDescriptors = ObjectCreate(null);
         for (let i = 0, len = keys.length; i < len; i += 1) {
             const key = keys[i];
+            // Skip index keys for magical descriptors of frames on the window proxy.
+            if (typeof key !== 'symbol' && RegExpTest(frameGlobalNamesRegExp, key)) {
+                continue;
+            }
             if (!canRedPropertyBeTamed(redValue, key)) {
                 console.warn(`Property ${String(key)} of ${redValue} cannot be remapped.`);
                 continue;
             }
-            // avoid poisoning by only installing own properties from blueDescriptors
-            // @ts-expect-error because PropertyDescriptorMap does not accept symbols ATM
+            // Avoid poisoning by only installing own properties from blueDescriptors
+            // @ts-expect-error because PropertyDescriptorMap does not accept symbols ATM.
             const blueDescriptor = assign(ObjectCreate(null), blueDescriptors[key]);
             const redDescriptor = assign(ObjectCreate(null), blueDescriptor);
             if ('value' in blueDescriptor) {
@@ -154,8 +162,11 @@ export class SecureEnvironment implements MembraneBroker {
                     };
                 }
             }
-            ReflectDefineProperty(redValue, key, redDescriptor);
+            redDescriptors[key] = redDescriptor;
         }
+        // Use `ObjectDefineProperties()` instead of individual
+        // `ReflectDefineProperty()` calls for better performance.
+        ObjectDefineProperties(redValue, redDescriptors);
     }
 }
 

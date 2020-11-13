@@ -4,6 +4,7 @@ export const {
     assign,
     create: ObjectCreate,
     defineProperty: ObjectDefineProperty,
+    defineProperties: ObjectDefineProperties,
     getOwnPropertyDescriptors,
     freeze,
     seal,
@@ -28,9 +29,10 @@ export const {
 } = Reflect;
 
 const ErrorCreate = unconstruct(Error);
+const ProxyRevocable = Proxy.revocable;
+const RegExpTest = unapply(RegExp.prototype.test);
 const SetCreate = unconstruct(Set);
 const SetHas = unapply(Set.prototype.has);
-const ProxyRevocable = Proxy.revocable;
 const WeakMapCreate = unconstruct(WeakMap);
 const WeakMapGet = unapply(WeakMap.prototype.get);
 const WeakMapHas = unapply(WeakMap.prototype.has);
@@ -41,6 +43,7 @@ const map = unapply(Array.prototype.map);
 export {
     ErrorCreate,
     ProxyRevocable,
+    RegExpTest,
     SetCreate,
     SetHas,
     WeakMapCreate,

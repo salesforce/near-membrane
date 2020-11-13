@@ -72,6 +72,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     const {
         assign,
         create,
+        defineProperties,
         getOwnPropertyDescriptors,
         freeze,
         seal,
@@ -237,12 +238,22 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         }
     }
 
-    function lockShadowTarget(shadowTarget: RedShadowTarget, originalTarget: RedProxyTarget) {
-        // copying all own properties into the shadowTarget
-        const targetKeys = ownKeys(originalTarget);
+    function copyBlueDescriptorsIntoShadowTarget(shadowTarget: RedShadowTarget, originalTarget: RedProxyTarget) {
+        const normalizedBlueDescriptors = getOwnPropertyDescriptors(originalTarget);
+        const targetKeys = ownKeys(normalizedBlueDescriptors);
+        const redDescriptors = create(null);
         for (let i = 0, len = targetKeys.length; i < len; i += 1) {
-            copyBlueDescriptorIntoShadowTarget(shadowTarget, originalTarget, targetKeys[i]);
+            const key = targetKeys[i] as string;
+            const redDesc = getRedDescriptor(normalizedBlueDescriptors[key]);
+            redDescriptors[key] = redDesc;
         }
+        // Use `defineProperties()` instead of individual `defineProperty()`
+        // calls for better performance.
+        defineProperties(shadowTarget, redDescriptors);
+    }
+
+    function lockShadowTarget(shadowTarget: RedShadowTarget, originalTarget: RedProxyTarget) {
+        copyBlueDescriptorsIntoShadowTarget(shadowTarget, originalTarget);
         // setting up __proto__ of the shadowTarget
         setPrototypeOf(shadowTarget, getRedValue(getPrototypeOf(originalTarget)));
         // locking down the extensibility of shadowTarget
