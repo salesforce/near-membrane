@@ -4,6 +4,7 @@ import {
     construct,
     ReflectSetPrototypeOf,
     freeze,
+    getOwnPropertyDescriptors,
     isFunction,
     ObjectCreate,
     isUndefined,
@@ -23,6 +24,7 @@ import {
     deleteProperty,
     hasOwnProperty,
     emptyArray,
+    ObjectDefineProperties,
 } from './shared';
 import {
     BlueProxyTarget,
@@ -129,12 +131,22 @@ export function blueProxyFactory(env: MembraneBroker) {
         }
     }
 
-    function lockShadowTarget(shadowTarget: BlueShadowTarget, originalTarget: BlueProxyTarget) {
-        // copying all own properties into the shadowTarget
-        const targetKeys = ownKeys(originalTarget);
+    function copyRedDescriptorsIntoShadowTarget(shadowTarget: BlueShadowTarget, originalTarget: BlueProxyTarget) {
+        const normalizedRedDescriptors = getOwnPropertyDescriptors(originalTarget);
+        const targetKeys = ownKeys(normalizedRedDescriptors);
+        const blueDescriptors = ObjectCreate(null);
         for (let i = 0, len = targetKeys.length; i < len; i += 1) {
-            copyRedDescriptorIntoShadowTarget(shadowTarget, originalTarget, targetKeys[i]);
+            const key = targetKeys[i] as string;
+            const blueDesc = getBlueDescriptor(normalizedRedDescriptors[key]);
+            blueDescriptors[key] = blueDesc;
         }
+        // Use `ObjectDefineProperties()` instead of individual
+        // `ReflectDefineProperty()` calls for better performance.
+        ObjectDefineProperties(shadowTarget, blueDescriptors);
+    }
+
+    function lockShadowTarget(shadowTarget: BlueShadowTarget, originalTarget: BlueProxyTarget) {
+        copyRedDescriptorsIntoShadowTarget(shadowTarget, originalTarget);
         // setting up __proto__ of the shadowTarget
         ReflectSetPrototypeOf(shadowTarget, getBlueValue(ReflectGetPrototypeOf(originalTarget)));
         // locking down the extensibility of shadowTarget
