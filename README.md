@@ -1,10 +1,9 @@
-# Sandboxed JavaScript Environment
+# JavaScript Near Membrane Library
 
-This is an experimental library to demonstrate that it is possible to use membranes to create an object graph of a JavaScript environment without introducing identity discontinuity.
+This library implements a "near membrane" that can connect two Realms (the Incubator Realm, and the Child Realm) running on the same process. As a result, the Child Realm will emulate the capabilities of the Incubator Realm, plus the distortions defined as part of the near membrane configuration. Code evaluated inside the Child Realm will function as if it is evaluated in the Incubator Realm, exhibiting identity continuity, while preserving the integrity of the Incubator Realm by limiting the side effects that such code can have.
 
 ## Goals
 
-* The sandboxed environment must have its own set of intrinsics.
 * Code executed inside the sandboxed environment cannot observe the sandbox.
 * Mutations on the object graph should only affect the sandboxed environment.
 
@@ -16,8 +15,8 @@ This is an experimental library to demonstrate that it is possible to use membra
 
 In order to make it easier to explain how this library works, we use a color code to identify objects and values in general from both sides of the sandbox:
 
-* Blue Realm is the JavaScript Realm that is not sandboxed.
-* Red Realm is the JavaScript Realm that is sandboxed by this library.
+* Blue Realm is the Incubator Realm.
+* Red Realm is the Child Realm that is sandboxed by this library.
 * Blue Object, Blue Array, Blue Function, and Blue Values denote values that belong to the Blue Realm.
 * Red Object, Red Array, Red Function, and Red Values denote values that belong to the Red Realm.
 * Blue Proxy denote a Proxy created in the Blue Realm with a target that belongs to the Red Value.
@@ -25,11 +24,9 @@ In order to make it easier to explain how this library works, we use a color cod
 
 ## Design
 
-This library implements a membrane to sandbox a JavaScript environment object graph. This membrane is responsible for connecting the Blue Realm with a Red Realm, and it does that by remapping global references in the Red Realm to be Red Proxies (proxies of Blue Values).
+This library implements a near membrane to sandbox a JavaScript environment object graph. This membrane is responsible for connecting the Blue Realm with a Red Realm, and it does that by remapping global references in the Red Realm to be Red Proxies (proxies of Blue Values).
 
-This membrane modulates the communication between the two sides, specifically by creating proxies around objects and functions, while letting other primitives values travel safely throughout the membrane.
-
-Arrays never travel through the membrane to mitigate them being used as a communication channel between the two sides of the membrane. Instead, a new Blue Array will be created when a Red Array is passed through the membrane and vise-versa with array items processed individually.
+This membrane modulates the communication between the two sides, specifically by creating proxies around objects, arrays and functions, while letting other primitives values travel safely throughout the membrane.
 
 ### Cross-sandbox communication
 
@@ -59,6 +56,8 @@ What we do in this case is to keep the identity of those unforgeable around, but
 
 Additionally, there are others unforgeables like `location` that are host bounded, in that case, we don't have to do much since the detaching mechanism will automatically invalidate them.
 
+These can only be virtualized via transpilation if they need to be available inside the sandbox. Such transpilation process is not provided as part of this library.
+
 #### Requirements
 
 The only requirement for the in-browser sandboxing mechanism described above is the usage of `eval` as the main mechanism for evaluating code inside the sandbox. This means your CSP rules should include at least `script-src: 'unsafe-eval'` in order for this library to function.
@@ -82,17 +81,11 @@ We do not know the applications of this library just yet, but we suspect that th
 
 ## The Code
 
+* This library is distributed via npm package `@locker/near-membrane`.
 * This library is implemented using TypeScript, and produces the proper TypeScript types, in case you care about it.
-* As today, it does not produce a commonjs or script distribution, it only produces the ES Modules distribution that can be used via www.pika.dev or similar services, or by using the experimental module flag in nodejs 12.x, or above.
-* Few tests are provided as of now, but the plan is to rely on existing tests (e.g.: WPT or ecma262) to validate that the membrane created by this library is a high-fidelity membrane.
-* The `examples/` folder contains a set of examples showcasing how to use this library.
-* The `src/` folder contains the library code, while the `lib/` folder will contain the compiled ES Modules after executing the `build` script from `package.json`.
-* This library does not have any runtime dependency, in fact it is very tiny &lt;2kb.
-
-## Open Questions
-
-* Should we proxify Arrays objects to support live Arrays?
-* Should we map all intrinsics or only undeniable intrinsics?
+* Few tests are provided as of now, but the plan is to rely on existing tests (e.g.: WPT or ecma262) to validate that the near membrane created by this library is a high-fidelity membrane.
+* The `src/` folder contains the library code, while the `lib/` folder will contain the compiled distributable code produced by executing the `build` script from `package.json`.
+* This library does not have any runtime dependency, in fact it is very tiny.
 
 ## Challenges
 
