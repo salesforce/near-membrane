@@ -1,0 +1,82 @@
+# Environment configuration
+# =========================
+
+env_default: &env_default
+  working_directory: ~/near-membrane
+  docker:
+    - image: circleci/node:14-browsers
+
+
+# Commands definitions
+# ====================
+
+# Yarn cache
+restore_yarn_cache: &restore_yarn_cache
+  restore_cache:
+    keys:
+      - yarn-v4-{{ checksum "yarn.lock" }}
+
+save_yarn_cache: &save_yarn_cache
+  save_cache:
+    key: yarn-v4-{{ checksum "yarn.lock" }}
+    paths:
+      - ~/.cache/yarn
+
+# Workspace
+save_workspace: &save_workspace
+  persist_to_workspace:
+    root: .
+    paths: .
+
+load_workspace: &load_workspace
+  attach_workspace:
+    at: ~/tmp/workspace
+
+# Build
+install: &install
+  run:
+    name: Install and build
+    command: |
+      yarn install --frozen-lockfile
+      yarn build
+
+# Jest tests
+run_unit_tests: &run_unit_tests
+  run:
+    name: Run Jest tests
+    command: yarn test
+
+# Karma tests
+run_karma_tests: &run_karma_tests
+  run:
+    name: Run Karma tests
+    command: npx karma start karma.config.js --single-run --browsers FirefoxHeadless
+
+
+# Jobs definition
+# ===============
+
+version: 2
+jobs:
+  build:
+    <<: *env_default
+    steps:
+      - checkout
+
+      - *restore_yarn_cache
+      - *install
+      - *save_yarn_cache
+      - *save_workspace
+
+      - *run_unit_tests
+      - *run_karma_tests
+
+
+# Workflows definition
+# ====================
+
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - build
