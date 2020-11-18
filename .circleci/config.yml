@@ -50,7 +50,7 @@ run_unit_tests: &run_unit_tests
 run_karma_tests: &run_karma_tests
   run:
     name: Run Karma tests
-    command: npx karma start karma.config.js --single-run --browsers FirefoxHeadless
+    command: yarn karma
 
 
 # Jobs definition
