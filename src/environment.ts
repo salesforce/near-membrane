@@ -33,6 +33,7 @@ import {
     BlueProxy,
     BlueProxyTarget,
 } from './types';
+import { getInstance as getRemapCache } from './remap-cache';
 
 const frameGlobalNamesRegExp = /^\d+$/;
 
@@ -118,10 +119,18 @@ export class SecureEnvironment implements MembraneBroker {
         const broker = this;
         const keys = ownKeys(blueDescriptors);
         const redDescriptors = ObjectCreate(null);
+        const cache = getRemapCache(blueValue);
+
         for (let i = 0, len = keys.length; i < len; i += 1) {
             const key = keys[i];
             // Skip index keys for magical descriptors of frames on the window proxy.
             if (typeof key !== 'symbol' && RegExpTest(frameGlobalNamesRegExp, key)) {
+                continue;
+            }
+            const factory = cache.get(key);
+            if (factory) {                
+                const blueDesc = blueDescriptors[key as string | number];
+                redDescriptors[key] = factory(blueDesc, broker, this.distortionMap);
                 continue;
             }
             if (!canRedPropertyBeTamed(redValue, key)) {
@@ -134,6 +143,7 @@ export class SecureEnvironment implements MembraneBroker {
             const redDescriptor = assign(ObjectCreate(null), blueDescriptor);
             if ('value' in blueDescriptor) {
                 redDescriptor.value = broker.getRedValue(blueDescriptor.value);
+                cache.cacheValueDescriptor(key);
             } else {
                 // Use the original getter to return a red object, but if the
                 // sandbox attempts to set it to a new value, this mutation will
@@ -153,6 +163,7 @@ export class SecureEnvironment implements MembraneBroker {
                     redDescriptor.get = function(): RedValue {
                         return apply(currentBlueGetter, this, emptyArray);
                     };
+                    cache.cacheGetterOnlyDescriptor(key);
                 }
 
                 if (isFunction(blueDescriptor.set)) {
@@ -160,6 +171,7 @@ export class SecureEnvironment implements MembraneBroker {
                         // if a global setter is invoke, the value will be use as it is as the result of the getter operation
                         currentBlueGetter = () => v;
                     };
+                    cache.cacheGetterSetterDescriptor(key);
                 }
             }
             redDescriptors[key] = redDescriptor;
