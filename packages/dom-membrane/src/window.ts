@@ -1,4 +1,4 @@
-import { SecureEnvironment } from "./environment";
+import { SecureEnvironment } from "../../../src/environment";
 import {
     ReflectGetPrototypeOf,
     ReflectSetPrototypeOf,
@@ -10,8 +10,8 @@ import {
     assign,
     ownKeys,
     WeakMapSet,
-} from "./shared";
-import { isIntrinsicGlobalName } from "./intrinsics";
+} from "../../../src/shared";
+import { isIntrinsicGlobalName } from "../../../src/intrinsics";
 
 /**
  * - Unforgeable object and prototype references

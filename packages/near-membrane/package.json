@@ -1,0 +1,12 @@
+{
+    "name": "@locker/near-membrane",
+    "version": "0.4.0",
+    "main": "index.js",
+    "license": "MIT",
+    "scripts": {
+        "build": "tsc --emitDeclarationOnly && rollup -c"
+    },
+    "devDependencies": {
+        "typescript": "^3.9.6"
+    }
+}
