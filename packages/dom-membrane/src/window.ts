@@ -1,4 +1,4 @@
-import { SecureEnvironment } from "./environment";
+import { SecureEnvironment } from "../../../src/environment";
 import {
     ObjectAssign,
     ObjectCreate,
@@ -9,8 +9,8 @@ import {
     WeakMapCtor,
     WeakMapGet,
     WeakMapSet,
-} from "./shared";
-import { isIntrinsicGlobalName } from "./intrinsics";
+} from "../../../src/shared";
+import { isIntrinsicGlobalName } from "../../../src/intrinsics";
 
 /**
  * - Unforgeable object and prototype references

@@ -1,12 +1,11 @@
 {
     "compilerOptions": {
-        "rootDir": "src",
         "target": "es2015",
         "module": "es2015",
         "moduleResolution": "node",
         "esModuleInterop": true,
         "lib": ["es2015", "es2016", "es2017", "es2018", "DOM"],
-
+        // "declaration": true,
         // Enhance Strictness
         "strict": true,
         "noUnusedLocals": true,
@@ -14,7 +13,6 @@
         "noImplicitReturns": true,
         "strictBindCallApply": false,
     },
-    "include": ["src/"],
     "exclude": [
         "**/__tests__"
     ]

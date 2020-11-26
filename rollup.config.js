@@ -1,8 +1,8 @@
 import typescript from '@rollup/plugin-typescript'
 import { terser } from 'rollup-plugin-terser'
 
-function config(input, filePrefix, external = []) {
-    return {
+export function rollupConfig(input, filePrefix, external = []) {
+    const conf = {
         input,
         output: [{
             file: `lib/${filePrefix}.js`,
@@ -14,15 +14,10 @@ function config(input, filePrefix, external = []) {
             format: 'es',
             sourcemap: true,
             plugins: [terser()]
-
         }],
         plugins: [typescript()],
         external
-    }
+    };
+    console.log(JSON.stringify(conf, null, 4));
+    return conf;
 };
-
-export default [
-    config('src/index.ts', 'index'),
-    config('src/browser-realm.ts', 'browser-realm'),
-    config('src/node-realm.ts', 'node-realm', ['vm'])
-];
