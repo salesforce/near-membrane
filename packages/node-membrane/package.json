@@ -1,6 +1,15 @@
 {
     "name": "@locker/node-membrane",
     "version": "0.4.0",
-    "main": "index.js",
-    "license": "MIT"
+    "license": "MIT",
+    "module": "lib/index.js",
+    "types": "types/index.d.ts",
+    "scripts": {
+        "clean": "rimraf lib types",
+        "build:types": "tsc --project tsconfig.types.json",
+        "build": "yarn build:types && rollup -c"
+    },
+    "dependencies": {
+        "@locker/near-membrane": "0.4.0"
+    }
 }

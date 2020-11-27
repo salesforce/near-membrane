@@ -1,4 +1,4 @@
-import { SecureEnvironment } from "../../../src/environment";
+import { SecureEnvironment } from "@locker/near-membrane";
 import {
     ReflectGetPrototypeOf,
     ReflectSetPrototypeOf,
@@ -10,8 +10,8 @@ import {
     assign,
     ownKeys,
     WeakMapSet,
-} from "../../../src/shared";
-import { isIntrinsicGlobalName } from "../../../src/intrinsics";
+} from "@locker/near-membrane";
+import { isIntrinsicGlobalName } from "@locker/near-membrane";
 
 /**
  * - Unforgeable object and prototype references
