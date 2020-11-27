@@ -1,4 +1,4 @@
-import { SecureEnvironment } from "../../../src/environment";
+import { SecureEnvironment } from "@locker/near-membrane";
 import {
     ObjectAssign,
     ObjectCreate,
@@ -9,8 +9,8 @@ import {
     WeakMapCtor,
     WeakMapGet,
     WeakMapSet,
-} from "../../../src/shared";
-import { isIntrinsicGlobalName } from "../../../src/intrinsics";
+} from "@locker/near-membrane";
+import { isIntrinsicGlobalName } from "@locker/near-membrane";
 
 /**
  * - Unforgeable object and prototype references

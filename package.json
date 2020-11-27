@@ -8,8 +8,8 @@
   "module": "lib/index.js",
   "types": "types/index.js",
   "scripts": {
-    "build": "yarn build:types && rollup -c && yarn build:examples",
-    "build:types": "tsc --declaration true --emitDeclarationOnly true --declarationDir types",
+    "clean": "lerna run clean --stream",
+    "build": "lerna run build --stream && yarn build:examples",
     "build:examples": "rollup -i examples/web-components/platform.js -o examples/web-components/bundle.js -f cjs",
     "start": "rollup -c --watch -w & http-server ./examples",
     "test": "jest --runInBand --no-cache --config ./jest.config.js",
@@ -42,6 +42,7 @@
     "karma-safari-launcher": "^1.0.0",
     "lerna": "^3.22.1",
     "puppeteer": "^3.1.0",
+    "rimraf": "^3.0.2",
     "rollup": "^1.21.3",
     "rollup-plugin-terser": "^7.0.2",
     "ts-jest": "^24.2.0",
