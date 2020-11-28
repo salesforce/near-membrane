@@ -1,4 +1,4 @@
-import createSecureEnvironment from '../lib/browser-realm.js';
+import createSecureEnvironment from '@locker/dom-membrane';
 
 // patching the outer realm before extracting the descriptors
 window.originalFetch = fetch;
