@@ -1,4 +1,4 @@
-import createSecureEnvironment from '../node-realm';
+import createSecureEnvironment from '@locker/node-membrane';
 
 function throwNewError(Ctor, msg) {
     throw new Ctor(msg);
