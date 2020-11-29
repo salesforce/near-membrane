@@ -1,4 +1,4 @@
-import createSecureEnvironment from '../../lib/browser-realm.js';
+import createSecureEnvironment from '@locker/dom-membrane';
 
 describe('document.all', () => {
     it('should preserve the typeof it since it is a common test for older browsers', function() {

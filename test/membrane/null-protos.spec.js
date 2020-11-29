@@ -1,4 +1,4 @@
-import createSecureEnvironment from '../../lib/browser-realm.js';
+import createSecureEnvironment from '@locker/dom-membrane';
 
 const bar = Object.create(null, {
     x: { value: 1 },
