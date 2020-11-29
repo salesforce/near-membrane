@@ -2,11 +2,20 @@
     "name": "@locker/near-membrane",
     "version": "0.4.0",
     "license": "MIT",
+    "author": "Caridy Patiño <caridy@gmail.com>",
+    "description": "JavaScript Near Membrane Library to create a sandboxed environment",
     "module": "lib/index.js",
     "types": "types/index.d.ts",
     "scripts": {
         "clean": "rimraf lib types",
         "build:types": "tsc --project tsconfig.types.json",
         "build": "yarn build:types && rollup -c"
+    },
+    "files": [
+        "lib/",
+        "types/"
+    ],
+    "publishConfig": {
+        "access": "public"
     }
 }
