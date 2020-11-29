@@ -1,4 +1,4 @@
-import createSecureEnvironment from '../../lib/browser-realm.js'
+import createSecureEnvironment from '@locker/dom-membrane'
 
 it('[red] non-error objects thrown in red functions', () => {
     const evalScript = createSecureEnvironment({ endowments: { expect }})

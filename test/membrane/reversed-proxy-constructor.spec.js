@@ -1,4 +1,4 @@
-import createSecureEnvironment from "../../lib/browser-realm.js";
+import createSecureEnvironment from "@locker/dom-membrane";
 
 describe("Reversed Proxy constructor", () => {
     it("can be constructed", () => {

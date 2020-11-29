@@ -1,4 +1,4 @@
-import createSecureEnvironment from '../../lib/browser-realm.js';
+import createSecureEnvironment from '@locker/dom-membrane';
 
 describe('membrane', () => {
     it('should prevent attacks that are changing the prototype for impersonation', function() {
