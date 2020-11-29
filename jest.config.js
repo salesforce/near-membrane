@@ -1,13 +1,13 @@
 module.exports = {
     "roots": [
-      "<rootDir>/src"
+      "<rootDir>/packages/node-membrane/src"
     ],
-    "transform": {
-      "^.+\\.tsx?$": "ts-jest"
-    },
-    globals: {
-      'ts-jest': {
-        diagnostics: false
-      }
-    }
+    // "transform": {
+    //   "^.+\\.tsx?$": "ts-jest"
+    // },
+    // globals: {
+    //   'ts-jest': {
+    //     diagnostics: false
+    //   }
+    // }
 }
