@@ -57,17 +57,17 @@
   },
   "bundlesize": [
     {
-      "path": "lib/index.min.js",
+      "path": "packages/near-membrane/lib/near-membrane.min.js",
       "maxSize": "10 kB",
       "compression": "none"
     },
     {
-      "path": "lib/browser-realm.min.js",
+      "path": "packages/dom-membrane/lib/index.min.js",
       "maxSize": "13 kB",
       "compression": "none"
     },
     {
-      "path": "lib/node-realm.min.js",
+      "path": "packages/node-membrane/lib/index.min.js",
       "maxSize": "11 kB",
       "compression": "none"
     }
