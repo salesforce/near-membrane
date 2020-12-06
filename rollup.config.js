@@ -1,7 +1,7 @@
 import typescript from '@rollup/plugin-typescript'
 import { terser } from 'rollup-plugin-terser'
 
-export function rollupConfig(input, filePrefix, external = []) {
+export function rollupConfig({ input = 'src/index.ts', filePrefix = 'index', external = [] } = {}) {
     return {
         input,
         output: [{
