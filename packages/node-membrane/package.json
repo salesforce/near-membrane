@@ -8,8 +8,7 @@
     "types": "types/index.d.ts",
     "scripts": {
         "clean": "rimraf lib types",
-        "build:types": "tsc --project tsconfig.types.json",
-        "build": "yarn build:types && rollup -c"
+        "build": "tsc --project tsconfig.types.json && rollup -c"
     },
     "files": [
         "lib/",

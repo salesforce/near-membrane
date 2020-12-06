@@ -15,7 +15,7 @@ export function rollupConfig(input, filePrefix, external = []) {
             sourcemap: true,
             plugins: [terser()]
         }],
-        plugins: [typescript({ tsconfig: "tsconfig.rollup.json" })],
+        plugins: [typescript()],
         external
     };
 };
