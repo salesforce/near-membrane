@@ -1,4 +1,4 @@
-const resolve = require('@rollup/plugin-node-resolve').default;
+const { nodeResolve } = require('@rollup/plugin-node-resolve');
 
 process.env.CHROME_BIN = require('puppeteer').executablePath();
 
@@ -25,7 +25,7 @@ module.exports = function(config) {
         sourcemap: 'inline',
       },
       plugins: [
-        resolve(),
+        nodeResolve(),
       ],
     },
   });
