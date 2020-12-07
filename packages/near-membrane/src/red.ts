@@ -594,12 +594,14 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         // resetting all traps except apply and construct for static proxies since the
         // proxy target is the shadow target and all operations are going to be applied
         // to it rather than the real target.
-        delete proxyHandler.getOwnPropertyDescriptor;
-        delete proxyHandler.getPrototypeOf;
-        delete proxyHandler.get;
-        delete proxyHandler.has;
-        delete proxyHandler.ownKeys;
-        delete proxyHandler.isExtensible;
+        // https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-0.html#operands-for-delete-must-be-optional
+        const anyProxyHandle = proxyHandler as any; // TODO: bypass error TS2790, is this good way?
+        delete anyProxyHandle.getOwnPropertyDescriptor;
+        delete anyProxyHandle.getPrototypeOf;
+        delete anyProxyHandle.get;
+        delete anyProxyHandle.has;
+        delete anyProxyHandle.ownKeys;
+        delete anyProxyHandle.isExtensible;
         // those used by pending traps needs to exist so the pending trap can call them
         proxyHandler.set = ReflectSet;
         proxyHandler.defineProperty = ReflectDefineProperty;
