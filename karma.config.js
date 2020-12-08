@@ -2,9 +2,19 @@ const { nodeResolve } = require('@rollup/plugin-node-resolve');
 
 process.env.CHROME_BIN = require('puppeteer').executablePath();
 
+let testFiles = '';
+const matchArg = process.argv.indexOf('--match');
+if (matchArg > -1) {
+  testFiles = process.argv[matchArg + 1] || '';
+}
+if (!testFiles) {
+  testFiles = 'test/**/*.spec.js';
+}
+console.log(`Testing files matching "${testFiles}"`);
+
 module.exports = function(config) {
   config.set({
-    files: [{ pattern: 'test/**/*.spec.js', watched: true, type: 'module' }],
+    files: [{ pattern: testFiles, watched: true, type: 'module' }],
 
     browsers: ['ChromeHeadless'],
 
