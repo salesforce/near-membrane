@@ -49,6 +49,7 @@ export interface MarshalHooks {
     construct(target: BlueConstructor, argumentsList: ArrayLike<BlueValue>, newTarget?: any): BlueValue;
 }
 
+// istanbul ignore next
 export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: MembraneBroker, hooks: MarshalHooks) {
     const LockerLiveValueMarkerSymbol = Symbol.for('@@lockerLiveValue');
     const { blueMap, distortionMap } = blueEnv;
