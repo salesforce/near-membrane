@@ -1,93 +1,80 @@
+const {
+    __lookupGetter__: ObjectProto__lookupGetter__,
+    hasOwnProperty: ObjectProtoHasOwnProperty,
+} = Object.prototype as any;
+
+const { test: RegExpProtoTest } = RegExp.prototype;
+const { has: SetProtoHas } = Set.prototype;
+
+const {
+    get: WeakMapProtoGet,
+    has: WeakMapProtoHas,
+    set: WeakMapProtoSet,
+} = WeakMap.prototype;
+
+export const ArrayCtor = Array;
+export const ErrorCtor = Error;
+export const SetCtor = Set;
+export const WeakMapCtor = WeakMap;
+
 export const { isArray: ArrayIsArray } = Array;
 
 export const {
-    assign,
+    assign: ObjectAssign,
     create: ObjectCreate,
-    defineProperty: ObjectDefineProperty,
     defineProperties: ObjectDefineProperties,
-    getOwnPropertyDescriptors,
-    freeze,
-    seal,
-    isSealed,
-    isFrozen,
+    defineProperty: ObjectDefineProperty,
+    freeze: ObjectFreeze,
+    getOwnPropertyDescriptors: ObjectGetOwnPropertyDescriptors,
 } = Object;
 
+export const { revocable: ProxyRevocable } = Proxy;
+
 export const {
-    apply,
-    construct,
+    apply: ReflectApply,
+    construct: ReflectConstruct,
     getPrototypeOf: ReflectGetPrototypeOf,
     setPrototypeOf: ReflectSetPrototypeOf,
     defineProperty: ReflectDefineProperty,
     isExtensible: ReflectIsExtensible,
     getOwnPropertyDescriptor: ReflectGetOwnPropertyDescriptor,
-    ownKeys,
+    ownKeys: ReflectOwnKeys,
     preventExtensions: ReflectPreventExtensions,
-    deleteProperty,
+    deleteProperty: ReflectDeleteProperty,
     has: ReflectHas,
     get: ReflectGet,
     set: ReflectSet,
 } = Reflect;
 
-const ErrorCreate = unconstruct(Error);
-const ProxyRevocable = Proxy.revocable;
-const RegExpTest = unapply(RegExp.prototype.test);
-const SetCreate = unconstruct(Set);
-const SetHas = unapply(Set.prototype.has);
-const WeakMapCreate = unconstruct(WeakMap);
-const WeakMapGet = unapply(WeakMap.prototype.get);
-const WeakMapHas = unapply(WeakMap.prototype.has);
-const WeakMapSet = unapply(WeakMap.prototype.set);
-const hasOwnProperty = unapply(Object.prototype.hasOwnProperty);
-const map = unapply(Array.prototype.map);
-
-export {
-    ErrorCreate,
-    ProxyRevocable,
-    RegExpTest,
-    SetCreate,
-    SetHas,
-    WeakMapCreate,
-    WeakMapGet,
-    WeakMapHas,
-    WeakMapSet,
-    hasOwnProperty,
-    map,
-};
-
-export function unapply(func: Function): Function {
-    return (thisArg: any, ...args: any[]) => apply(func, thisArg, args);
+export function ObjectHasOwnProperty(obj: object | undefined, key: PropertyKey): boolean {
+    return obj !== null && obj !== undefined && ReflectApply(ObjectProtoHasOwnProperty, obj, [key]);
 }
 
-export function unconstruct(func: Function): Function {
-    return (...args: any[]) => construct(func, args);
+export function ObjectLookupOwnGetter(obj: object, key: PropertyKey): Function | undefined {
+    if (obj === null || obj === undefined || !ReflectApply(ObjectProtoHasOwnProperty, obj, [key])) {
+        return undefined;
+    }
+    return ReflectApply(ObjectProto__lookupGetter__, obj, [key]);
 }
 
-export function isUndefined(obj: any): obj is undefined {
-    return obj === undefined;
+export function RegExpTest(regexp: RegExp, str: string): boolean {
+  return ReflectApply(RegExpProtoTest, regexp, [str]);
 }
 
-export function isNull(obj: any): obj is null {
-    return obj === null;
+export function SetHas(set: Set<any>, key: any): boolean {
+    return ReflectApply(SetProtoHas, set, [key]);
 }
 
-export function isNullOrUndefined(obj: any): obj is (null | undefined) {
-    return isNull(obj) || isUndefined(obj);
+export function WeakMapGet(map: WeakMap<object, object>, key: object): object | undefined {
+    return ReflectApply(WeakMapProtoGet, map, [key]);
 }
 
-export function isTrue(obj: any): obj is true {
-    return obj === true;
+export function WeakMapHas(map: WeakMap<object, object>, key: object): boolean {
+    return ReflectApply(WeakMapProtoHas, map, [key]);
 }
 
-export function isFunction(obj: any): obj is Function {
-    return typeof obj === 'function';
-}
-
-export function isObject(obj: any): boolean {
-    return typeof obj === 'object' && obj !== null;
-}
-
-export function isObjectLike(obj: any): boolean {
-    return isObject(obj) || isFunction(obj);
+export function WeakMapSet(map: WeakMap<object, object>, key: object, value: object): WeakMap<object, object> {
+    return ReflectApply(WeakMapProtoSet, map, [key, value]);
 }
 
 export const emptyArray: [] = [];
