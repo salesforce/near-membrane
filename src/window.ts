@@ -1,14 +1,13 @@
 import { SecureEnvironment } from "./environment";
 import {
+    ObjectAssign,
+    ObjectCreate,
+    ObjectGetOwnPropertyDescriptors,
     ReflectGetPrototypeOf,
     ReflectSetPrototypeOf,
-    getOwnPropertyDescriptors,
-    WeakMapCreate,
-    isUndefined,
-    ObjectCreate,
+    ReflectOwnKeys,
+    WeakMapCtor,
     WeakMapGet,
-    assign,
-    ownKeys,
     WeakMapSet,
 } from "./shared";
 import { isIntrinsicGlobalName } from "./intrinsics";
@@ -16,7 +15,7 @@ import { isIntrinsicGlobalName } from "./intrinsics";
 /**
  * - Unforgeable object and prototype references
  */
-interface BaseReferencesRecord {
+interface BaseReferencesRecord extends Object {
     window: WindowProxy;
     document: Document;
     WindowProto: object;
@@ -45,7 +44,7 @@ interface RedReferencesRecord extends BaseReferencesRecord {
     WindowPropertiesProtoOwnKeys: PropertyKey[];
 };
 
-const cachedBlueGlobalMap: WeakMap<typeof globalThis, CachedBlueReferencesRecord> = WeakMapCreate();
+const cachedBlueGlobalMap: WeakMap<typeof globalThis, CachedBlueReferencesRecord> = new WeakMapCtor();
 
 export function getBaseReferences(window: Window & typeof globalThis): BaseReferencesRecord {
     const record = ObjectCreate(null) as BaseReferencesRecord;
@@ -62,15 +61,15 @@ export function getBaseReferences(window: Window & typeof globalThis): BaseRefer
 }
 
 export function getCachedBlueReferences(window: Window & typeof globalThis): CachedBlueReferencesRecord {
-    let record: CachedBlueReferencesRecord | undefined = WeakMapGet(cachedBlueGlobalMap, window);
-    if (!isUndefined(record)) {
+    let record = WeakMapGet(cachedBlueGlobalMap, window) as CachedBlueReferencesRecord | undefined;
+    if (record !== undefined) {
         return record;
     }
     record = getBaseReferences(window) as CachedBlueReferencesRecord;
     // caching the record
     WeakMapSet(cachedBlueGlobalMap, window, record);
     // caching descriptors
-    record.windowDescriptors = getOwnPropertyDescriptors(record.window);
+    record.windowDescriptors = ObjectGetOwnPropertyDescriptors(record.window);
     // intentionally avoiding remapping any Window.prototype descriptor,
     // there is nothing in this prototype that needs to be remapped.
     record.WindowProtoDescriptors = ObjectCreate(null);
@@ -79,7 +78,7 @@ export function getCachedBlueReferences(window: Window & typeof globalThis): Cac
     // and co, based on their id attribute. These cannot, and should not, be
     // remapped. Additionally, constructor is not relevant, and can't be used for anything.
     record.WindowPropertiesProtoDescriptors = ObjectCreate(null);
-    record.EventTargetProtoDescriptors = getOwnPropertyDescriptors(record.EventTargetProto);
+    record.EventTargetProtoDescriptors = ObjectGetOwnPropertyDescriptors(record.EventTargetProto);
 
     return record;
 }
@@ -87,7 +86,7 @@ export function getCachedBlueReferences(window: Window & typeof globalThis): Cac
 export function getRedReferences(window: Window & typeof globalThis): RedReferencesRecord {
     const record = getBaseReferences(window) as RedReferencesRecord;
     // caching descriptors
-    record.windowOwnKeys = ownKeys(record.window);
+    record.windowOwnKeys = ReflectOwnKeys(record.window);
     // intentionally avoiding remapping any WindowProperties.prototype descriptor
     // because this object contains magical properties for HTMLObjectElement instances
     // and co, based on their id attribute. These cannot, and should not, be
@@ -149,7 +148,7 @@ function aggregateWindowDescriptors(
     // endowments descriptors will overrule any default descriptor inferred
     // from the detached iframe. note that they are already filtered, not need
     // to check against intrinsics again.
-    assign(to, endowmentsDescriptors);
+    ObjectAssign(to, endowmentsDescriptors);
 
     // removing unforgeable descriptors that cannot be installed
     delete to.location;

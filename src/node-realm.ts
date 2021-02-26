@@ -1,8 +1,8 @@
-import { SecureEnvironment } from "./environment";
-import { EnvironmentOptions } from "./types";
+import { SecureEnvironment } from './environment';
+import { EnvironmentOptions } from './types';
 import { runInNewContext } from 'vm';
-import { getFilteredEndowmentDescriptors, linkIntrinsics } from "./intrinsics";
-import { ObjectCreate } from "./shared";
+import { getFilteredEndowmentDescriptors, linkIntrinsics } from './intrinsics';
+import { ObjectCreate } from './shared';
 
 // note: in a node module, the top-level 'this' is not the global object
 // (it's *something* but we aren't sure what), however an indirect eval of

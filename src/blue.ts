@@ -1,44 +1,38 @@
 import {
-    apply,
-    assign,
-    construct,
-    ReflectSetPrototypeOf,
-    freeze,
-    getOwnPropertyDescriptors,
-    isFunction,
+    ArrayCtor,
     ObjectCreate,
-    isUndefined,
-    ReflectGetOwnPropertyDescriptor,
+    ObjectDefineProperties,
+    ObjectFreeze,
+    ObjectGetOwnPropertyDescriptors,
+    ObjectHasOwnProperty,
+    ReflectApply,
+    ReflectConstruct,
     ReflectDefineProperty,
+    ReflectDeleteProperty,
+    ReflectGetOwnPropertyDescriptor,
     ReflectGetPrototypeOf,
     ReflectGet,
-    ReflectSet,
     ReflectHas,
-    map,
-    isNull,
-    isNullOrUndefined,
-    unconstruct,
-    ownKeys,
     ReflectIsExtensible,
+    ReflectOwnKeys,
     ReflectPreventExtensions,
-    deleteProperty,
-    hasOwnProperty,
+    ReflectSet,
+    ReflectSetPrototypeOf,
     emptyArray,
-    ObjectDefineProperties,
 } from './shared';
 import {
-    BlueProxyTarget,
-    BlueValue,
+    BlueArray,
+    BlueFunction,
     BlueObject,
+    BlueProxy,
+    BlueProxyTarget,
+    BlueShadowTarget,
+    BlueValue,
+    MembraneBroker,
+    RedArray,
     RedConstructor,
     RedFunction,
-    BlueShadowTarget,
-    BlueProxy,
-    BlueFunction,
-    RedArray,
-    BlueArray,
     RedValue,
-    MembraneBroker,
 } from './types';
 
 function renameFunction(provider: RedFunction, receiver: BlueFunction) {
@@ -53,12 +47,12 @@ function renameFunction(provider: RedFunction, receiver: BlueFunction) {
     }
 }
 
-const ProxyCreate = unconstruct(Proxy);
+const ProxyCtor = Proxy;
 const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
 
 function createBlueShadowTarget(target: BlueProxyTarget): BlueShadowTarget {
     let shadowTarget;
-    if (isFunction(target)) {
+    if (typeof target === 'function') {
         // this new shadow target function is never invoked just needed to anchor the realm
         try {
             shadowTarget = 'prototype' in target ? function () {} : () => {};
@@ -83,57 +77,20 @@ function createBlueShadowTarget(target: BlueProxyTarget): BlueShadowTarget {
 }
 
 export function blueProxyFactory(env: MembraneBroker) {
-
-    function getBlueDescriptor(redDesc: PropertyDescriptor): PropertyDescriptor {
-        const blueDesc = assign(ObjectCreate(null), redDesc);
-        const { value, get, set } = blueDesc;
-        if ('writable' in blueDesc) {
-            // we are dealing with a value descriptor
-            blueDesc.value = isFunction(value) ?
-                // we are dealing with a method (optimization)
-                getBlueFunction(value) : getBlueValue(value);
-        } else {
-            // we are dealing with accessors
-            if (isFunction(set)) {
-                blueDesc.set = getBlueFunction(set);
-            }
-            if (isFunction(get)) {
-                blueDesc.get = getBlueFunction(get);
-            }
-        }
-        return blueDesc;
-    }
-
-    function getRedPartialDescriptor(bluePartialDesc: PropertyDescriptor): PropertyDescriptor {
-        const redPartialDesc = assign(ObjectCreate(null), bluePartialDesc);
-        if ('value' in redPartialDesc) {
-            // we are dealing with a value descriptor
-            redPartialDesc.value = env.getRedValue(redPartialDesc.value);
-        }
-        if ('set' in redPartialDesc) {
-            // we are dealing with accessors
-            redPartialDesc.set = env.getRedValue(redPartialDesc.set);
-        }
-        if ('get' in redPartialDesc) {
-            redPartialDesc.get = env.getRedValue(redPartialDesc.get);
-        }
-        return redPartialDesc;
-    }
-
     function copyRedDescriptorIntoShadowTarget(shadowTarget: BlueShadowTarget, originalTarget: BlueProxyTarget, key: PropertyKey) {
         // Note: a property might get defined multiple times in the shadowTarget
         //       but it will always be compatible with the previous descriptor
         //       to preserve the object invariants, which makes these lines safe.
         const normalizedRedDescriptor = ReflectGetOwnPropertyDescriptor(originalTarget, key);
-        if (!isUndefined(normalizedRedDescriptor)) {
+        if (normalizedRedDescriptor !== undefined) {
             const blueDesc = getBlueDescriptor(normalizedRedDescriptor);
             ReflectDefineProperty(shadowTarget, key, blueDesc);
         }
     }
 
     function copyRedDescriptorsIntoShadowTarget(shadowTarget: BlueShadowTarget, originalTarget: BlueProxyTarget) {
-        const normalizedRedDescriptors = getOwnPropertyDescriptors(originalTarget);
-        const targetKeys = ownKeys(normalizedRedDescriptors);
+        const normalizedRedDescriptors = ObjectGetOwnPropertyDescriptors(originalTarget);
+        const targetKeys = ReflectOwnKeys(normalizedRedDescriptors);
         const blueDescriptors = ObjectCreate(null);
         for (let i = 0, len = targetKeys.length; i < len; i += 1) {
             const key = targetKeys[i] as string;
@@ -145,16 +102,100 @@ export function blueProxyFactory(env: MembraneBroker) {
         ObjectDefineProperties(shadowTarget, blueDescriptors);
     }
 
+    function createBlueProxy(red: BlueProxyTarget): BlueProxy {
+        const shadowTarget = createBlueShadowTarget(red);
+        const proxyHandler = new BlueDynamicProxyHandler(red);
+        const proxy = new ProxyCtor(shadowTarget, proxyHandler as ProxyHandler<object>);
+        env.setRefMapEntries(red, proxy);
+        return proxy;
+    }
+
+    function getBlueDescriptor(redDescriptor: PropertyDescriptor): PropertyDescriptor {
+        const blueDescriptor = ObjectCreate(null);
+        blueDescriptor.configurable = redDescriptor.configurable;
+        blueDescriptor.enumerable = redDescriptor.enumerable;
+        if (ObjectHasOwnProperty(redDescriptor, 'writable')) {
+            // We are dealing with a value descriptor.
+            blueDescriptor.value = getBlueValue(redDescriptor.value);
+            blueDescriptor.writable = redDescriptor.writable;
+        } else {
+            // We are dealing with accessors.
+            const { get: redGet, set: redSet } = blueDescriptor;
+            if (typeof redGet === 'function') {
+                blueDescriptor.get = getBlueValue(redGet);
+            }
+            if (typeof redSet === 'function') {
+                blueDescriptor.set = getBlueValue(redSet);
+            }
+        }
+        return blueDescriptor;
+    }
+
+    function getBlueFunction(redFn: RedFunction): BlueFunction {
+        const blueFn = env.getBlueRef(redFn);
+        if (blueFn === undefined) {
+            return createBlueProxy(redFn) as BlueFunction;
+        }
+        return blueFn as RedFunction;
+    }
+
+    function getBlueValue<T>(red: T): T {
+        if (red === null || red === undefined) {
+            return red as BlueValue;
+        }
+        if (typeof red === 'function') {
+            return (getBlueFunction((red as unknown) as RedFunction) as unknown) as T;
+        } else if (typeof red === 'object') {
+            // arrays and objects
+            const blue = env.getBlueRef(red);
+            if (blue === undefined) {
+                return (createBlueProxy((red as unknown) as BlueProxyTarget) as unknown) as T;
+            }
+            return blue;
+        }
+        // internationally ignoring the case of (typeof document.all === 'undefined') because
+        // in the reserve membrane, you never get one of those exotic objects
+        return red as BlueValue;
+    }
+
+    function getRedPartialDescriptor(bluePartialDesc: PropertyDescriptor): PropertyDescriptor {
+        const redPartialDesc = ObjectCreate(null);
+        redPartialDesc.configurable = bluePartialDesc.configurable;
+        redPartialDesc.enumerable = bluePartialDesc.enumerable;
+        if (ObjectHasOwnProperty(bluePartialDesc, 'writable')) {
+            // We are dealing with a value descriptor.
+            redPartialDesc.value = env.getRedValue(bluePartialDesc.value);
+            redPartialDesc.writable = bluePartialDesc.writable;
+        } else {
+            // We are dealing with accessors.
+            const { get: blueGet, set: blueSet } = bluePartialDesc;
+            if (typeof blueGet === 'function') {
+                redPartialDesc.get = env.getRedValue(blueGet);
+            }
+            if (typeof blueSet === 'function') {
+                redPartialDesc.set = env.getRedValue(blueSet);
+            }
+        }
+        return redPartialDesc;
+    }
+
+    function getStaticRedArray(blueArray: BlueArray): RedArray {
+        const { length } = blueArray;
+        const staticRedArray = new ArrayCtor(length);
+        for (let i = 0; i < length; i += 1) {
+            if (i in blueArray) {
+                staticRedArray[i] = env.getRedValue(blueArray[i]);
+            }
+        }
+        return staticRedArray;
+    }
+
     function lockShadowTarget(shadowTarget: BlueShadowTarget, originalTarget: BlueProxyTarget) {
         copyRedDescriptorsIntoShadowTarget(shadowTarget, originalTarget);
         // setting up __proto__ of the shadowTarget
         ReflectSetPrototypeOf(shadowTarget, getBlueValue(ReflectGetPrototypeOf(originalTarget)));
         // locking down the extensibility of shadowTarget
         ReflectPreventExtensions(shadowTarget);
-    }
-
-    function getStaticRedArray(blueArray: BlueArray): RedArray {
-        return map(blueArray, env.getRedValue);
     }
 
     class BlueDynamicProxyHandler implements ProxyHandler<BlueProxyTarget> {
@@ -164,10 +205,7 @@ export function blueProxyFactory(env: MembraneBroker) {
         constructor(target: BlueProxyTarget) {
             this.target = target;
             // future optimization: hoping that proxies with frozen handlers can be faster
-            freeze(this);
-        }
-        deleteProperty(shadowTarget: BlueShadowTarget, key: PropertyKey): boolean {
-            return deleteProperty(this.target, key);
+            ObjectFreeze(this);
         }
         apply(shadowTarget: BlueShadowTarget, blueThisArg: BlueValue, blueArgArray: BlueValue[]): BlueValue {
             const { target } = this;
@@ -175,7 +213,7 @@ export function blueProxyFactory(env: MembraneBroker) {
             const redArgArray = getStaticRedArray(blueArgArray);
             let red;
             try {
-                red = apply(target as RedFunction, redThisArg, redArgArray);
+                red = ReflectApply(target as RedFunction, redThisArg, redArgArray);
             } catch (e) {
                 throw env.getBlueValue(e);
             }
@@ -183,18 +221,32 @@ export function blueProxyFactory(env: MembraneBroker) {
         }
         construct(shadowTarget: BlueShadowTarget, blueArgArray: BlueValue[], blueNewTarget: BlueObject): BlueValue {
             const { target: RedCtor } = this;
-            if (isUndefined(blueNewTarget)) {
-                throw TypeError();
+            if (blueNewTarget === undefined) {
+                throw new TypeError();
             }
             const redNewTarget = env.getRedValue(blueNewTarget);
             const redArgArray = getStaticRedArray(blueArgArray);
             let red;
             try {
-                red = construct(RedCtor as RedConstructor, redArgArray, redNewTarget);
+                red = ReflectConstruct(RedCtor as RedConstructor, redArgArray, redNewTarget);
             } catch (e) {
                 throw env.getBlueValue(e);
             }
             return env.getBlueValue(red);
+        }
+        defineProperty(shadowTarget: BlueShadowTarget, key: PropertyKey, bluePartialDesc: PropertyDescriptor): boolean {
+            const { target } = this;
+            const redDesc = getRedPartialDescriptor(bluePartialDesc);
+            if (ReflectDefineProperty(target, key, redDesc)) {
+                // intentionally testing against true since it could be undefined as well
+                if (redDesc.configurable === false) {
+                    copyRedDescriptorIntoShadowTarget(shadowTarget, target, key);
+                }
+            }
+            return true;
+        }
+        deleteProperty(shadowTarget: BlueShadowTarget, key: PropertyKey): boolean {
+            return ReflectDeleteProperty(this.target, key);
         }
         /**
          * This trap cannot just use `Reflect.get` directly on the `target` because
@@ -215,51 +267,38 @@ export function blueProxyFactory(env: MembraneBroker) {
              */
             const { target } = this;
             const redDescriptor = ReflectGetOwnPropertyDescriptor(target, key);
-            if (isUndefined(redDescriptor)) {
+            if (redDescriptor === undefined) {
                 // looking in the blue proto chain to avoid switching sides
                 const blueProto = getBlueValue(ReflectGetPrototypeOf(target));
-                if (isNull(blueProto)) {
+                if (blueProto === null) {
                     return undefined;
                 }
                 return ReflectGet(blueProto, key, receiver);
             }
-            if (hasOwnProperty(redDescriptor, 'get')) {
+            if (ObjectHasOwnProperty(redDescriptor, 'get')) {
                 // Knowing that it is an own getter, we can't still not use Reflect.get
                 // because there might be a distortion for such getter, and from the blue
                 // side, we should not be subject to those distortions.
-                return apply(getBlueValue(redDescriptor.get!), receiver, emptyArray);
+                return ReflectApply(getBlueValue(redDescriptor.get!), receiver, emptyArray);
             }
             // if it is not an accessor property, is either a setter only accessor
             // or a data property, in which case we could return undefined or the blue value
             return getBlueValue(redDescriptor.value);
         }
-        /**
-         * This trap cannot just use `Reflect.set` directly on the `target` on the
-         * red side because the red object graph might have mutations that are only visible
-         * on the red side, which means looking into `target` directly is not viable.
-         * Instead, we need to implement a more crafty solution that looks into target's
-         * own properties, or in the blue proto chain when needed.
-         */
-        set(shadowTarget: BlueShadowTarget, key: PropertyKey, value: BlueValue, receiver: BlueObject): boolean {
+        getOwnPropertyDescriptor(shadowTarget: BlueShadowTarget, key: PropertyKey): PropertyDescriptor | undefined {
             const { target } = this;
-            const redDescriptor = ReflectGetOwnPropertyDescriptor(target, key);
-            if (isUndefined(redDescriptor)) {
-                // looking in the blue proto chain to avoid switching sides
-                const blueProto = getBlueValue(ReflectGetPrototypeOf(target));
-                if (!isNull(blueProto)) {
-                    return ReflectSet(blueProto, key, value, receiver);
-                }
-            } else if (hasOwnProperty(redDescriptor, 'set')) {
-                // even though the setter function exists, we can't use Reflect.set because there might be
-                // a distortion for that setter function, and from the blue side, we should not be subject
-                // to those distortions.
-                apply(getBlueValue(redDescriptor.set!), receiver, [value]);
-                return true; // if there is a callable setter, it either throw or we can assume the value was set
+            const redDesc = ReflectGetOwnPropertyDescriptor(target, key);
+            if (redDesc === undefined) {
+                return redDesc;
             }
-            // if it is not an accessor property, is either a getter only accessor
-            // or a data property, in which case we use Reflect.set to set the value,
-            // and no receiver is needed since it will simply set the data property or nothing
-            return ReflectSet(target, key, env.getRedValue(value));
+            if (redDesc.configurable === false) {
+                // updating the descriptor to non-configurable on the shadow
+                copyRedDescriptorIntoShadowTarget(shadowTarget, target, key);
+            }
+            return getBlueDescriptor(redDesc);
+        }
+        getPrototypeOf(shadowTarget: BlueShadowTarget): BlueValue {
+            return env.getBlueValue(ReflectGetPrototypeOf(this.target));
         }
         /**
          * This trap cannot just use `Reflect.has` or the `in` operator directly on the
@@ -270,15 +309,12 @@ export function blueProxyFactory(env: MembraneBroker) {
          */
         has(shadowTarget: BlueShadowTarget, key: PropertyKey): boolean {
             const { target } = this;
-            if (hasOwnProperty(target, key)) {
+            if (ObjectHasOwnProperty(target, key)) {
                 return true;
             }
             // looking in the blue proto chain to avoid switching sides
             const blueProto = getBlueValue(ReflectGetPrototypeOf(target));
-            return !isNull(blueProto) && ReflectHas(blueProto, key);
-        }
-        ownKeys(shadowTarget: BlueShadowTarget): PropertyKey[] {
-            return ownKeys(this.target);
+            return blueProto !== null && ReflectHas(blueProto, key);
         }
         isExtensible(shadowTarget: BlueShadowTarget): boolean {
             // optimization to avoid attempting to lock down the shadowTarget multiple times
@@ -292,23 +328,8 @@ export function blueProxyFactory(env: MembraneBroker) {
             }
             return true;
         }
-        getOwnPropertyDescriptor(shadowTarget: BlueShadowTarget, key: PropertyKey): PropertyDescriptor | undefined {
-            const { target } = this;
-            const redDesc = ReflectGetOwnPropertyDescriptor(target, key);
-            if (isUndefined(redDesc)) {
-                return redDesc;
-            }
-            if (redDesc.configurable === false) {
-                // updating the descriptor to non-configurable on the shadow
-                copyRedDescriptorIntoShadowTarget(shadowTarget, target, key);
-            }
-            return getBlueDescriptor(redDesc);
-        }
-        getPrototypeOf(shadowTarget: BlueShadowTarget): BlueValue {
-            return env.getBlueValue(ReflectGetPrototypeOf(this.target));
-        }
-        setPrototypeOf(shadowTarget: BlueShadowTarget, prototype: BlueValue): boolean {
-            return ReflectSetPrototypeOf(this.target, env.getRedValue(prototype));
+        ownKeys(shadowTarget: BlueShadowTarget): PropertyKey[] {
+            return ReflectOwnKeys(this.target);
         }
         preventExtensions(shadowTarget: BlueShadowTarget): boolean {
             const { target } = this;
@@ -326,57 +347,40 @@ export function blueProxyFactory(env: MembraneBroker) {
             }
             return true;
         }
-        defineProperty(shadowTarget: BlueShadowTarget, key: PropertyKey, bluePartialDesc: PropertyDescriptor): boolean {
+        /**
+         * This trap cannot just use `Reflect.set` directly on the `target` on the
+         * red side because the red object graph might have mutations that are only visible
+         * on the red side, which means looking into `target` directly is not viable.
+         * Instead, we need to implement a more crafty solution that looks into target's
+         * own properties, or in the blue proto chain when needed.
+         */
+        set(shadowTarget: BlueShadowTarget, key: PropertyKey, value: BlueValue, receiver: BlueObject): boolean {
             const { target } = this;
-            const redDesc = getRedPartialDescriptor(bluePartialDesc);
-            if (ReflectDefineProperty(target, key, redDesc)) {
-                // intentionally testing against true since it could be undefined as well
-                if (redDesc.configurable === false) {
-                    copyRedDescriptorIntoShadowTarget(shadowTarget, target, key);
+            const redDescriptor = ReflectGetOwnPropertyDescriptor(target, key);
+            if (redDescriptor === undefined) {
+                // looking in the blue proto chain to avoid switching sides
+                const blueProto = getBlueValue(ReflectGetPrototypeOf(target));
+                if (blueProto !== null) {
+                    return ReflectSet(blueProto, key, value, receiver);
                 }
+            } else if (ObjectHasOwnProperty(redDescriptor, 'set')) {
+                // even though the setter function exists, we can't use Reflect.set because there might be
+                // a distortion for that setter function, and from the blue side, we should not be subject
+                // to those distortions.
+                ReflectApply(getBlueValue(redDescriptor.set!), receiver, [value]);
+                return true; // if there is a callable setter, it either throw or we can assume the value was set
             }
-            return true;
+            // if it is not an accessor property, is either a getter only accessor
+            // or a data property, in which case we use Reflect.set to set the value,
+            // and no receiver is needed since it will simply set the data property or nothing
+            return ReflectSet(target, key, env.getRedValue(value));
+        }
+        setPrototypeOf(shadowTarget: BlueShadowTarget, prototype: BlueValue): boolean {
+            return ReflectSetPrototypeOf(this.target, env.getRedValue(prototype));
         }
     }
     ReflectSetPrototypeOf(BlueDynamicProxyHandler.prototype, null);
     // future optimization: hoping that proxies with frozen handlers can be faster
-    freeze(BlueDynamicProxyHandler.prototype);
-
-    function getBlueValue<T>(red: T): T {
-        if (isNullOrUndefined(red)) {
-            return red as BlueValue;
-        }
-        if (typeof red === 'function') {
-            return (getBlueFunction((red as unknown) as RedFunction) as unknown) as T;
-        } else if (typeof red === 'object') {
-            // arrays and objects
-            const blue = env.getBlueRef(red);
-            if (isUndefined(blue)) {
-                return (createBlueProxy((red as unknown) as BlueProxyTarget) as unknown) as T;
-            }
-            return blue;
-        }
-        // internationally ignoring the case of (typeof document.all === 'undefined') because
-        // in the reserve membrane, you never get one of those exotic objects
-        return red as BlueValue;
-    }
-
-    function getBlueFunction(redFn: RedFunction): BlueFunction {
-        const blueFn = env.getBlueRef(redFn);
-        if (isUndefined(blueFn)) {
-            return createBlueProxy(redFn) as BlueFunction;
-        }
-        return blueFn as RedFunction;
-    }
-
-    function createBlueProxy(red: BlueProxyTarget): BlueProxy {
-        const shadowTarget = createBlueShadowTarget(red);
-        const proxyHandler = new BlueDynamicProxyHandler(red);
-        const proxy = ProxyCreate(shadowTarget, proxyHandler);
-        env.setRefMapEntries(red, proxy);
-        return proxy;
-    }
-
+    ObjectFreeze(BlueDynamicProxyHandler.prototype);
     return getBlueValue;
-
 }

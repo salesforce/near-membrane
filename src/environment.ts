@@ -1,22 +1,19 @@
 import {
-    apply,
-    assign,
-    isUndefined,
+    ErrorCtor,
+    ObjectAssign,
     ObjectCreate,
-    isFunction,
-    emptyArray,
-    ErrorCreate,
     ObjectDefineProperties,
+    ReflectApply,
+    ReflectConstruct,
     ReflectGetOwnPropertyDescriptor,
+    ReflectOwnKeys,
     RegExpTest,
-    WeakMapCreate,
+    WeakMapCtor,
     WeakMapSet,
     WeakMapGet,
-    construct,
-    isTrue,
-    ownKeys,
+    emptyArray,
 } from './shared';
-import { serializedRedEnvSourceText, MarshalHooks } from './red';
+import { MarshalHooks, serializedRedEnvSourceText } from './red';
 import { blueProxyFactory } from './blue';
 import {
     RedObject,
@@ -47,22 +44,22 @@ interface SecureEnvironmentOptions {
 
 export class SecureEnvironment implements MembraneBroker {
     // map from red to blue references
-    redMap: WeakMap<RedFunction | RedObject, RedProxyTarget | BlueProxy> = WeakMapCreate();
+    redMap: WeakMap<RedFunction | RedObject, RedProxyTarget | BlueProxy> = new WeakMapCtor();
     // map from blue to red references
-    blueMap: WeakMap<BlueFunction | BlueObject, RedProxy | BlueProxyTarget> = WeakMapCreate();
+    blueMap: WeakMap<BlueFunction | BlueObject, RedProxy | BlueProxyTarget> = new WeakMapCtor();
     // blue object distortion map
     distortionMap: DistortionMap;
 
     constructor(options: SecureEnvironmentOptions) {
-        if (isUndefined(options)) {
-            throw ErrorCreate(`Missing SecureEnvironmentOptions options bag.`);
+        if (options === undefined) {
+            throw new ErrorCtor(`Missing SecureEnvironmentOptions options bag.`);
         }
         const { redGlobalThis, distortionMap } = options;
-        this.distortionMap = WeakMapCreate();
+        this.distortionMap = new WeakMapCtor();
         // validating distortion entries
         distortionMap?.forEach((value, key) => {
             if (typeof key !== typeof value) {
-                throw ErrorCreate(`Invalid distortion ${value}.`);
+                throw new ErrorCtor(`Invalid distortion ${value}.`);
             }
             WeakMapSet(this.distortionMap, key, value);
         });
@@ -76,10 +73,10 @@ export class SecureEnvironment implements MembraneBroker {
         // from another realm.
         const blueHooks: MarshalHooks = {
             apply(target: BlueFunction, thisArgument: BlueValue, argumentsList: ArrayLike<BlueValue>): BlueValue {
-                return apply(target, thisArgument, argumentsList);
+                return ReflectApply(target, thisArgument, argumentsList);
             },
             construct(target: BlueConstructor, argumentsList: ArrayLike<BlueValue>, newTarget?: any): BlueValue {
-                return construct(target, argumentsList, newTarget);
+                return ReflectConstruct(target, argumentsList, newTarget);
             },
         };
         this.getRedValue = redEnvFactory(this, blueHooks);
@@ -96,14 +93,14 @@ export class SecureEnvironment implements MembraneBroker {
 
     getBlueRef(red: RedValue): BlueValue | undefined {
         const blue: RedValue | undefined = WeakMapGet(this.redMap, red);
-        if (!isUndefined(blue)) {
+        if (blue !== undefined) {
             return blue;
         }
     }
 
     getRedRef(blue: BlueValue): RedValue | undefined {
         const red: RedValue | undefined = WeakMapGet(this.blueMap, blue);
-        if (!isUndefined(red)) {
+        if (red !== undefined) {
             return red;
         }
     }
@@ -116,12 +113,12 @@ export class SecureEnvironment implements MembraneBroker {
 
     remap(redValue: RedValue, blueValue: BlueValue, blueDescriptors: PropertyDescriptorMap) {
         const broker = this;
-        const keys = ownKeys(blueDescriptors);
+        const keys = ReflectOwnKeys(blueDescriptors);
         const redDescriptors = ObjectCreate(null);
         for (let i = 0, len = keys.length; i < len; i += 1) {
             const key = keys[i];
             // Skip index keys for magical descriptors of frames on the window proxy.
-            if (typeof key !== 'symbol' && RegExpTest(frameGlobalNamesRegExp, key)) {
+            if (typeof key !== 'symbol' && RegExpTest(frameGlobalNamesRegExp, key as string)) {
                 continue;
             }
             if (!canRedPropertyBeTamed(redValue, key)) {
@@ -130,8 +127,8 @@ export class SecureEnvironment implements MembraneBroker {
             }
             // Avoid poisoning by only installing own properties from blueDescriptors
             // @ts-expect-error because PropertyDescriptorMap does not accept symbols ATM.
-            const blueDescriptor = assign(ObjectCreate(null), blueDescriptors[key]);
-            const redDescriptor = assign(ObjectCreate(null), blueDescriptor);
+            const blueDescriptor = ObjectAssign(ObjectCreate(null), blueDescriptors[key]);
+            const redDescriptor = ObjectAssign(ObjectCreate(null), blueDescriptor);
             if ('value' in blueDescriptor) {
                 redDescriptor.value = broker.getRedValue(blueDescriptor.value);
             } else {
@@ -143,19 +140,19 @@ export class SecureEnvironment implements MembraneBroker {
                 // blue realm.
                 let currentBlueGetter: (this: RedValue) => RedValue = () => undefined;
 
-                if (isFunction(blueDescriptor.get)) {
+                if (typeof blueDescriptor.get === 'function') {
                     const { get: blueGetter } = blueDescriptor;
                     const blueDistortedGetter: () => BlueValue = WeakMapGet(this.distortionMap, blueGetter) || blueGetter;
                     currentBlueGetter = function() {
-                        const value: BlueValue = apply(blueDistortedGetter, broker.getBlueValue(this), emptyArray);
+                        const value: BlueValue = ReflectApply(blueDistortedGetter, broker.getBlueValue(this), emptyArray);
                         return broker.getRedValue(value);
                     };
                     redDescriptor.get = function(): RedValue {
-                        return apply(currentBlueGetter, this, emptyArray);
+                        return ReflectApply(currentBlueGetter, this, emptyArray);
                     };
                 }
 
-                if (isFunction(blueDescriptor.set)) {
+                if (typeof blueDescriptor.set === 'function') {
                     redDescriptor.set = function(v: RedValue): void {
                         // if a global setter is invoke, the value will be use as it is as the result of the getter operation
                         currentBlueGetter = () => v;
@@ -173,5 +170,5 @@ export class SecureEnvironment implements MembraneBroker {
 function canRedPropertyBeTamed(redValue: RedValue, key: PropertyKey): boolean {
     const redDescriptor = ReflectGetOwnPropertyDescriptor(redValue, key);
     // TODO: what about writable - non-configurable?
-    return isUndefined(redDescriptor) || isTrue(redDescriptor.configurable);
+    return redDescriptor === undefined || redDescriptor.configurable === true;
 }

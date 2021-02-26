@@ -1,21 +1,19 @@
 import {
-    isObjectLike,
-    isUndefined,
     ObjectCreate,
-    WeakMapCreate,
+    ReflectGetOwnPropertyDescriptor,
+    ReflectOwnKeys,
+    SetCtor,
+    SetHas,
+    WeakMapCtor,
     WeakMapSet,
     WeakMapGet,
-    SetCreate,
-    SetHas,
-    ownKeys,
-    getOwnPropertyDescriptors,
 } from './shared';
 import { SecureEnvironment } from './environment';
 
 // TODO: type this better based on ReflectiveIntrinsicObjectNames
 type ReflectiveIntrinsicsMap = Record<string, any>;
 
-const cachedReflectiveIntrinsicsMap: WeakMap<typeof globalThis, ReflectiveIntrinsicsMap> = WeakMapCreate();
+const cachedReflectiveIntrinsicsMap: WeakMap<typeof globalThis, ReflectiveIntrinsicsMap> = new WeakMapCtor();
 
 /**
  * This list must be in sync with ecma-262, anything new added to the global object
@@ -36,7 +34,7 @@ const cachedReflectiveIntrinsicsMap: WeakMap<typeof globalThis, ReflectiveIntrin
  * problematic, and requires a lot more work to guarantee that objects from both sides
  * can be considered equivalents (without identity discontinuity).
  */
-const ESGlobalKeys = SetCreate([
+const ESGlobalKeys = new SetCtor([
 
     // *** 18.1 Value Properties of the Global Object
     'Infinity',
@@ -126,7 +124,7 @@ const ReflectiveIntrinsicObjectNames = [
 
 function getReflectiveIntrinsics(global: typeof globalThis): ReflectiveIntrinsicsMap {
     let reflectiveIntrinsics: ReflectiveIntrinsicsMap | undefined = WeakMapGet(cachedReflectiveIntrinsicsMap, global);
-    if (!isUndefined(reflectiveIntrinsics)) {
+    if (reflectiveIntrinsics !== undefined) {
         return reflectiveIntrinsics;
     }
     reflectiveIntrinsics = ObjectCreate(null) as ReflectiveIntrinsicsMap;
@@ -152,9 +150,9 @@ export function linkIntrinsics(
         const blue = blueIntrinsics[name];
         const red = redIntrinsics[name];
         // new intrinsics might not be available in some browsers, e.g.: AggregateError
-        if (isObjectLike(blue)) {
+        if (blue) {
             env.setRefMapEntries(red, blue);
-            if (isObjectLike(blue.prototype)) {
+            if (blue.prototype) {
                 env.setRefMapEntries(red.prototype, blue.prototype);
             }
         }
@@ -163,8 +161,7 @@ export function linkIntrinsics(
 
 export function getFilteredEndowmentDescriptors(endowments: object): PropertyDescriptorMap {
     const to: PropertyDescriptorMap = ObjectCreate(null);
-    const endowmentsDescriptors = getOwnPropertyDescriptors(endowments);
-    const globalKeys = ownKeys(endowmentsDescriptors);
+    const globalKeys = ReflectOwnKeys(endowments);
     for (let i = 0, len = globalKeys.length; i < len; i++) {
         // forcing to string here because of TypeScript's PropertyDescriptorMap definition, which doesn't
         // support symbols as entries.
@@ -175,7 +172,7 @@ export function getFilteredEndowmentDescriptors(endowments: object): PropertyDes
         // TODO: what if the intent is to polyfill one of those
         // intrinsics?
         if (!SetHas(ESGlobalKeys, key)) {
-            to[key] = endowmentsDescriptors[key];
+            to[key] = ReflectGetOwnPropertyDescriptor(endowments, key)!;
         }
     }
     return to;

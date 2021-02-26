@@ -22,10 +22,10 @@ export interface RedConstructor {
 export interface TargetMeta {
     proto: null | RedProxyTarget | BlueProxyTarget;
     descriptors: PropertyDescriptorMap;
-    isFrozen?: true;
-    isSealed?: true;
-    isExtensible?: true;
-    isBroken?: true;
+    isFrozen?: boolean;
+    isSealed?: boolean;
+    isExtensible?: boolean;
+    isBroken?: boolean;
 }
 
 export type RedProxy = RedObject | RedFunction;
