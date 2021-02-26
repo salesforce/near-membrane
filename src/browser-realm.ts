@@ -1,24 +1,34 @@
-import { SecureEnvironment } from "./environment";
-import { EnvironmentOptions } from "./types";
-import { unapply, ReflectGetOwnPropertyDescriptor, ObjectCreate } from "./shared";
-import { linkIntrinsics, getFilteredEndowmentDescriptors } from "./intrinsics";
-import { getCachedBlueReferences, getRedReferences, linkUnforgeables, tameDOM } from "./window";
+import { SecureEnvironment } from './environment';
+import { EnvironmentOptions } from './types';
+import { ObjectCreate, ObjectLookupOwnGetter, ReflectApply, emptyArray } from './shared';
+import { linkIntrinsics, getFilteredEndowmentDescriptors } from './intrinsics';
+import { getCachedBlueReferences, getRedReferences, linkUnforgeables, tameDOM } from './window';
 
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
-const appendChildCall = unapply(Node.prototype.appendChild);
-const removeCall = unapply(Element.prototype.remove);
-const isConnectedGetterCall = unapply((ReflectGetOwnPropertyDescriptor(Node.prototype, 'isConnected') as any).get);
-const nodeLastChildGetterCall = unapply((ReflectGetOwnPropertyDescriptor(Node.prototype, 'lastChild') as any).get);
-const documentBodyGetterCall = unapply((ReflectGetOwnPropertyDescriptor(Document.prototype, 'body') as any).get);
-const createElementCall = unapply(document.createElement);
+
+const { createElement: DocumentCreateElement } = document;
+const { remove: ElementProtoRemove } = Element.prototype;
+const { appendChild: NodeProtoAppendChild } = Node.prototype;
+
+const DocumentProtoBodyGetter = ObjectLookupOwnGetter(Document.prototype, 'body')!;
+const NodeProtoIsConnectedGetter = ObjectLookupOwnGetter(Node.prototype, 'isConnected')!;
+const NodeProtoLastChildGetter = ObjectLookupOwnGetter(Node.prototype, 'lastChild')!;
+
+const DocumentBody = (doc: Document): HTMLBodyElement => ReflectApply(DocumentProtoBodyGetter, doc, emptyArray);
+const ElementRemove = (element: Element): Element => ReflectApply(ElementProtoRemove, element, emptyArray);
+const NodeAppendChild = (parent: Node, child: ChildNode): ChildNode => ReflectApply(NodeProtoAppendChild, parent, [child]);
+const NodeLastChild = (node: Node): ChildNode => ReflectApply(NodeProtoLastChildGetter, node, emptyArray);
+
+const createElement = (doc: Document, tagName: string): Element => ReflectApply(DocumentCreateElement, doc, [tagName]);
+const isConnected = (node: Node): boolean => ReflectApply(NodeProtoIsConnectedGetter, node, emptyArray);
 
 function createDetachableIframe(): HTMLIFrameElement {
     // @ts-ignore document global ref - in browsers
-    const iframe = createElementCall(document, 'iframe');
+    const iframe = createElement(document, 'iframe') as HTMLIFrameElement;
     iframe.setAttribute('sandbox', IFRAME_SANDBOX_ATTRIBUTE_VALUE);
     iframe.style.display = 'none';
-    const parent = documentBodyGetterCall(document) || nodeLastChildGetterCall(document);
-    appendChildCall(parent, iframe);
+    const parent = DocumentBody(document) || NodeLastChild(document);
+    NodeAppendChild(parent, iframe);
     return iframe;
 }
 
@@ -26,8 +36,8 @@ function removeIframe(iframe: HTMLIFrameElement) {
     // In Chrome debugger statements will be ignored when the iframe is removed
     // from the document. Other browsers like Firefox and Safari work as expected.
     // https://bugs.chromium.org/p/chromium/issues/detail?id=1015462
-    if (isConnectedGetterCall(iframe)) {
-        removeCall(iframe);
+    if (isConnected(iframe)) {
+        ElementRemove(iframe);
     }
 }
 
