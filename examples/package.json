@@ -1,0 +1,12 @@
+{
+    "name": "examples",
+    "version": "0.4.0-test.0",
+    "private": true,
+    "scripts": {
+        "clean": "rimraf */bundle.js",
+        "build": "rollup -c"
+    },
+    "dependencies": {
+        "@locker/dom-membrane": "0.4.0-test.0"
+    }
+}

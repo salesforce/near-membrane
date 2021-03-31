@@ -1,13 +1,9 @@
 module.exports = {
     "roots": [
-      "<rootDir>/src"
+      "<rootDir>/packages"
     ],
-    "transform": {
-      "^.+\\.tsx?$": "ts-jest"
-    },
-    globals: {
-      'ts-jest': {
-        diagnostics: false
-      }
+    "moduleNameMapper": {
+      "^@locker/near-membrane$": "<rootDir>/packages/near-membrane/src",
+      "^@locker/node-membrane$": "<rootDir>/packages/node-membrane/src",
     }
 }

@@ -1,4 +1,4 @@
-import createSecureEnvironment from '../../lib/browser-realm.js';
+import createSecureEnvironment from '@locker/dom-membrane';
 
 const LockerLiveValueMarkerSymbol = Symbol.for('@@lockerLiveValue');
 

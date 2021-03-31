@@ -1,17 +1,28 @@
 {
-  "name": "@locker/near-membrane",
-  "version": "0.4.0",
+  "name": "@salesforce/near-membrane",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "examples"
+  ],
   "description": "JavaScript Near Membrane Library to create a sandboxed environment",
   "module": "lib/index.js",
   "types": "types/index.js",
   "scripts": {
-    "build": "yarn build:types && rollup -c && yarn build:examples",
-    "build:types": "tsc --declaration true --emitDeclarationOnly true --declarationDir types",
-    "build:examples": "rollup -i examples/web-components/platform.js -o examples/web-components/bundle.js -f cjs",
-    "start": "rollup -c --watch -w & http-server ./examples",
+    "clean": "lerna run clean --stream",
+    "build": "lerna run build --stream",
+    "start": "http-server ./examples",
     "test": "jest --runInBand --no-cache --config ./jest.config.js",
     "test:bundlesize": "bundlesize",
-    "publish": "npm publish --access public",
+    "version": "yarn build",
+    "bump": "lerna version --exact --no-push --yes",
+    "bump:patch": "lerna version patch --exact --no-push --yes",
+    "bump:minor": "lerna version minor --exact --no-push --yes",
+    "bump:beta": "lerna version prerelease --preid beta --exact --no-push --yes",
+    "bump:test": "lerna version prerelease --preid test --exact --no-push --yes",
+    "push": "git push && git push --tags",
+    "npm:login": "npm login --registry https://registry.npmjs.org/",
+    "publish": "lerna publish from-package --ignore-scripts --yes --registry https://registry.npmjs.org/",
     "debug": "karma start karma.config.js --browsers Chrome",
     "karma": "karma start karma.config.js --single-run --browsers ChromeHeadless,FirefoxHeadless"
   },
@@ -22,44 +33,48 @@
   "author": "Caridy Patiño <caridy@gmail.com>",
   "license": "MIT",
   "devDependencies": {
-    "@rollup/plugin-typescript": "^6.0.0",
-    "@types/jest": "^24.0.23",
+    "@babel/plugin-transform-modules-commonjs": "^7.12.1",
+    "@babel/preset-typescript": "^7.12.7",
+    "@rollup/plugin-node-resolve": "^11.0.0",
+    "@rollup/plugin-typescript": "^8.0.0",
+    "@types/jest": "^26.0.0",
     "bundlesize": "^0.18.0",
     "chokidar": "^3.0.1",
-    "http-server": "^0.11.1",
-    "istanbul-api": "^2.0.6",
-    "jest": "^24.9.0",
-    "jsdom": "^15.2.1",
-    "karma": "^4.3.0",
+    "http-server": "^0.12.3",
+    "istanbul-api": "^3.0.0",
+    "jest": "^26.6.3",
+    "jsdom": "^16.4.0",
+    "karma": "^5.2.3",
     "karma-chrome-launcher": "^3.1.0",
     "karma-coverage": "^2.0.1",
-    "karma-firefox-launcher": "^1.3.0",
+    "karma-firefox-launcher": "^2.1.0",
     "karma-jasmine": "^2.0.1",
     "karma-rollup-preprocessor": "^7.0.2",
     "karma-safari-launcher": "^1.0.0",
-    "puppeteer": "^3.1.0",
-    "rollup": "^1.21.3",
+    "lerna": "^3.22.1",
+    "puppeteer": "^5.5.0",
+    "rimraf": "^3.0.2",
+    "rollup": "^2.34.2",
     "rollup-plugin-terser": "^7.0.2",
-    "ts-jest": "^24.2.0",
     "tslib": "^2.0.1",
-    "typescript": "^3.9.6"
+    "typescript": "^4.1.2"
   },
   "engines": {
     "node": ">=12"
   },
   "bundlesize": [
     {
-      "path": "lib/index.min.js",
+      "path": "packages/near-membrane/lib/near-membrane.min.js",
       "maxSize": "10 kB",
       "compression": "none"
     },
     {
-      "path": "lib/browser-realm.min.js",
+      "path": "packages/dom-membrane/lib/index.min.js",
       "maxSize": "13 kB",
       "compression": "none"
     },
     {
-      "path": "lib/node-realm.min.js",
+      "path": "packages/node-membrane/lib/index.min.js",
       "maxSize": "11 kB",
       "compression": "none"
     }

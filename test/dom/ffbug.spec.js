@@ -1,4 +1,4 @@
-import createSecureEnvironment from '../../lib/browser-realm.js';
+import createSecureEnvironment from '@locker/dom-membrane';
 
 describe('FF BugFix 543435', () => {
     it('should preserve the document reference in the next turn', function(done) {
