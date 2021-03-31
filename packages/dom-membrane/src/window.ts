@@ -52,10 +52,10 @@ export function getBaseReferences(window: Window & typeof globalThis): BaseRefer
     // window -> Window -> WindowProperties -> EventTarget
     record.window = window.window;
     record.document = window.document;
-    record.WindowProto = ReflectGetPrototypeOf(record.window);
-    record.WindowPropertiesProto = ReflectGetPrototypeOf(record.WindowProto);
-    record.EventTargetProto = ReflectGetPrototypeOf(record.WindowPropertiesProto);
-    record.DocumentProto = ReflectGetPrototypeOf(record.document);
+    record.WindowProto = ReflectGetPrototypeOf(record.window) as object;
+    record.WindowPropertiesProto = ReflectGetPrototypeOf(record.WindowProto) as object;
+    record.EventTargetProto = ReflectGetPrototypeOf(record.WindowPropertiesProto) as object;
+    record.DocumentProto = ReflectGetPrototypeOf(record.document) as object;
 
     return record;
 }
