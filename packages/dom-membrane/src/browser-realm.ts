@@ -1,6 +1,6 @@
 import { SecureEnvironment } from "@locker/near-membrane";
 import { EnvironmentOptions } from "@locker/near-membrane";
-import { unapply, ReflectGetOwnPropertyDescriptor, ObjectCreate } from "@locker/near-membrane";
+import { ReflectApply, ObjectCreate, ObjectLookupOwnGetter, emptyArray } from "@locker/near-membrane";
 import { linkIntrinsics, getFilteredEndowmentDescriptors } from "@locker/near-membrane";
 import { getCachedBlueReferences, getRedReferences, linkUnforgeables, tameDOM } from "./window";
 
