@@ -8,7 +8,7 @@ import {
     WeakMapSet,
     WeakMapGet,
 } from './shared';
-import { SecureEnvironment } from './environment';
+import { VirtualEnvironment } from './environment';
 
 // TODO: type this better based on ReflectiveIntrinsicObjectNames
 type ReflectiveIntrinsicsMap = Record<string, any>;
@@ -138,7 +138,7 @@ function getReflectiveIntrinsics(global: typeof globalThis): ReflectiveIntrinsic
 }
 
 export function linkIntrinsics(
-    env: SecureEnvironment,
+    env: VirtualEnvironment,
     blueGlobalThis: typeof globalThis,
     redGlobalThis: typeof globalThis
 ) {

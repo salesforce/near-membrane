@@ -33,7 +33,7 @@ import {
 
 const frameGlobalNamesRegExp = /^\d+$/;
 
-interface SecureEnvironmentOptions {
+interface VirtualEnvironmentOptions {
     // Blue global object used by the blue environment
     blueGlobalThis: BlueObject & typeof globalThis;
     // Red global object used by the red environment
@@ -42,7 +42,7 @@ interface SecureEnvironmentOptions {
     distortionMap?: Map<RedProxyTarget, RedProxyTarget>;
 }
 
-export class SecureEnvironment implements MembraneBroker {
+export class VirtualEnvironment implements MembraneBroker {
     // map from red to blue references
     redMap: WeakMap<RedFunction | RedObject, RedProxyTarget | BlueProxy> = new WeakMapCtor();
     // map from blue to red references
@@ -50,9 +50,9 @@ export class SecureEnvironment implements MembraneBroker {
     // blue object distortion map
     distortionMap: DistortionMap;
 
-    constructor(options: SecureEnvironmentOptions) {
+    constructor(options: VirtualEnvironmentOptions) {
         if (options === undefined) {
-            throw new ErrorCtor(`Missing SecureEnvironmentOptions options bag.`);
+            throw new ErrorCtor(`Missing VirtualEnvironmentOptions options bag.`);
         }
         const { redGlobalThis, distortionMap } = options;
         this.distortionMap = new WeakMapCtor();

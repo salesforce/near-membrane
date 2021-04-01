@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/near-membrane-dom';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 // outer element declaration
 class Base extends HTMLElement {}
@@ -6,7 +6,7 @@ customElements.define('x-base', Base);
 
 describe('Extending Custom Element', () => {
 
-    const evalScript = createSecureEnvironment({ endowments: window });
+    const evalScript = createVirtualEnvironment({ endowments: window });
 
     it('should be allowed from blue to red', function() {
         // expect.assertions(1);
@@ -54,8 +54,8 @@ describe('Extending Custom Element', () => {
 
 describe('NS-to-NS custom element extension', () => {
 
-    const evalScriptNS1 = createSecureEnvironment({ endowments: window });
-    const evalScriptNS2 = createSecureEnvironment({ endowments: window });
+    const evalScriptNS1 = createVirtualEnvironment({ endowments: window });
+    const evalScriptNS2 = createVirtualEnvironment({ endowments: window });
 
     it('should work when using multiple namespaces in proto-chain', function() {
         // expect.assertions(6);

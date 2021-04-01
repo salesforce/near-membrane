@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/near-membrane-dom';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 // getting reference to the function to be distorted
 const { get: hostGetter } = Object.getOwnPropertyDescriptor(ShadowRoot.prototype, 'host');
@@ -13,7 +13,7 @@ const distortionMap = new Map([
     }]
 ]);
 
-const evalScript = createSecureEnvironment({ distortionMap, endowments: window });
+const evalScript = createVirtualEnvironment({ distortionMap, endowments: window });
 
 describe('Getter Function Distortion', () => {
     it('should be invoked when invoked directly', function() {

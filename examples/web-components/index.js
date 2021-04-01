@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/near-membrane-dom';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 // getting reference to the function to be distorted
 const { get: ShadowRootHostGetter } = Object.getOwnPropertyDescriptor(ShadowRoot.prototype, 'host');
@@ -10,7 +10,7 @@ distortionMap.set(assignedNodes, _ => { throw new Error(`Forbidden`); });
 distortionMap.set(assignedElements, _ => { throw new Error(`Forbidden`); });
 
 function evaluateInNewSandbox(sourceText) {
-    const evalScript = createSecureEnvironment({ distortionMap });
+    const evalScript = createVirtualEnvironment({ distortionMap });
     evalScript(sourceText);
 }
 

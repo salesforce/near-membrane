@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/near-membrane-dom';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 const blue = [1, 2, 3];
 
@@ -9,7 +9,7 @@ function saveFoo(arg) {
 
 describe('arrays', () => {
     it('should preserve the length behavior across the membrane', () => {
-        const evalScript = createSecureEnvironment({ endowments: { blue, saveFoo, expect }});
+        const evalScript = createVirtualEnvironment({ endowments: { blue, saveFoo, expect }});
         evalScript(`
             saveFoo(['a', 'b', 'c']);
             expect(blue.length).toBe(3);

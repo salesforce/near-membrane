@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/near-membrane-dom';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 let exported;
 function exportData(arg) {
@@ -6,14 +6,14 @@ function exportData(arg) {
 }
 
 it('does not throw ownKeys trap invariant for classes or strict mode functions', () => {
-  const secureEvalOne = createSecureEnvironment({ endowments: { exportData }});
+  const secureEvalOne = createVirtualEnvironment({ endowments: { exportData }});
   secureEvalOne(`
     exportData([
       class Foo {},
       function() {'use strict'}
     ]);
   `);
-  const secureEvalTwo = createSecureEnvironment({
+  const secureEvalTwo = createVirtualEnvironment({
     endowments: { exportData, imported: exported }
   });
   secureEvalTwo(`

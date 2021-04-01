@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/near-membrane-dom';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 // patching the outer realm before extracting the descriptors
 window.originalFetch = fetch;
@@ -9,7 +9,7 @@ const distortionMap = new Map([
         throw new Error('forbidden');
     }],
 ]);
-const evalScript = createSecureEnvironment({ distortionMap, endowments: window });
+const evalScript = createVirtualEnvironment({ distortionMap, endowments: window });
 
 describe('Method Distortion', () => {
     it('should be invoked when invoked directly', function() {

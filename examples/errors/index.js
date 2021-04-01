@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/near-membrane-dom';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 const distortionMap = new Map([
     [alert, () => {
@@ -9,7 +9,7 @@ const distortionMap = new Map([
 globalThis.bar = { a: 1, b: 2 };
 Object.freeze(globalThis.bar)
 
-const evalScript = createSecureEnvironment({
+const evalScript = createVirtualEnvironment({
     distortionMap,
     endowments: window
 });

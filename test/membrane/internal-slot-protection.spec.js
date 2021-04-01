@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/near-membrane-dom';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('membrane', () => {
     it('should prevent attacks that are changing the prototype for impersonation', function() {
@@ -9,7 +9,7 @@ describe('membrane', () => {
             expect(value).toBe('import');
             expect(this instanceof HTMLLinkElement).toBeTrue();
         });
-        const evalScript = createSecureEnvironment({ distortionMap, endowments: window });
+        const evalScript = createVirtualEnvironment({ distortionMap, endowments: window });
         evalScript(`
             'use strict';
 

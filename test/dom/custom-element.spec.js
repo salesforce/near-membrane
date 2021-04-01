@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/near-membrane-dom';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 // outer element declaration
 class ExternalElement extends HTMLElement {
@@ -9,7 +9,7 @@ class ExternalElement extends HTMLElement {
 customElements.define('x-external', ExternalElement);
 window.refToExternalElement = ExternalElement;
 
-const evalScript = createSecureEnvironment({ endowments: window });
+const evalScript = createVirtualEnvironment({ endowments: window });
 
 describe('Outer Realm Custom Element', () => {
     it('should be accessible within the sandbox', function() {

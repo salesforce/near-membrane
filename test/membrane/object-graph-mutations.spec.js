@@ -1,9 +1,9 @@
-import createSecureEnvironment from '@locker/near-membrane-dom';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('The object graph', () => {
     it('should be shadowed by a sandbox', function() {
         // expect.assertions(3);
-        const evalScript = createSecureEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
             'use strict';
 

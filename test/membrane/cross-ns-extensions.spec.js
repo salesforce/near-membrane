@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/near-membrane-dom';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 class Base {
     base() {
@@ -10,7 +10,7 @@ function saveFoo(f) {
     Foo = f;
 }
 
-const evalScript = createSecureEnvironment({ endowments: { Base, saveFoo }});
+const evalScript = createVirtualEnvironment({ endowments: { Base, saveFoo }});
 evalScript(`
     class Foo extends Base {
         foo() {
@@ -28,7 +28,7 @@ const endowments = {
 describe('The membrane', () => {
     it('should allow expandos on endowments inside the sandbox', function() {
         // expect.assertions(4);
-        const evalScript = createSecureEnvironment({ endowments });
+        const evalScript = createVirtualEnvironment({ endowments });
         evalScript(`
             'use strict';
             expect(Foo.prototype.base()).toBe('from base');

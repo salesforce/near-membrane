@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/near-membrane-dom';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 const LockerLiveValueMarkerSymbol = Symbol.for('@@lockerLiveValue');
 
@@ -11,7 +11,7 @@ const endowments = {
     o,
     expect,
 };
-const evalScript = createSecureEnvironment({ endowments });
+const evalScript = createVirtualEnvironment({ endowments });
 
 describe('A Live Red Proxy', () => {
     it('should surface new expandos from blue realm', function() {

@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/near-membrane-dom';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 let exported;
 function exportData(arg) {
@@ -6,7 +6,7 @@ function exportData(arg) {
 }
 
 it('super should behave as expected in sandbox', () => {
-  const secureEvalOne = createSecureEnvironment({ endowments: { exportData }});
+  const secureEvalOne = createVirtualEnvironment({ endowments: { exportData }});
   secureEvalOne(`
     exportData(class Foo {
       constructor() {
@@ -14,7 +14,7 @@ it('super should behave as expected in sandbox', () => {
       }
     });`,
   );
-  const secureEvalTwo = createSecureEnvironment({
+  const secureEvalTwo = createVirtualEnvironment({
     endowments: { expect, Foo: exported }
   });
   secureEvalTwo(`

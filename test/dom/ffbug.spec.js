@@ -1,9 +1,9 @@
-import createSecureEnvironment from '@locker/near-membrane-dom';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('FF BugFix 543435', () => {
     it('should preserve the document reference in the next turn', function(done) {
         // expect.assertions(3);
-        const evalScript = createSecureEnvironment({
+        const evalScript = createVirtualEnvironment({
             endowments: {
                 validateSyncDocumentReference(redDoc) {
                     expect(redDoc).toBe(document);
