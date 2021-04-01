@@ -1,7 +1,7 @@
-import { SecureEnvironment } from "@locker/near-membrane";
-import { EnvironmentOptions } from "@locker/near-membrane";
-import { ReflectApply, ObjectCreate, ObjectLookupOwnGetter, emptyArray } from "@locker/near-membrane";
-import { linkIntrinsics, getFilteredEndowmentDescriptors } from "@locker/near-membrane";
+import { SecureEnvironment } from "@locker/near-membrane-base";
+import { EnvironmentOptions } from "@locker/near-membrane-base";
+import { ReflectApply, ObjectCreate, ObjectLookupOwnGetter, emptyArray } from "@locker/near-membrane-base";
+import { linkIntrinsics, getFilteredEndowmentDescriptors } from "@locker/near-membrane-base";
 import { getCachedBlueReferences, getRedReferences, linkUnforgeables, tameDOM } from "./window";
 
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';

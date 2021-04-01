@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/dom-membrane';
+import createSecureEnvironment from '@locker/near-membrane-dom';
 
 globalThis.regularSymbol = Symbol();
 globalThis.symbolWithDescription = Symbol('symbol-with-desc');

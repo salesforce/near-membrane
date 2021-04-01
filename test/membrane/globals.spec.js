@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/dom-membrane';
+import createSecureEnvironment from '@locker/near-membrane-dom';
 
 describe('The Sandbox', () => {
     it('should allow creation of sandboxed global expandos', function() {

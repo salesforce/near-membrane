@@ -81,7 +81,7 @@ We do not know the applications of this library just yet, but we suspect that th
 
 ## The Code
 
-* This library is distributed via npm package `@locker/near-membrane`.
+* This library is distributed via npm packages `@locker/near-membrane-base`, `@locker/near-membrane-dom` and `@locker/near-membrane-node`.
 * This library is implemented using TypeScript, and produces the proper TypeScript types, in case you care about it.
 * Few tests are provided as of now, but the plan is to rely on existing tests (e.g.: WPT or ecma262) to validate that the near membrane created by this library is a high-fidelity membrane.
 * The `src/` folder contains the library code, while the `lib/` folder will contain the compiled distributable code produced by executing the `build` script from `package.json`.

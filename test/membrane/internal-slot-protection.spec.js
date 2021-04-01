@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/dom-membrane';
+import createSecureEnvironment from '@locker/near-membrane-dom';
 
 describe('membrane', () => {
     it('should prevent attacks that are changing the prototype for impersonation', function() {

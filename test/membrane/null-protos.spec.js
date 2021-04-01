@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/dom-membrane';
+import createSecureEnvironment from '@locker/near-membrane-dom';
 
 const bar = Object.create(null, {
     x: { value: 1 },

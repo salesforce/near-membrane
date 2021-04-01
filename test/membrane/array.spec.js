@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/dom-membrane';
+import createSecureEnvironment from '@locker/near-membrane-dom';
 
 const blue = [1, 2, 3];
 

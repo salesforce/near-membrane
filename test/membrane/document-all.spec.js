@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/dom-membrane';
+import createSecureEnvironment from '@locker/near-membrane-dom';
 
 describe('document.all', () => {
     it('should preserve the typeof it since it is a common test for older browsers', function() {

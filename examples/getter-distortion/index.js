@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/dom-membrane';
+import createSecureEnvironment from '@locker/near-membrane-dom';
 
 // getting reference to the function to be distorted
 const { get } = Object.getOwnPropertyDescriptor(ShadowRoot.prototype, 'host');

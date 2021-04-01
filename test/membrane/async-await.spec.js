@@ -1,4 +1,4 @@
-import createSecureEnvironment from "@locker/dom-membrane";
+import createSecureEnvironment from "@locker/near-membrane-dom";
 
 // TODO #115 - Skip Firefox and Safari until we find a solution for them
 const isFirefox = navigator.userAgent.includes('Firefox/');

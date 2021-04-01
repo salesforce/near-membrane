@@ -1,5 +1,5 @@
 {
-  "name": "@salesforce/near-membrane",
+  "name": "@locker/near-membrane-multipack",
   "private": true,
   "workspaces": [
     "packages/*",
@@ -64,18 +64,18 @@
   },
   "bundlesize": [
     {
-      "path": "packages/near-membrane/lib/near-membrane.min.js",
-      "maxSize": "10 kB",
-      "compression": "none"
-    },
-    {
-      "path": "packages/dom-membrane/lib/index.min.js",
+      "path": "packages/near-membrane-base/lib/index.min.js",
       "maxSize": "13 kB",
       "compression": "none"
     },
     {
-      "path": "packages/node-membrane/lib/index.min.js",
-      "maxSize": "11 kB",
+      "path": "packages/near-membrane-dom/lib/index.min.js",
+      "maxSize": "3 kB",
+      "compression": "none"
+    },
+    {
+      "path": "packages/near-membrane-node/lib/index.min.js",
+      "maxSize": "1 kB",
       "compression": "none"
     }
   ]

@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/dom-membrane';
+import createSecureEnvironment from '@locker/near-membrane-dom';
 
 describe('The object graph', () => {
     it('should be shadowed by a sandbox', function() {

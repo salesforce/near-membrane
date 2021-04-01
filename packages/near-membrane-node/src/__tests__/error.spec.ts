@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/node-membrane';
+import createSecureEnvironment from '@locker/near-membrane-node';
 
 function throwNewError(Ctor, msg) {
     throw new Ctor(msg);

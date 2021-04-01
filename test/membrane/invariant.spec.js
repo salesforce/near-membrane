@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/dom-membrane';
+import createSecureEnvironment from '@locker/near-membrane-dom';
 
 // This emulates LWC LightningElement proto chain and freezing mechanism
 class Base {}

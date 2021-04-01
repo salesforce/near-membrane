@@ -3,7 +3,7 @@ module.exports = {
       "<rootDir>/packages"
     ],
     "moduleNameMapper": {
-      "^@locker/near-membrane$": "<rootDir>/packages/near-membrane/src",
-      "^@locker/node-membrane$": "<rootDir>/packages/node-membrane/src",
+      "^@locker/near-membrane-base$": "<rootDir>/packages/near-membrane-base/src",
+      "^@locker/near-membrane-node$": "<rootDir>/packages/near-membrane-node/src",
     }
 }

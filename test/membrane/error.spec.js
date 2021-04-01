@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/dom-membrane'
+import createSecureEnvironment from '@locker/near-membrane-dom'
 
 it('[red] non-error objects thrown in red functions', () => {
     const evalScript = createSecureEnvironment({ endowments: { expect }})

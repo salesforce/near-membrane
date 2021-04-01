@@ -1,8 +1,8 @@
-import { SecureEnvironment } from "@locker/near-membrane";
-import { EnvironmentOptions } from "@locker/near-membrane";
+import { SecureEnvironment } from "@locker/near-membrane-base";
+import { EnvironmentOptions } from "@locker/near-membrane-base";
 import { runInNewContext } from 'vm';
-import { getFilteredEndowmentDescriptors, linkIntrinsics } from "@locker/near-membrane";
-import { ObjectCreate } from "@locker/near-membrane";
+import { getFilteredEndowmentDescriptors, linkIntrinsics } from "@locker/near-membrane-base";
+import { ObjectCreate } from "@locker/near-membrane-base";
 
 // note: in a node module, the top-level 'this' is not the global object
 // (it's *something* but we aren't sure what), however an indirect eval of
