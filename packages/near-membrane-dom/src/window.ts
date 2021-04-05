@@ -1,4 +1,4 @@
-import { SecureEnvironment } from "@locker/near-membrane";
+import { VirtualEnvironment } from "@locker/near-membrane-base";
 import {
     ObjectAssign,
     ObjectCreate,
@@ -9,8 +9,8 @@ import {
     WeakMapCtor,
     WeakMapGet,
     WeakMapSet,
-} from "@locker/near-membrane";
-import { isIntrinsicGlobalName } from "@locker/near-membrane";
+} from "@locker/near-membrane-base";
+import { isIntrinsicGlobalName } from "@locker/near-membrane-base";
 
 /**
  * - Unforgeable object and prototype references
@@ -196,7 +196,7 @@ function aggregateWindowPropertiesDescriptors(
     return to;
 }
 
-export function tameDOM(env: SecureEnvironment, blueRefs: CachedBlueReferencesRecord, redRefs: RedReferencesRecord, endowmentsDescriptors: PropertyDescriptorMap) {
+export function tameDOM(env: VirtualEnvironment, blueRefs: CachedBlueReferencesRecord, redRefs: RedReferencesRecord, endowmentsDescriptors: PropertyDescriptorMap) {
     // adjusting proto chain of window.document
     ReflectSetPrototypeOf(redRefs.document, env.getRedValue(blueRefs.DocumentProto));
     const globalDescriptors = aggregateWindowDescriptors(
@@ -217,7 +217,7 @@ export function tameDOM(env: SecureEnvironment, blueRefs: CachedBlueReferencesRe
 }
 
 export function linkUnforgeables(
-    env: SecureEnvironment,
+    env: VirtualEnvironment,
     blueRefs: CachedBlueReferencesRecord,
     redRefs: RedReferencesRecord
 ) {

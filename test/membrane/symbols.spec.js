@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/dom-membrane';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 globalThis.regularSymbol = Symbol();
 globalThis.symbolWithDescription = Symbol('symbol-with-desc');
@@ -7,7 +7,7 @@ globalThis.symbolWithKey = Symbol.for('symbol-with-key');
 describe('Secure Membrane', () => {
     it('should support symbols', () => {
         // expect.assertions(5);
-        const evalScript = createSecureEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
             expect(typeof Symbol() === 'symbol').toBeTrue();
             expect(typeof Symbol.for('x') === 'symbol').toBeTrue();
@@ -19,7 +19,7 @@ describe('Secure Membrane', () => {
     });
     it('should allow access to symbols defined in outer realm', function() {
         // expect.assertions(3);
-        const evalScript = createSecureEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
             expect(typeof globalThis.regularSymbol).toBe('symbol');
             expect(typeof globalThis.symbolWithDescription).toBe('symbol');
@@ -28,7 +28,7 @@ describe('Secure Membrane', () => {
     });
     it('should not leak outer realm global reference via symbols', function() {
         // expect.assertions(2);
-        const evalScript = createSecureEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
             expect(globalThis.regularSymbol.constructor).toBe(Symbol);
             expect(globalThis.regularSymbol.constructor.__proto__.constructor('return this')() === globalThis).toBeTrue();
@@ -36,7 +36,7 @@ describe('Secure Membrane', () => {
     });
     it('should not leak outer realm global reference via Symbol.for()', function() {
         // expect.assertions(3);
-        const evalScript = createSecureEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
             expect(typeof Symbol.for('symbol-with-key')).toBe('symbol');
             expect(Symbol.for('symbol-with-key')).toBe(Symbol.for('symbol-with-key'));
@@ -55,7 +55,7 @@ describe('Secure Membrane', () => {
             }
         }
 
-        const secureEval = createSecureEnvironment({ endowments: { Base, symbol }});
+        const secureEval = createVirtualEnvironment({ endowments: { Base, symbol }});
         secureEval(`
             class Bar extends Base {
                 constructor() {

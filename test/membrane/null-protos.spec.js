@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/dom-membrane';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 const bar = Object.create(null, {
     x: { value: 1 },
@@ -12,7 +12,7 @@ function saveFoo(arg) {
 describe('null __proto__', () => {
     it('should work for get trap', function() {
         // expect.assertions(4);
-        const evalScript = createSecureEnvironment({ endowments: { bar, saveFoo, expect }});
+        const evalScript = createVirtualEnvironment({ endowments: { bar, saveFoo, expect }});
         evalScript(`
             const foo = Object.create(null, {
                 y: { value: 2 }
@@ -26,7 +26,7 @@ describe('null __proto__', () => {
     });
     it('should work for set trap', function() {
         // expect.assertions(6);
-        const evalScript = createSecureEnvironment({ endowments: { bar, saveFoo, expect }});
+        const evalScript = createVirtualEnvironment({ endowments: { bar, saveFoo, expect }});
         evalScript(`
             const foo = Object.create(null, {
                 x: { value: 2 },
@@ -43,7 +43,7 @@ describe('null __proto__', () => {
     });
     it('should work for has trap', function() {
         // expect.assertions(4);
-        const evalScript = createSecureEnvironment({ endowments: { bar, saveFoo, expect }});
+        const evalScript = createVirtualEnvironment({ endowments: { bar, saveFoo, expect }});
         evalScript(`
             const foo = Object.create(null, {
                 y: { value: 2, writable: true }

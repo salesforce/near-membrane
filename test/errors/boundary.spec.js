@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/dom-membrane';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 function throwNewError(Ctor, msg) {
     throw new Ctor(msg);
@@ -24,7 +24,7 @@ globalThis.boundaryHooks = {
 describe('The Error Boundary', () => {
     it('should preserve identity of errors after a membrane roundtrip', function() {
         // expect.assertions(3);
-        const evalScript = createSecureEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`boundaryHooks.expose(() => { boundaryHooks.a })`);
         expect(() => {
             sandboxedValue();
@@ -40,7 +40,7 @@ describe('The Error Boundary', () => {
     });
     it('should remap the Outer Realm Error instance to the sandbox errors', function() {
         // expect.assertions(3);
-        const evalScript = createSecureEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment({ endowments: window });
 
         evalScript(`
             expect(() => {
@@ -60,7 +60,7 @@ describe('The Error Boundary', () => {
     });
     it('should capture throwing from user proxy', function() {
         // expect.assertions(3);
-        const evalScript = createSecureEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
             const revocable = Proxy.revocable(() => undefined, {});
             revocable.revoke();
@@ -77,7 +77,7 @@ describe('The Error Boundary', () => {
         }).toThrowError(Error);
     });
     it('should protect from leaking sandbox errors during evaluation', function() {
-        const evalScript = createSecureEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment({ endowments: window });
         
         expect(() => {
             evalScript(`
@@ -86,7 +86,7 @@ describe('The Error Boundary', () => {
         }).toThrowError(TypeError);
     });
     it('should protect from leaking sandbox errors during parsing', function() {
-        const evalScript = createSecureEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment({ endowments: window });
 
         expect(() => {
             evalScript(`

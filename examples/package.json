@@ -7,6 +7,6 @@
         "build": "rollup -c"
     },
     "dependencies": {
-        "@locker/dom-membrane": "0.4.0-test.0"
+        "@locker/near-membrane-dom": "0.4.0-test.0"
     }
 }

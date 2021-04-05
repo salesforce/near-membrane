@@ -1,6 +1,6 @@
-import createSecureEnvironment from '@locker/dom-membrane';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-const evalScript = createSecureEnvironment();
+const evalScript = createVirtualEnvironment();
 
 evalScript(`
     'use strict';

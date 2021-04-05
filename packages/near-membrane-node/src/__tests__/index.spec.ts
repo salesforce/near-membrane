@@ -1,6 +1,6 @@
-import createSecureEnvironment from '../node-realm';
+import createVirtualEnvironment from '../node-realm';
 
-describe('SecureEnvironment', () => {
+describe('VirtualEnvironment', () => {
     describe('reverse proxies', () => {
         it('should not have identity discontinuity for arrays', function() {
             expect.assertions(6);
@@ -12,7 +12,7 @@ describe('SecureEnvironment', () => {
                 expect(a2 instanceof Array).toBe(true);
                 expect(a2).toStrictEqual([3, 4]);
             }
-            const evalScript = createSecureEnvironment({ endowments: window });
+            const evalScript = createVirtualEnvironment({ endowments: window });
             evalScript(`blueArrayFactory([1, 2], new Array(3, 4))`);
         });
         it('should not have identity discontinuity for objects', function() {
@@ -25,7 +25,7 @@ describe('SecureEnvironment', () => {
                 expect(b2 instanceof Object).toBe(true);
                 expect(b2.x).toBe(2);
             }
-            const evalScript = createSecureEnvironment({ endowments: window });
+            const evalScript = createVirtualEnvironment({ endowments: window });
             evalScript(`blueObjectFactory({ x: 1 }, Object.create({}, { x: { value: 2 } }))`);
         });
     });
@@ -38,7 +38,7 @@ describe('SecureEnvironment', () => {
         };
         it('should not have identity discontinuity for arrays', function() {
             expect.assertions(6);
-            const evalScript = createSecureEnvironment({ endowments: window });
+            const evalScript = createVirtualEnvironment({ endowments: window });
             evalScript(`
                 const { a1, a2 } = foo;
                 expect(Array.isArray(a1)).toBe(true);
@@ -51,7 +51,7 @@ describe('SecureEnvironment', () => {
         });
         it('should not have identity discontinuity for objects', function() {
             expect.assertions(6);
-            const evalScript = createSecureEnvironment({ endowments: window });
+            const evalScript = createVirtualEnvironment({ endowments: window });
             evalScript(`
                 const { b1, b2 } = foo;
                 expect(typeof b1 === 'object').toBe(true);

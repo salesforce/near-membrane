@@ -1,9 +1,9 @@
-import createSecureEnvironment from '@locker/dom-membrane';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('The Sandbox', () => {
     it('should allow creation of sandboxed global expandos', function() {
         // expect.assertions(3);
-        const evalScript = createSecureEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
             window.s1 = 'a';
             expect(s1).toBe('a');    
@@ -17,7 +17,7 @@ describe('The Sandbox', () => {
     it('should allow the shadowing of existing globals', function() {
         // expect.assertions(3);
         window.s2 = 'b';
-        const evalScript = createSecureEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
             expect(s2).toBe('b');
             window.s2 = 'c';

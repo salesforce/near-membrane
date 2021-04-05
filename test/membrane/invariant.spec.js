@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/dom-membrane';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 // This emulates LWC LightningElement proto chain and freezing mechanism
 class Base {}
@@ -9,7 +9,7 @@ function saveFoo(arg) {
     FooClazz = arg;
 }
 
-const evalScript = createSecureEnvironment({ endowments: { Base, saveFoo }});
+const evalScript = createVirtualEnvironment({ endowments: { Base, saveFoo }});
 evalScript(`
     class Foo extends Base {};
     saveFoo(Foo);

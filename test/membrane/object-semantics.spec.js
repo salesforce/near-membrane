@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/dom-membrane';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 let obj;
 function saveObject(o) {
@@ -14,7 +14,7 @@ describe('Blue Proxies', () => {
     it('should be preserved the JS Object semantics by allowing writable objects to change', () => {
         'use strict';
         // expect.assertions(9);
-        const evalScript = createSecureEnvironment({ endowments });
+        const evalScript = createVirtualEnvironment({ endowments });
         evalScript(`
             'use strict';
             const obj = {

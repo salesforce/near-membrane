@@ -1,8 +1,8 @@
-import createSecureEnvironment from "@locker/dom-membrane";
+import createVirtualEnvironment from "@locker/near-membrane-dom";
 
 describe("Reversed Proxy constructor", () => {
     it("can be constructed", () => {
-        const evalScript = createSecureEnvironment({
+        const evalScript = createVirtualEnvironment({
             endowments: {
                 test({ Proxy }) {
                     const p = new Proxy({}, {
@@ -15,7 +15,7 @@ describe("Reversed Proxy constructor", () => {
         evalScript(`test({ Proxy });`);
     });
     it(".revocable() should be supported", () => {
-        const evalScript = createSecureEnvironment({
+        const evalScript = createVirtualEnvironment({
             endowments: {
                 test({ Proxy }) {
                     const { proxy, revoke } = Proxy.revocable({}, {

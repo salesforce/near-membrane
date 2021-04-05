@@ -1,11 +1,11 @@
-import createSecureEnvironment from '@locker/dom-membrane';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 window.expandable = { x: 1 };
 
 describe('The membrane', () => {
     it('should allow global inside the sandbox', function() {
         // expect.assertions(4);
-        const evalScript = createSecureEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
             expandable.y = 2;
             expect(expandable.y).toBe(2);    

@@ -1,4 +1,4 @@
-import createSecureEnvironment from '@locker/dom-membrane';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 class Base {
     constructor() {
@@ -13,7 +13,7 @@ function saveFoo(arg) {
 describe('The blue expandos', () => {
     it('should never be subject to red side mutations', function() {
         // expect.assertions(1);
-        const evalScript = createSecureEnvironment({ endowments: { Base, saveFoo }});
+        const evalScript = createVirtualEnvironment({ endowments: { Base, saveFoo }});
         evalScript(`
             function mixin(Clazz) {
                 return class extends Clazz {}
