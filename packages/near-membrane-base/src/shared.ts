@@ -15,6 +15,7 @@ const {
 export const ArrayCtor = Array;
 export const ErrorCtor = Error;
 export const SetCtor = Set;
+export const TypeErrorCtor = TypeError;
 export const WeakMapCtor = WeakMap;
 
 export const { isArray: ArrayIsArray } = Array;
