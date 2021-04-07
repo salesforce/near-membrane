@@ -18,6 +18,7 @@ import {
     ReflectPreventExtensions,
     ReflectSet,
     ReflectSetPrototypeOf,
+    TypeErrorCtor,
     emptyArray,
 } from './shared';
 import {
@@ -222,7 +223,7 @@ export function blueProxyFactory(env: MembraneBroker) {
         construct(shadowTarget: BlueShadowTarget, blueArgArray: BlueValue[], blueNewTarget: BlueObject): BlueValue {
             const { target: RedCtor } = this;
             if (blueNewTarget === undefined) {
-                throw new TypeError();
+                throw new TypeErrorCtor();
             }
             const redNewTarget = env.getRedValue(blueNewTarget);
             const redArgArray = getStaticRedArray(blueArgArray);

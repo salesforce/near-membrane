@@ -57,6 +57,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
 
     const ArrayCtor = Array;
     const ErrorCtor = Error;
+    const TypeErrorCtor = TypeError;
     const emptyArray: [] = [];
     const noop = () => undefined;
 
@@ -353,7 +354,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     function redProxyConstructTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, redArgArray: RedValue[], redNewTarget: RedObject): RedValue {
         const { target: BlueCtor } = this;
         if (redNewTarget === undefined) {
-            throw TypeError();
+            throw new TypeErrorCtor();
         }
         let blue;
         try {
