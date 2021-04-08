@@ -1,6 +1,6 @@
 {
     "name": "@locker/near-membrane-node",
-    "version": "0.4.0-test.0",
+    "version": "0.5.0",
     "license": "MIT",
     "author": "Caridy Patiño <caridy@gmail.com>",
     "description": "JavaScript Node Membrane Library to create a sandboxed environment in Node",
@@ -18,6 +18,6 @@
         "access": "public"
     },
     "dependencies": {
-        "@locker/near-membrane-base": "0.4.0-test.0"
+        "@locker/near-membrane-base": "0.5.0"
     }
 }
