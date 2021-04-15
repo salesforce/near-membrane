@@ -1,5 +1,6 @@
 import {
     ArrayCtor,
+    ObjectAssign,
     ObjectCreate,
     ObjectDefineProperties,
     ObjectFreeze,
@@ -112,21 +113,21 @@ export function blueProxyFactory(env: MembraneBroker) {
     }
 
     function getBlueDescriptor(redDescriptor: PropertyDescriptor): PropertyDescriptor {
-        const blueDescriptor = ObjectCreate(null);
-        blueDescriptor.configurable = redDescriptor.configurable;
-        blueDescriptor.enumerable = redDescriptor.enumerable;
-        if (ObjectHasOwnProperty(redDescriptor, 'writable')) {
+        const blueDescriptor = ObjectAssign(ObjectCreate(null), redDescriptor);
+        if ('writable' in blueDescriptor) {
             // We are dealing with a value descriptor.
-            blueDescriptor.value = getBlueValue(redDescriptor.value);
-            blueDescriptor.writable = redDescriptor.writable;
+            const { value } = blueDescriptor
+            blueDescriptor.value = typeof value === 'function' ?
+                // We are dealing with a method (optimization).
+                getBlueFunction(value) : getBlueValue(value);
         } else {
             // We are dealing with accessors.
-            const { get: redGet, set: redSet } = blueDescriptor;
-            if (typeof redGet === 'function') {
-                blueDescriptor.get = getBlueValue(redGet);
+            const { get, set } = blueDescriptor;
+            if (typeof get === 'function') {
+                blueDescriptor.get = getBlueFunction(get);
             }
-            if (typeof redSet === 'function') {
-                blueDescriptor.set = getBlueValue(redSet);
+            if (typeof set === 'function') {
+                blueDescriptor.set = getBlueFunction(set);
             }
         }
         return blueDescriptor;
@@ -160,22 +161,17 @@ export function blueProxyFactory(env: MembraneBroker) {
     }
 
     function getRedPartialDescriptor(bluePartialDesc: PropertyDescriptor): PropertyDescriptor {
-        const redPartialDesc = ObjectCreate(null);
-        redPartialDesc.configurable = bluePartialDesc.configurable;
-        redPartialDesc.enumerable = bluePartialDesc.enumerable;
-        if (ObjectHasOwnProperty(bluePartialDesc, 'writable')) {
+        const redPartialDesc = ObjectAssign(ObjectCreate(null), bluePartialDesc);
+        if ('value' in redPartialDesc) {
             // We are dealing with a value descriptor.
-            redPartialDesc.value = env.getRedValue(bluePartialDesc.value);
-            redPartialDesc.writable = bluePartialDesc.writable;
-        } else {
+            redPartialDesc.value = env.getRedValue(redPartialDesc.value);
+        }
+        if ('set' in redPartialDesc) {
             // We are dealing with accessors.
-            const { get: blueGet, set: blueSet } = bluePartialDesc;
-            if (typeof blueGet === 'function') {
-                redPartialDesc.get = env.getRedValue(blueGet);
-            }
-            if (typeof blueSet === 'function') {
-                redPartialDesc.set = env.getRedValue(blueSet);
-            }
+            redPartialDesc.set = env.getRedValue(redPartialDesc.set);
+        }
+        if ('get' in redPartialDesc) {
+            redPartialDesc.get = env.getRedValue(redPartialDesc.get);
         }
         return redPartialDesc;
     }

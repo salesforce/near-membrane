@@ -64,6 +64,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
 
     const {
+        assign: ObjectAssign,
         create: ObjectCreate,
         defineProperties: ObjectDefineProperties,
         getOwnPropertyDescriptors: ObjectGetOwnPropertyDescriptors,
@@ -164,21 +165,18 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     }
 
     function getBluePartialDescriptor(redPartialDesc: PropertyDescriptor): PropertyDescriptor {
-        const bluePartialDesc = ObjectCreate(null);
-        bluePartialDesc.configurable = redPartialDesc.configurable;
-        bluePartialDesc.enumerable = redPartialDesc.enumerable;
-        if (ObjectHasOwnProperty(redPartialDesc, 'writable')) {
+        const bluePartialDesc = ObjectAssign(ObjectCreate(null), redPartialDesc);
+        if ('writable' in bluePartialDesc) {
             // We are dealing with a value descriptor.
-            bluePartialDesc.value = blueEnv.getBlueValue(redPartialDesc.value);
-            bluePartialDesc.writable = redPartialDesc.writable;
+            bluePartialDesc.value = blueEnv.getBlueValue(bluePartialDesc.value);
         } else {
             // We are dealing with accessors.
-            const { get: redGet, set: redSet } = redPartialDesc;
-            if (typeof redGet === 'function') {
-                bluePartialDesc.get = blueEnv.getBlueValue(redGet);
+            const { get, set } = bluePartialDesc;
+            if (typeof get === 'function') {
+                bluePartialDesc.get = blueEnv.getBlueValue(get);
             }
-            if (typeof redSet === 'function') {
-                bluePartialDesc.set = blueEnv.getBlueValue(redSet);
+            if (typeof set === 'function') {
+                bluePartialDesc.set = blueEnv.getBlueValue(set);
             }
         }
         return bluePartialDesc;
@@ -193,21 +191,18 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     }
 
     function getRedDescriptor(blueDescriptor: PropertyDescriptor): PropertyDescriptor {
-        const redDescriptor = ObjectCreate(null);
-        redDescriptor.configurable = blueDescriptor.configurable;
-        redDescriptor.enumerable = blueDescriptor.enumerable;
-        if (ObjectHasOwnProperty(blueDescriptor, 'writable')) {
+        const redDescriptor = ObjectAssign(ObjectCreate(null), blueDescriptor);
+        if ('writable' in redDescriptor) {
             // We are dealing with a value descriptor.
-            redDescriptor.value = getRedValue(blueDescriptor.value);
-            redDescriptor.writable = blueDescriptor.writable;
+            redDescriptor.value = getRedValue(redDescriptor.value);
         } else {
             // We are dealing with accessors.
-            const { get: blueGet, set: blueSet } = blueDescriptor;
-            if (typeof blueGet === 'function') {
-                redDescriptor.get = getRedValue(blueGet);
+            const { get, set } = redDescriptor;
+            if (typeof get === 'function') {
+                redDescriptor.get = getRedValue(get);
             }
-            if (typeof blueSet === 'function') {
-                redDescriptor.set = getRedValue(blueSet);
+            if (typeof set === 'function') {
+                redDescriptor.set = getRedValue(set);
             }
         }
         return redDescriptor;
