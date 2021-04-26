@@ -13,13 +13,14 @@
     "build": "lerna run build --stream",
     "start": "http-server ./examples",
     "coverage": "yarn coverage:jest; yarn coverage:karma",
+    "coverage:jest": "yarn test:jest --coverage",
+    "coverage:karma": "yarn test:karma --coverage",
     "coverage:merge": "istanbul-merge --out coverage-merged.json coverage/coverage-final.json coverage/json/coverage.json",
     "coverage:report": "yarn istanbul --include report coverage-merged.json --dir coverage-merged html",
-    "coverage:jest": "yarn jest --coverage",
-    "coverage:karma": "yarn karma --coverage",
     "test:bundlesize": "bundlesize",
-    "test": "yarn jest; yarn karma",
-    "jest": "jest --runInBand --no-cache --config jest.config.js",
+    "test": "yarn test:jest; yarn test:karma",
+    "test:jest": "jest --runInBand --no-cache --config jest.config.js",
+    "test:karma": "karma start karma.config.js --single-run --browsers ChromeHeadless,FirefoxHeadless",
     "version": "yarn build",
     "bump": "lerna version --exact --no-push --yes",
     "bump:patch": "lerna version patch --exact --no-push --yes",
@@ -29,8 +30,7 @@
     "push": "git push && git push --tags",
     "npm:login": "npm login --registry https://registry.npmjs.org/",
     "publish": "lerna publish from-package --ignore-scripts --yes --registry https://registry.npmjs.org/",
-    "debug": "karma start karma.config.js --browsers Chrome",
-    "karma": "karma start karma.config.js --single-run --browsers ChromeHeadless"
+    "debug": "karma start karma.config.js --browsers Chrome"
   },
   "files": [
     "lib/",
