@@ -40,17 +40,29 @@ install: &install
       yarn install --frozen-lockfile
       yarn build
 
-# Jest tests
-run_unit_tests: &run_unit_tests
+# Jest tests for near-membrane-node
+run_node_tests: &run_node_tests
   run:
-    name: Run Jest tests
-    command: yarn test
+    name: Run Node tests (Jest)
+    command: yarn coverage:jest
 
-# Karma tests
-run_karma_tests: &run_karma_tests
+# Karma tests for near-membrane-dom
+run_browser_tests: &run_browser_tests
   run:
-    name: Run Karma tests
-    command: yarn karma
+    name: Run DOM tests (Karma)
+    command: yarn coverage:karma
+
+# Merge the two coverage reports
+merge_coverage: &merge_coverage
+  run:
+    name: Merge Coverage Reports
+    command: |
+      yarn coverage:merge
+      yarn coverage:report
+
+store_coverage: &store_coverage
+  store_artifacts:
+    path: coverage-merged
 
 
 # Jobs definition
@@ -68,8 +80,11 @@ jobs:
       - *save_yarn_cache
       - *save_workspace
 
-      - *run_unit_tests
-      - *run_karma_tests
+      - *run_node_tests
+      - *run_browser_tests
+
+      - *merge_coverage
+      - *store_coverage
 
 
 # Workflows definition

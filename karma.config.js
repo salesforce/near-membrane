@@ -1,30 +1,38 @@
+const globby = require('globby');
+const istanbul = require('rollup-plugin-istanbul');
 const { nodeResolve } = require('@rollup/plugin-node-resolve');
 
 process.env.CHROME_BIN = require('puppeteer').executablePath();
 
-let testFiles = '';
+let testFilesPattern = './test/**/*.spec.js';
+
 const matchArg = process.argv.indexOf('--match');
 if (matchArg > -1) {
-  testFiles = process.argv[matchArg + 1] || '';
+  testFilesPattern = process.argv[matchArg + 1] || '';
 }
-if (!testFiles) {
-  testFiles = 'test/**/*.spec.js';
+
+if (globby.sync(testFilesPattern).length) {
+  // eslint-disable-next-line no-console
+  console.log(`\nTesting files matching "${testFilesPattern}"\n`);
+} else {
+  // eslint-disable-next-line no-console
+  console.error(`\nNo test files matching "${testFilesPattern}"\n`);
+  process.exit(0);
 }
-console.log(`Testing files matching "${testFiles}"`);
+
+const coverage = process.argv.includes('--coverage');
 
 module.exports = function(config) {
-  config.set({
-    files: [{ pattern: testFiles, watched: true, type: 'module' }],
 
+  const karmaConfig = {
     browsers: ['ChromeHeadless'],
-
+    files: [{ pattern: testFilesPattern, watched: true, type: 'module' }],
+    frameworks: ['jasmine'],
+    logLevel: config.LOG_INFO,
     preprocessors: {
       'test/**/*.spec.js': ['rollup'],
     },
-
-    // Use jasmine as test framework for the suite.
-    frameworks: ['jasmine'],
-
+    reporters: ['progress'],
     rollupPreprocessor: {
       /**
        * This is just a normal Rollup config object,
@@ -38,5 +46,27 @@ module.exports = function(config) {
         nodeResolve(),
       ],
     },
-  });
+  };
+
+  if (coverage) {
+    karmaConfig.reporters.push('coverage');
+    karmaConfig.rollupPreprocessor.plugins.push(
+      istanbul({
+        exclude: [
+          'packages/near-membrane-node',
+          'test/**/*.js',
+        ],
+      })
+    );
+    karmaConfig.coverageReporter = {
+      dir: 'coverage/',
+      reporters: [
+        { type: 'html', subdir: 'html' },
+        { type: 'json', subdir: 'json', file: 'coverage.json' },
+        { type: 'text-summary' },
+      ],
+    };
+  }
+
+  config.set(karmaConfig);
 };
