@@ -20,7 +20,7 @@
     "test:bundlesize": "bundlesize",
     "test": "yarn test:jest; yarn test:karma",
     "test:jest": "jest --runInBand --no-cache --config jest.config.js",
-    "test:karma": "karma start karma.config.js --single-run --browsers ChromeHeadless,FirefoxHeadless",
+    "test:karma": "karma start karma.config.js --single-run --browsers ChromeHeadless,FirefoxHeadless,Safari",
     "version": "yarn build",
     "bump": "lerna version --exact --no-push --yes",
     "bump:patch": "lerna version patch --exact --no-push --yes",
