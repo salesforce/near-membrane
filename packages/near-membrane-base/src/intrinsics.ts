@@ -56,11 +56,15 @@ const ESGlobalKeys = new SetCtor([
     'AggregateError',
     'Array',
     'ArrayBuffer',
+    'BigInt',
+    'BigInt64Array',
+    'BigUint64Array',
     'Boolean',
     'DataView',
     // 'Date', // Unstable & Remapped
     'Error', // Unstable
     'EvalError',
+    'FinalizationRegistry',
     'Float32Array',
     'Float64Array',
     'Function', // dangerous
@@ -90,6 +94,8 @@ const ESGlobalKeys = new SetCtor([
     'URIError',
     // 'WeakMap', // Remapped
     // 'WeakSet', // Remapped
+
+    'WeakRef',
 
     // *** 18.4 Other Properties of the Global Object
     'Atomics',
