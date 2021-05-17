@@ -1,6 +1,25 @@
 import createVirtualEnvironment from '../node-realm';
 
 describe('VirtualEnvironment', () => {
+    describe('default settings', () => {
+        it('no options provided', () => {
+            const evalScript = createVirtualEnvironment(/* no options */);
+            expect(() => evalScript('')).not.toThrow();
+        });
+        it('empty object provided', () => {
+            const evalScript = createVirtualEnvironment({/* empty options */});
+            expect(() => evalScript('')).not.toThrow();
+        });
+        it('object has endowments, but is undefined', () => {
+            let endowments;
+            const evalScript = createVirtualEnvironment({ endowments });
+            expect(() => evalScript('')).not.toThrow();
+        });
+        it('object has endowments, but is empty', () => {
+            const evalScript = createVirtualEnvironment({ endowments: {} });
+            expect(() => evalScript('')).not.toThrow();
+        });
+    });
     describe('reverse proxies', () => {
         it('should not have identity discontinuity for arrays', function() {
             expect.assertions(6);
