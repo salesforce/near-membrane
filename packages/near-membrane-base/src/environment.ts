@@ -25,7 +25,6 @@ import {
     RedValue,
     BlueConstructor,
     MembraneBroker,
-    DistortionMap,
     RedProxy,
     BlueProxy,
     BlueProxyTarget,
@@ -38,9 +37,11 @@ interface VirtualEnvironmentOptions {
     blueGlobalThis: BlueObject & typeof globalThis;
     // Red global object used by the red environment
     redGlobalThis: RedObject & typeof globalThis;
-    // Optional distortion map to tame functionalities observed through the membrane
-    distortionMap?: Map<RedProxyTarget, RedProxyTarget>;
+    // Optional distortion callback to tame functionalities observed through the membrane
+    distortionCallback?: (originalTarget: RedProxyTarget) => RedProxyTarget;
 }
+
+const distortionNoopCallback = (v: RedProxyTarget) => v;
 
 export class VirtualEnvironment implements MembraneBroker {
     // map from red to blue references
@@ -48,21 +49,14 @@ export class VirtualEnvironment implements MembraneBroker {
     // map from blue to red references
     blueMap: WeakMap<BlueFunction | BlueObject, RedProxy | BlueProxyTarget> = new WeakMapCtor();
     // blue object distortion map
-    distortionMap: DistortionMap;
+    distortionCallback: (originalTarget: RedProxyTarget) => RedProxyTarget;
 
     constructor(options: VirtualEnvironmentOptions) {
         if (options === undefined) {
             throw new ErrorCtor(`Missing VirtualEnvironmentOptions options bag.`);
         }
-        const { redGlobalThis, distortionMap } = options;
-        this.distortionMap = new WeakMapCtor();
-        // validating distortion entries
-        distortionMap?.forEach((value, key) => {
-            if (typeof key !== typeof value) {
-                throw new ErrorCtor(`Invalid distortion ${value}.`);
-            }
-            WeakMapSet(this.distortionMap, key, value);
-        });
+        const { redGlobalThis, distortionCallback } = options;
+        this.distortionCallback = distortionCallback || distortionNoopCallback;
         // getting proxy factories ready per environment so we can produce
         // the proper errors without leaking instances into a sandbox
         const redEnvFactory = redGlobalThis.eval(`(${serializedRedEnvSourceText})`);
@@ -142,7 +136,12 @@ export class VirtualEnvironment implements MembraneBroker {
 
                 if (typeof blueDescriptor.get === 'function') {
                     const { get: blueGetter } = blueDescriptor;
-                    const blueDistortedGetter: () => BlueValue = WeakMapGet(this.distortionMap, blueGetter) || blueGetter;
+                    // Note: the reason why we don't use broker.getRedValue here is because we want that proxy to be
+                    // lazy. This brings other questions: what about error control? Do we have test for this?
+                    // Can we optimize this so after the first call we don't pay the cost of wrapping anymore?
+                    // TODO: isn't easier just to not do any lazy stuff anymore considering that the creation of those
+                    // proxies is now faster?
+                    const blueDistortedGetter: () => BlueValue = this.distortionCallback(blueGetter) as () => BlueValue;
                     currentBlueGetter = function() {
                         const value: BlueValue = ReflectApply(blueDistortedGetter, broker.getBlueValue(this), emptyArray);
                         return broker.getRedValue(value);

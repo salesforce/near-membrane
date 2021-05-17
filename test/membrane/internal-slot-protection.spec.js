@@ -11,7 +11,10 @@ describe('membrane', () => {
                 expect(this instanceof HTMLLinkElement).toBeTrue();
             }]
         ]);
-        const evalScript = createVirtualEnvironment({ distortionMap, endowments: window });
+        function distortionCallback(v) {
+            return distortionMap.get(v) || v;
+        }
+        const evalScript = createVirtualEnvironment({ distortionCallback, endowments: window });
         evalScript(`
             'use strict';
 

@@ -13,7 +13,11 @@ const distortionMap = new Map([
     }]
 ]);
 
-const evalScript = createVirtualEnvironment({ distortionMap, endowments: window });
+function distortionCallback(v) {
+    return distortionMap.get(v) || v;
+}
+
+const evalScript = createVirtualEnvironment({ distortionCallback, endowments: window });
 
 describe('Getter Function Distortion', () => {
     it('should be invoked when invoked directly', function() {

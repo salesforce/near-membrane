@@ -52,7 +52,7 @@ export interface MarshalHooks {
 // istanbul ignore next
 export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: MembraneBroker, hooks: MarshalHooks) {
     const LockerLiveValueMarkerSymbol = Symbol.for('@@lockerLiveValue');
-    const { blueMap, distortionMap } = blueEnv;
+    const { blueMap, distortionCallback } = blueEnv;
     const { apply: blueApplyHook, construct: blueConstructHook } = hooks;
 
     const ArrayCtor = Array;
@@ -99,7 +99,6 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
 
     const {
         get: WeakMapProtoGet,
-        has: WeakMapProtoHas,
     } = WeakMap.prototype;
 
     function ObjectHasOwnProperty(obj: object | undefined, key: PropertyKey): boolean {
@@ -120,10 +119,6 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
 
     function WeakMapGet(map: WeakMap<object, object>, key: object): object | undefined {
         return ReflectApply(WeakMapProtoGet, map, [key]);
-    }
-
-    function WeakMapHas(map: WeakMap<object, object>, key: object): boolean {
-        return ReflectApply(WeakMapProtoHas, map, [key]);
     }
 
     function copyBlueDescriptorIntoShadowTarget(shadowTarget: RedShadowTarget, normalizedBlueDescriptor: PropertyDescriptor | undefined, key: PropertyKey) {
@@ -183,11 +178,16 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     }
 
     function getDistortedValue(target: RedProxyTarget): RedProxyTarget {
-        if (!WeakMapHas(distortionMap, target)) {
-            return target;
+        let distortedTarget: RedProxyTarget = target;
+        try {
+            distortedTarget = distortionCallback(target);
+        } finally {
+            // if a distortion entry is found, it must be a valid proxy target
+            if (distortedTarget !== target && typeof distortedTarget !== typeof target) {
+                throw new ErrorCtor(`Invalid distortion ${target}.`);
+            }
         }
-        // if a distortion entry is found, it must be a valid proxy target
-        return WeakMapGet(distortionMap, target) as RedProxyTarget;
+        return distortedTarget;
     }
 
     function getRedDescriptor(blueDescriptor: PropertyDescriptor): PropertyDescriptor {

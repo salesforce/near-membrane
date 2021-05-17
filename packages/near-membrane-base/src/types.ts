@@ -31,15 +31,13 @@ export interface TargetMeta {
 export type RedProxy = RedObject | RedFunction;
 export type BlueProxy = BlueObject | BlueFunction;
 
-export type DistortionMap = WeakMap<RedProxyTarget, RedProxyTarget>;
-
 export interface MembraneBroker {
     // map from red to blue references
     redMap: WeakMap<RedFunction | RedObject, RedProxyTarget | BlueProxy>;
     // map from blue to red references
     blueMap: WeakMap<BlueFunction | BlueObject, RedProxy | BlueProxyTarget>;
     // blue object distortion map
-    distortionMap: DistortionMap;
+    distortionCallback: (originalTarget: RedProxyTarget) => RedProxyTarget;
 
     getBlueValue(red: RedValue): BlueValue;
     getRedValue(blue: BlueValue): RedValue;
@@ -49,6 +47,6 @@ export interface MembraneBroker {
 }
 
 export interface EnvironmentOptions {
-    distortionMap?: Map<RedProxyTarget, RedProxyTarget>;
+    distortionCallback?: (originalTarget: RedProxyTarget) => RedProxyTarget;
     endowments?: object;
 }
