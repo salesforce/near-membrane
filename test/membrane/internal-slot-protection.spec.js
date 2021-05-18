@@ -3,12 +3,14 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 describe('membrane', () => {
     it('should prevent attacks that are changing the prototype for impersonation', function() {
         // expect.assertions(4);
-        const { set } = Object.getOwnPropertyDescriptor(Element.prototype, 'setAttribute');
-        const distortionMap = new Map(set, function (attributeName, value) {
-            expect(attributeName).toBe('rel');
-            expect(value).toBe('import');
-            expect(this instanceof HTMLLinkElement).toBeTrue();
-        });
+        const { value: setAttribute } = Object.getOwnPropertyDescriptor(Element.prototype, 'setAttribute');
+        const distortionMap = new Map([
+            [setAttribute, function (attributeName, value) {
+                expect(attributeName).toBe('rel');
+                expect(value).toBe('import');
+                expect(this instanceof HTMLLinkElement).toBeTrue();
+            }]
+        ]);
         const evalScript = createVirtualEnvironment({ distortionMap, endowments: window });
         evalScript(`
             'use strict';
