@@ -26,7 +26,10 @@ module.exports = function(config) {
 
   const karmaConfig = {
     browsers: ['ChromeHeadless'],
-    files: [{ pattern: testFilesPattern, watched: true, type: 'module' }],
+    files: [
+      'test/__bootstrap__/expect.assertions.js',
+      { pattern: testFilesPattern, watched: true, type: 'module' }
+    ],
     frameworks: ['jasmine'],
     logLevel: config.LOG_INFO,
     preprocessors: {

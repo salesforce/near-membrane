@@ -4836,6 +4836,11 @@ jasmine-core@^3.3:
   resolved "https://registry.yarnpkg.com/jasmine-core/-/jasmine-core-3.5.0.tgz#132c23e645af96d85c8bca13c8758b18429fc1e4"
   integrity sha512-nCeAiw37MIMA9w9IXso7bRaLl+c/ef3wnxsoSAlYrzS+Ot0zTG6nU8G/cIfGkqpkjX2wNaIW9RFG0TwIFnG6bA==
 
+jasmine-expect-count@^1.1.2:
+  version "1.1.2"
+  resolved "https://registry.yarnpkg.com/jasmine-expect-count/-/jasmine-expect-count-1.1.2.tgz#5e55bd0797259877ff6e99004584c93b9bf542ac"
+  integrity sha512-Db2Ch01hqtAMrGR4NyDA+Diciea1eBTkiFEbX5L5MqdL1xK6u/oum3MT9hp3zdvOEqYwIVR1e1NAHMTl5GuF5A==
+
 jest-changed-files@^26.6.2:
   version "26.6.2"
   resolved "https://registry.yarnpkg.com/jest-changed-files/-/jest-changed-files-26.6.2.tgz#f6198479e1cc66f22f9ae1e22acaa0b429c042d0"
