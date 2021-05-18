@@ -13,7 +13,7 @@ const endowments = {
 describe('Blue Proxies', () => {
     it('should be preserved the JS Object semantics by allowing writable objects to change', () => {
         'use strict';
-        // expect.assertions(9);
+        expect.assertions(9);
         const evalScript = createVirtualEnvironment({ endowments });
         evalScript(`
             'use strict';
@@ -46,4 +46,4 @@ describe('Blue Proxies', () => {
         expect(obj.x).toBe(3);
         expect(Object.getOwnPropertyDescriptor(obj, 'x').value).toBe(3);
     });
-}); 
+});

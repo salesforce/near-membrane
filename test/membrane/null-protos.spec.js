@@ -11,7 +11,7 @@ function saveFoo(arg) {
 
 describe('null __proto__', () => {
     it('should work for get trap', function() {
-        // expect.assertions(4);
+        expect.assertions(4);
         const evalScript = createVirtualEnvironment({ endowments: { bar, saveFoo, expect }});
         evalScript(`
             const foo = Object.create(null, {
@@ -25,7 +25,7 @@ describe('null __proto__', () => {
         expect(foo.y).toBe(2);
     });
     it('should work for set trap', function() {
-        // expect.assertions(6);
+        expect.assertions(6);
         const evalScript = createVirtualEnvironment({ endowments: { bar, saveFoo, expect }});
         evalScript(`
             const foo = Object.create(null, {
@@ -42,7 +42,7 @@ describe('null __proto__', () => {
         expect(Reflect.set(foo, 'y', 7)).toBe(true);
     });
     it('should work for has trap', function() {
-        // expect.assertions(4);
+        expect.assertions(4);
         const evalScript = createVirtualEnvironment({ endowments: { bar, saveFoo, expect }});
         evalScript(`
             const foo = Object.create(null, {

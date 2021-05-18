@@ -9,7 +9,7 @@ describe('Extending Custom Element', () => {
     const evalScript = createVirtualEnvironment({ endowments: window });
 
     it('should be allowed from blue to red', function() {
-        // expect.assertions(1);
+        expect.assertions(1);
         evalScript(`
             const Base = customElements.get('x-base');
             customElements.define('x-red-base', class extends Base {});
@@ -18,7 +18,7 @@ describe('Extending Custom Element', () => {
         `);
     });
     it('should be allowed in red', function() {
-        // expect.assertions(1);
+        expect.assertions(1);
         evalScript(`
             class Red extends HTMLElement {}
             customElements.define('x-red', Red);
@@ -27,7 +27,7 @@ describe('Extending Custom Element', () => {
         `);
     });
     it('should support multiple extensions in the same namespace', function() {
-        // expect.assertions(2);
+        expect.assertions(2);
         evalScript(`
             class Foo extends HTMLElement {}
             class Bar extends Foo {}
@@ -38,7 +38,7 @@ describe('Extending Custom Element', () => {
         `);
     });
     it('should support multiple extensions from blue in the same namespace', function() {
-        // expect.assertions(3);
+        expect.assertions(3);
         evalScript(`
             const Base = customElements.get('x-base');
             class Foo extends Base {}
@@ -58,7 +58,7 @@ describe('NS-to-NS custom element extension', () => {
     const evalScriptNS2 = createVirtualEnvironment({ endowments: window });
 
     it('should work when using multiple namespaces in proto-chain', function() {
-        // expect.assertions(6);
+        expect.assertions(6);
         evalScriptNS1(`
             const Base = customElements.get('x-base');
             class Foo extends Base {}

@@ -27,7 +27,7 @@ const endowments = {
 
 describe('The membrane', () => {
     it('should allow expandos on endowments inside the sandbox', function() {
-        // expect.assertions(4);
+        expect.assertions(4);
         const evalScript = createVirtualEnvironment({ endowments });
         evalScript(`
             'use strict';

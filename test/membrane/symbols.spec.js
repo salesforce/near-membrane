@@ -6,7 +6,7 @@ globalThis.symbolWithKey = Symbol.for('symbol-with-key');
 
 describe('Secure Membrane', () => {
     it('should support symbols', () => {
-        // expect.assertions(5);
+        expect.assertions(5);
         const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
             expect(typeof Symbol() === 'symbol').toBeTrue();
@@ -18,7 +18,7 @@ describe('Secure Membrane', () => {
         `);
     });
     it('should allow access to symbols defined in outer realm', function() {
-        // expect.assertions(3);
+        expect.assertions(3);
         const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
             expect(typeof globalThis.regularSymbol).toBe('symbol');
@@ -27,7 +27,7 @@ describe('Secure Membrane', () => {
         `);
     });
     it('should not leak outer realm global reference via symbols', function() {
-        // expect.assertions(2);
+        expect.assertions(2);
         const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
             expect(globalThis.regularSymbol.constructor).toBe(Symbol);
@@ -35,7 +35,7 @@ describe('Secure Membrane', () => {
         `);
     });
     it('should not leak outer realm global reference via Symbol.for()', function() {
-        // expect.assertions(3);
+        expect.assertions(3);
         const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
             expect(typeof Symbol.for('symbol-with-key')).toBe('symbol');
@@ -46,9 +46,9 @@ describe('Secure Membrane', () => {
 
     it('blue Symbol class properties are inherited in red environments', () => {
         const symbol = Symbol.for('method');
-        
+
         let successful = false;
-        
+
         class Base {
             [symbol]() {
                 successful = true;
