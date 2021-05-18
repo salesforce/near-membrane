@@ -28,11 +28,12 @@ module.exports = function(config) {
     browsers: ['ChromeHeadless'],
     files: [
       'test/__bootstrap__/expect.assertions.js',
-      { pattern: testFilesPattern, watched: true, type: 'module' }
+      { pattern: testFilesPattern, watched: true, type: 'module' },
     ],
     frameworks: ['jasmine'],
     logLevel: config.LOG_INFO,
     preprocessors: {
+      'test/__bootstrap__/expect.assertions.js': ['rollup'],
       'test/**/*.spec.js': ['rollup'],
     },
     reporters: ['progress'],
