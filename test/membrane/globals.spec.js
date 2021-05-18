@@ -15,7 +15,7 @@ describe('The Sandbox', () => {
         `);
     });
     it('should allow the shadowing of existing globals', function() {
-        expect.assertions(3);
+        expect.assertions(4);
         window.s2 = 'b';
         const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
