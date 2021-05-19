@@ -5,7 +5,7 @@ const path = require('path');
 module.exports = {
     overrides: [
         {
-            files: ['**/*.ts'],
+            files: ['**/*.{js,ts}'],
             rules: {
                 'import/no-extraneous-dependencies': [
                     'error',
