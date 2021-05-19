@@ -6,7 +6,7 @@ globalThis.symbolWithKey = Symbol.for('symbol-with-key');
 
 describe('Secure Membrane', () => {
     it('should support symbols', () => {
-        expect.assertions(5);
+        expect.assertions(6);
         const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
             expect(typeof Symbol() === 'symbol').toBeTrue();

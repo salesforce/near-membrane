@@ -58,7 +58,7 @@ describe('NS-to-NS custom element extension', () => {
     const evalScriptNS2 = createVirtualEnvironment({ endowments: window });
 
     it('should work when using multiple namespaces in proto-chain', function() {
-        expect.assertions(6);
+        expect.assertions(3);
         evalScriptNS1(`
             const Base = customElements.get('x-base');
             class Foo extends Base {}
