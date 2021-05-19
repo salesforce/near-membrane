@@ -1,0 +1,31 @@
+{
+  "root": true,
+  "env": {
+    "amd": true,
+    "browser": true,
+    "es6": true,
+    "jest": true,
+    "node": true
+  },
+  "globals": {
+    "globalThis": false
+  },
+  "parserOptions": {
+     "project": "./tsconfig.json"
+  },
+  "extends": [
+    "airbnb-typescript/base",
+    "prettier/@typescript-eslint"
+  ],
+  "plugins": [
+    "@typescript-eslint",
+    "prettier"
+  ],
+  "rules": {
+    "prettier/prettier": "error",
+    // Overriden
+    "no-eval": "off",
+    "camelcase": ["error", { "properties": "never", "allow": [ "W[0-9]+_"] }],
+    "import/extensions": "off"
+  }
+}
