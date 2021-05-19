@@ -136,7 +136,7 @@ export class VirtualEnvironment implements MembraneBroker {
 
                 if (typeof blueDescriptor.get === 'function') {
                     const { get: blueGetter } = blueDescriptor;
-                    // Note: the reason why we don't use broker.getRedValue here is because we want that proxy to be
+                    // Note: The reason why we don't use broker.getRedValue here is because we want that proxy to be
                     // lazy. This brings other questions: what about error control? Do we have test for this?
                     // Can we optimize this so after the first call we don't pay the cost of wrapping anymore?
                     // TODO: Isn't it easier to just not do any lazy stuff anymore considering that the creation of those
