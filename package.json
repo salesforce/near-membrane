@@ -107,9 +107,6 @@
   "lint-staged": {
     "packages/**/*.{js,ts}": [
       "eslint --fix"
-    ],
-    "scripts/**/*.{js,ts}": [
-      "eslint --fix"
     ]
   },
   "husky": {
