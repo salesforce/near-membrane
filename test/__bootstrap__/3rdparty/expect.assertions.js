@@ -1,7 +1,7 @@
-//
-// Partially adapted from jasmine-expect-count
-// https://github.com/UziTech/jasmine-expect-count/blob/master/LICENSE
-//
+// Based on jasmine-expect-count.
+// Copyright (c) 2017 Tony Brix. Released under MIT license:
+// https://github.com/UziTech/jasmine-expect-count
+
 EXPECT_PATCHING_SCOPE: {
     if (!globalThis.jasmine) {
         throw new Error("jasmine must be loaded before patching in expect.assertions(x)");

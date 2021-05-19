@@ -24,7 +24,7 @@ const coverage = process.argv.includes('--coverage');
 
 module.exports = function(config) {
 
-  const bootstrapFilesPattern = 'test/__bootstrap__/*.js';
+  const bootstrapFilesPattern = 'test/__bootstrap__/**/*.js';
   const karmaConfig = {
     browsers: ['ChromeHeadless'],
     files: [
