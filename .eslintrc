@@ -22,39 +22,56 @@
     "prettier"
   ],
   "rules": {
+    "@typescript-eslint/no-unused-vars": [
+      "warn", // @TODO: change this to "error"
+      {
+        "vars": "all",
+        "args": "after-used",
+        "ignoreRestSiblings": true,
+        "argsIgnorePattern": "^_" // tsc compatibility
+      }
+    ],
+    "comma-dangle": "off",
+    "implicit-arrow-linebreak": "off", // conflicts with prettier
+    "import/prefer-default-export": "off",
+    "object-curly-newline": "off",
+    "operator-linebreak": "off",
+    "prefer-rest-params": "off", // we need to use params
     "prettier/prettier": "error",
     // Overriden
-    "no-eval": "off",
     "camelcase": ["error", { "properties": "never", "allow": [ "W[0-9]+_"] }],
     "import/extensions": "off",
-    // TODOs - Temporarily disable rules, fix this progressively
+    "no-eval": "off",
+    // @TODO - fix files to enable rules below this line
+    "@typescript-eslint/no-shadow": "warn",
+    "@typescript-eslint/no-use-before-define": "warn",
     "arrow-body-style": "warn",
-    "prefer-arrow-callback": "warn",
-    "prefer-object-spread": "off",
-    "max-classes-per-file": "off",
     "dot-notation": "off",
-    "object-shorthand": "off",
-    "no-param-reassign": "off",
-    "no-cond-assign": "off",
-    "prefer-destructuring": "off",
     "func-names": "off",
-    "no-nested-ternary": "off",
-    "no-plusplus": "off",
-    "strict": "off",
-    "no-restricted-syntax": "off",
-    "import/no-mutable-exports": "off",
     "guard-for-in": "off",
-    "import/prefer-default-export": "off",
-    "prefer-rest-params": "off",
-    "one-var": "off",
-    "prefer-spread": "off",
-    "no-lonely-if": "off",
-    "no-prototype-builtins": "off",
+    "import/no-cycle": "warn",
+    "import/no-mutable-exports": "off",
+    "max-classes-per-file": "off",
+    "no-cond-assign": "off",
     "no-continue": "off",
-    "no-shadow": "off",
+    "no-lonely-if": "off",
+    "no-nested-ternary": "off",
+    "no-param-reassign": "off",
+    "no-plusplus": "off",
+    "no-prototype-builtins": "off",
+    "no-restricted-syntax": "off",
+    "no-shadow": "warn",
+    "no-unsafe-finally": "warn",
+    "object-shorthand": "off",
+    "one-var": "off",
+    "prefer-arrow-callback": "warn",
+    "prefer-destructuring": "off",
+    "prefer-object-spread": "off",
+    "prefer-spread": "off",
+    "strict": "off",
     // Rules up for discussion
-    "no-multi-assign": "off",
-    "new-cap": "off"
+    "new-cap": "off",
+    "no-multi-assign": "off"
     // TODOs - end
   }
 }
