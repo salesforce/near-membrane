@@ -41,7 +41,7 @@ interface VirtualEnvironmentOptions {
     distortionCallback?: (originalTarget: RedProxyTarget) => RedProxyTarget;
 }
 
-const distortionNoopCallback = (v: RedProxyTarget) => v;
+const distortionDefaultCallback = (v: RedProxyTarget) => v;
 
 export class VirtualEnvironment implements MembraneBroker {
     // map from red to blue references
@@ -56,7 +56,7 @@ export class VirtualEnvironment implements MembraneBroker {
             throw new ErrorCtor(`Missing VirtualEnvironmentOptions options bag.`);
         }
         const { redGlobalThis, distortionCallback } = options;
-        this.distortionCallback = distortionCallback || distortionNoopCallback;
+        this.distortionCallback = distortionCallback || distortionDefaultCallback;
         // getting proxy factories ready per environment so we can produce
         // the proper errors without leaking instances into a sandbox
         const redEnvFactory = redGlobalThis.eval(`(${serializedRedEnvSourceText})`);
@@ -141,7 +141,7 @@ export class VirtualEnvironment implements MembraneBroker {
                     // Can we optimize this so after the first call we don't pay the cost of wrapping anymore?
                     // TODO: isn't easier just to not do any lazy stuff anymore considering that the creation of those
                     // proxies is now faster?
-                    const blueDistortedGetter: () => BlueValue = this.distortionCallback(blueGetter) as () => BlueValue;
+                    const blueDistortedGetter = this.distortionCallback(blueGetter) as () => BlueValue;
                     currentBlueGetter = function() {
                         const value: BlueValue = ReflectApply(blueDistortedGetter, broker.getBlueValue(this), emptyArray);
                         return broker.getRedValue(value);
