@@ -3,6 +3,7 @@
 const path = require('path');
 
 module.exports = {
+    ignorePatterns: ['.eslintrc.js'],
     overrides: [
         {
             files: ['**/*.{js,ts}'],
