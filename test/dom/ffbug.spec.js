@@ -2,7 +2,7 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('FF BugFix 543435', () => {
     it('should preserve the document reference in the next turn', function(done) {
-        // expect.assertions(3);
+        expect.assertions(3);
         const evalScript = createVirtualEnvironment({
             endowments: {
                 validateSyncDocumentReference(redDoc) {
@@ -21,10 +21,10 @@ describe('FF BugFix 543435', () => {
         evalScript(`
             validateSyncDocumentReference(document);
             Promise.resolve().then(() => {
-                validateMicroTaskDocumentReference(document);   
+                validateMicroTaskDocumentReference(document);
             });
             setTimeout(() => {
-                validateMacroTaskDocumentReference(document); 
+                validateMacroTaskDocumentReference(document);
             }, 1);
         `);
     });

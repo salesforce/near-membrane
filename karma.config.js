@@ -24,13 +24,18 @@ const coverage = process.argv.includes('--coverage');
 
 module.exports = function(config) {
 
+  const bootstrapFilesPattern = 'test/__bootstrap__/**/*.js';
   const karmaConfig = {
     browsers: ['ChromeHeadless'],
-    files: [{ pattern: testFilesPattern, watched: true, type: 'module' }],
+    files: [
+      bootstrapFilesPattern,
+      { pattern: testFilesPattern, watched: true, type: 'module' },
+    ],
     frameworks: ['jasmine'],
     logLevel: config.LOG_INFO,
     preprocessors: {
-      'test/**/*.spec.js': ['rollup'],
+      [bootstrapFilesPattern]: ['rollup'],
+      [testFilesPattern]: ['rollup'],
     },
     reporters: ['progress'],
     rollupPreprocessor: {

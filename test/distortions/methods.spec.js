@@ -13,27 +13,27 @@ const evalScript = createVirtualEnvironment({ distortionMap, endowments: window 
 
 describe('Method Distortion', () => {
     it('should be invoked when invoked directly', function() {
-        // expect.assertions(1);
+        expect.assertions(1);
         evalScript(`
             expect(() => {
                 fetch('./invalid-network-request.json');
-            }).toThrow();    
+            }).toThrow();
         `);
     });
     it('should be invoked when invoked indirectly', function() {
-        // expect.assertions(1);
+        expect.assertions(1);
         evalScript(`
             expect(() => {
                 originalFetch('./invalid-fetch.html');
-            }).toThrow();    
+            }).toThrow();
         `);
     });
     it('should bypass the restriction because fetch ref never goes throw the membrane', function() {
-        // expect.assertions(1);
+        expect.assertions(1);
         evalScript(`
             expect(() => {
                 wrappedFetch('./invalid-fetch.html');
-            }).not.toThrow();    
+            }).not.toThrow();
         `);
     });
 });

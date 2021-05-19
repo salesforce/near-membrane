@@ -13,7 +13,7 @@ const evalScript = createVirtualEnvironment({ endowments: window });
 
 describe('Outer Realm Custom Element', () => {
     it('should be accessible within the sandbox', function() {
-        // expect.assertions(3);
+        expect.assertions(3);
         evalScript(`
             const elm = document.createElement('x-external');
             expect(elm.identity()).toBe('ExternalElement');
@@ -29,7 +29,7 @@ describe('Outer Realm Custom Element', () => {
         `);
     });
     it('should be extensible within the sandbox', function() {
-        // expect.assertions(3);
+        expect.assertions(3);
         evalScript(`
             const ExtenalElement = customElements.get('x-external');
             class Foo extends ExtenalElement {}
@@ -41,7 +41,7 @@ describe('Outer Realm Custom Element', () => {
         `);
     });
     it('should be extensible and can be new from within the sandbox', function() {
-        // expect.assertions(3);
+        expect.assertions(3);
         evalScript(`
             const ExtenalElement = customElements.get('x-external');
             class Baz extends ExtenalElement {}
@@ -53,14 +53,14 @@ describe('Outer Realm Custom Element', () => {
         `);
     });
     it('should get access to external registered elements', function() {
-        // expect.assertions(1);
+        expect.assertions(1);
         evalScript(`
             const E = customElements.get('x-external');
             expect(E).toBe(refToExternalElement);
         `);
     });
     it('should preserve the invariants of classes in outer realm', function() {
-        // expect.assertions(7);
+        expect.assertions(7);
         expect(HTMLElement.__proto__ === Element).toBeTrue();
         expect(HTMLElement.prototype.__proto__ === Element.prototype).toBeTrue();
         expect(HTMLElement.prototype.constructor === HTMLElement).toBeTrue();
@@ -77,7 +77,7 @@ describe('Sandboxed Custom Element', () => {
         customElements.define('x-bar', Bar);
     `);
     it('should preserve the invariants of classes from within the sandbox', function() {
-        // expect.assertions(6);
+        expect.assertions(6);
         evalScript(`
             expect(HTMLElement.__proto__ === Element).toBeTrue();
             expect(HTMLElement.prototype.__proto__ === Element.prototype).toBeTrue();

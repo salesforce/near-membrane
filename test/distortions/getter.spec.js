@@ -17,7 +17,7 @@ const evalScript = createVirtualEnvironment({ distortionMap, endowments: window 
 
 describe('Getter Function Distortion', () => {
     it('should be invoked when invoked directly', function() {
-        // expect.assertions(1);
+        expect.assertions(1);
         evalScript(`
             const elm = document.createElement('div');
             elm.attachShadow({ mode: 'open' });
@@ -25,7 +25,7 @@ describe('Getter Function Distortion', () => {
         `);
     });
     it('should be invoked when invoked indirectly', function() {
-        // expect.assertions(1);
+        expect.assertions(1);
         evalScript(`
             const elm = document.createElement('div');
             elm.attachShadow({ mode: 'open' });
@@ -34,7 +34,7 @@ describe('Getter Function Distortion', () => {
         `); 
     });
     it('should work for global property accessors (issue #64)', function () {
-        // expect.assertions(1);
+        expect.assertions(1);
         evalScript(`
             expect(localStorage).toBe('distorted localStorage');
         `);
