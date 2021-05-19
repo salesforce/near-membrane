@@ -11,6 +11,7 @@
   "scripts": {
     "clean": "lerna run clean --stream",
     "build": "lerna run build --stream",
+    "lint": "eslint packages examples",
     "start": "http-server ./examples",
     "coverage": "yarn coverage:jest; yarn coverage:karma",
     "coverage:jest": "yarn test:jest --coverage",
@@ -41,12 +42,25 @@
   "devDependencies": {
     "@babel/plugin-transform-modules-commonjs": "^7.12.1",
     "@babel/preset-typescript": "^7.12.7",
+    "@commitlint/cli": "12.0.1",
+    "@commitlint/config-conventional": "12.0.1",
     "@rollup/plugin-node-resolve": "^11.0.0",
     "@rollup/plugin-typescript": "^8.0.0",
+    "@types/eslint": "7.2.6",
     "@types/jest": "^26.0.0",
+    "@typescript-eslint/eslint-plugin": "4.12.0",
+    "@typescript-eslint/parser": "4.12.0",
     "bundlesize": "^0.18.0",
     "chokidar": "^3.0.1",
+    "eslint": "7.17.0",
+    "eslint-config-airbnb-base": "14.2.1",
+    "eslint-config-airbnb-typescript": "12.0.0",
+    "eslint-config-prettier": "7.1.0",
+    "eslint-plugin-import": "2.22.1",
+    "eslint-plugin-markdown": "1.0.2",
+    "eslint-plugin-prettier": "3.3.0",
     "http-server": "^0.12.3",
+    "husky": "5.2.0",
     "istanbul": "^0.4.5",
     "istanbul-api": "^3.0.0",
     "istanbul-merge": "^1.1.1",
@@ -60,6 +74,8 @@
     "karma-rollup-preprocessor": "^7.0.2",
     "karma-safari-launcher": "^1.0.0",
     "lerna": "^3.22.1",
+    "lint-staged": "10.5.4",
+    "prettier": "2.2.1",
     "puppeteer": "^5.5.0",
     "rimraf": "^3.0.2",
     "rollup": "^2.34.2",
@@ -87,5 +103,19 @@
       "maxSize": "1 kB",
       "compression": "none"
     }
-  ]
+  ],
+  "lint-staged": {
+    "packages/**/*.{js,ts}": [
+      "eslint --fix"
+    ],
+    "scripts/**/*.{js,ts}": [
+      "eslint --fix"
+    ]
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "commit-msg": "yarn commitlint --edit $1"
+    }
+  }
 }
