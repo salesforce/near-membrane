@@ -35,7 +35,7 @@ module.exports = function(config) {
     logLevel: config.LOG_INFO,
     preprocessors: {
       [bootstrapFilesPattern]: ['rollup'],
-      'test/**/*.spec.js': ['rollup'],
+      [testFilesPattern]: ['rollup'],
     },
     reporters: ['progress'],
     rollupPreprocessor: {
