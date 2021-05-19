@@ -12,6 +12,7 @@
     "clean": "lerna run clean --stream",
     "build": "lerna run build --stream",
     "lint": "eslint packages examples",
+    "prepare": "husky install && yarn build",
     "start": "http-server ./examples",
     "coverage": "yarn coverage:jest; yarn coverage:karma",
     "coverage:jest": "yarn test:jest --coverage",
