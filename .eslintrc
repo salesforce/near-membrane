@@ -26,6 +26,35 @@
     // Overriden
     "no-eval": "off",
     "camelcase": ["error", { "properties": "never", "allow": [ "W[0-9]+_"] }],
-    "import/extensions": "off"
+    "import/extensions": "off",
+    // TODOs - Temporarily disable rules, fix this progressively
+    "arrow-body-style": "warn",
+    "prefer-arrow-callback": "warn",
+    "prefer-object-spread": "off",
+    "max-classes-per-file": "off",
+    "dot-notation": "off",
+    "object-shorthand": "off",
+    "no-param-reassign": "off",
+    "no-cond-assign": "off",
+    "prefer-destructuring": "off",
+    "func-names": "off",
+    "no-nested-ternary": "off",
+    "no-plusplus": "off",
+    "strict": "off",
+    "no-restricted-syntax": "off",
+    "import/no-mutable-exports": "off",
+    "guard-for-in": "off",
+    "import/prefer-default-export": "off",
+    "prefer-rest-params": "off",
+    "one-var": "off",
+    "prefer-spread": "off",
+    "no-lonely-if": "off",
+    "no-prototype-builtins": "off",
+    "no-continue": "off",
+    "no-shadow": "off",
+    // Rules up for discussion
+    "no-multi-assign": "off",
+    "new-cap": "off"
+    // TODOs - end
   }
 }
