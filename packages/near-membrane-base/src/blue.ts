@@ -79,7 +79,11 @@ function createBlueShadowTarget(target: BlueProxyTarget): BlueShadowTarget {
 }
 
 export function blueProxyFactory(env: MembraneBroker) {
-    function copyRedDescriptorIntoShadowTarget(shadowTarget: BlueShadowTarget, originalTarget: BlueProxyTarget, key: PropertyKey) {
+    function copyRedDescriptorIntoShadowTarget(
+        shadowTarget: BlueShadowTarget,
+        originalTarget: BlueProxyTarget,
+        key: PropertyKey
+    ) {
         // Note: a property might get defined multiple times in the shadowTarget
         //       but it will always be compatible with the previous descriptor
         //       to preserve the object invariants, which makes these lines safe.
@@ -90,7 +94,10 @@ export function blueProxyFactory(env: MembraneBroker) {
         }
     }
 
-    function copyRedDescriptorsIntoShadowTarget(shadowTarget: BlueShadowTarget, originalTarget: BlueProxyTarget) {
+    function copyRedDescriptorsIntoShadowTarget(
+        shadowTarget: BlueShadowTarget,
+        originalTarget: BlueProxyTarget
+    ) {
         const normalizedRedDescriptors = ObjectGetOwnPropertyDescriptors(originalTarget);
         const targetKeys = ReflectOwnKeys(normalizedRedDescriptors);
         const blueDescriptors = ObjectCreate(null);
@@ -116,10 +123,12 @@ export function blueProxyFactory(env: MembraneBroker) {
         const blueDescriptor = ObjectAssign(ObjectCreate(null), redDescriptor);
         if ('writable' in blueDescriptor) {
             // We are dealing with a value descriptor.
-            const { value } = blueDescriptor
-            blueDescriptor.value = typeof value === 'function' ?
-                // We are dealing with a method (optimization).
-                getBlueFunction(value) : getBlueValue(value);
+            const { value } = blueDescriptor;
+            blueDescriptor.value =
+                typeof value === 'function'
+                    ? // We are dealing with a method (optimization).
+                      getBlueFunction(value)
+                    : getBlueValue(value);
         } else {
             // We are dealing with accessors.
             const { get, set } = blueDescriptor;
@@ -147,7 +156,8 @@ export function blueProxyFactory(env: MembraneBroker) {
         }
         if (typeof red === 'function') {
             return (getBlueFunction((red as unknown) as RedFunction) as unknown) as T;
-        } else if (typeof red === 'object') {
+        }
+        if (typeof red === 'object') {
             // arrays and objects
             const blue = env.getBlueRef(red);
             if (blue === undefined) {
@@ -204,7 +214,12 @@ export function blueProxyFactory(env: MembraneBroker) {
             // future optimization: hoping that proxies with frozen handlers can be faster
             ObjectFreeze(this);
         }
-        apply(shadowTarget: BlueShadowTarget, blueThisArg: BlueValue, blueArgArray: BlueValue[]): BlueValue {
+
+        apply(
+            shadowTarget: BlueShadowTarget,
+            blueThisArg: BlueValue,
+            blueArgArray: BlueValue[]
+        ): BlueValue {
             const { target } = this;
             const redThisArg = env.getRedValue(blueThisArg);
             const redArgArray = getStaticRedArray(blueArgArray);
@@ -216,7 +231,12 @@ export function blueProxyFactory(env: MembraneBroker) {
             }
             return env.getBlueValue(red);
         }
-        construct(shadowTarget: BlueShadowTarget, blueArgArray: BlueValue[], blueNewTarget: BlueObject): BlueValue {
+
+        construct(
+            shadowTarget: BlueShadowTarget,
+            blueArgArray: BlueValue[],
+            blueNewTarget: BlueObject
+        ): BlueValue {
             const { target: RedCtor } = this;
             if (blueNewTarget === undefined) {
                 throw new TypeErrorCtor();
@@ -231,7 +251,12 @@ export function blueProxyFactory(env: MembraneBroker) {
             }
             return env.getBlueValue(red);
         }
-        defineProperty(shadowTarget: BlueShadowTarget, key: PropertyKey, bluePartialDesc: PropertyDescriptor): boolean {
+
+        defineProperty(
+            shadowTarget: BlueShadowTarget,
+            key: PropertyKey,
+            bluePartialDesc: PropertyDescriptor
+        ): boolean {
             const { target } = this;
             const redDesc = getRedPartialDescriptor(bluePartialDesc);
             if (ReflectDefineProperty(target, key, redDesc)) {
@@ -242,9 +267,11 @@ export function blueProxyFactory(env: MembraneBroker) {
             }
             return true;
         }
+
         deleteProperty(shadowTarget: BlueShadowTarget, key: PropertyKey): boolean {
             return ReflectDeleteProperty(this.target, key);
         }
+
         /**
          * This trap cannot just use `Reflect.get` directly on the `target` because
          * the red object graph might have mutations that are only visible on the red side,
@@ -282,7 +309,11 @@ export function blueProxyFactory(env: MembraneBroker) {
             // or a data property, in which case we could return undefined or the blue value
             return getBlueValue(redDescriptor.value);
         }
-        getOwnPropertyDescriptor(shadowTarget: BlueShadowTarget, key: PropertyKey): PropertyDescriptor | undefined {
+
+        getOwnPropertyDescriptor(
+            shadowTarget: BlueShadowTarget,
+            key: PropertyKey
+        ): PropertyDescriptor | undefined {
             const { target } = this;
             const redDesc = ReflectGetOwnPropertyDescriptor(target, key);
             if (redDesc === undefined) {
@@ -294,9 +325,11 @@ export function blueProxyFactory(env: MembraneBroker) {
             }
             return getBlueDescriptor(redDesc);
         }
+
         getPrototypeOf(shadowTarget: BlueShadowTarget): BlueValue {
             return env.getBlueValue(ReflectGetPrototypeOf(this.target));
         }
+
         /**
          * This trap cannot just use `Reflect.has` or the `in` operator directly on the
          * red side because the red object graph might have mutations that are only visible
@@ -313,6 +346,7 @@ export function blueProxyFactory(env: MembraneBroker) {
             const blueProto = getBlueValue(ReflectGetPrototypeOf(target));
             return blueProto !== null && ReflectHas(blueProto, key);
         }
+
         isExtensible(shadowTarget: BlueShadowTarget): boolean {
             // optimization to avoid attempting to lock down the shadowTarget multiple times
             if (!ReflectIsExtensible(shadowTarget)) {
@@ -325,9 +359,11 @@ export function blueProxyFactory(env: MembraneBroker) {
             }
             return true;
         }
+
         ownKeys(shadowTarget: BlueShadowTarget): PropertyKey[] {
             return ReflectOwnKeys(this.target);
         }
+
         preventExtensions(shadowTarget: BlueShadowTarget): boolean {
             const { target } = this;
             if (ReflectIsExtensible(shadowTarget)) {
@@ -344,6 +380,7 @@ export function blueProxyFactory(env: MembraneBroker) {
             }
             return true;
         }
+
         /**
          * This trap cannot just use `Reflect.set` directly on the `target` on the
          * red side because the red object graph might have mutations that are only visible
@@ -351,7 +388,12 @@ export function blueProxyFactory(env: MembraneBroker) {
          * Instead, we need to implement a more crafty solution that looks into target's
          * own properties, or in the blue proto chain when needed.
          */
-        set(shadowTarget: BlueShadowTarget, key: PropertyKey, value: BlueValue, receiver: BlueObject): boolean {
+        set(
+            shadowTarget: BlueShadowTarget,
+            key: PropertyKey,
+            value: BlueValue,
+            receiver: BlueObject
+        ): boolean {
             const { target } = this;
             const redDescriptor = ReflectGetOwnPropertyDescriptor(target, key);
             if (redDescriptor === undefined) {
@@ -372,6 +414,7 @@ export function blueProxyFactory(env: MembraneBroker) {
             // and no receiver is needed since it will simply set the data property or nothing
             return ReflectSet(target, key, env.getRedValue(value));
         }
+
         setPrototypeOf(shadowTarget: BlueShadowTarget, prototype: BlueValue): boolean {
             return ReflectSetPrototypeOf(this.target, env.getRedValue(prototype));
         }

@@ -45,8 +45,10 @@ interface VirtualEnvironmentOptions {
 export class VirtualEnvironment implements MembraneBroker {
     // map from red to blue references
     redMap: WeakMap<RedFunction | RedObject, RedProxyTarget | BlueProxy> = new WeakMapCtor();
+
     // map from blue to red references
     blueMap: WeakMap<BlueFunction | BlueObject, RedProxy | BlueProxyTarget> = new WeakMapCtor();
+
     // blue object distortion map
     distortionMap: DistortionMap;
 
@@ -72,10 +74,18 @@ export class VirtualEnvironment implements MembraneBroker {
         // on those intrinsics, and fails if the detached iframe is calling an intrinsic
         // from another realm.
         const blueHooks: MarshalHooks = {
-            apply(target: BlueFunction, thisArgument: BlueValue, argumentsList: ArrayLike<BlueValue>): BlueValue {
+            apply(
+                target: BlueFunction,
+                thisArgument: BlueValue,
+                argumentsList: ArrayLike<BlueValue>
+            ): BlueValue {
                 return ReflectApply(target, thisArgument, argumentsList);
             },
-            construct(target: BlueConstructor, argumentsList: ArrayLike<BlueValue>, newTarget?: any): BlueValue {
+            construct(
+                target: BlueConstructor,
+                argumentsList: ArrayLike<BlueValue>,
+                newTarget?: any
+            ): BlueValue {
                 return ReflectConstruct(target, argumentsList, newTarget);
             },
         };
@@ -142,18 +152,23 @@ export class VirtualEnvironment implements MembraneBroker {
 
                 if (typeof blueDescriptor.get === 'function') {
                     const { get: blueGetter } = blueDescriptor;
-                    const blueDistortedGetter: () => BlueValue = WeakMapGet(this.distortionMap, blueGetter) || blueGetter;
-                    currentBlueGetter = function() {
-                        const value: BlueValue = ReflectApply(blueDistortedGetter, broker.getBlueValue(this), emptyArray);
+                    const blueDistortedGetter: () => BlueValue =
+                        WeakMapGet(this.distortionMap, blueGetter) || blueGetter;
+                    currentBlueGetter = function () {
+                        const value: BlueValue = ReflectApply(
+                            blueDistortedGetter,
+                            broker.getBlueValue(this),
+                            emptyArray
+                        );
                         return broker.getRedValue(value);
                     };
-                    redDescriptor.get = function(): RedValue {
+                    redDescriptor.get = function (): RedValue {
                         return ReflectApply(currentBlueGetter, this, emptyArray);
                     };
                 }
 
                 if (typeof blueDescriptor.set === 'function') {
-                    redDescriptor.set = function(v: RedValue): void {
+                    redDescriptor.set = function (v: RedValue): void {
                         // if a global setter is invoke, the value will be use as it is as the result of the getter operation
                         currentBlueGetter = () => v;
                     };

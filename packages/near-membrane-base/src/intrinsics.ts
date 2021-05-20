@@ -13,7 +13,10 @@ import { VirtualEnvironment } from './environment';
 // TODO: type this better based on ReflectiveIntrinsicObjectNames
 type ReflectiveIntrinsicsMap = Record<string, any>;
 
-const cachedReflectiveIntrinsicsMap: WeakMap<typeof globalThis, ReflectiveIntrinsicsMap> = new WeakMapCtor();
+const cachedReflectiveIntrinsicsMap: WeakMap<
+    typeof globalThis,
+    ReflectiveIntrinsicsMap
+> = new WeakMapCtor();
 
 /**
  * This list must be in sync with ecma-262, anything new added to the global object
@@ -35,7 +38,6 @@ const cachedReflectiveIntrinsicsMap: WeakMap<typeof globalThis, ReflectiveIntrin
  * can be considered equivalents (without identity discontinuity).
  */
 const ESGlobalKeys = new SetCtor([
-
     // *** 18.1 Value Properties of the Global Object
     'Infinity',
     'NaN',
@@ -129,7 +131,10 @@ const ReflectiveIntrinsicObjectNames = [
 ];
 
 function getReflectiveIntrinsics(global: typeof globalThis): ReflectiveIntrinsicsMap {
-    let reflectiveIntrinsics: ReflectiveIntrinsicsMap | undefined = WeakMapGet(cachedReflectiveIntrinsicsMap, global);
+    let reflectiveIntrinsics: ReflectiveIntrinsicsMap | undefined = WeakMapGet(
+        cachedReflectiveIntrinsicsMap,
+        global
+    );
     if (reflectiveIntrinsics !== undefined) {
         return reflectiveIntrinsics;
     }

@@ -6,11 +6,7 @@ const {
 const { test: RegExpProtoTest } = RegExp.prototype;
 const { has: SetProtoHas } = Set.prototype;
 
-const {
-    get: WeakMapProtoGet,
-    has: WeakMapProtoHas,
-    set: WeakMapProtoSet,
-} = WeakMap.prototype;
+const { get: WeakMapProtoGet, has: WeakMapProtoHas, set: WeakMapProtoSet } = WeakMap.prototype;
 
 export const ArrayCtor = Array;
 export const ErrorCtor = Error;
@@ -59,7 +55,7 @@ export function ObjectLookupOwnGetter(obj: object, key: PropertyKey): Function |
 }
 
 export function RegExpTest(regexp: RegExp, str: string): boolean {
-  return ReflectApply(RegExpProtoTest, regexp, [str]);
+    return ReflectApply(RegExpProtoTest, regexp, [str]);
 }
 
 export function SetHas(set: Set<any>, key: any): boolean {
@@ -74,7 +70,11 @@ export function WeakMapHas(map: WeakMap<object, object>, key: object): boolean {
     return ReflectApply(WeakMapProtoHas, map, [key]);
 }
 
-export function WeakMapSet(map: WeakMap<object, object>, key: object, value: object): WeakMap<object, object> {
+export function WeakMapSet(
+    map: WeakMap<object, object>,
+    key: object,
+    value: object
+): WeakMap<object, object> {
     return ReflectApply(WeakMapProtoSet, map, [key, value]);
 }
 

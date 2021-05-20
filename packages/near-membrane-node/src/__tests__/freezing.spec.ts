@@ -2,10 +2,10 @@ import createVirtualEnvironment from '../node-realm';
 
 describe('Freezing', () => {
     describe('before creating the sandbox', () => {
-        it('should be observed from within the sandbox', function() {
+        it('should be observed from within the sandbox', () => {
             expect.assertions(10);
             globalThis.bar = { a: 1, b: 2 };
-            Object.freeze(globalThis.bar)
+            Object.freeze(globalThis.bar);
             const evalScript = createVirtualEnvironment({ endowments: window });
             // checking the state of bar in the blue realm
             expect(Object.isExtensible(globalThis.bar)).toBe(false);
@@ -46,9 +46,9 @@ describe('Freezing', () => {
         });
     });
     describe('after creating the sandbox', () => {
-        it('should not be observed from within the sandbox after a mutation', function() {
+        it('should not be observed from within the sandbox after a mutation', () => {
             expect.assertions(9);
-            globalThis.baz = { a:1, b: 2 };
+            globalThis.baz = { a: 1, b: 2 };
             const evalScript = createVirtualEnvironment({ endowments: window });
             // checking the state of bar in the sandbox
             evalScript(`
@@ -86,7 +86,7 @@ describe('Freezing', () => {
                 expect(() => {
                     o.z = 3;
                 }).toThrowError();
-            }
+            };
             const evalScript = createVirtualEnvironment({ endowments: window });
             evalScript(`
                 'use strict';
