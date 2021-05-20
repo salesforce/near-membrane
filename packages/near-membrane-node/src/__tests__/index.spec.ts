@@ -25,7 +25,7 @@ describe('VirtualEnvironment', () => {
     describe('reverse proxies', () => {
         it('should not have identity discontinuity for arrays', () => {
             expect.assertions(6);
-            (globalThis as any).blueArrayFactory = function (a1: any, a2: any) {
+            (globalThis as any).blueArrayFactory = (a1: any, a2: any) => {
                 expect(Array.isArray(a1)).toBe(true);
                 expect(a1 instanceof Array).toBe(true);
                 expect(a1).toStrictEqual([1, 2]);
@@ -38,7 +38,7 @@ describe('VirtualEnvironment', () => {
         });
         it('should not have identity discontinuity for objects', () => {
             expect.assertions(6);
-            (globalThis as any).blueObjectFactory = function (b1: any, b2: any) {
+            (globalThis as any).blueObjectFactory = (b1: any, b2: any) => {
                 expect(typeof b1 === 'object').toBe(true);
                 expect(b1 instanceof Object).toBe(true);
                 expect(b1.x).toBe(1);

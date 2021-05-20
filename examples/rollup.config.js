@@ -1,3 +1,4 @@
+// eslint-disable-next-line import/no-extraneous-dependencies
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 
 function config(dir) {
@@ -5,11 +6,11 @@ function config(dir) {
         input: `${dir}/index.js`,
         output: {
             file: `${dir}/bundle.js`,
-            format: 'cjs'
+            format: 'cjs',
         },
-        plugins: [nodeResolve()]
-    }
-};
+        plugins: [nodeResolve()],
+    };
+}
 
 export default [
     config('custom-elements'),

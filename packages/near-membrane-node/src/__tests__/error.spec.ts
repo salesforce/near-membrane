@@ -67,6 +67,7 @@ describe('The Error Boundary', () => {
             foo.expose(revocable.proxy);
         `);
         expect(() => {
+            // eslint-disable-next-line @typescript-eslint/no-unused-expressions
             sandboxedValue.x;
         }).toThrowError(Error);
         expect(() => {

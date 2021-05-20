@@ -1,16 +1,16 @@
-import { VirtualEnvironment ,
+import {
+    isIntrinsicGlobalName,
     ObjectAssign,
     ObjectCreate,
     ObjectGetOwnPropertyDescriptors,
     ReflectGetPrototypeOf,
-    ReflectSetPrototypeOf,
     ReflectOwnKeys,
+    ReflectSetPrototypeOf,
+    VirtualEnvironment,
     WeakMapCtor,
     WeakMapGet,
     WeakMapSet,
-, isIntrinsicGlobalName } from "@locker/near-membrane-base";
-
-
+} from '@locker/near-membrane-base';
 
 /**
  * - Unforgeable object and prototype references
@@ -143,7 +143,7 @@ function aggregateWindowDescriptors(
 ): PropertyDescriptorMap {
     const to: PropertyDescriptorMap = ObjectCreate(null);
 
-    for (let i = 0, len = redOwnKeys.length; i < len; i++) {
+    for (let i = 0, len = redOwnKeys.length; i < len; i += 1) {
         const key = redOwnKeys[i] as string;
         if (!isIntrinsicGlobalName(key)) {
             to[key] = blueDescriptors[key];
@@ -194,7 +194,7 @@ function aggregateWindowPropertiesDescriptors(
     blueDescriptors: PropertyDescriptorMap
 ): PropertyDescriptorMap {
     const to: PropertyDescriptorMap = ObjectCreate(null);
-    for (let i = 0, len = redOwnKeys.length; i < len; i++) {
+    for (let i = 0, len = redOwnKeys.length; i < len; i += 1) {
         const key = redOwnKeys[i] as string;
         to[key] = blueDescriptors[key];
     }

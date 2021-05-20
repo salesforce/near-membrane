@@ -1,4 +1,5 @@
 const {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     __lookupGetter__: ObjectProto__lookupGetter__,
     hasOwnProperty: ObjectProtoHasOwnProperty,
 } = Object.prototype as any;

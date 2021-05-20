@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-use-before-define */
 /**
  * This file implements a serializable factory function that is invoked once per sandbox
  * and it is used to create red proxies where all identities are defined inside
@@ -58,7 +59,7 @@ export interface MarshalHooks {
 }
 
 // istanbul ignore next
-export const serializedRedEnvSourceText = function redEnvFactory(
+export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnvFactory(
     blueEnv: MembraneBroker,
     hooks: MarshalHooks
 ) {
@@ -86,7 +87,9 @@ export const serializedRedEnvSourceText = function redEnvFactory(
     } = Object;
 
     const {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         __lookupGetter__: ObjectProto__lookupGetter__,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         __lookupSetter__: ObjectProto__lookupSetter__,
         hasOwnProperty: ObjectProtoHasOwnProperty,
     } = Object.prototype as any;
@@ -177,7 +180,8 @@ export const serializedRedEnvSourceText = function redEnvFactory(
             const key = keys[i];
             // avoid poisoning by checking own properties from descriptors
             if (ObjectHasOwnProperty(blueDescriptors, key)) {
-                // @ts-ignore PropertyDescriptorMap def defines properties as being only of string type
+                // @ts-ignore PropertyDescriptorMap def defines properties
+                // as being only of string type
                 const originalDescriptor = getRedDescriptor(blueDescriptors[key]);
                 installDescriptorIntoShadowTarget(shadowTarget, key, originalDescriptor);
             }
@@ -278,8 +282,10 @@ export const serializedRedEnvSourceText = function redEnvFactory(
             meta.proto = ReflectGetPrototypeOf(target);
             meta.descriptors = ObjectGetOwnPropertyDescriptors(target);
             if (ObjectIsFrozen(target)) {
+                // eslint-disable-next-line no-multi-assign
                 meta.isFrozen = meta.isSealed = meta.isExtensible = true;
             } else if (ObjectIsSealed(target)) {
+                // eslint-disable-next-line no-multi-assign
                 meta.isSealed = meta.isExtensible = true;
             } else if (ReflectIsExtensible(target)) {
                 meta.isExtensible = true;
@@ -288,11 +294,12 @@ export const serializedRedEnvSourceText = function redEnvFactory(
             // of the metadata, we mark it as broken in the catch.
             isArrayOrNotOrThrowForRevoked(target);
         } catch (_ignored) {
-            // intentionally swallowing the error because this method is just extracting the metadata
-            // in a way that it should always succeed except for the cases in which the target is a proxy
-            // that is either revoked or has some logic that is incompatible with the membrane, in which
-            // case we will just create the proxy for the membrane but revoke it right after to prevent
-            // any leakage.
+            // intentionally swallowing the error because this method is just
+            // extracting the metadata in a way that it should always succeed
+            // except for the cases in which the target is a proxy that is
+            // either revoked or has some logic that is incompatible with the
+            // membrane, in which case we will just create the proxy for the
+            // membrane but revoke it right after to prevent any leakage.
             meta.proto = null;
             meta.descriptors = {};
             meta.isBroken = true;
@@ -355,9 +362,10 @@ export const serializedRedEnvSourceText = function redEnvFactory(
             const nameDescriptor = ReflectGetOwnPropertyDescriptor(blueProvider, 'name')!;
             ReflectDefineProperty(receiver, 'name', nameDescriptor);
         } catch {
-            // intentionally swallowing the error because this method is just extracting the function
-            // in a way that it should always succeed except for the cases in which the provider is a proxy
-            // that is either revoked or has some logic to prevent reading the name property descriptor.
+            // intentionally swallowing the error because this method is just extracting the
+            // function in a way that it should always succeed except for the cases in which
+            // the provider is a proxy that is either revoked or has some logic to prevent
+            // reading the name property descriptor.
         }
     }
 
@@ -424,13 +432,15 @@ export const serializedRedEnvSourceText = function redEnvFactory(
         receiver: RedObject
     ): RedValue {
         /**
-         * If the target has a non-configurable own data descriptor that was observed by the red side,
-         * and therefore installed in the shadowTarget, we might get into a situation where a writable,
-         * non-configurable value in the target is out of sync with the shadowTarget's value for the same
-         * key. This is fine because this does not violate the object invariants, and even though they
-         * are out of sync, the original descriptor can only change to something that is compatible with
-         * what was installed in shadowTarget, and in order to observe that, the getOwnPropertyDescriptor
-         * trap must be used, which will take care of synchronizing them again.
+         * If the target has a non-configurable own data descriptor that was observed
+         * by the red side, and therefore installed in the shadowTarget, we might get
+         * into a situation where a writable, non-configurable value in the target is
+         * out of sync with the shadowTarget's value for the same key. This is fine
+         * because this does not violate the object invariants, and even though they
+         * are out of sync, the original descriptor can only change to something that
+         * is compatible with what was installed in shadowTarget, and in order to
+         * observe that, the getOwnPropertyDescriptor trap must be used, which will
+         * take care of synchronizing them again.
          */
         const { target } = this;
         if (!ObjectHasOwnProperty(target, key)) {
@@ -463,6 +473,7 @@ export const serializedRedEnvSourceText = function redEnvFactory(
      */
     function redProxyDynamicHasTrap(
         this: RedProxyHandler,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         shadowTarget: RedShadowTarget,
         key: PropertyKey
     ): boolean {
@@ -481,6 +492,7 @@ export const serializedRedEnvSourceText = function redEnvFactory(
 
     function redProxyDynamicOwnKeysTrap(
         this: RedProxyHandler,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         shadowTarget: RedShadowTarget
     ): PropertyKey[] {
         return ReflectOwnKeys(this.target);
@@ -488,6 +500,7 @@ export const serializedRedEnvSourceText = function redEnvFactory(
 
     function redProxyDynamicIsExtensibleTrap(
         this: RedProxyHandler,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         shadowTarget: RedShadowTarget
     ): boolean {
         // optimization to avoid attempting to lock down the shadowTarget multiple times
@@ -521,6 +534,7 @@ export const serializedRedEnvSourceText = function redEnvFactory(
 
     function redProxyDynamicGetPrototypeOfTrap(
         this: RedProxyHandler,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         shadowTarget: RedShadowTarget
     ): RedValue {
         return getRedValue(ReflectGetPrototypeOf(this.target));
@@ -530,6 +544,7 @@ export const serializedRedEnvSourceText = function redEnvFactory(
 
     function redProxyDynamicSetPrototypeOfTrap(
         this: RedProxyHandler,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         shadowTarget: RedShadowTarget,
         prototype: RedValue
     ): boolean {
@@ -558,11 +573,13 @@ export const serializedRedEnvSourceText = function redEnvFactory(
         }
         const blueSetter = ObjectLookupSetter(target, key);
         if (blueSetter) {
-            // even though the setter function exists, we can't use Reflect.set because there might be
-            // a distortion for that setter function, in which case we must resolve the red setter
-            // and call it instead.
+            // even though the setter function exists, we can't use Reflect.set because
+            // there might be a distortion for that setter function, in which case we
+            // must resolve the red setter and call it instead.
             ReflectApply(getRedValue(blueSetter), receiver, [value]);
-            return true; // if there is a callable setter, it either throw or we can assume the value was set
+            // if there is a callable setter, it either throw or we can assume the
+            // value was set
+            return true;
         }
         // if it is not an accessor property, is either a getter only accessor
         // or a data property, in which case we use Reflect.set to set the value,
@@ -665,7 +682,11 @@ export const serializedRedEnvSourceText = function redEnvFactory(
         return this.defineProperty(shadowTarget, key, redPartialDesc);
     }
 
-    function makeRedProxyDynamic(proxyHandler: RedProxyHandler, shadowTarget: RedShadowTarget) {
+    function makeRedProxyDynamic(
+        proxyHandler: RedProxyHandler,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        shadowTarget: RedShadowTarget
+    ) {
         // replacing pending traps with dynamic traps that can work with the target
         // without taking snapshots.
         proxyHandler.set = redProxyDynamicSetTrap;
@@ -781,11 +802,13 @@ export const serializedRedEnvSourceText = function redEnvFactory(
         if (typeof blue === 'function') {
             // this is never invoked just needed to anchor the realm for errors
             try {
+                // eslint-disable-next-line func-names
                 shadowTarget = 'prototype' in blue ? function () {} : () => {};
             } catch {
                 // target is either a revoked proxy, or a proxy that throws on the
                 // `has` trap, in which case going with a strict mode function seems
                 // appropriate.
+                // eslint-disable-next-line func-names
                 shadowTarget = function () {};
             }
             renameFunction(blue as (...args: any[]) => any, shadowTarget);
@@ -833,8 +856,7 @@ export const serializedRedEnvSourceText = function redEnvFactory(
     }
 
     return getRedValue;
-})
-    .toString()
+}).toString()
     // We cannot have 'use strict' directly in `redEnvFactory()` because bundlers and
     // minifiers may strip the directive. So, we inject 'use strict' after the function
     // is coerced to a string.

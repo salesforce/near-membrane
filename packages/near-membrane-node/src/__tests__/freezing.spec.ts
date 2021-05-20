@@ -70,13 +70,14 @@ describe('Freezing', () => {
                 }).not.toThrowError();
                 expect(baz.c).toBe(3);
             `);
-            expect(globalThis.baz.c).toBe(undefined); // because it is a sandboxed expando that doesn't leak out
+            // because it is a sandboxed expando that doesn't leak out
+            expect(globalThis.baz.c).toBe(undefined);
         });
     });
     describe('reverse proxies', () => {
         it('can be freeze', () => {
             expect.assertions(8);
-            globalThis.blueObjectFactory = function (o: any, f: () => void) {
+            globalThis.blueObjectFactory = (o: any, f: () => void) => {
                 expect(Object.isFrozen(o)).toBe(false);
                 expect(Object.isFrozen(f)).toBe(false);
                 Object.freeze(o);

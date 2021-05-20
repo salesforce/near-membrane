@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-use-before-define */
 import {
     ArrayCtor,
     ObjectAssign,
@@ -43,9 +44,10 @@ function renameFunction(provider: RedFunction, receiver: BlueFunction) {
         const nameDescriptor = ReflectGetOwnPropertyDescriptor(provider, 'name')!;
         ReflectDefineProperty(receiver, 'name', nameDescriptor);
     } catch {
-        // intentionally swallowing the error because this method is just extracting the function
-        // in a way that it should always succeed except for the cases in which the provider is a proxy
-        // that is either revoked or has some logic to prevent reading the name property descriptor.
+        // intentionally swallowing the error because this method is just extracting the
+        // function in a way that it should always succeed except for the cases in which
+        // the provider is a proxy that is either revoked or has some logic to prevent
+        // reading the name property descriptor.
     }
 }
 
@@ -57,9 +59,11 @@ function createBlueShadowTarget(target: BlueProxyTarget): BlueShadowTarget {
     if (typeof target === 'function') {
         // this new shadow target function is never invoked just needed to anchor the realm
         try {
+            // eslint-disable-next-line func-names
             shadowTarget = 'prototype' in target ? function () {} : () => {};
         } catch {
             // target is a revoked proxy
+            // eslint-disable-next-line func-names
             shadowTarget = function () {};
         }
         // This is only really needed for debugging, it helps to identify the proxy by name
@@ -281,13 +285,15 @@ export function blueProxyFactory(env: MembraneBroker) {
          */
         get(shadowTarget: BlueShadowTarget, key: PropertyKey, receiver: BlueObject): RedValue {
             /**
-             * If the target has a non-configurable own data descriptor that was observed by the red side,
-             * and therefore installed in the shadowTarget, we might get into a situation where a writable,
-             * non-configurable value in the target is out of sync with the shadowTarget's value for the same
-             * key. This is fine because this does not violate the object invariants, and even though they
-             * are out of sync, the original descriptor can only change to something that is compatible with
-             * what was installed in shadowTarget, and in order to observe that, the getOwnPropertyDescriptor
-             * trap must be used, which will take care of synchronizing them again.
+             * If the target has a non-configurable own data descriptor that was observed by the
+             * red side, and therefore installed in the shadowTarget, we might get into a
+             * situation where a writable, non-configurable value in the target is out of sync
+             * with the shadowTarget's value for the same key. This is fine because this does
+             * not violate the object invariants, and even though they are out of sync, the
+             * original descriptor can only change to something that is compatible with what
+             * was installed in shadowTarget, and in order to observe that, the
+             * getOwnPropertyDescriptor trap must be used, which will take care of synchronizing
+             * them again.
              */
             const { target } = this;
             const redDescriptor = ReflectGetOwnPropertyDescriptor(target, key);
@@ -326,6 +332,7 @@ export function blueProxyFactory(env: MembraneBroker) {
             return getBlueDescriptor(redDesc);
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         getPrototypeOf(shadowTarget: BlueShadowTarget): BlueValue {
             return env.getBlueValue(ReflectGetPrototypeOf(this.target));
         }
@@ -360,7 +367,10 @@ export function blueProxyFactory(env: MembraneBroker) {
             return true;
         }
 
-        ownKeys(shadowTarget: BlueShadowTarget): PropertyKey[] {
+        ownKeys(
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            shadowTarget: BlueShadowTarget
+        ): PropertyKey[] {
             return ReflectOwnKeys(this.target);
         }
 
@@ -403,11 +413,12 @@ export function blueProxyFactory(env: MembraneBroker) {
                     return ReflectSet(blueProto, key, value, receiver);
                 }
             } else if (ObjectHasOwnProperty(redDescriptor, 'set')) {
-                // even though the setter function exists, we can't use Reflect.set because there might be
-                // a distortion for that setter function, and from the blue side, we should not be subject
-                // to those distortions.
+                // even though the setter function exists, we can't use Reflect.set because there
+                // might be a distortion for that setter function, and from the blue side, we
+                // should not be subject to those distortions.
                 ReflectApply(getBlueValue(redDescriptor.set!), receiver, [value]);
-                return true; // if there is a callable setter, it either throw or we can assume the value was set
+                // if there is a callable setter, it either throw or we can assume the value was set
+                return true;
             }
             // if it is not an accessor property, is either a getter only accessor
             // or a data property, in which case we use Reflect.set to set the value,

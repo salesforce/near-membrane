@@ -173,9 +173,9 @@ export function linkIntrinsics(
 export function getFilteredEndowmentDescriptors(endowments: object): PropertyDescriptorMap {
     const to: PropertyDescriptorMap = ObjectCreate(null);
     const globalKeys = ReflectOwnKeys(endowments);
-    for (let i = 0, len = globalKeys.length; i < len; i++) {
-        // forcing to string here because of TypeScript's PropertyDescriptorMap definition, which doesn't
-        // support symbols as entries.
+    for (let i = 0, len = globalKeys.length; i < len; i += 1) {
+        // forcing to string here because of TypeScript's PropertyDescriptorMap
+        // definition, which doesn't support symbols as entries.
         const key = globalKeys[i] as string;
         // avoid overriding ECMAScript global names that correspond
         // to global intrinsics. This guarantee that those entries
