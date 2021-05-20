@@ -40,6 +40,12 @@ install: &install
       yarn install --frozen-lockfile
       yarn build
 
+# Checks
+run_linting: &run_linting
+  run:
+    name: Run linting
+    command: yarn lint
+
 # Jest tests for near-membrane-node
 run_node_tests: &run_node_tests
   run:
@@ -80,6 +86,7 @@ jobs:
       - *save_yarn_cache
       - *save_workspace
 
+      - *run_linting
       - *run_node_tests
       - *run_browser_tests
 
