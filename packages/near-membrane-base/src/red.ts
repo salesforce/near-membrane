@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-use-before-define */
 /**
  * This file implements a serializable factory function that is invoked once per sandbox
  * and it is used to create red proxies where all identities are defined inside
@@ -9,7 +10,7 @@
  *  - This file can't import anything from the package, only types since it is going to
  *    be serialized, and therefore it will loose the reference.
  */
- import {
+import {
     RedArray,
     RedObject,
     RedProxy,
@@ -45,12 +46,23 @@
  * realm directly, it must be a wrapping function.
  */
 export interface MarshalHooks {
-    apply(target: BlueFunction, thisArgument: BlueValue, argumentsList: ArrayLike<BlueValue>): BlueValue;
-    construct(target: BlueConstructor, argumentsList: ArrayLike<BlueValue>, newTarget?: any): BlueValue;
+    apply(
+        target: BlueFunction,
+        thisArgument: BlueValue,
+        argumentsList: ArrayLike<BlueValue>
+    ): BlueValue;
+    construct(
+        target: BlueConstructor,
+        argumentsList: ArrayLike<BlueValue>,
+        newTarget?: any
+    ): BlueValue;
 }
 
 // istanbul ignore next
-export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: MembraneBroker, hooks: MarshalHooks) {
+export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnvFactory(
+    blueEnv: MembraneBroker,
+    hooks: MarshalHooks
+) {
     const LockerLiveValueMarkerSymbol = Symbol.for('@@lockerLiveValue');
     const { blueMap, distortionMap } = blueEnv;
     const { apply: blueApplyHook, construct: blueConstructHook } = hooks;
@@ -75,7 +87,9 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     } = Object;
 
     const {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         __lookupGetter__: ObjectProto__lookupGetter__,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         __lookupSetter__: ObjectProto__lookupSetter__,
         hasOwnProperty: ObjectProtoHasOwnProperty,
     } = Object.prototype as any;
@@ -97,13 +111,12 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         has: ReflectHas,
     } = Reflect;
 
-    const {
-        get: WeakMapProtoGet,
-        has: WeakMapProtoHas,
-    } = WeakMap.prototype;
+    const { get: WeakMapProtoGet, has: WeakMapProtoHas } = WeakMap.prototype;
 
     function ObjectHasOwnProperty(obj: object | undefined, key: PropertyKey): boolean {
-        return obj !== null && obj !== undefined && ReflectApply(ObjectProtoHasOwnProperty, obj, [key]);
+        return (
+            obj !== null && obj !== undefined && ReflectApply(ObjectProtoHasOwnProperty, obj, [key])
+        );
     }
 
     function ObjectLookupGetter(obj: object | undefined, key: PropertyKey): Function | undefined {
@@ -126,7 +139,11 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         return ReflectApply(WeakMapProtoHas, map, [key]);
     }
 
-    function copyBlueDescriptorIntoShadowTarget(shadowTarget: RedShadowTarget, normalizedBlueDescriptor: PropertyDescriptor | undefined, key: PropertyKey) {
+    function copyBlueDescriptorIntoShadowTarget(
+        shadowTarget: RedShadowTarget,
+        normalizedBlueDescriptor: PropertyDescriptor | undefined,
+        key: PropertyKey
+    ) {
         // Note: a property might get defined multiple times in the shadowTarget
         //       if the user calls defineProperty or similar mechanism multiple times
         //       but it will always be compatible with the previous descriptor
@@ -137,7 +154,10 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         }
     }
 
-    function copyBlueDescriptorsIntoShadowTarget(shadowTarget: RedShadowTarget, originalTarget: RedProxyTarget) {
+    function copyBlueDescriptorsIntoShadowTarget(
+        shadowTarget: RedShadowTarget,
+        originalTarget: RedProxyTarget
+    ) {
         const normalizedBlueDescriptors = ObjectGetOwnPropertyDescriptors(originalTarget);
         const targetKeys = ReflectOwnKeys(normalizedBlueDescriptors);
         const redDescriptors = ObjectCreate(null);
@@ -151,13 +171,17 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         ObjectDefineProperties(shadowTarget, redDescriptors);
     }
 
-    function copyRedOwnDescriptors(shadowTarget: RedShadowTarget, blueDescriptors: PropertyDescriptorMap) {
+    function copyRedOwnDescriptors(
+        shadowTarget: RedShadowTarget,
+        blueDescriptors: PropertyDescriptorMap
+    ) {
         const keys = ReflectOwnKeys(blueDescriptors);
-        for(let i = 0, len = keys.length; i < len; i += 1) {
+        for (let i = 0, len = keys.length; i < len; i += 1) {
             const key = keys[i];
             // avoid poisoning by checking own properties from descriptors
             if (ObjectHasOwnProperty(blueDescriptors, key)) {
-                // @ts-ignore PropertyDescriptorMap def defines properties as being only of string type
+                // @ts-ignore PropertyDescriptorMap def defines properties
+                // as being only of string type
                 const originalDescriptor = getRedDescriptor(blueDescriptors[key]);
                 installDescriptorIntoShadowTarget(shadowTarget, key, originalDescriptor);
             }
@@ -208,7 +232,7 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         return redDescriptor;
     }
 
-    function getRedValue<T>(blue: T): T  {
+    function getRedValue<T>(blue: T): T {
         if (blue === null) {
             return blue;
         }
@@ -223,12 +247,14 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             return undefined;
         }
         if (typeof blue === 'object' || typeof blue === 'function') {
-            const blueOriginalOrDistortedValue = getDistortedValue((blue as unknown) as BlueFunction | BlueObject | BlueArray);
+            const blueOriginalOrDistortedValue = getDistortedValue(
+                (blue as unknown) as BlueFunction | BlueObject | BlueArray
+            );
             const red: RedValue | undefined = WeakMapGet(blueMap, blueOriginalOrDistortedValue);
             if (red !== undefined) {
                 return red;
             }
-            return createRedProxy(blueOriginalOrDistortedValue) as unknown as T;
+            return (createRedProxy(blueOriginalOrDistortedValue) as unknown) as T;
         }
         return blue;
     }
@@ -256,8 +282,10 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             meta.proto = ReflectGetPrototypeOf(target);
             meta.descriptors = ObjectGetOwnPropertyDescriptors(target);
             if (ObjectIsFrozen(target)) {
+                // eslint-disable-next-line no-multi-assign
                 meta.isFrozen = meta.isSealed = meta.isExtensible = true;
             } else if (ObjectIsSealed(target)) {
+                // eslint-disable-next-line no-multi-assign
                 meta.isSealed = meta.isExtensible = true;
             } else if (ReflectIsExtensible(target)) {
                 meta.isExtensible = true;
@@ -266,11 +294,12 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
             // of the metadata, we mark it as broken in the catch.
             isArrayOrNotOrThrowForRevoked(target);
         } catch (_ignored) {
-            // intentionally swallowing the error because this method is just extracting the metadata
-            // in a way that it should always succeed except for the cases in which the target is a proxy
-            // that is either revoked or has some logic that is incompatible with the membrane, in which
-            // case we will just create the proxy for the membrane but revoke it right after to prevent
-            // any leakage.
+            // intentionally swallowing the error because this method is just
+            // extracting the metadata in a way that it should always succeed
+            // except for the cases in which the target is a proxy that is
+            // either revoked or has some logic that is incompatible with the
+            // membrane, in which case we will just create the proxy for the
+            // membrane but revoke it right after to prevent any leakage.
             meta.proto = null;
             meta.descriptors = {};
             meta.isBroken = true;
@@ -278,14 +307,22 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         return meta;
     }
 
-    function installDescriptorIntoShadowTarget(shadowTarget: RedProxyTarget, key: PropertyKey, originalDescriptor: PropertyDescriptor) {
+    function installDescriptorIntoShadowTarget(
+        shadowTarget: RedProxyTarget,
+        key: PropertyKey,
+        originalDescriptor: PropertyDescriptor
+    ) {
         const shadowTargetDescriptor = ReflectGetOwnPropertyDescriptor(shadowTarget, key);
         if (shadowTargetDescriptor !== undefined) {
-            if (ObjectHasOwnProperty(shadowTargetDescriptor, 'configurable') &&
-                    shadowTargetDescriptor.configurable === true) {
+            if (
+                ObjectHasOwnProperty(shadowTargetDescriptor, 'configurable') &&
+                shadowTargetDescriptor.configurable === true
+            ) {
                 ReflectDefineProperty(shadowTarget, key, originalDescriptor);
-            } else if (ObjectHasOwnProperty(shadowTargetDescriptor, 'writable') &&
-                    shadowTargetDescriptor.writable === true) {
+            } else if (
+                ObjectHasOwnProperty(shadowTargetDescriptor, 'writable') &&
+                shadowTargetDescriptor.writable === true
+            ) {
                 // just in case
                 shadowTarget[key] = originalDescriptor.value;
             } else {
@@ -316,21 +353,30 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         ReflectPreventExtensions(shadowTarget);
     }
 
-    function renameFunction(blueProvider: (...args: any[]) => any, receiver: (...args: any[]) => any) {
+    function renameFunction(
+        blueProvider: (...args: any[]) => any,
+        receiver: (...args: any[]) => any
+    ) {
         try {
             // a revoked proxy will break the membrane when reading the function name
             const nameDescriptor = ReflectGetOwnPropertyDescriptor(blueProvider, 'name')!;
             ReflectDefineProperty(receiver, 'name', nameDescriptor);
         } catch {
-            // intentionally swallowing the error because this method is just extracting the function
-            // in a way that it should always succeed except for the cases in which the provider is a proxy
-            // that is either revoked or has some logic to prevent reading the name property descriptor.
+            // intentionally swallowing the error because this method is just extracting the
+            // function in a way that it should always succeed except for the cases in which
+            // the provider is a proxy that is either revoked or has some logic to prevent
+            // reading the name property descriptor.
         }
     }
 
     // invoking traps
 
-    function redProxyApplyTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, redThisArg: RedValue, redArgArray: RedValue[]): RedValue {
+    function redProxyApplyTrap(
+        this: RedProxyHandler,
+        shadowTarget: RedShadowTarget,
+        redThisArg: RedValue,
+        redArgArray: RedValue[]
+    ): RedValue {
         const { target: blueTarget } = this;
         let blue;
         try {
@@ -346,7 +392,12 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         return getRedValue(blue);
     }
 
-    function redProxyConstructTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, redArgArray: RedValue[], redNewTarget: RedObject): RedValue {
+    function redProxyConstructTrap(
+        this: RedProxyHandler,
+        shadowTarget: RedShadowTarget,
+        redArgArray: RedValue[],
+        redNewTarget: RedObject
+    ): RedValue {
         const { target: BlueCtor } = this;
         if (redNewTarget === undefined) {
             throw new TypeErrorCtor();
@@ -374,15 +425,22 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
      * implement a more crafty solution that looks into target's own properties, or
      * in the red proto chain when needed.
      */
-    function redProxyDynamicGetTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, key: PropertyKey, receiver: RedObject): RedValue {
+    function redProxyDynamicGetTrap(
+        this: RedProxyHandler,
+        shadowTarget: RedShadowTarget,
+        key: PropertyKey,
+        receiver: RedObject
+    ): RedValue {
         /**
-         * If the target has a non-configurable own data descriptor that was observed by the red side,
-         * and therefore installed in the shadowTarget, we might get into a situation where a writable,
-         * non-configurable value in the target is out of sync with the shadowTarget's value for the same
-         * key. This is fine because this does not violate the object invariants, and even though they
-         * are out of sync, the original descriptor can only change to something that is compatible with
-         * what was installed in shadowTarget, and in order to observe that, the getOwnPropertyDescriptor
-         * trap must be used, which will take care of synchronizing them again.
+         * If the target has a non-configurable own data descriptor that was observed
+         * by the red side, and therefore installed in the shadowTarget, we might get
+         * into a situation where a writable, non-configurable value in the target is
+         * out of sync with the shadowTarget's value for the same key. This is fine
+         * because this does not violate the object invariants, and even though they
+         * are out of sync, the original descriptor can only change to something that
+         * is compatible with what was installed in shadowTarget, and in order to
+         * observe that, the getOwnPropertyDescriptor trap must be used, which will
+         * take care of synchronizing them again.
          */
         const { target } = this;
         if (!ObjectHasOwnProperty(target, key)) {
@@ -413,7 +471,12 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
      * implement a more crafty solution that looks into target's own properties, or
      * in the red proto chain when needed.
      */
-    function redProxyDynamicHasTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, key: PropertyKey): boolean {
+    function redProxyDynamicHasTrap(
+        this: RedProxyHandler,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        shadowTarget: RedShadowTarget,
+        key: PropertyKey
+    ): boolean {
         const { target } = this;
         if (ObjectHasOwnProperty(target, key)) {
             return true;
@@ -427,11 +490,19 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         return ReflectHas(redProto, key);
     }
 
-    function redProxyDynamicOwnKeysTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget): PropertyKey[] {
+    function redProxyDynamicOwnKeysTrap(
+        this: RedProxyHandler,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        shadowTarget: RedShadowTarget
+    ): PropertyKey[] {
         return ReflectOwnKeys(this.target);
     }
 
-    function redProxyDynamicIsExtensibleTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget): boolean {
+    function redProxyDynamicIsExtensibleTrap(
+        this: RedProxyHandler,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        shadowTarget: RedShadowTarget
+    ): boolean {
         // optimization to avoid attempting to lock down the shadowTarget multiple times
         if (!ReflectIsExtensible(shadowTarget)) {
             return false; // was already locked down
@@ -444,7 +515,11 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         return true;
     }
 
-    function redProxyDynamicGetOwnPropertyDescriptorTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, key: PropertyKey): PropertyDescriptor | undefined {
+    function redProxyDynamicGetOwnPropertyDescriptorTrap(
+        this: RedProxyHandler,
+        shadowTarget: RedShadowTarget,
+        key: PropertyKey
+    ): PropertyDescriptor | undefined {
         const { target } = this;
         const normalizedBlueDescriptor = ReflectGetOwnPropertyDescriptor(target, key);
         if (normalizedBlueDescriptor === undefined) {
@@ -457,13 +532,22 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         return getRedDescriptor(normalizedBlueDescriptor);
     }
 
-    function redProxyDynamicGetPrototypeOfTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget): RedValue {
+    function redProxyDynamicGetPrototypeOfTrap(
+        this: RedProxyHandler,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        shadowTarget: RedShadowTarget
+    ): RedValue {
         return getRedValue(ReflectGetPrototypeOf(this.target));
     }
 
     // writing traps
 
-    function redProxyDynamicSetPrototypeOfTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, prototype: RedValue): boolean {
+    function redProxyDynamicSetPrototypeOfTrap(
+        this: RedProxyHandler,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        shadowTarget: RedShadowTarget,
+        prototype: RedValue
+    ): boolean {
         return ReflectSetPrototypeOf(this.target, blueEnv.getBlueValue(prototype));
     }
 
@@ -474,7 +558,13 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
      * implement a more crafty solution that looks into target's own properties, or
      * in the red proto chain when needed.
      */
-    function redProxyDynamicSetTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, key: PropertyKey, value: RedValue, receiver: RedObject): boolean {
+    function redProxyDynamicSetTrap(
+        this: RedProxyHandler,
+        shadowTarget: RedShadowTarget,
+        key: PropertyKey,
+        value: RedValue,
+        receiver: RedObject
+    ): boolean {
         const { target } = this;
         if (!ObjectHasOwnProperty(target, key)) {
             // looking in the red proto chain in case the red proto chain has being mutated
@@ -483,11 +573,13 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         }
         const blueSetter = ObjectLookupSetter(target, key);
         if (blueSetter) {
-            // even though the setter function exists, we can't use Reflect.set because there might be
-            // a distortion for that setter function, in which case we must resolve the red setter
-            // and call it instead.
+            // even though the setter function exists, we can't use Reflect.set because
+            // there might be a distortion for that setter function, in which case we
+            // must resolve the red setter and call it instead.
             ReflectApply(getRedValue(blueSetter), receiver, [value]);
-            return true; // if there is a callable setter, it either throw or we can assume the value was set
+            // if there is a callable setter, it either throw or we can assume the
+            // value was set
+            return true;
         }
         // if it is not an accessor property, is either a getter only accessor
         // or a data property, in which case we use Reflect.set to set the value,
@@ -495,11 +587,18 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         return ReflectSet(target, key, blueEnv.getBlueValue(value));
     }
 
-    function redProxyDynamicDeletePropertyTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, key: PropertyKey): boolean {
+    function redProxyDynamicDeletePropertyTrap(
+        this: RedProxyHandler,
+        shadowTarget: RedShadowTarget,
+        key: PropertyKey
+    ): boolean {
         return ReflectDeleteProperty(this.target, key);
     }
 
-    function redProxyDynamicPreventExtensionsTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget): boolean {
+    function redProxyDynamicPreventExtensionsTrap(
+        this: RedProxyHandler,
+        shadowTarget: RedShadowTarget
+    ): boolean {
         const { target } = this;
         if (ReflectIsExtensible(shadowTarget)) {
             if (!ReflectPreventExtensions(target)) {
@@ -516,7 +615,12 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         return true;
     }
 
-    function redProxyDynamicDefinePropertyTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, key: PropertyKey, redPartialDesc: PropertyDescriptor): boolean {
+    function redProxyDynamicDefinePropertyTrap(
+        this: RedProxyHandler,
+        shadowTarget: RedShadowTarget,
+        key: PropertyKey,
+        redPartialDesc: PropertyDescriptor
+    ): boolean {
         const { target } = this;
         const bluePartialDesc = getBluePartialDescriptor(redPartialDesc);
         if (ReflectDefineProperty(target, key, bluePartialDesc)) {
@@ -531,32 +635,58 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
 
     // pending traps
 
-    function redProxyPendingSetPrototypeOfTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, prototype: RedValue): boolean {
+    function redProxyPendingSetPrototypeOfTrap(
+        this: RedProxyHandler,
+        shadowTarget: RedShadowTarget,
+        prototype: RedValue
+    ): boolean {
         makeRedProxyUnambiguous(this, shadowTarget);
         return this.setPrototypeOf(shadowTarget, prototype);
     }
 
-    function redProxyPendingSetTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, key: PropertyKey, value: RedValue, receiver: RedObject): boolean {
+    function redProxyPendingSetTrap(
+        this: RedProxyHandler,
+        shadowTarget: RedShadowTarget,
+        key: PropertyKey,
+        value: RedValue,
+        receiver: RedObject
+    ): boolean {
         makeRedProxyUnambiguous(this, shadowTarget);
         return this.set(shadowTarget, key, value, receiver);
     }
 
-    function redProxyPendingDeletePropertyTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, key: PropertyKey): boolean {
+    function redProxyPendingDeletePropertyTrap(
+        this: RedProxyHandler,
+        shadowTarget: RedShadowTarget,
+        key: PropertyKey
+    ): boolean {
         makeRedProxyUnambiguous(this, shadowTarget);
         return this.deleteProperty(shadowTarget, key);
     }
 
-    function redProxyPendingPreventExtensionsTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget): boolean {
+    function redProxyPendingPreventExtensionsTrap(
+        this: RedProxyHandler,
+        shadowTarget: RedShadowTarget
+    ): boolean {
         makeRedProxyUnambiguous(this, shadowTarget);
         return this.preventExtensions(shadowTarget);
     }
 
-    function redProxyPendingDefinePropertyTrap(this: RedProxyHandler, shadowTarget: RedShadowTarget, key: PropertyKey, redPartialDesc: PropertyDescriptor): boolean {
+    function redProxyPendingDefinePropertyTrap(
+        this: RedProxyHandler,
+        shadowTarget: RedShadowTarget,
+        key: PropertyKey,
+        redPartialDesc: PropertyDescriptor
+    ): boolean {
         makeRedProxyUnambiguous(this, shadowTarget);
         return this.defineProperty(shadowTarget, key, redPartialDesc);
     }
 
-    function makeRedProxyDynamic(proxyHandler: RedProxyHandler, shadowTarget: RedShadowTarget) {
+    function makeRedProxyDynamic(
+        proxyHandler: RedProxyHandler,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        shadowTarget: RedShadowTarget
+    ) {
         // replacing pending traps with dynamic traps that can work with the target
         // without taking snapshots.
         proxyHandler.set = redProxyDynamicSetTrap;
@@ -632,19 +762,29 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         readonly target: RedProxyTarget;
 
         apply = redProxyApplyTrap;
+
         construct = redProxyConstructTrap;
 
         get = redProxyDynamicGetTrap;
+
         has = redProxyDynamicHasTrap;
+
         ownKeys = redProxyDynamicOwnKeysTrap;
+
         isExtensible = redProxyDynamicIsExtensibleTrap;
+
         getOwnPropertyDescriptor = redProxyDynamicGetOwnPropertyDescriptorTrap;
+
         getPrototypeOf = redProxyDynamicGetPrototypeOfTrap;
 
         setPrototypeOf = redProxyPendingSetPrototypeOfTrap;
+
         set = redProxyPendingSetTrap;
+
         deleteProperty = redProxyPendingDeletePropertyTrap;
+
         preventExtensions = redProxyPendingPreventExtensionsTrap;
+
         defineProperty = redProxyPendingDefinePropertyTrap;
 
         // revoke is meant to be set right after construction, but
@@ -662,11 +802,13 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
         if (typeof blue === 'function') {
             // this is never invoked just needed to anchor the realm for errors
             try {
+                // eslint-disable-next-line func-names
                 shadowTarget = 'prototype' in blue ? function () {} : () => {};
             } catch {
                 // target is either a revoked proxy, or a proxy that throws on the
                 // `has` trap, in which case going with a strict mode function seems
                 // appropriate.
+                // eslint-disable-next-line func-names
                 shadowTarget = function () {};
             }
             renameFunction(blue as (...args: any[]) => any, shadowTarget);
@@ -714,10 +856,8 @@ export const serializedRedEnvSourceText = (function redEnvFactory(blueEnv: Membr
     }
 
     return getRedValue;
-
-})
-.toString()
-// We cannot have 'use strict' directly in `redEnvFactory()` because bundlers and
-// minifiers may strip the directive. So, we inject 'use strict' after the function
-// is coerced to a string.
-.replace('{', `{'use strict';`);
+}).toString()
+    // We cannot have 'use strict' directly in `redEnvFactory()` because bundlers and
+    // minifiers may strip the directive. So, we inject 'use strict' after the function
+    // is coerced to a string.
+    .replace('{', `{'use strict';`);

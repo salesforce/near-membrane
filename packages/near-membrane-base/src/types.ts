@@ -3,7 +3,7 @@ export type BlueArray = BlueValue[];
 export type BlueFunction = (...args: BlueValue[]) => BlueValue;
 export type BlueObject = object;
 export interface BlueConstructor {
-    new(...args: any[]): BlueObject;
+    new (...args: any[]): BlueObject;
 }
 export type RedProxyTarget = BlueObject | BlueFunction | BlueConstructor;
 export type BlueProxyTarget = RedObject | RedFunction | RedConstructor;
@@ -16,7 +16,7 @@ export type RedFunction = (...args: RedValue[]) => RedValue;
 export type RedArray = RedValue[];
 export type RedObject = object;
 export interface RedConstructor {
-    new(...args: any[]): RedObject;
+    new (...args: any[]): RedObject;
 }
 
 export interface TargetMeta {

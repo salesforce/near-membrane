@@ -1,16 +1,16 @@
-import { VirtualEnvironment } from "@locker/near-membrane-base";
 import {
+    isIntrinsicGlobalName,
     ObjectAssign,
     ObjectCreate,
     ObjectGetOwnPropertyDescriptors,
     ReflectGetPrototypeOf,
-    ReflectSetPrototypeOf,
     ReflectOwnKeys,
+    ReflectSetPrototypeOf,
+    VirtualEnvironment,
     WeakMapCtor,
     WeakMapGet,
     WeakMapSet,
-} from "@locker/near-membrane-base";
-import { isIntrinsicGlobalName } from "@locker/near-membrane-base";
+} from '@locker/near-membrane-base';
 
 /**
  * - Unforgeable object and prototype references
@@ -22,7 +22,7 @@ interface BaseReferencesRecord extends Object {
     WindowPropertiesProto: object;
     EventTargetProto: object;
     DocumentProto: object;
-};
+}
 
 /**
  * - Unforgeable blue object and prototype references
@@ -33,7 +33,7 @@ interface CachedBlueReferencesRecord extends BaseReferencesRecord {
     WindowProtoDescriptors: PropertyDescriptorMap;
     WindowPropertiesProtoDescriptors: PropertyDescriptorMap;
     EventTargetProtoDescriptors: PropertyDescriptorMap;
-};
+}
 
 /**
  * - Unforgeable red object and prototype references
@@ -42,9 +42,12 @@ interface CachedBlueReferencesRecord extends BaseReferencesRecord {
 interface RedReferencesRecord extends BaseReferencesRecord {
     windowOwnKeys: PropertyKey[];
     WindowPropertiesProtoOwnKeys: PropertyKey[];
-};
+}
 
-const cachedBlueGlobalMap: WeakMap<typeof globalThis, CachedBlueReferencesRecord> = new WeakMapCtor();
+const cachedBlueGlobalMap: WeakMap<
+    typeof globalThis,
+    CachedBlueReferencesRecord
+> = new WeakMapCtor();
 
 export function getBaseReferences(window: Window & typeof globalThis): BaseReferencesRecord {
     const record = ObjectCreate(null) as BaseReferencesRecord;
@@ -60,7 +63,9 @@ export function getBaseReferences(window: Window & typeof globalThis): BaseRefer
     return record;
 }
 
-export function getCachedBlueReferences(window: Window & typeof globalThis): CachedBlueReferencesRecord {
+export function getCachedBlueReferences(
+    window: Window & typeof globalThis
+): CachedBlueReferencesRecord {
     let record = WeakMapGet(cachedBlueGlobalMap, window) as CachedBlueReferencesRecord | undefined;
     if (record !== undefined) {
         return record;
@@ -138,7 +143,7 @@ function aggregateWindowDescriptors(
 ): PropertyDescriptorMap {
     const to: PropertyDescriptorMap = ObjectCreate(null);
 
-    for (let i = 0, len = redOwnKeys.length; i < len; i++) {
+    for (let i = 0, len = redOwnKeys.length; i < len; i += 1) {
         const key = redOwnKeys[i] as string;
         if (!isIntrinsicGlobalName(key)) {
             to[key] = blueDescriptors[key];
@@ -189,14 +194,19 @@ function aggregateWindowPropertiesDescriptors(
     blueDescriptors: PropertyDescriptorMap
 ): PropertyDescriptorMap {
     const to: PropertyDescriptorMap = ObjectCreate(null);
-    for (let i = 0, len = redOwnKeys.length; i < len; i++) {
+    for (let i = 0, len = redOwnKeys.length; i < len; i += 1) {
         const key = redOwnKeys[i] as string;
         to[key] = blueDescriptors[key];
     }
     return to;
 }
 
-export function tameDOM(env: VirtualEnvironment, blueRefs: CachedBlueReferencesRecord, redRefs: RedReferencesRecord, endowmentsDescriptors: PropertyDescriptorMap) {
+export function tameDOM(
+    env: VirtualEnvironment,
+    blueRefs: CachedBlueReferencesRecord,
+    redRefs: RedReferencesRecord,
+    endowmentsDescriptors: PropertyDescriptorMap
+) {
     // adjusting proto chain of window.document
     ReflectSetPrototypeOf(redRefs.document, env.getRedValue(blueRefs.DocumentProto));
     const globalDescriptors = aggregateWindowDescriptors(
@@ -211,8 +221,16 @@ export function tameDOM(env: VirtualEnvironment, blueRefs: CachedBlueReferencesR
     // remapping globals
     env.remap(redRefs.window, blueRefs.window, globalDescriptors);
     // remapping unforgeable objects
-    env.remap(redRefs.EventTargetProto, blueRefs.EventTargetProto, blueRefs.EventTargetProtoDescriptors);
-    env.remap(redRefs.WindowPropertiesProto, blueRefs.WindowPropertiesProto, WindowPropertiesDescriptors);
+    env.remap(
+        redRefs.EventTargetProto,
+        blueRefs.EventTargetProto,
+        blueRefs.EventTargetProtoDescriptors
+    );
+    env.remap(
+        redRefs.WindowPropertiesProto,
+        blueRefs.WindowPropertiesProto,
+        WindowPropertiesDescriptors
+    );
     env.remap(redRefs.WindowProto, blueRefs.WindowProto, blueRefs.WindowProtoDescriptors);
 }
 

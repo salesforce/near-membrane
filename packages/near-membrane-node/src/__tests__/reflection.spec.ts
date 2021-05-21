@@ -6,7 +6,7 @@ globalThis.foo = {
 };
 
 describe('Reflective Intrinsic Objects', () => {
-    it('should preserve identity of Object thru membrane', function() {
+    it('should preserve identity of Object thru membrane', () => {
         expect.assertions(2);
         const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
@@ -15,7 +15,7 @@ describe('Reflective Intrinsic Objects', () => {
             expect(o instanceof Object).toBe(true);
         `);
     });
-    it('should preserve identity of Function thru membrane', function() {
+    it('should preserve identity of Function thru membrane', () => {
         expect.assertions(2);
         const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
@@ -24,7 +24,7 @@ describe('Reflective Intrinsic Objects', () => {
             expect(x instanceof Function).toBe(true);
         `);
     });
-    it('should preserve identity of Error thru membrane', function() {
+    it('should preserve identity of Error thru membrane', () => {
         expect.assertions(2);
         const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`

@@ -1,8 +1,15 @@
-import { VirtualEnvironment } from "@locker/near-membrane-base";
-import { EnvironmentOptions } from "@locker/near-membrane-base";
-import { ReflectApply, ObjectCreate, ObjectLookupOwnGetter, emptyArray } from "@locker/near-membrane-base";
-import { linkIntrinsics, getFilteredEndowmentDescriptors } from "@locker/near-membrane-base";
-import { getCachedBlueReferences, getRedReferences, linkUnforgeables, tameDOM } from "./window";
+import {
+    VirtualEnvironment,
+    EnvironmentOptions,
+    ReflectApply,
+    ObjectCreate,
+    ObjectLookupOwnGetter,
+    emptyArray,
+    linkIntrinsics,
+    getFilteredEndowmentDescriptors,
+} from '@locker/near-membrane-base';
+
+import { getCachedBlueReferences, getRedReferences, linkUnforgeables, tameDOM } from './window';
 
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 
@@ -14,13 +21,19 @@ const DocumentProtoBodyGetter = ObjectLookupOwnGetter(Document.prototype, 'body'
 const NodeProtoIsConnectedGetter = ObjectLookupOwnGetter(Node.prototype, 'isConnected')!;
 const NodeProtoLastChildGetter = ObjectLookupOwnGetter(Node.prototype, 'lastChild')!;
 
-const DocumentBody = (doc: Document): HTMLBodyElement => ReflectApply(DocumentProtoBodyGetter, doc, emptyArray);
-const ElementRemove = (element: Element): Element => ReflectApply(ElementProtoRemove, element, emptyArray);
-const NodeAppendChild = (parent: Node, child: ChildNode): ChildNode => ReflectApply(NodeProtoAppendChild, parent, [child]);
-const NodeLastChild = (node: Node): ChildNode => ReflectApply(NodeProtoLastChildGetter, node, emptyArray);
+const DocumentBody = (doc: Document): HTMLBodyElement =>
+    ReflectApply(DocumentProtoBodyGetter, doc, emptyArray);
+const ElementRemove = (element: Element): Element =>
+    ReflectApply(ElementProtoRemove, element, emptyArray);
+const NodeAppendChild = (parent: Node, child: ChildNode): ChildNode =>
+    ReflectApply(NodeProtoAppendChild, parent, [child]);
+const NodeLastChild = (node: Node): ChildNode =>
+    ReflectApply(NodeProtoLastChildGetter, node, emptyArray);
 
-const createElement = (doc: Document, tagName: string): Element => ReflectApply(DocumentCreateElement, doc, [tagName]);
-const isConnected = (node: Node): boolean => ReflectApply(NodeProtoIsConnectedGetter, node, emptyArray);
+const createElement = (doc: Document, tagName: string): Element =>
+    ReflectApply(DocumentCreateElement, doc, [tagName]);
+const isConnected = (node: Node): boolean =>
+    ReflectApply(NodeProtoIsConnectedGetter, node, emptyArray);
 
 function createDetachableIframe(): HTMLIFrameElement {
     // @ts-ignore document global ref - in browsers
@@ -48,7 +61,9 @@ interface BrowserEnvironmentOptions extends EnvironmentOptions {
 // caching references
 const { open, close } = document;
 
-export default function createVirtualEnvironment(options?: BrowserEnvironmentOptions): (sourceText: string) => void {
+export default function createVirtualEnvironment(
+    options?: BrowserEnvironmentOptions
+): (sourceText: string) => void {
     const { distortionMap, endowments, keepAlive } = options || ObjectCreate(null);
     const iframe = createDetachableIframe();
     const blueWindow = window;
