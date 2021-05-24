@@ -27,6 +27,12 @@ const ElementRemove = (element: Element): Element =>
     ReflectApply(ElementProtoRemove, element, emptyArray);
 const NodeAppendChild = (parent: Node, child: ChildNode): ChildNode =>
     ReflectApply(NodeProtoAppendChild, parent, [child]);
+
+// It's impossible to test whether NodeLastChild(document) is reached
+// in a normal Karma test environment, because the document will always
+// have a body element. Ignore this in coverage reporting to
+// avoid a penalty.
+// istanbul ignore next
 const NodeLastChild = (node: Node): ChildNode =>
     ReflectApply(NodeProtoLastChildGetter, node, emptyArray);
 
@@ -40,7 +46,10 @@ function createDetachableIframe(): HTMLIFrameElement {
     const iframe = createElement(document, 'iframe') as HTMLIFrameElement;
     iframe.setAttribute('sandbox', IFRAME_SANDBOX_ATTRIBUTE_VALUE);
     iframe.style.display = 'none';
-    const parent = DocumentBody(document) || NodeLastChild(document);
+    // It's impossible to test whether NodeLastChild(document) is reached
+    // in a normal Karma test environment. (See explanation above,
+    // at NodeLastChild definition.)
+    const parent = DocumentBody(document) || /* istanbul ignore next */ NodeLastChild(document);
     NodeAppendChild(parent, iframe);
     return iframe;
 }
