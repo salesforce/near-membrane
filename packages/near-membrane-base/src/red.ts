@@ -203,7 +203,7 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
     }
 
     function getDistortedValue(target: RedProxyTarget): RedProxyTarget {
-        let distortedTarget: RedProxyTarget = target;
+        let distortedTarget: RedProxyTarget | undefined;
         try {
             distortedTarget = distortionCallback(target);
         } finally {
