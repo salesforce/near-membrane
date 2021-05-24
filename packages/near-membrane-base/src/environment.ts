@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-use-before-define */
 import {
     ErrorCtor,
     ObjectAssign,
@@ -46,8 +47,10 @@ const distortionDefaultCallback = (v: RedProxyTarget) => v;
 export class VirtualEnvironment implements MembraneBroker {
     // map from red to blue references
     redMap: WeakMap<RedFunction | RedObject, RedProxyTarget | BlueProxy> = new WeakMapCtor();
+
     // map from blue to red references
     blueMap: WeakMap<BlueFunction | BlueObject, RedProxy | BlueProxyTarget> = new WeakMapCtor();
+
     // blue object distortion map
     distortionCallback: (originalTarget: RedProxyTarget) => RedProxyTarget;
 
@@ -66,10 +69,18 @@ export class VirtualEnvironment implements MembraneBroker {
         // on those intrinsics, and fails if the detached iframe is calling an intrinsic
         // from another realm.
         const blueHooks: MarshalHooks = {
-            apply(target: BlueFunction, thisArgument: BlueValue, argumentsList: ArrayLike<BlueValue>): BlueValue {
+            apply(
+                target: BlueFunction,
+                thisArgument: BlueValue,
+                argumentsList: ArrayLike<BlueValue>
+            ): BlueValue {
                 return ReflectApply(target, thisArgument, argumentsList);
             },
-            construct(target: BlueConstructor, argumentsList: ArrayLike<BlueValue>, newTarget?: any): BlueValue {
+            construct(
+                target: BlueConstructor,
+                argumentsList: ArrayLike<BlueValue>,
+                newTarget?: any
+            ): BlueValue {
                 return ReflectConstruct(target, argumentsList, newTarget);
             },
         };
@@ -77,26 +88,43 @@ export class VirtualEnvironment implements MembraneBroker {
         this.getBlueValue = blueProxyFactory(this);
     }
 
-    getBlueValue(red: RedValue): BlueValue {
+    // eslint-disable-next-line class-methods-use-this
+    getBlueValue(
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        red: RedValue
+    ): BlueValue {
         // placeholder since this will be assigned in construction
     }
 
-    getRedValue(blue: BlueValue): RedValue {
+    // eslint-disable-next-line class-methods-use-this
+    getRedValue(
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        blue: BlueValue
+    ): RedValue {
         // placeholder since this will be assigned in construction
     }
 
-    getBlueRef(red: RedValue): BlueValue | undefined {
+    // eslint-disable-next-line class-methods-use-this
+    getBlueRef(
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        red: RedValue
+    ): BlueValue | undefined {
         const blue: RedValue | undefined = WeakMapGet(this.redMap, red);
         if (blue !== undefined) {
             return blue;
         }
+        // Explicit to satisfy the consistent-return elint rule
+        return undefined;
     }
 
+    // eslint-disable-next-line class-methods-use-this
     getRedRef(blue: BlueValue): RedValue | undefined {
         const red: RedValue | undefined = WeakMapGet(this.blueMap, blue);
         if (red !== undefined) {
             return red;
         }
+        // Explicit to satisfy the consistent-return elint rule
+        return undefined;
     }
 
     setRefMapEntries(red: RedObject, blue: BlueObject) {
@@ -113,10 +141,13 @@ export class VirtualEnvironment implements MembraneBroker {
             const key = keys[i];
             // Skip index keys for magical descriptors of frames on the window proxy.
             if (typeof key !== 'symbol' && RegExpTest(frameGlobalNamesRegExp, key as string)) {
+                // eslint-disable-next-line no-continue
                 continue;
             }
             if (!canRedPropertyBeTamed(redValue, key)) {
+                // eslint-disable-next-line no-console
                 console.warn(`Property ${String(key)} of ${redValue} cannot be remapped.`);
+                // eslint-disable-next-line no-continue
                 continue;
             }
             // Avoid poisoning by only installing own properties from blueDescriptors
@@ -142,18 +173,23 @@ export class VirtualEnvironment implements MembraneBroker {
                     // TODO: Isn't it easier to just not do any lazy stuff anymore considering that the creation of those
                     // proxies is now faster?
                     const blueDistortedGetter = this.distortionCallback(blueGetter) as () => BlueValue;
-                    currentBlueGetter = function() {
-                        const value: BlueValue = ReflectApply(blueDistortedGetter, broker.getBlueValue(this), emptyArray);
+                    currentBlueGetter = function currentDistortedBlueGetter() {
+                        const value: BlueValue = ReflectApply(
+                            blueDistortedGetter,
+                            broker.getBlueValue(this),
+                            emptyArray
+                        );
                         return broker.getRedValue(value);
                     };
-                    redDescriptor.get = function(): RedValue {
+                    redDescriptor.get = function get(): RedValue {
                         return ReflectApply(currentBlueGetter, this, emptyArray);
                     };
                 }
 
                 if (typeof blueDescriptor.set === 'function') {
-                    redDescriptor.set = function(v: RedValue): void {
-                        // if a global setter is invoke, the value will be use as it is as the result of the getter operation
+                    redDescriptor.set = function set(v: RedValue): void {
+                        // if a global setter is invoke, the value will be use as it
+                        // is as the result of the getter operation
                         currentBlueGetter = () => v;
                     };
                 }

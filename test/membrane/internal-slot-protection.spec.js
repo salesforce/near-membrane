@@ -2,7 +2,7 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('membrane', () => {
     it('should prevent attacks that are changing the prototype for impersonation', function() {
-        // expect.assertions(4);
+        expect.assertions(4);
         const { value: setAttribute } = Object.getOwnPropertyDescriptor(Element.prototype, 'setAttribute');
         const distortionMap = new Map([
             [setAttribute, function (attributeName, value) {
