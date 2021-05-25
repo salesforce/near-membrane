@@ -11,7 +11,7 @@
   "scripts": {
     "clean": "lerna run clean --stream",
     "build": "lerna run build --stream",
-    "lint": "eslint packages",
+    "lint": "eslint packages test",
     "prepare": "husky install && yarn build",
     "start": "http-server ./examples",
     "coverage": "yarn coverage:jest; yarn coverage:karma",
