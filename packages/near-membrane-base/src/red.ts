@@ -209,6 +209,7 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
         } finally {
             // if a distortion entry is found, it must be a valid proxy target
             if (distortedTarget !== target && typeof distortedTarget !== typeof target) {
+                // eslint-disable-next-line no-unsafe-finally
                 throw new ErrorCtor(`Invalid distortion ${target}.`);
             }
         }
