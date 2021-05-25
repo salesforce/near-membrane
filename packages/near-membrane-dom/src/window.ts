@@ -194,6 +194,12 @@ function aggregateWindowPropertiesDescriptors(
     blueDescriptors: PropertyDescriptorMap
 ): PropertyDescriptorMap {
     const to: PropertyDescriptorMap = ObjectCreate(null);
+    // The following can be ignored because for now, redOwnKeys is
+    // intentionally empty. In getRedReferences, see the following:
+    //
+    //      record.WindowPropertiesProtoOwnKeys = [];
+    //
+    // istanbul ignore next
     for (let i = 0, len = redOwnKeys.length; i < len; i += 1) {
         const key = redOwnKeys[i] as string;
         to[key] = blueDescriptors[key];
