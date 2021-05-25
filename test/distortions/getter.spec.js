@@ -5,12 +5,8 @@ const { get: hostGetter } = Object.getOwnPropertyDescriptor(ShadowRoot.prototype
 const { get: localStorageGetter } = Object.getOwnPropertyDescriptor(window, 'localStorage');
 
 const distortionMap = new Map([
-    [hostGetter, () => {
-        return null;
-    }],
-    [localStorageGetter, () => {
-        return 'distorted localStorage';
-    }]
+    [hostGetter, () => null],
+    [localStorageGetter, () => 'distorted localStorage'],
 ]);
 
 function distortionCallback(v) {
@@ -20,7 +16,7 @@ function distortionCallback(v) {
 const evalScript = createVirtualEnvironment({ distortionCallback, endowments: window });
 
 describe('Getter Function Distortion', () => {
-    it('should be invoked when invoked directly', function() {
+    it('should be invoked when invoked directly', () => {
         expect.assertions(1);
         evalScript(`
             const elm = document.createElement('div');
@@ -28,16 +24,16 @@ describe('Getter Function Distortion', () => {
             expect(elm.shadowRoot.host).toBe(null);    
         `);
     });
-    it('should be invoked when invoked indirectly', function() {
+    it('should be invoked when invoked indirectly', () => {
         expect.assertions(1);
         evalScript(`
             const elm = document.createElement('div');
             elm.attachShadow({ mode: 'open' });
             const hostGetter = Object.getOwnPropertyDescriptor(ShadowRoot.prototype, 'host').get;
             expect(hostGetter.call(elm)).toBe(null);
-        `); 
+        `);
     });
-    it('should work for global property accessors (issue #64)', function () {
+    it('should work for global property accessors (issue #64)', () => {
         expect.assertions(1);
         evalScript(`
             expect(localStorage).toBe('distorted localStorage');

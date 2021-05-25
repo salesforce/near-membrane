@@ -11,7 +11,7 @@
   "scripts": {
     "clean": "lerna run clean --stream",
     "build": "lerna run build --stream",
-    "lint": "eslint packages",
+    "lint": "eslint packages test",
     "prepare": "husky install && yarn build",
     "start": "http-server ./examples",
     "coverage": "yarn coverage:jest; yarn coverage:karma",
@@ -59,6 +59,7 @@
     "eslint-config-prettier": "7.1.0",
     "eslint-plugin-import": "2.22.1",
     "eslint-plugin-prettier": "3.3.0",
+    "globby": "^11.0.3",
     "http-server": "^0.12.3",
     "husky": "5.2.0",
     "istanbul": "^0.4.5",

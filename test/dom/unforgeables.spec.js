@@ -3,7 +3,7 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 const evalScript = createVirtualEnvironment({ endowments: window });
 
 describe('EventTarget unforgeable', () => {
-    it('should be accessible from window', function() {
+    it('should be accessible from window', () => {
         expect.assertions(4);
         evalScript(`
             expect(EventTarget !== undefined).toBe(true);
@@ -15,7 +15,7 @@ describe('EventTarget unforgeable', () => {
 });
 
 describe('Window unforgeable', () => {
-    it('should be accessible from window', function() {
+    it('should be accessible from window', () => {
         expect.assertions(4);
         evalScript(`
             expect(Window !== undefined).toBe(true);

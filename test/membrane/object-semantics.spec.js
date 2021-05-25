@@ -7,12 +7,13 @@ function saveObject(o) {
 
 const endowments = {
     saveObject,
-    expect
+    expect,
 };
 
 describe('Blue Proxies', () => {
     it('should be preserved the JS Object semantics by allowing writable objects to change', () => {
         'use strict';
+
         expect.assertions(9);
         const evalScript = createVirtualEnvironment({ endowments });
         evalScript(`
@@ -37,6 +38,7 @@ describe('Blue Proxies', () => {
         expect(obj.x).toBe(2);
         expect(Object.getOwnPropertyDescriptor(obj, 'x').value).toBe(2);
         obj.mutate();
+        // eslint-disable-next-line no-unused-expressions
         obj.x;
         expect(obj.x).toBe(3);
         expect(Object.getOwnPropertyDescriptor(obj, 'x').value).toBe(3);

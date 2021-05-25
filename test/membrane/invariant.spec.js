@@ -9,7 +9,7 @@ function saveFoo(arg) {
     FooClazz = arg;
 }
 
-const evalScript = createVirtualEnvironment({ endowments: { Base, saveFoo }});
+const evalScript = createVirtualEnvironment({ endowments: { Base, saveFoo } });
 evalScript(`
     class Foo extends Base {};
     saveFoo(Foo);
@@ -17,8 +17,8 @@ evalScript(`
 
 describe('js invariants', () => {
     it('should be prserved for instanceof', () => {
-        class Test extends FooClazz {};
+        class Test extends FooClazz {}
         Object.freeze(Test.prototype);
-        expect(Test.prototype instanceof Base).toBe(true); 
+        expect(Test.prototype instanceof Base).toBe(true);
     });
 });
