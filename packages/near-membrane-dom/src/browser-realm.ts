@@ -64,7 +64,7 @@ const { open, close } = document;
 export default function createVirtualEnvironment(
     options?: BrowserEnvironmentOptions
 ): (sourceText: string) => void {
-    const { distortionMap, endowments, keepAlive } = options || ObjectCreate(null);
+    const { distortionCallback, endowments, keepAlive } = options || ObjectCreate(null);
     const iframe = createDetachableIframe();
     const blueWindow = window;
     const redWindow = (iframe.contentWindow as WindowProxy).window;
@@ -77,7 +77,7 @@ export default function createVirtualEnvironment(
     const env = new VirtualEnvironment({
         blueGlobalThis: blueWindow,
         redGlobalThis: redWindow,
-        distortionMap,
+        distortionCallback,
     });
     linkIntrinsics(env, blueWindow, redWindow);
     linkUnforgeables(env, blueRefs, redRefs);

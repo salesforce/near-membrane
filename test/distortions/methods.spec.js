@@ -9,7 +9,12 @@ const distortionMap = new Map([
         throw new Error('forbidden');
     }],
 ]);
-const evalScript = createVirtualEnvironment({ distortionMap, endowments: window });
+
+function distortionCallback(v) {
+    return distortionMap.get(v) || v;
+}
+
+const evalScript = createVirtualEnvironment({ distortionCallback, endowments: window });
 
 describe('Method Distortion', () => {
     it('should be invoked when invoked directly', function() {
