@@ -1,5 +1,6 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
+// eslint-disable-next-line symbol-description
 globalThis.regularSymbol = Symbol();
 globalThis.symbolWithDescription = Symbol('symbol-with-desc');
 globalThis.symbolWithKey = Symbol.for('symbol-with-key');
@@ -17,7 +18,7 @@ describe('Secure Membrane', () => {
             expect(Symbol().constructor.__proto__.constructor('return this')() === globalThis).toBeTrue();
         `);
     });
-    it('should allow access to symbols defined in outer realm', function() {
+    it('should allow access to symbols defined in outer realm', () => {
         expect.assertions(3);
         const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
@@ -26,7 +27,7 @@ describe('Secure Membrane', () => {
             expect(typeof globalThis.symbolWithKey).toBe('symbol');
         `);
     });
-    it('should not leak outer realm global reference via symbols', function() {
+    it('should not leak outer realm global reference via symbols', () => {
         expect.assertions(2);
         const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
@@ -34,7 +35,7 @@ describe('Secure Membrane', () => {
             expect(globalThis.regularSymbol.constructor.__proto__.constructor('return this')() === globalThis).toBeTrue();
         `);
     });
-    it('should not leak outer realm global reference via Symbol.for()', function() {
+    it('should not leak outer realm global reference via Symbol.for()', () => {
         expect.assertions(3);
         const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
@@ -50,12 +51,13 @@ describe('Secure Membrane', () => {
         let successful = false;
 
         class Base {
+            // eslint-disable-next-line class-methods-use-this
             [symbol]() {
                 successful = true;
             }
         }
 
-        const secureEval = createVirtualEnvironment({ endowments: { Base, symbol }});
+        const secureEval = createVirtualEnvironment({ endowments: { Base, symbol } });
         secureEval(`
             class Bar extends Base {
                 constructor() {

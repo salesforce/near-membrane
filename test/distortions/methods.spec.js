@@ -5,9 +5,12 @@ window.originalFetch = fetch;
 window.wrappedFetch = (...args) => fetch(...args);
 
 const distortionMap = new Map([
-    [fetch, () => {
-        throw new Error('forbidden');
-    }],
+    [
+        fetch,
+        () => {
+            throw new Error('forbidden');
+        },
+    ],
 ]);
 
 function distortionCallback(v) {
@@ -17,7 +20,7 @@ function distortionCallback(v) {
 const evalScript = createVirtualEnvironment({ distortionCallback, endowments: window });
 
 describe('Method Distortion', () => {
-    it('should be invoked when invoked directly', function() {
+    it('should be invoked when invoked directly', () => {
         expect.assertions(1);
         evalScript(`
             expect(() => {
@@ -25,7 +28,7 @@ describe('Method Distortion', () => {
             }).toThrow();
         `);
     });
-    it('should be invoked when invoked indirectly', function() {
+    it('should be invoked when invoked indirectly', () => {
         expect.assertions(1);
         evalScript(`
             expect(() => {
@@ -33,7 +36,7 @@ describe('Method Distortion', () => {
             }).toThrow();
         `);
     });
-    it('should bypass the restriction because fetch ref never goes throw the membrane', function() {
+    it('should bypass the restriction because fetch ref never goes throw the membrane', () => {
         expect.assertions(1);
         evalScript(`
             expect(() => {

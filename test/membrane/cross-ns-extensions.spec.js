@@ -1,6 +1,7 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 class Base {
+    // eslint-disable-next-line class-methods-use-this
     base() {
         return 'from base';
     }
@@ -10,7 +11,7 @@ function saveFoo(f) {
     Foo = f;
 }
 
-const evalScript = createVirtualEnvironment({ endowments: { Base, saveFoo }});
+const evalScript = createVirtualEnvironment({ endowments: { Base, saveFoo } });
 evalScript(`
     class Foo extends Base {
         foo() {
@@ -22,11 +23,11 @@ evalScript(`
 
 const endowments = {
     Foo,
-    expect
+    expect,
 };
 
 describe('The membrane', () => {
-    it('should allow expandos on endowments inside the sandbox', function() {
+    it('should allow expandos on endowments inside the sandbox', () => {
         expect.assertions(4);
         const evalScript = createVirtualEnvironment({ endowments });
         evalScript(`

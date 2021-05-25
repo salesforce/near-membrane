@@ -8,21 +8,21 @@ let sandboxedValue;
 
 globalThis.boundaryHooks = {
     set a(v) {
-        throwNewError(Error, 'a() setter throws for argument: ' + v);
+        throwNewError(Error, `a() setter throws for argument: ${v}`);
     },
     get a() {
         return throwNewError(Error, 'a() getter throws');
     },
     b(v) {
-        throwNewError(RangeError, 'b() method throws for argument: ' + v);
+        throwNewError(RangeError, `b() method throws for argument: ${v}`);
     },
     expose(fn) {
         sandboxedValue = fn;
-    }
+    },
 };
 
 describe('The Error Boundary', () => {
-    it('should preserve identity of errors after a membrane roundtrip', function() {
+    it('should preserve identity of errors after a membrane roundtrip', () => {
         expect.assertions(3);
         const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`boundaryHooks.expose(() => { boundaryHooks.a })`);
@@ -38,7 +38,7 @@ describe('The Error Boundary', () => {
             sandboxedValue();
         }).toThrowError(RangeError);
     });
-    it('should remap the Outer Realm Error instance to the sandbox errors', function() {
+    it('should remap the Outer Realm Error instance to the sandbox errors', () => {
         expect.assertions(3);
         const evalScript = createVirtualEnvironment({ endowments: window });
 
@@ -58,7 +58,7 @@ describe('The Error Boundary', () => {
             }).toThrowError(RangeError);
         `);
     });
-    it('should capture throwing from user proxy', function() {
+    it('should capture throwing from user proxy', () => {
         expect.assertions(3);
         const evalScript = createVirtualEnvironment({ endowments: window });
         evalScript(`
@@ -67,6 +67,7 @@ describe('The Error Boundary', () => {
             boundaryHooks.expose(revocable.proxy);
         `);
         expect(() => {
+            // eslint-disable-next-line no-unused-expressions
             sandboxedValue.x;
         }).toThrowError(Error);
         expect(() => {
@@ -76,7 +77,7 @@ describe('The Error Boundary', () => {
             delete sandboxedValue.x;
         }).toThrowError(Error);
     });
-    it('should protect from leaking sandbox errors during evaluation', function() {
+    it('should protect from leaking sandbox errors during evaluation', () => {
         const evalScript = createVirtualEnvironment({ endowments: window });
 
         expect(() => {
@@ -85,7 +86,7 @@ describe('The Error Boundary', () => {
             `);
         }).toThrowError(TypeError);
     });
-    it('should protect from leaking sandbox errors during parsing', function() {
+    it('should protect from leaking sandbox errors during parsing', () => {
         const evalScript = createVirtualEnvironment({ endowments: window });
 
         expect(() => {

@@ -5,10 +5,9 @@ class Base extends HTMLElement {}
 customElements.define('x-base', Base);
 
 describe('Extending Custom Element', () => {
-
     const evalScript = createVirtualEnvironment({ endowments: window });
 
-    it('should be allowed from blue to red', function() {
+    it('should be allowed from blue to red', () => {
         expect.assertions(1);
         evalScript(`
             const Base = customElements.get('x-base');
@@ -17,7 +16,7 @@ describe('Extending Custom Element', () => {
             expect(elm instanceof Base).toBe(true);
         `);
     });
-    it('should be allowed in red', function() {
+    it('should be allowed in red', () => {
         expect.assertions(1);
         evalScript(`
             class Red extends HTMLElement {}
@@ -26,7 +25,7 @@ describe('Extending Custom Element', () => {
             expect(elm instanceof Red).toBe(true);
         `);
     });
-    it('should support multiple extensions in the same namespace', function() {
+    it('should support multiple extensions in the same namespace', () => {
         expect.assertions(2);
         evalScript(`
             class Foo extends HTMLElement {}
@@ -37,7 +36,7 @@ describe('Extending Custom Element', () => {
             expect(elm instanceof Foo).toBe(true);
         `);
     });
-    it('should support multiple extensions from blue in the same namespace', function() {
+    it('should support multiple extensions from blue in the same namespace', () => {
         expect.assertions(3);
         evalScript(`
             const Base = customElements.get('x-base');
@@ -53,11 +52,10 @@ describe('Extending Custom Element', () => {
 });
 
 describe('NS-to-NS custom element extension', () => {
-
     const evalScriptNS1 = createVirtualEnvironment({ endowments: window });
     const evalScriptNS2 = createVirtualEnvironment({ endowments: window });
 
-    it('should work when using multiple namespaces in proto-chain', function() {
+    it('should work when using multiple namespaces in proto-chain', () => {
         expect.assertions(3);
         evalScriptNS1(`
             const Base = customElements.get('x-base');

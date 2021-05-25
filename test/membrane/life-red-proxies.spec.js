@@ -3,7 +3,7 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 const LockerLiveValueMarkerSymbol = Symbol.for('@@lockerLiveValue');
 
 const o = {
-    x: 'uno'
+    x: 'uno',
 };
 Object.defineProperty(o, LockerLiveValueMarkerSymbol, {});
 
@@ -14,7 +14,7 @@ const endowments = {
 const evalScript = createVirtualEnvironment({ endowments });
 
 describe('A Live Red Proxy', () => {
-    it('should surface new expandos from blue realm', function() {
+    it('should surface new expandos from blue realm', () => {
         expect.assertions(2);
         o.x = 'uno';
         o.y = 'dos';
@@ -23,7 +23,7 @@ describe('A Live Red Proxy', () => {
             expect(o.y).toBe('dos');
         `);
     });
-    it('should allow mutation from blue realm', function() {
+    it('should allow mutation from blue realm', () => {
         expect.assertions(4);
         o.x = 'tres';
         o.y = 'cuatro';
@@ -34,7 +34,7 @@ describe('A Live Red Proxy', () => {
         expect(o.x).toBe('tres');
         expect(o.y).toBe('cuatro');
     });
-    it('should allow mutation from within the sandbox', function() {
+    it('should allow mutation from within the sandbox', () => {
         expect.assertions(4);
         evalScript(`
             o.x = 'cinco';
@@ -45,7 +45,7 @@ describe('A Live Red Proxy', () => {
         expect(o.x).toBe('cinco');
         expect(o.y).toBe('six');
     });
-    it('should allow expandos added form within the sandbox', function() {
+    it('should allow expandos added form within the sandbox', () => {
         expect.assertions(2);
         evalScript(`
             o.z = 'seven';
@@ -53,7 +53,7 @@ describe('A Live Red Proxy', () => {
         `);
         expect(o.z).toBe('seven');
     });
-    it('should only have effect on own properties', function() {
+    it('should only have effect on own properties', () => {
         expect.assertions(3);
         o.w = { a: 1 };
         evalScript(`

@@ -2,7 +2,7 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 const bar = Object.create(null, {
     x: { value: 1 },
-    z: { value: 5, writable: true }
+    z: { value: 5, writable: true },
 });
 let foo;
 function saveFoo(arg) {
@@ -10,9 +10,9 @@ function saveFoo(arg) {
 }
 
 describe('null __proto__', () => {
-    it('should work for get trap', function() {
+    it('should work for get trap', () => {
         expect.assertions(4);
-        const evalScript = createVirtualEnvironment({ endowments: { bar, saveFoo, expect }});
+        const evalScript = createVirtualEnvironment({ endowments: { bar, saveFoo, expect } });
         evalScript(`
             const foo = Object.create(null, {
                 y: { value: 2 }
@@ -24,9 +24,9 @@ describe('null __proto__', () => {
         expect(foo.x).toBe(undefined);
         expect(foo.y).toBe(2);
     });
-    it('should work for set trap', function() {
+    it('should work for set trap', () => {
         expect.assertions(6);
-        const evalScript = createVirtualEnvironment({ endowments: { bar, saveFoo, expect }});
+        const evalScript = createVirtualEnvironment({ endowments: { bar, saveFoo, expect } });
         evalScript(`
             const foo = Object.create(null, {
                 x: { value: 2 },
@@ -41,9 +41,9 @@ describe('null __proto__', () => {
         expect(Reflect.set(foo, 'expando', 6)).toBe(true);
         expect(Reflect.set(foo, 'y', 7)).toBe(true);
     });
-    it('should work for has trap', function() {
+    it('should work for has trap', () => {
         expect.assertions(4);
-        const evalScript = createVirtualEnvironment({ endowments: { bar, saveFoo, expect }});
+        const evalScript = createVirtualEnvironment({ endowments: { bar, saveFoo, expect } });
         evalScript(`
             const foo = Object.create(null, {
                 y: { value: 2, writable: true }
