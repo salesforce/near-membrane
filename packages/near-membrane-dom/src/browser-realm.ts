@@ -58,6 +58,15 @@ function removeIframe(iframe: HTMLIFrameElement) {
     // In Chrome debugger statements will be ignored when the iframe is removed
     // from the document. Other browsers like Firefox and Safari work as expected.
     // https://bugs.chromium.org/p/chromium/issues/detail?id=1015462
+
+    // Because the detachable iframe is created, and then optionally removed, all
+    // within the execution of createVirtualEnvironment, there is no point in which
+    // test code can interfere with iframe element, or its prototype chain, in
+    // order to remove it from the DOM, or stub the isConnected accessor
+    // (the latter is already too late before createVirtualEnvironment is ever called).
+    // For this reason, ignore the lack of `else` path coverage.
+    //
+    // istanbul ignore else
     if (isConnected(iframe)) {
         ElementRemove(iframe);
     }
