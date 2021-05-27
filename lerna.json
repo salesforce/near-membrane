@@ -6,7 +6,7 @@
       "forcePublish": "*"
     },
     "version": {
-      "message": "Version %s"
+      "message": "release: %s"
     }
   },
   "useWorkspaces": true
