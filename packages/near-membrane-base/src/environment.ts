@@ -80,6 +80,7 @@ export class VirtualEnvironment implements MembraneBroker {
                 target: BlueConstructor,
                 argumentsList: ArrayLike<BlueValue>,
                 newTarget?: any
+                // eslint-disable-next-line class-methods-use-this
             ): BlueValue {
                 return ReflectConstruct(target, argumentsList, newTarget);
             },
@@ -88,6 +89,7 @@ export class VirtualEnvironment implements MembraneBroker {
         this.getBlueValue = blueProxyFactory(this);
     }
 
+    // istanbul ignore next
     // eslint-disable-next-line class-methods-use-this
     getBlueValue(
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -96,6 +98,7 @@ export class VirtualEnvironment implements MembraneBroker {
         // placeholder since this will be assigned in construction
     }
 
+    // istanbul ignore next
     // eslint-disable-next-line class-methods-use-this
     getRedValue(
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -117,6 +120,9 @@ export class VirtualEnvironment implements MembraneBroker {
         return undefined;
     }
 
+    // Currently, getRedRef is not used in any near-membrane-* modules,
+    // nor is used by any modules that directly depend on near-membrane.
+    // istanbul ignore next
     // eslint-disable-next-line class-methods-use-this
     getRedRef(blue: BlueValue): RedValue | undefined {
         const red: RedValue | undefined = WeakMapGet(this.blueMap, blue);
@@ -163,6 +169,7 @@ export class VirtualEnvironment implements MembraneBroker {
                 // start returning the new provided value rather than calling onto
                 // the blue realm. This is to preserve the object graph of the
                 // blue realm.
+                // istanbul ignore next
                 let currentBlueGetter: (this: RedValue) => RedValue = () => undefined;
 
                 if (typeof blueDescriptor.get === 'function') {

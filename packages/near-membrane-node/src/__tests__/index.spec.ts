@@ -83,5 +83,20 @@ describe('VirtualEnvironment', () => {
                 expect(b2.x).toBe(2);
             `);
         });
+
+        globalThis.count = 0;
+        globalThis.Constructible = class {
+            constructor() {
+                expect(globalThis.count).toBe(1);
+                globalThis.count = 2;
+            }
+        };
+        it('should invoke the blue hooks construct trap', () => {
+            expect.assertions(2);
+            const evalScript = createVirtualEnvironment({ endowments: window });
+            globalThis.count = 1;
+            evalScript(`const c = new Constructible()`);
+            expect(globalThis.count).toBe(2);
+        });
     });
 });
