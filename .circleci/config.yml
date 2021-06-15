@@ -4,7 +4,7 @@
 env_default: &env_default
   working_directory: ~/near-membrane
   docker:
-    - image: circleci/node:14-browsers
+    - image: circleci/node:16-browsers
 
 
 # Commands definitions
