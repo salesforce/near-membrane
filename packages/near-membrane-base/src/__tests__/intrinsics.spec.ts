@@ -95,11 +95,12 @@ describe('linkIntrinsics()', () => {
         expect(fakeEnv.setRefMapEntries).toHaveBeenCalledTimes(1);
     });
     it('should link reflective intrinsics that are in the blue realm to the red realm', () => {
-        expect.assertions(2);
+        expect.assertions(3);
+        const stopper = new Error('done');
         const fakeEnv = ({
             setRefMapEntries: jest.fn(() => {
                 // We only care about this being called once!
-                throw Error('done');
+                throw stopper;
             }),
         } as unknown) as VirtualEnvironment;
         const fakeRedGlobalThis = ({
@@ -110,7 +111,7 @@ describe('linkIntrinsics()', () => {
 
         expect(() => {
             linkIntrinsics(fakeEnv, globalThis, fakeRedGlobalThis);
-        }).toThrow(/done/);
+        }).toThrow(stopper);
         expect(fakeEnv.setRefMapEntries).toHaveBeenCalledTimes(1);
         expect(fakeEnv.setRefMapEntries).toHaveBeenCalledWith(
             fakeRedGlobalThis.AggregateError,
