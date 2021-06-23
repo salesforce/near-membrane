@@ -1,10 +1,10 @@
 {
     "compilerOptions": {
-        "target": "es2015",
-        "module": "es2015",
+        "target": "es2020",
+        "module": "es2020",
         "moduleResolution": "node",
         "esModuleInterop": true,
-        "lib": ["es2015", "es2016", "es2017", "es2018", "DOM"],
+        "lib": ["dom", "es2015", "es2016", "es2017", "es2018", "es2019", "es2020"],
         "declaration": false,
         // Enhance Strictness
         "strict": true,
