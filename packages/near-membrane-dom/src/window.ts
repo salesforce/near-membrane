@@ -1,7 +1,6 @@
 import {
     isIntrinsicGlobalName,
     ObjectAssign,
-    ObjectCreate,
     ObjectGetOwnPropertyDescriptors,
     ReflectGetPrototypeOf,
     ReflectOwnKeys,
@@ -50,7 +49,7 @@ const cachedBlueGlobalMap: WeakMap<
 > = new WeakMapCtor();
 
 export function getBaseReferences(window: Window & typeof globalThis): BaseReferencesRecord {
-    const record = ObjectCreate(null) as BaseReferencesRecord;
+    const record = ({ __proto__: null } as any) as BaseReferencesRecord;
     // caching references to object values that can't be replaced
     // window -> Window -> WindowProperties -> EventTarget
     record.window = window.window;
@@ -77,12 +76,12 @@ export function getCachedBlueReferences(
     record.windowDescriptors = ObjectGetOwnPropertyDescriptors(record.window);
     // intentionally avoiding remapping any Window.prototype descriptor,
     // there is nothing in this prototype that needs to be remapped.
-    record.WindowProtoDescriptors = ObjectCreate(null);
+    record.WindowProtoDescriptors = { __proto__: null } as any;
     // intentionally avoiding remapping any WindowProperties.prototype descriptor
     // because this object contains magical properties for HTMLObjectElement instances
     // and co, based on their id attribute. These cannot, and should not, be
     // remapped. Additionally, constructor is not relevant, and can't be used for anything.
-    record.WindowPropertiesProtoDescriptors = ObjectCreate(null);
+    record.WindowPropertiesProtoDescriptors = { __proto__: null } as any;
     record.EventTargetProtoDescriptors = ObjectGetOwnPropertyDescriptors(record.EventTargetProto);
 
     return record;
@@ -141,7 +140,7 @@ function aggregateWindowDescriptors(
     blueDescriptors: PropertyDescriptorMap,
     endowmentsDescriptors: PropertyDescriptorMap | undefined
 ): PropertyDescriptorMap {
-    const to: PropertyDescriptorMap = ObjectCreate(null);
+    const to: PropertyDescriptorMap = { __proto__: null } as any;
 
     for (let i = 0, len = redOwnKeys.length; i < len; i += 1) {
         const key = redOwnKeys[i] as string;
@@ -193,7 +192,7 @@ function aggregateWindowPropertiesDescriptors(
     redOwnKeys: PropertyKey[],
     blueDescriptors: PropertyDescriptorMap
 ): PropertyDescriptorMap {
-    const to: PropertyDescriptorMap = ObjectCreate(null);
+    const to: PropertyDescriptorMap = { __proto__: null } as any;
     // The following can be ignored because for now, redOwnKeys is
     // intentionally empty. In getRedReferences, see the following:
     //

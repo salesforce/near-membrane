@@ -11,18 +11,18 @@
  *    be serialized, and therefore it will loose the reference.
  */
 import {
-    RedArray,
-    RedObject,
-    RedProxy,
-    RedProxyTarget,
-    RedShadowTarget,
-    RedValue,
     BlueArray,
     BlueConstructor,
     BlueFunction,
     BlueObject,
     BlueValue,
     MembraneBroker,
+    RedArray,
+    RedObject,
+    RedProxy,
+    RedProxyTarget,
+    RedShadowTarget,
+    RedValue,
     TargetMeta,
 } from './types';
 
@@ -76,8 +76,6 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
     const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
 
     const {
-        assign: ObjectAssign,
-        create: ObjectCreate,
         defineProperties: ObjectDefineProperties,
         getOwnPropertyDescriptors: ObjectGetOwnPropertyDescriptors,
         freeze: ObjectFreeze,
@@ -156,7 +154,7 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
     ) {
         const normalizedBlueDescriptors = ObjectGetOwnPropertyDescriptors(originalTarget);
         const targetKeys = ReflectOwnKeys(normalizedBlueDescriptors);
-        const redDescriptors = ObjectCreate(null);
+        const redDescriptors: PropertyDescriptorMap = { __proto__: null } as any;
         for (let i = 0, len = targetKeys.length; i < len; i += 1) {
             const key = targetKeys[i] as string;
             const redDesc = getRedDescriptor(normalizedBlueDescriptors[key]);
@@ -185,7 +183,7 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
     }
 
     function getBluePartialDescriptor(redPartialDesc: PropertyDescriptor): PropertyDescriptor {
-        const bluePartialDesc = ObjectAssign(ObjectCreate(null), redPartialDesc);
+        const bluePartialDesc = { __proto__: null, ...redPartialDesc };
         if ('writable' in bluePartialDesc) {
             // We are dealing with a value descriptor.
             bluePartialDesc.value = blueEnv.getBlueValue(bluePartialDesc.value);
@@ -217,7 +215,7 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
     }
 
     function getRedDescriptor(blueDescriptor: PropertyDescriptor): PropertyDescriptor {
-        const redDescriptor = ObjectAssign(ObjectCreate(null), blueDescriptor);
+        const redDescriptor = { __proto__: null, ...blueDescriptor };
         if ('writable' in redDescriptor) {
             // We are dealing with a value descriptor.
             redDescriptor.value = getRedValue(redDescriptor.value);
@@ -273,12 +271,15 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
     }
 
     function getTargetMeta(target: RedProxyTarget): TargetMeta {
-        const meta: TargetMeta = ObjectCreate(null);
-        meta.isBroken = false;
-        meta.isExtensible = false;
-        meta.isFrozen = false;
-        meta.isSealed = false;
-        meta.proto = null;
+        const meta: TargetMeta = {
+            __proto__: null,
+            descriptors: null,
+            isBroken: false,
+            isExtensible: false,
+            isFrozen: false,
+            isSealed: false,
+            proto: null,
+        };
         try {
             // a revoked proxy will break the membrane when reading the meta
             meta.proto = ReflectGetPrototypeOf(target);
@@ -710,7 +711,7 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
         const redProto = getRedValue(blueProto);
         ReflectSetPrototypeOf(shadowTarget, redProto);
         // defining own descriptors
-        copyRedOwnDescriptors(shadowTarget, meta.descriptors);
+        copyRedOwnDescriptors(shadowTarget, meta.descriptors as PropertyDescriptorMap);
         // preserving the semantics of the object
         if (meta.isFrozen) {
             ObjectFreeze(shadowTarget);

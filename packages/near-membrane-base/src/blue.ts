@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 import {
     ArrayCtor,
-    ObjectAssign,
-    ObjectCreate,
+    emptyArray,
     ObjectDefineProperties,
     ObjectFreeze,
     ObjectGetOwnPropertyDescriptors,
@@ -11,9 +10,9 @@ import {
     ReflectConstruct,
     ReflectDefineProperty,
     ReflectDeleteProperty,
+    ReflectGet,
     ReflectGetOwnPropertyDescriptor,
     ReflectGetPrototypeOf,
-    ReflectGet,
     ReflectHas,
     ReflectIsExtensible,
     ReflectOwnKeys,
@@ -21,7 +20,6 @@ import {
     ReflectSet,
     ReflectSetPrototypeOf,
     TypeErrorCtor,
-    emptyArray,
 } from './shared';
 import {
     BlueArray,
@@ -104,7 +102,7 @@ export function blueProxyFactory(env: MembraneBroker) {
     ) {
         const normalizedRedDescriptors = ObjectGetOwnPropertyDescriptors(originalTarget);
         const targetKeys = ReflectOwnKeys(normalizedRedDescriptors);
-        const blueDescriptors = ObjectCreate(null);
+        const blueDescriptors: PropertyDescriptorMap = { __proto__: null } as any;
         for (let i = 0, len = targetKeys.length; i < len; i += 1) {
             const key = targetKeys[i] as string;
             const blueDesc = getBlueDescriptor(normalizedRedDescriptors[key]);
@@ -124,7 +122,11 @@ export function blueProxyFactory(env: MembraneBroker) {
     }
 
     function getBlueDescriptor(redDescriptor: PropertyDescriptor): PropertyDescriptor {
-        const blueDescriptor = ObjectAssign(ObjectCreate(null), redDescriptor);
+        const blueDescriptor = {
+            __proto__: null,
+            ...redDescriptor,
+        };
+
         if ('writable' in blueDescriptor) {
             // We are dealing with a value descriptor.
             const { value } = blueDescriptor;
@@ -175,7 +177,11 @@ export function blueProxyFactory(env: MembraneBroker) {
     }
 
     function getRedPartialDescriptor(bluePartialDesc: PropertyDescriptor): PropertyDescriptor {
-        const redPartialDesc = ObjectAssign(ObjectCreate(null), bluePartialDesc);
+        const redPartialDesc = {
+            __proto__: null,
+            ...bluePartialDesc,
+        };
+
         if ('value' in redPartialDesc) {
             // We are dealing with a value descriptor.
             redPartialDesc.value = env.getRedValue(redPartialDesc.value);
