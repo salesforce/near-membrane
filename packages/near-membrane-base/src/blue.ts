@@ -57,10 +57,18 @@ function createBlueShadowTarget(target: BlueProxyTarget): BlueShadowTarget {
     if (typeof target === 'function') {
         // this new shadow target function is never invoked just needed to anchor the realm
         try {
+            // According the comment above, this function will never be called, therefore the
+            // code should not be instrumented for code coverage.
+            //
+            // istanbul ignore next
             // eslint-disable-next-line func-names
             shadowTarget = 'prototype' in target ? function () {} : () => {};
         } catch {
             // target is a revoked proxy
+            // According the comment above, this function will never be called, therefore the
+            // code should not be instrumented for code coverage.
+            //
+            // istanbul ignore next
             // eslint-disable-next-line func-names
             shadowTarget = function () {};
         }
@@ -90,6 +98,10 @@ export function blueProxyFactory(env: MembraneBroker) {
         //       but it will always be compatible with the previous descriptor
         //       to preserve the object invariants, which makes these lines safe.
         const normalizedRedDescriptor = ReflectGetOwnPropertyDescriptor(originalTarget, key);
+        // There is currently no test in Locker or near-membrane-* that does NOT
+        // evaluate to true in the following condition.
+        //
+        // istanbul ignore else
         if (normalizedRedDescriptor !== undefined) {
             const blueDesc = getBlueDescriptor(normalizedRedDescriptor);
             ReflectDefineProperty(shadowTarget, key, blueDesc);
@@ -126,7 +138,27 @@ export function blueProxyFactory(env: MembraneBroker) {
             __proto__: null,
             ...redDescriptor,
         };
-
+        // The following "else" consequent is reachable in very specific
+        // circumstances. The "preventAttachShadowPoisoning" test in
+        // locker/packages/integration-karma/test/distortions/Element/Element-attachRoot.spec.js
+        // relies on that path. The test itself is for the shadowRoot mode distortion and looks
+        // approximately like:
+        //
+        //  expect(() => {
+        //      const el = document.createElement('my-component');
+        //      let count = 0;
+        //      el.attachShadow({
+        //          get mode() {
+        //              return count++ ? 'open' : 'closed';
+        //          },
+        //      });
+        //      expect(el.shadowRoot).toBe(null);
+        //  }).not.toThrow();
+        //
+        // This package's (near-membrane-base) own tests do not provide for DOM testing,
+        // therefore direct testing is not possible.
+        //
+        // istanbul ignore else
         if ('writable' in blueDescriptor) {
             // We are dealing with a value descriptor.
             const { value } = blueDescriptor;
@@ -136,6 +168,7 @@ export function blueProxyFactory(env: MembraneBroker) {
                       getBlueFunction(value)
                     : getBlueValue(value);
         } else {
+            // See additional details above.
             // We are dealing with accessors.
             const { get, set } = blueDescriptor;
             if (typeof get === 'function') {
@@ -186,10 +219,18 @@ export function blueProxyFactory(env: MembraneBroker) {
             // We are dealing with a value descriptor.
             redPartialDesc.value = env.getRedValue(redPartialDesc.value);
         }
+        // There is currently no test in Locker or near-membrane-* that evaluates to
+        // true in this condition
+        //
+        // istanbul ignore if
         if ('set' in redPartialDesc) {
             // We are dealing with accessors.
             redPartialDesc.set = env.getRedValue(redPartialDesc.set);
         }
+        // There is currently no test in Locker or near-membrane-* that evaluates to
+        // true in this condition
+        //
+        // istanbul ignore if
         if ('get' in redPartialDesc) {
             redPartialDesc.get = env.getRedValue(redPartialDesc.get);
         }
@@ -200,6 +241,12 @@ export function blueProxyFactory(env: MembraneBroker) {
         const { length } = blueArray;
         const staticRedArray = new ArrayCtor(length);
         for (let i = 0; i < length; i += 1) {
+            // There is currently no test in Locker or near-membrane-* that evaluates to
+            // true in this condition
+            //
+            // (For some reason, istanbul is getting confused here and only works for
+            // "istanbul ignore next")
+            // istanbul ignore next
             if (i in blueArray) {
                 staticRedArray[i] = env.getRedValue(blueArray[i]);
             }
@@ -242,6 +289,9 @@ export function blueProxyFactory(env: MembraneBroker) {
             return env.getBlueValue(red);
         }
 
+        // There is currently no test in Locker or near-membrane-* that exercises this trap
+        //
+        // istanbul ignore next
         construct(
             shadowTarget: BlueShadowTarget,
             blueArgArray: BlueValue[],
@@ -271,6 +321,10 @@ export function blueProxyFactory(env: MembraneBroker) {
             const redDesc = getRedPartialDescriptor(bluePartialDesc);
             if (ReflectDefineProperty(target, key, redDesc)) {
                 // intentionally testing against true since it could be undefined as well
+                // There is currently no test in Locker or near-membrane-* that does NOT
+                // evaluate to true in this condition
+                //
+                // istanbul ignore else
                 if (redDesc.configurable === false) {
                     copyRedDescriptorIntoShadowTarget(shadowTarget, target, key);
                 }
@@ -306,11 +360,19 @@ export function blueProxyFactory(env: MembraneBroker) {
             if (redDescriptor === undefined) {
                 // looking in the blue proto chain to avoid switching sides
                 const blueProto = getBlueValue(ReflectGetPrototypeOf(target));
+                // There is currently no test in Locker or near-membrane-* that evaluates to
+                // true in this condition
+                //
+                // istanbul ignore if
                 if (blueProto === null) {
                     return undefined;
                 }
                 return ReflectGet(blueProto, key, receiver);
             }
+            // There is currently no test in Locker or near-membrane-* that evaluates to
+            // true in this condition
+            //
+            // istanbul ignore if
             if (ObjectHasOwnProperty(redDescriptor, 'get')) {
                 // Knowing that it is an own getter, we can't still not use Reflect.get
                 // because there might be a distortion for such getter, and from the blue
@@ -350,6 +412,10 @@ export function blueProxyFactory(env: MembraneBroker) {
          * Instead, we need to implement a more crafty solution that looks into target's
          * own properties, or in the blue proto chain when needed.
          */
+
+        // There is currently no test in Locker or near-membrane-* that exercises this trap
+        //
+        // istanbul ignore next
         has(shadowTarget: BlueShadowTarget, key: PropertyKey): boolean {
             const { target } = this;
             if (ObjectHasOwnProperty(target, key)) {
@@ -366,6 +432,10 @@ export function blueProxyFactory(env: MembraneBroker) {
                 return false; // was already locked down
             }
             const { target } = this;
+            // There is currently no test in Locker or near-membrane-* that evaluates to
+            // true in this condition
+            //
+            // istanbul ignore if
             if (!ReflectIsExtensible(target)) {
                 lockShadowTarget(shadowTarget, target);
                 return false;
@@ -382,7 +452,15 @@ export function blueProxyFactory(env: MembraneBroker) {
 
         preventExtensions(shadowTarget: BlueShadowTarget): boolean {
             const { target } = this;
+            // There is currently no test in Locker or near-membrane-* that does NOT
+            // evaluate to true in this condition
+            //
+            // istanbul ignore else
             if (ReflectIsExtensible(shadowTarget)) {
+                // There is currently no test in Locker or near-membrane-* that evaluates to
+                // true in this condition
+                //
+                // istanbul ignore if
                 if (!ReflectPreventExtensions(target)) {
                     // if the target is a proxy manually created in the sandbox, it might reject
                     // the preventExtension call, in which case we should not attempt to lock down
@@ -394,6 +472,10 @@ export function blueProxyFactory(env: MembraneBroker) {
                 }
                 lockShadowTarget(shadowTarget, target);
             }
+            // There is currently no test in Locker or near-membrane-* that reaches this
+            // statement.
+            //
+            // istanbul ignore next
             return true;
         }
 
@@ -412,9 +494,18 @@ export function blueProxyFactory(env: MembraneBroker) {
         ): boolean {
             const { target } = this;
             const redDescriptor = ReflectGetOwnPropertyDescriptor(target, key);
+            // There is currently no test in Locker or near-membrane-base that does NOT
+            // evaluate to true in the following condition. However there ARE tests
+            // in near-membrane-dom that evaluate to false and reach the else below
+            //
+            // istanbul ignore else
             if (redDescriptor === undefined) {
                 // looking in the blue proto chain to avoid switching sides
                 const blueProto = getBlueValue(ReflectGetPrototypeOf(target));
+                // There is currently no test in Locker or near-membrane-* that reaches this
+                // statement.
+                //
+                // istanbul ignore next
                 if (blueProto !== null) {
                     return ReflectSet(blueProto, key, value, receiver);
                 }
@@ -429,9 +520,17 @@ export function blueProxyFactory(env: MembraneBroker) {
             // if it is not an accessor property, is either a getter only accessor
             // or a data property, in which case we use Reflect.set to set the value,
             // and no receiver is needed since it will simply set the data property or nothing
+            //
+            // There is currently no test in Locker or near-membrane-* that reaches this
+            // statement.
+            //
+            // istanbul ignore next
             return ReflectSet(target, key, env.getRedValue(value));
         }
 
+        // There is currently no test in Locker or near-membrane-* that exercises this trap.
+        //
+        // istanbul ignore next
         setPrototypeOf(shadowTarget: BlueShadowTarget, prototype: BlueValue): boolean {
             return ReflectSetPrototypeOf(this.target, env.getRedValue(prototype));
         }

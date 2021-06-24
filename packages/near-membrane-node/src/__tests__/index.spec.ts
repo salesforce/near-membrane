@@ -49,6 +49,16 @@ describe('VirtualEnvironment', () => {
             const evalScript = createVirtualEnvironment({ endowments: window });
             evalScript(`blueObjectFactory({ x: 1 }, Object.create({}, { x: { value: 2 } }))`);
         });
+        it('should reach a writable value descriptor for a function, and set the descriptor value to the appropriate function', () => {
+            (globalThis as any).blueFn = (value: any) => {
+                if (value) {
+                    const { blueFn } = globalThis;
+                    expect(value).toStrictEqual({ blueFn });
+                }
+            };
+            const evalScript = createVirtualEnvironment({ endowments: window });
+            evalScript(`blueFn({ blueFn })`);
+        });
     });
     describe('red proxies', () => {
         globalThis.foo = {
