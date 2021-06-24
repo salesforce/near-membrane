@@ -1,5 +1,4 @@
 import {
-    ObjectCreate,
     ReflectGetOwnPropertyDescriptor,
     ReflectOwnKeys,
     SetCtor,
@@ -138,7 +137,7 @@ function getReflectiveIntrinsics(global: typeof globalThis): ReflectiveIntrinsic
     if (reflectiveIntrinsics !== undefined) {
         return reflectiveIntrinsics;
     }
-    reflectiveIntrinsics = ObjectCreate(null) as ReflectiveIntrinsicsMap;
+    reflectiveIntrinsics = { __proto__: null } as ReflectiveIntrinsicsMap;
     WeakMapSet(cachedReflectiveIntrinsicsMap, global, reflectiveIntrinsics);
     // remapping intrinsics that are realm's agnostic
     for (let i = 0, len = ReflectiveIntrinsicObjectNames.length; i < len; i += 1) {
@@ -171,7 +170,7 @@ export function linkIntrinsics(
 }
 
 export function getFilteredEndowmentDescriptors(endowments: object): PropertyDescriptorMap {
-    const to: PropertyDescriptorMap = ObjectCreate(null);
+    const to: PropertyDescriptorMap = { __proto__: null } as any;
     const globalKeys = ReflectOwnKeys(endowments);
     for (let i = 0, len = globalKeys.length; i < len; i += 1) {
         // forcing to string here because of TypeScript's PropertyDescriptorMap

@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 import {
+    emptyArray,
     ErrorCtor,
-    ObjectAssign,
-    ObjectCreate,
     ObjectDefineProperties,
     ReflectApply,
     ReflectConstruct,
@@ -10,25 +9,24 @@ import {
     ReflectOwnKeys,
     RegExpTest,
     WeakMapCtor,
-    WeakMapSet,
     WeakMapGet,
-    emptyArray,
+    WeakMapSet,
 } from './shared';
 import { MarshalHooks, serializedRedEnvSourceText } from './red';
 import { blueProxyFactory } from './blue';
 import {
-    RedObject,
-    RedFunction,
+    BlueConstructor,
     BlueFunction,
     BlueObject,
-    RedProxyTarget,
-    BlueValue,
-    RedValue,
-    BlueConstructor,
-    MembraneBroker,
-    RedProxy,
     BlueProxy,
     BlueProxyTarget,
+    BlueValue,
+    MembraneBroker,
+    RedFunction,
+    RedObject,
+    RedProxy,
+    RedProxyTarget,
+    RedValue,
 } from './types';
 
 const frameGlobalNamesRegExp = /^\d+$/;
@@ -142,7 +140,7 @@ export class VirtualEnvironment implements MembraneBroker {
     remap(redValue: RedValue, blueValue: BlueValue, blueDescriptors: PropertyDescriptorMap) {
         const broker = this;
         const keys = ReflectOwnKeys(blueDescriptors);
-        const redDescriptors = ObjectCreate(null);
+        const redDescriptors: PropertyDescriptorMap = { __proto__: null } as any;
         for (let i = 0, len = keys.length; i < len; i += 1) {
             const key = keys[i];
             // Skip index keys for magical descriptors of frames on the window proxy.
@@ -158,8 +156,8 @@ export class VirtualEnvironment implements MembraneBroker {
             }
             // Avoid poisoning by only installing own properties from blueDescriptors
             // @ts-expect-error because PropertyDescriptorMap does not accept symbols ATM.
-            const blueDescriptor = ObjectAssign(ObjectCreate(null), blueDescriptors[key]);
-            const redDescriptor = ObjectAssign(ObjectCreate(null), blueDescriptor);
+            const blueDescriptor = { __proto__: null, ...blueDescriptors[key] };
+            const redDescriptor = { __proto__: null, ...blueDescriptor };
             if ('value' in blueDescriptor) {
                 redDescriptor.value = broker.getRedValue(blueDescriptor.value);
             } else {
@@ -205,7 +203,8 @@ export class VirtualEnvironment implements MembraneBroker {
                     };
                 }
             }
-            redDescriptors[key] = redDescriptor;
+            // "as any" supresses the "Type 'symbol' cannot be used as an index type."
+            redDescriptors[key as any] = redDescriptor;
         }
         // Use `ObjectDefineProperties()` instead of individual
         // `ReflectDefineProperty()` calls for better performance.

@@ -2,7 +2,6 @@ import {
     VirtualEnvironment,
     EnvironmentOptions,
     ReflectApply,
-    ObjectCreate,
     ObjectLookupOwnGetter,
     emptyArray,
     linkIntrinsics,
@@ -82,7 +81,7 @@ const { open, close } = document;
 export default function createVirtualEnvironment(
     options?: BrowserEnvironmentOptions
 ): (sourceText: string) => void {
-    const { distortionCallback, endowments, keepAlive } = options || ObjectCreate(null);
+    const { distortionCallback, endowments, keepAlive } = options || { __proto__: null };
     const iframe = createDetachableIframe();
     const blueWindow = window;
     const redWindow = (iframe.contentWindow as WindowProxy).window;

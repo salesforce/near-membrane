@@ -3,7 +3,6 @@ import {
     EnvironmentOptions,
     getFilteredEndowmentDescriptors,
     linkIntrinsics,
-    ObjectCreate,
 } from '@locker/near-membrane-base';
 
 import { runInNewContext } from 'vm';
@@ -16,10 +15,12 @@ const unsafeGlobalEvalSrc = `(0, eval)("'use strict'; this")`;
 export default function createVirtualEnvironment(
     options?: EnvironmentOptions
 ): (sourceText: string) => void {
-    const { distortionCallback, endowments } = options || ObjectCreate(null);
+    const { distortionCallback, endowments } = options || { __proto__: null };
     // Use unsafeGlobalEvalSrc to ensure we get the right 'this'.
     const redGlobalThis = runInNewContext(unsafeGlobalEvalSrc);
-    const endowmentsDescriptors = getFilteredEndowmentDescriptors(endowments || ObjectCreate(null));
+    const endowmentsDescriptors = getFilteredEndowmentDescriptors(
+        endowments || { __proto__: null }
+    );
     const { eval: redIndirectEval } = redGlobalThis;
     const blueGlobalThis = globalThis as any;
     const env = new VirtualEnvironment({
