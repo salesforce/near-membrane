@@ -43,23 +43,3 @@ describe('ObjectLookupOwnGetter', () => {
         expect(ObjectLookupOwnGetter(o, 'foo')).toBe(undefined);
     });
 });
-
-describe('WeakMapHas', () => {
-    const key = {};
-    const value = {};
-    const map = new Map([[key, value]]);
-    const weakMap = new WeakMap([[key, value]]);
-
-    it('should not work with a non-WeakMap', () => {
-        expect.assertions(1);
-
-        expect(() => {
-            WeakMapHas(map, key);
-        }).toThrow(TypeError);
-    });
-
-    it('should work with a WeakMap', () => {
-        expect.assertions(1);
-        expect(WeakMapHas(weakMap, key)).toBe(true);
-    });
-});

@@ -63,14 +63,10 @@ export function SetHas(set: Set<any>, key: any): boolean {
 export const TypeErrorCtor = TypeError;
 
 export const WeakMapCtor = WeakMap;
-const { get: WeakMapProtoGet, has: WeakMapProtoHas, set: WeakMapProtoSet } = WeakMap.prototype;
+const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMap.prototype;
 
 export function WeakMapGet(map: WeakMap<object, object>, key: object): object | undefined {
     return ReflectApply(WeakMapProtoGet, map, [key]);
-}
-
-export function WeakMapHas(map: WeakMap<object, object>, key: object): boolean {
-    return ReflectApply(WeakMapProtoHas, map, [key]);
 }
 
 export function WeakMapSet(

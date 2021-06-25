@@ -14,7 +14,7 @@
     "lint": "eslint packages test",
     "prepare": "husky install && yarn build",
     "start": "http-server ./examples",
-    "coverage": "yarn coverage:jest; yarn coverage:karma",
+    "coverage": "yarn coverage:jest && yarn coverage:karma && yarn coverage:merge && yarn coverage:report",
     "coverage:jest": "yarn test:jest --coverage",
     "coverage:karma": "yarn test:karma --coverage",
     "coverage:merge": "istanbul-merge --out coverage-merged.json coverage/coverage-final.json coverage/json/coverage.json",
