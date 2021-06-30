@@ -6,6 +6,7 @@ import {
     emptyArray,
     linkIntrinsics,
     getFilteredEndowmentDescriptors,
+    setupStackTrace,
 } from '@locker/near-membrane-base';
 
 import { getCachedBlueReferences, getRedReferences, linkUnforgeables, tameDOM } from './window';
@@ -96,6 +97,7 @@ export default function createVirtualEnvironment(
         redGlobalThis: redWindow,
         distortionCallback,
     });
+    setupStackTrace(redWindow);
     linkIntrinsics(env, blueWindow, redWindow);
     linkUnforgeables(env, blueRefs, redRefs);
     tameDOM(env, blueRefs, redRefs, endowmentsDescriptors);
