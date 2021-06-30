@@ -3,6 +3,7 @@ import {
     EnvironmentOptions,
     getFilteredEndowmentDescriptors,
     linkIntrinsics,
+    setupStackTrace,
 } from '@locker/near-membrane-base';
 
 import { runInNewContext } from 'vm';
@@ -28,6 +29,7 @@ export default function createVirtualEnvironment(
         redGlobalThis,
         distortionCallback,
     });
+    setupStackTrace(redGlobalThis);
     linkIntrinsics(env, blueGlobalThis, redGlobalThis);
 
     // remapping globals

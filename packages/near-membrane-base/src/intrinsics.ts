@@ -1,4 +1,5 @@
 import {
+    ObjectHasOwnProperty,
     ReflectGetOwnPropertyDescriptor,
     ReflectOwnKeys,
     SetCtor,
@@ -190,4 +191,15 @@ export function getFilteredEndowmentDescriptors(endowments: object): PropertyDes
 
 export function isIntrinsicGlobalName(key: PropertyKey): boolean {
     return SetHas(ESGlobalKeys, key);
+}
+
+export function setupStackTrace(global: typeof globalThis) {
+    const { Error } = global;
+    if (
+        ObjectHasOwnProperty(Error, 'stackTraceLimit') &&
+        typeof Error.stackTraceLimit === 'number'
+    ) {
+        // The default stack trace limit is 10. Increasing to 20 as a baby step.
+        Error.stackTraceLimit *= 2;
+    }
 }
