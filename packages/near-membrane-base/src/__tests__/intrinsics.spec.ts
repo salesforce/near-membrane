@@ -1,5 +1,5 @@
 import { VirtualEnvironment } from '../../types';
-import { isIntrinsicGlobalName, linkIntrinsics } from '../intrinsics';
+import { isIntrinsicGlobalName, linkIntrinsics, setupStackTrace } from '../intrinsics';
 
 const intrinsicNames = [
     'Infinity',
@@ -77,6 +77,27 @@ describe('isIntrinsicGlobalName()', () => {
         intrinsicNames.forEach((intrinsicName) => {
             expect(isIntrinsicGlobalName(intrinsicName)).toBe(true);
         });
+    });
+});
+
+describe('setupStackTrace()', () => {
+    it('should double the stackTraceLimit if Error.stackTraceLimit exists', () => {
+        expect.assertions(1);
+        const Error = {
+            stackTraceLimit: 9,
+        };
+        setupStackTrace({
+            Error,
+        });
+        expect(Error.stackTraceLimit).toBe(18);
+    });
+    it('should do nothing if Error.stackTraceLimit does not exist', () => {
+        expect.assertions(1);
+        const Error = {};
+        setupStackTrace({
+            Error,
+        });
+        expect(Error.stackTraceLimit).toBe(undefined);
     });
 });
 
