@@ -25,7 +25,7 @@ describe('VirtualEnvironment', () => {
     describe('reverse proxies', () => {
         it('should not have identity discontinuity for arrays', () => {
             expect.assertions(6);
-            (globalThis as any).blueArrayFactory = (a1: any, a2: any) => {
+            globalThis.blueArrayFactory = (a1, a2) => {
                 expect(Array.isArray(a1)).toBe(true);
                 expect(a1 instanceof Array).toBe(true);
                 expect(a1).toStrictEqual([1, 2]);
@@ -38,7 +38,7 @@ describe('VirtualEnvironment', () => {
         });
         it('should not have identity discontinuity for objects', () => {
             expect.assertions(6);
-            (globalThis as any).blueObjectFactory = (b1: any, b2: any) => {
+            globalThis.blueObjectFactory = (b1, b2) => {
                 expect(typeof b1 === 'object').toBe(true);
                 expect(b1 instanceof Object).toBe(true);
                 expect(b1.x).toBe(1);
@@ -50,7 +50,7 @@ describe('VirtualEnvironment', () => {
             evalScript(`blueObjectFactory({ x: 1 }, Object.create({}, { x: { value: 2 } }))`);
         });
         it('should reach a writable value descriptor for a function, and set the descriptor value to the appropriate function', () => {
-            (globalThis as any).blueFn = (value: any) => {
+            globalThis.blueFn = (value) => {
                 if (value) {
                     const { blueFn } = globalThis;
                     expect(value).toStrictEqual({ blueFn });
