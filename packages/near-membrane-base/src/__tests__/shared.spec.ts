@@ -1,4 +1,4 @@
-import { ObjectLookupOwnGetter, WeakMapHas } from '../shared';
+import { ObjectLookupOwnGetter } from '../shared';
 
 describe('ObjectLookupOwnGetter', () => {
     it('should return undefined when object argument is null', () => {

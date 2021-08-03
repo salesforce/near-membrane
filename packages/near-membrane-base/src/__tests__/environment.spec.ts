@@ -40,6 +40,7 @@ describe('VirtualEnvironment', () => {
         it('Skips untamable properties, ie. descriptor is not configurable', () => {
             expect.assertions(2);
 
+            // eslint-disable-next-line no-console
             console.warn = jest.fn();
 
             const ve = new VirtualEnvironment({
@@ -63,6 +64,7 @@ describe('VirtualEnvironment', () => {
             };
             ve.remap(redValue, blueValue, blueDescriptors);
             expect(redValue.p).toBe(0);
+            // eslint-disable-next-line no-console
             expect(console.warn).toBeCalled();
         });
 
