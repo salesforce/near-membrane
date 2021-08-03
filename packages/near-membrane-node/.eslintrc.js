@@ -15,5 +15,11 @@ module.exports = {
                 ],
             },
         },
+        {
+            files: ['src/__tests__/*.js'],
+            rules: {
+                'import/no-unresolved': [0],
+            },
+        },
     ],
 };

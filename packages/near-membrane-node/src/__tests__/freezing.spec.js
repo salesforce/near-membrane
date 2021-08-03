@@ -77,7 +77,7 @@ describe('Freezing', () => {
     describe('reverse proxies', () => {
         it('can be freeze', () => {
             expect.assertions(8);
-            globalThis.blueObjectFactory = (o: any, f: () => void) => {
+            globalThis.blueObjectFactory = (o, f) => {
                 expect(Object.isFrozen(o)).toBe(false);
                 expect(Object.isFrozen(f)).toBe(false);
                 Object.freeze(o);
