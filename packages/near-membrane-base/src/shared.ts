@@ -19,13 +19,16 @@ const {
 } = Object.prototype as any;
 
 export function ObjectHasOwnProperty(obj: object | undefined, key: PropertyKey): boolean {
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     return obj !== null && obj !== undefined && ReflectApply(ObjectProtoHasOwnProperty, obj, [key]);
 }
 
 export function ObjectLookupOwnGetter(obj: object, key: PropertyKey): Function | undefined {
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     if (obj === null || obj === undefined || !ReflectApply(ObjectProtoHasOwnProperty, obj, [key])) {
         return undefined;
     }
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     return ReflectApply(ObjectProto__lookupGetter__, obj, [key]);
 }
 
