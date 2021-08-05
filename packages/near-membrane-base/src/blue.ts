@@ -34,56 +34,37 @@ import {
     RedConstructor,
     RedFunction,
     RedValue,
+    ProxyTargetType,
+    BlueArrayOrObject,
+    RedArrayOrObject,
 } from './types';
-
-function renameFunction(provider: RedFunction, receiver: BlueFunction) {
-    try {
-        // a revoked proxy will break the membrane when reading the function name
-        const nameDescriptor = ReflectGetOwnPropertyDescriptor(provider, 'name')!;
-        ReflectDefineProperty(receiver, 'name', nameDescriptor);
-    } catch {
-        // intentionally swallowing the error because this method is just extracting the
-        // function in a way that it should always succeed except for the cases in which
-        // the provider is a proxy that is either revoked or has some logic to prevent
-        // reading the name property descriptor.
-    }
-}
 
 const ProxyCtor = Proxy;
 const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
 
-function createBlueShadowTarget(target: BlueProxyTarget): BlueShadowTarget {
+function createShadowTarget(
+    targetTypeof: string,
+    targetIsArrowFunction: boolean | undefined,
+    targetFunctionName: string | undefined,
+    targetIsArray: boolean | undefined
+): BlueShadowTarget {
     let shadowTarget;
-    if (typeof target === 'function') {
+    if (targetTypeof === 'function') {
         // this new shadow target function is never invoked just needed to anchor the realm
-        try {
-            // According the comment above, this function will never be called, therefore the
-            // code should not be instrumented for code coverage.
-            //
-            // istanbul ignore next
-            // eslint-disable-next-line func-names
-            shadowTarget = 'prototype' in target ? function () {} : () => {};
-        } catch {
-            // target is a revoked proxy
-            // According the comment above, this function will never be called, therefore the
-            // code should not be instrumented for code coverage.
-            //
-            // istanbul ignore next
-            // eslint-disable-next-line func-names
-            shadowTarget = function () {};
-        }
+        // According the comment above, this function will never be called, therefore the
+        // code should not be instrumented for code coverage.
+        //
+        // istanbul ignore next
+        // eslint-disable-next-line func-names
+        shadowTarget = targetIsArrowFunction ? () => {} : function () {};
         // This is only really needed for debugging, it helps to identify the proxy by name
-        renameFunction(target as (...args: any[]) => any, shadowTarget as (...args: any[]) => any);
+        ReflectDefineProperty(shadowTarget, 'name', {
+            value: targetFunctionName,
+            configurable: true,
+        });
     } else {
-        let isRedArray = false;
-        try {
-            // try/catch in case Array.isArray throws when target is a revoked proxy
-            isRedArray = isArrayOrNotOrThrowForRevoked(target);
-        } catch {
-            // target is a revoked proxy, ignoring...
-        }
         // target is array or object
-        shadowTarget = isRedArray ? [] : {};
+        shadowTarget = targetIsArray ? [] : {};
     }
     return shadowTarget;
 }
@@ -125,8 +106,19 @@ export function blueProxyFactory(env: MembraneBroker) {
         ObjectDefineProperties(shadowTarget, blueDescriptors);
     }
 
-    function createBlueProxy(red: BlueProxyTarget): BlueProxy {
-        const shadowTarget = createBlueShadowTarget(red);
+    function createBlueProxy(
+        red: BlueProxyTarget,
+        targetTypeof: ProxyTargetType,
+        targetIsArrowFunction: boolean | undefined,
+        targetFunctionName: string | undefined,
+        targetIsArray: boolean | undefined
+    ): BlueProxy {
+        const shadowTarget = createShadowTarget(
+            targetTypeof,
+            targetIsArrowFunction,
+            targetFunctionName,
+            targetIsArray
+        );
         const proxyHandler = new BlueDynamicProxyHandler(red);
         const proxy = new ProxyCtor(shadowTarget, proxyHandler as ProxyHandler<object>);
         env.setRefMapEntries(red, proxy);
@@ -183,30 +175,79 @@ export function blueProxyFactory(env: MembraneBroker) {
 
     function getBlueFunction(redFn: RedFunction): BlueFunction {
         const blueFn = env.getBlueRef(redFn);
-        if (blueFn === undefined) {
-            return createBlueProxy(redFn) as BlueFunction;
+        if (blueFn !== undefined) {
+            return blueFn;
         }
-        return blueFn as RedFunction;
+        // extracting the metadata about the proxy target
+        const targetTypeof = 'function';
+        let targetIsArrowFunction = false;
+        let targetFunctionName: string | undefined;
+        const targetIsArray = undefined;
+        // detecting arrow function vs function
+        try {
+            targetIsArrowFunction = !('prototype' in redFn);
+        } catch {
+            // target is either a revoked proxy, or a proxy that throws on the
+            // `has` trap, in which case going with a strict mode function seems
+            // appropriate.
+        }
+        try {
+            // a revoked proxy will throw when reading the function name
+            targetFunctionName = ReflectGetOwnPropertyDescriptor(redFn, 'name')?.value;
+        } catch {
+            // intentionally swallowing the error because this method is just extracting the
+            // function in a way that it should always succeed except for the cases in which
+            // the provider is a proxy that is either revoked or has some logic to prevent
+            // reading the name property descriptor.
+        }
+        return createBlueProxy(
+            redFn,
+            targetTypeof,
+            targetIsArrowFunction,
+            targetFunctionName,
+            targetIsArray
+        ) as BlueFunction;
+    }
+
+    function getBlueObjectOrArray(red: RedArrayOrObject): BlueArrayOrObject {
+        // arrays and objects
+        const blue = env.getBlueRef(red);
+        if (blue !== undefined) {
+            return blue;
+        }
+        // extracting the metadata about the proxy target
+        const targetTypeof = 'object';
+        const targetIsArrowFunction = undefined;
+        const targetFunctionName = undefined;
+        let targetIsArray = false;
+        try {
+            // try/catch in case Array.isArray throws when target is a revoked proxy
+            targetIsArray = isArrayOrNotOrThrowForRevoked(red);
+        } catch {
+            // target is a revoked proxy, so the type doesn't matter much from this point on
+        }
+        return (createBlueProxy(
+            (red as unknown) as BlueProxyTarget,
+            targetTypeof,
+            targetIsArrowFunction,
+            targetFunctionName,
+            targetIsArray
+        ) as unknown) as BlueArrayOrObject;
     }
 
     function getBlueValue<T>(red: T): T {
         if (red === null || red === undefined) {
             return red as BlueValue;
         }
+        // internationally ignoring the case of (typeof document.all === 'undefined') because
+        // in the reserve membrane, you never get one of those exotic objects
         if (typeof red === 'function') {
             return (getBlueFunction((red as unknown) as RedFunction) as unknown) as T;
         }
         if (typeof red === 'object') {
-            // arrays and objects
-            const blue = env.getBlueRef(red);
-            if (blue === undefined) {
-                return (createBlueProxy((red as unknown) as BlueProxyTarget) as unknown) as T;
-            }
-            return blue;
+            return (getBlueObjectOrArray((red as unknown) as RedArrayOrObject) as unknown) as T;
         }
-        // internationally ignoring the case of (typeof document.all === 'undefined') because
-        // in the reserve membrane, you never get one of those exotic objects
-        return red as BlueValue;
+        return red;
     }
 
     function getRedPartialDescriptor(bluePartialDesc: PropertyDescriptor): PropertyDescriptor {
