@@ -26,8 +26,6 @@ export interface MembraneBroker {
 
     getBlueValue(red: RedValue): BlueValue;
     getRedValue(blue: BlueValue): RedValue;
-    getBlueRef(red: RedValue): BlueValue | undefined;
-    getRedRef(blue: BlueValue): RedValue | undefined;
     setRefMapEntries(red: RedValue, blue: BlueValue): void;
 }
 

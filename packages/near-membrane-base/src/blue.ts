@@ -20,6 +20,7 @@ import {
     ReflectSet,
     ReflectSetPrototypeOf,
     TypeErrorCtor,
+    WeakMapGet,
 } from './shared';
 import {
     BlueArray,
@@ -170,7 +171,7 @@ export function blueProxyFactory(env: MembraneBroker) {
 
     function getBlueFunction(redFn: RedFunction): BlueFunction {
         // caching logic
-        const blueFn = env.getBlueRef(redFn);
+        const blueFn = WeakMapGet(env.redMap, redFn) as RedFunction | undefined;
         if (blueFn !== undefined) {
             return blueFn;
         }
@@ -207,7 +208,7 @@ export function blueProxyFactory(env: MembraneBroker) {
 
     function getBlueObjectOrArray(red: RedArrayOrObject): BlueArrayOrObject {
         // caching logic
-        const blue = env.getBlueRef(red);
+        const blue: RedArrayOrObject | undefined = WeakMapGet(env.redMap, red);
         if (blue !== undefined) {
             return blue;
         }

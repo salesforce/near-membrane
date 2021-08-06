@@ -9,7 +9,6 @@ import {
     ReflectOwnKeys,
     RegExpTest,
     WeakMapCtor,
-    WeakMapGet,
     WeakMapSet,
 } from './shared';
 import { MarshalHooks, serializedRedEnvSourceText } from './red';
@@ -103,32 +102,6 @@ export class VirtualEnvironment implements MembraneBroker {
         blue: BlueValue
     ): RedValue {
         // placeholder since this will be assigned in construction
-    }
-
-    // eslint-disable-next-line class-methods-use-this
-    getBlueRef(
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        red: RedValue
-    ): BlueValue | undefined {
-        const blue: RedValue | undefined = WeakMapGet(this.redMap, red);
-        if (blue !== undefined) {
-            return blue;
-        }
-        // Explicit to satisfy the consistent-return elint rule
-        return undefined;
-    }
-
-    // Currently, getRedRef is not used in any near-membrane-* modules,
-    // nor is used by any modules that directly depend on near-membrane.
-    // istanbul ignore next
-    // eslint-disable-next-line class-methods-use-this
-    getRedRef(blue: BlueValue): RedValue | undefined {
-        const red: RedValue | undefined = WeakMapGet(this.blueMap, blue);
-        if (red !== undefined) {
-            return red;
-        }
-        // Explicit to satisfy the consistent-return elint rule
-        return undefined;
     }
 
     setRefMapEntries(red: RedObject, blue: BlueObject) {
