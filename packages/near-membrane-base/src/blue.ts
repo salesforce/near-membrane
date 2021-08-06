@@ -44,9 +44,9 @@ const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
 
 function createShadowTarget(
     targetTypeof: string,
-    targetIsArrowFunction: boolean | undefined,
+    targetIsArrowFunction: boolean,
     targetFunctionName: string | undefined,
-    targetIsArray: boolean | undefined
+    targetIsArray: boolean
 ): BlueShadowTarget {
     let shadowTarget;
     if (targetTypeof === 'function') {
@@ -109,9 +109,9 @@ export function blueProxyFactory(env: MembraneBroker) {
     function createBlueProxy(
         red: BlueProxyTarget,
         targetTypeof: ProxyTargetType,
-        targetIsArrowFunction: boolean | undefined,
+        targetIsArrowFunction: boolean,
         targetFunctionName: string | undefined,
-        targetIsArray: boolean | undefined
+        targetIsArray: boolean
     ): BlueProxy {
         const shadowTarget = createShadowTarget(
             targetTypeof,
@@ -153,27 +153,23 @@ export function blueProxyFactory(env: MembraneBroker) {
         // istanbul ignore else
         if ('writable' in blueDescriptor) {
             // We are dealing with a value descriptor.
-            const { value } = blueDescriptor;
-            blueDescriptor.value =
-                typeof value === 'function'
-                    ? // We are dealing with a method (optimization).
-                      getBlueFunction(value)
-                    : getBlueValue(value);
+            blueDescriptor.value = getBlueValue(blueDescriptor.value);
         } else {
             // See additional details above.
             // We are dealing with accessors.
             const { get, set } = blueDescriptor;
-            if (typeof get === 'function') {
-                blueDescriptor.get = getBlueFunction(get);
+            if (get !== undefined) {
+                blueDescriptor.get = getBlueValue(get);
             }
-            if (typeof set === 'function') {
-                blueDescriptor.set = getBlueFunction(set);
+            if (set !== undefined) {
+                blueDescriptor.set = getBlueValue(set);
             }
         }
         return blueDescriptor;
     }
 
     function getBlueFunction(redFn: RedFunction): BlueFunction {
+        // caching logic
         const blueFn = env.getBlueRef(redFn);
         if (blueFn !== undefined) {
             return blueFn;
@@ -182,7 +178,7 @@ export function blueProxyFactory(env: MembraneBroker) {
         const targetTypeof = 'function';
         let targetIsArrowFunction = false;
         let targetFunctionName: string | undefined;
-        const targetIsArray = undefined;
+        const targetIsArray = false;
         // detecting arrow function vs function
         try {
             targetIsArrowFunction = !('prototype' in redFn);
@@ -210,14 +206,14 @@ export function blueProxyFactory(env: MembraneBroker) {
     }
 
     function getBlueObjectOrArray(red: RedArrayOrObject): BlueArrayOrObject {
-        // arrays and objects
+        // caching logic
         const blue = env.getBlueRef(red);
         if (blue !== undefined) {
             return blue;
         }
         // extracting the metadata about the proxy target
         const targetTypeof = 'object';
-        const targetIsArrowFunction = undefined;
+        const targetIsArrowFunction = false;
         const targetFunctionName = undefined;
         let targetIsArray = false;
         try {
@@ -241,6 +237,8 @@ export function blueProxyFactory(env: MembraneBroker) {
         }
         // internationally ignoring the case of (typeof document.all === 'undefined') because
         // in the reserve membrane, you never get one of those exotic objects
+
+        // new proxy creation logic
         if (typeof red === 'function') {
             return (getBlueFunction((red as unknown) as RedFunction) as unknown) as T;
         }
@@ -325,9 +323,9 @@ export function blueProxyFactory(env: MembraneBroker) {
             try {
                 red = ReflectApply(target as RedFunction, redThisArg, redArgArray);
             } catch (e) {
-                throw env.getBlueValue(e);
+                throw getBlueValue(e);
             }
-            return env.getBlueValue(red);
+            return getBlueValue(red);
         }
 
         // There is currently no test in Locker or near-membrane-* that exercises this trap
@@ -348,9 +346,9 @@ export function blueProxyFactory(env: MembraneBroker) {
             try {
                 red = ReflectConstruct(RedCtor as RedConstructor, redArgArray, redNewTarget);
             } catch (e) {
-                throw env.getBlueValue(e);
+                throw getBlueValue(e);
             }
-            return env.getBlueValue(red);
+            return getBlueValue(red);
         }
 
         defineProperty(
@@ -443,7 +441,7 @@ export function blueProxyFactory(env: MembraneBroker) {
 
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         getPrototypeOf(shadowTarget: BlueShadowTarget): BlueValue {
-            return env.getBlueValue(ReflectGetPrototypeOf(this.target));
+            return getBlueValue(ReflectGetPrototypeOf(this.target));
         }
 
         /**

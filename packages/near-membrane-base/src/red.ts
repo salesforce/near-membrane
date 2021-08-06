@@ -193,10 +193,10 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
         } else {
             // We are dealing with accessors.
             const { get, set } = bluePartialDesc;
-            if (typeof get === 'function') {
+            if (get !== undefined) {
                 bluePartialDesc.get = blueEnv.getBlueValue(get);
             }
-            if (typeof set === 'function') {
+            if (set !== undefined) {
                 bluePartialDesc.set = blueEnv.getBlueValue(set);
             }
         }
@@ -225,10 +225,10 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
         } else {
             // We are dealing with accessors.
             const { get, set } = redDescriptor;
-            if (typeof get === 'function') {
+            if (get !== undefined) {
                 redDescriptor.get = getRedValue(get);
             }
-            if (typeof set === 'function') {
+            if (set !== undefined) {
                 redDescriptor.set = getRedValue(set);
             }
         }
@@ -236,8 +236,9 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
     }
 
     function getRedFunction(blueFn: BlueFunction): RedFunction {
-        const blueOriginalOrDistortedFn = getDistortedValue(blueFn);
-        const redFn: RedValue | undefined = WeakMapGet(blueMap, blueOriginalOrDistortedFn);
+        // distortion and caching logic
+        const blueOriginalOrDistortedValue = getDistortedValue(blueFn);
+        const redFn = WeakMapGet(blueMap, blueOriginalOrDistortedValue) as RedFunction | undefined;
         if (redFn !== undefined) {
             return redFn;
         }
@@ -245,10 +246,10 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
         const targetTypeof = 'function';
         let targetIsArrowFunction = false;
         let targetFunctionName: string | undefined;
-        const targetIsArray = undefined;
+        const targetIsArray = false;
         // detecting arrow function vs function
         try {
-            targetIsArrowFunction = !('prototype' in blueOriginalOrDistortedFn);
+            targetIsArrowFunction = !('prototype' in blueOriginalOrDistortedValue);
         } catch {
             // target is either a revoked proxy, or a proxy that throws on the
             // `has` trap, in which case going with a strict mode function seems
@@ -256,7 +257,7 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
         }
         try {
             // a revoked proxy will throw when reading the function name
-            targetFunctionName = ReflectGetOwnPropertyDescriptor(blueOriginalOrDistortedFn, 'name')?.value;
+            targetFunctionName = ReflectGetOwnPropertyDescriptor(blueOriginalOrDistortedValue, 'name')?.value;
         } catch {
             // intentionally swallowing the error because this method is just extracting the
             // function in a way that it should always succeed except for the cases in which
@@ -264,7 +265,7 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
             // reading the name property descriptor.
         }
         return createRedProxy(
-            blueOriginalOrDistortedFn,
+            blueOriginalOrDistortedValue,
             targetTypeof,
             targetIsArrowFunction,
             targetFunctionName,
@@ -273,14 +274,12 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
     }
 
     function getRedObjectOrArray(blue: BlueArrayOrObject): RedArrayOrObject {
-        const blueOriginalOrDistortedValue = getDistortedValue(
-            (blue as unknown) as BlueArrayOrObject
-        );
+        // distortion and caching logic
+        const blueOriginalOrDistortedValue = getDistortedValue(blue);
         const red: RedArrayOrObject | undefined = WeakMapGet(blueMap, blueOriginalOrDistortedValue);
         if (red !== undefined) {
             return red;
         }
-
         // extracting the metadata about the proxy target
         const targetTypeof = 'object';
         const targetIsArrowFunction = false;
@@ -316,11 +315,17 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
             // @ts-ignore blue at this point is type T because of the previous condition
             return undefined;
         }
+
+        // new proxy creation logic
         if (typeof blue === 'function') {
-            return (getRedFunction((blue as unknown) as BlueFunction) as unknown) as T;
+            return getRedFunction(
+                (blue as unknown) as BlueFunction
+            ) as unknown as T;
         }
         if (typeof blue === 'object') {
-            return (getRedObjectOrArray(blue as unknown as BlueArrayOrObject) as unknown) as T;
+            return getRedObjectOrArray(
+                (blue as unknown) as BlueArrayOrObject
+            ) as unknown as T;
         }
         return blue;
     }
@@ -852,9 +857,9 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
 
     function createShadowTarget(
         targetTypeof: string,
-        targetIsArrowFunction: boolean | undefined,
+        targetIsArrowFunction: boolean,
         targetFunctionName: string | undefined,
-        targetIsArray: boolean | undefined
+        targetIsArray: boolean
     ): RedShadowTarget {
         let shadowTarget;
         if (targetTypeof === 'function') {
@@ -880,9 +885,9 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
     function createRedProxy(
         blueOriginalOrDistortedValue: RedProxyTarget,
         targetTypeof: ProxyTargetType,
-        targetIsArrowFunction: boolean | undefined,
+        targetIsArrowFunction: boolean,
         targetFunctionName: string | undefined,
-        targetIsArray: boolean | undefined
+        targetIsArray: boolean
     ): RedProxy {
         const shadowTarget = createShadowTarget(
             targetTypeof,
