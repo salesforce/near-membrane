@@ -115,6 +115,7 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
 
     // eslint-disable-next-line no-shadow
     enum TargetTraits {
+        None = 0,
         IsArray = 1 << 0,
         IsFunction = 1 << 1,
         IsObject = 1 << 2,
@@ -254,7 +255,7 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
         let targetFunctionName: string | undefined;
         // detecting arrow function vs function
         try {
-            targetTraits |= (!('prototype' in blueOriginalOrDistortedValue) ? 1 : 0) << 3; // IsArrowFunction
+            targetTraits |= +!('prototype' in blueOriginalOrDistortedValue) && TargetTraits.IsArrowFunction;
         } catch {
             // target is either a revoked proxy, or a proxy that throws on the
             // `has` trap, in which case going with a strict mode function seems
@@ -284,7 +285,7 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
             return red;
         }
         // extracting the metadata about the proxy target
-        let targetTraits = 0;
+        let targetTraits = TargetTraits.None;
         const targetFunctionName = undefined;
         let targetIsArray = false;
         try {
@@ -294,8 +295,8 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
             // target is a revoked proxy, so the type doesn't matter much from this point on
         }
 
-        targetTraits |= (targetIsArray ? 1 : 0) << 0; // IsArray
-        targetTraits |= (targetIsArray ? 0 : 1) << 2; // IsObject
+        targetTraits |= +targetIsArray && TargetTraits.IsArray;
+        targetTraits |= +!targetIsArray && TargetTraits.IsObject;
 
         return (createRedProxy(
             blueOriginalOrDistortedValue,
