@@ -23,7 +23,6 @@ import {
     RedShadowTarget,
     RedValue,
     TargetMeta,
-    ProxyTargetType,
     RedFunction,
     BlueArrayOrObject,
     RedArrayOrObject,
@@ -113,6 +112,14 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
     } = Reflect;
 
     const { get: WeakMapProtoGet } = WeakMap.prototype;
+
+    // eslint-disable-next-line no-shadow
+    enum TargetTraits {
+        IsArray = 1 << 0,
+        IsFunction = 1 << 1,
+        IsObject = 1 << 2,
+        IsArrowFunction = 1 << 3,
+    }
 
     function ObjectHasOwnProperty(obj: object | undefined, key: PropertyKey): boolean {
         return (
@@ -243,13 +250,11 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
             return redFn;
         }
         // extracting the metadata about the proxy target
-        const targetTypeof = 'function';
-        let targetIsArrowFunction = false;
+        let targetTraits = TargetTraits.IsFunction;
         let targetFunctionName: string | undefined;
-        const targetIsArray = false;
         // detecting arrow function vs function
         try {
-            targetIsArrowFunction = !('prototype' in blueOriginalOrDistortedValue);
+            targetTraits |= (!('prototype' in blueOriginalOrDistortedValue) ? 1 : 0) << 3; // IsArrowFunction
         } catch {
             // target is either a revoked proxy, or a proxy that throws on the
             // `has` trap, in which case going with a strict mode function seems
@@ -266,14 +271,12 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
         }
         return createRedProxy(
             blueOriginalOrDistortedValue,
-            targetTypeof,
-            targetIsArrowFunction,
-            targetFunctionName,
-            targetIsArray
+            targetTraits,
+            targetFunctionName
         ) as RedFunction;
     }
 
-    function getRedObjectOrArray(blue: BlueArrayOrObject): RedArrayOrObject {
+    function getRedArrayOrObject(blue: BlueArrayOrObject): RedArrayOrObject {
         // distortion and caching logic
         const blueOriginalOrDistortedValue = getDistortedValue(blue);
         const red: RedArrayOrObject | undefined = WeakMapGet(blueMap, blueOriginalOrDistortedValue);
@@ -281,8 +284,7 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
             return red;
         }
         // extracting the metadata about the proxy target
-        const targetTypeof = 'object';
-        const targetIsArrowFunction = false;
+        let targetTraits = 0;
         const targetFunctionName = undefined;
         let targetIsArray = false;
         try {
@@ -292,12 +294,13 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
             // target is a revoked proxy, so the type doesn't matter much from this point on
         }
 
+        targetTraits |= (targetIsArray ? 1 : 0) << 0; // IsArray
+        targetTraits |= (targetIsArray ? 0 : 1) << 2; // IsObject
+
         return (createRedProxy(
             blueOriginalOrDistortedValue,
-            targetTypeof as ProxyTargetType,
-            targetIsArrowFunction,
-            targetFunctionName,
-            targetIsArray
+            targetTraits,
+            targetFunctionName
         ) as unknown) as RedArrayOrObject;
     }
 
@@ -323,7 +326,7 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
             ) as unknown as T;
         }
         if (typeof blue === 'object') {
-            return getRedObjectOrArray(
+            return getRedArrayOrObject(
                 (blue as unknown) as BlueArrayOrObject
             ) as unknown as T;
         }
@@ -856,20 +859,19 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
     ReflectSetPrototypeOf(RedProxyHandler.prototype, null);
 
     function createShadowTarget(
-        targetTypeof: string,
-        targetIsArrowFunction: boolean,
-        targetFunctionName: string | undefined,
-        targetIsArray: boolean
+        targetTraits: TargetTraits,
+        targetFunctionName: string | undefined
     ): RedShadowTarget {
         let shadowTarget;
-        if (targetTypeof === 'function') {
+        if (targetTraits & TargetTraits.IsFunction) {
             // this new shadow target function is never invoked just needed to anchor the realm
             // According the comment above, this function will never be called, therefore the
             // code should not be instrumented for code coverage.
             //
             // istanbul ignore next
-            // eslint-disable-next-line func-names
-            shadowTarget = targetIsArrowFunction ? () => {} : function () {};
+            shadowTarget = targetTraits & TargetTraits.IsArrowFunction ?
+                // eslint-disable-next-line func-names
+                () => {} : function () {};
             // This is only really needed for debugging, it helps to identify the proxy by name
             ReflectDefineProperty(shadowTarget, 'name', {
                 value: targetFunctionName,
@@ -877,24 +879,17 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
             });
         } else {
             // target is array or object
-            shadowTarget = targetIsArray ? [] : {};
+            shadowTarget = targetTraits & TargetTraits.IsArray ? [] : {};
         }
         return shadowTarget;
     }
 
     function createRedProxy(
         blueOriginalOrDistortedValue: RedProxyTarget,
-        targetTypeof: ProxyTargetType,
-        targetIsArrowFunction: boolean,
-        targetFunctionName: string | undefined,
-        targetIsArray: boolean
+        targetTraits: TargetTraits,
+        targetFunctionName: string | undefined
     ): RedProxy {
-        const shadowTarget = createShadowTarget(
-            targetTypeof,
-            targetIsArrowFunction,
-            targetFunctionName,
-            targetIsArray
-        );
+        const shadowTarget = createShadowTarget(targetTraits, targetFunctionName);
         const proxyHandler = new RedProxyHandler(blueOriginalOrDistortedValue);
         const { proxy, revoke } = ProxyRevocable(shadowTarget, proxyHandler);
         proxyHandler.revoke = revoke;

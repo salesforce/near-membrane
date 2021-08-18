@@ -59,5 +59,3 @@ export interface TargetMeta extends NullProtoMap {
     isExtensible?: boolean;
     isBroken?: boolean;
 }
-
-export type ProxyTargetType = 'object' | 'function';
