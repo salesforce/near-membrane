@@ -6,6 +6,7 @@ export type BlueProxyTarget = RedObject | RedFunction | RedConstructor;
 // TODO: how to doc the ProxyOf<>
 export type BlueShadowTarget = BlueProxyTarget; // Proxy<BlueProxyTarget>;
 export type BlueValue = any;
+export type BlueArrayOrObject = BlueArray | BlueObject;
 
 export interface BlueConstructor {
     new (...args: any[]): BlueObject;
@@ -25,8 +26,6 @@ export interface MembraneBroker {
 
     getBlueValue(red: RedValue): BlueValue;
     getRedValue(blue: BlueValue): RedValue;
-    getBlueRef(red: RedValue): BlueValue | undefined;
-    getRedRef(blue: BlueValue): RedValue | undefined;
     setRefMapEntries(red: RedValue, blue: BlueValue): void;
 }
 
@@ -46,6 +45,7 @@ export type RedProxy = RedObject | RedFunction;
 export type RedProxyTarget = BlueObject | BlueFunction | BlueConstructor;
 export type RedShadowTarget = RedProxyTarget; // Proxy<RedProxyTarget>;
 export type RedValue = any;
+export type RedArrayOrObject = RedArray | RedObject;
 
 export interface RedConstructor {
     new (...args: any[]): RedObject;
