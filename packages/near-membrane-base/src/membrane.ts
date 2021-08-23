@@ -29,11 +29,6 @@ type CallableDefineProperty = (
     setPointer: PrimitiveOrPointer
 ) => boolean;
 type CallableDeleteProperty = (targetPointer: Pointer, key: PropertyKey) => boolean;
-type CallableGet = (
-    targetPointer: Pointer,
-    key: PropertyKey,
-    receiverPointer: PrimitiveOrPointer
-) => PrimitiveOrPointer;
 type CallableGetOwnPropertyDescriptor = (
     targetPointer: Pointer,
     key: PropertyKey,
@@ -54,12 +49,6 @@ type CallableOwnKeys = (
     foreignCallableKeysCallback: (...args: (string | symbol)[]) => void
 ) => void;
 type CallablePreventExtensions = (targetPointer: Pointer) => boolean;
-type CallableSet = (
-    targetPointer: Pointer,
-    key: PropertyKey,
-    valuePointer: PrimitiveOrPointer,
-    receiverPointer: PrimitiveOrPointer
-) => boolean;
 type CallableSetPrototypeOf = (
     targetPointer: Pointer,
     protoValueOrPointer: PrimitiveOrPointer
@@ -72,14 +61,12 @@ export type ConnectCallback = (
     callableConstruct: CallableConstruct,
     callableDefineProperty: CallableDefineProperty,
     callableDeleteProperty: CallableDeleteProperty,
-    callableGet: CallableGet,
     callableGetOwnPropertyDescriptor: CallableGetOwnPropertyDescriptor,
     callableGetPrototypeOf: CallableGetPrototypeOf,
     callableHas: CallableHas,
     callableIsExtensible: CallableIsExtensible,
     callableOwnKeys: CallableOwnKeys,
     callablePreventExtensions: CallablePreventExtensions,
-    callableSet: CallableSet,
     callableSetPrototypeOf: CallableSetPrototypeOf,
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableHasOwnProperty: CallableHasOwnProperty
@@ -112,11 +99,18 @@ export default function init(
         ownKeys,
         preventExtensions,
     } = Reflect;
-    const { freeze, create, seal, isFrozen, isSealed, defineProperties, hasOwnProperty } = Object;
+    const { freeze, create, seal, isFrozen, isSealed, defineProperties } = Object;
     const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
     const { revocable: ProxyRevocable } = Proxy;
     const { set: WeakMapSet, get: WeakMapGet } = WeakMap.prototype;
     const TypeErrorCtor = TypeError;
+    const {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        __lookupGetter__: ObjectProto__lookupGetter__,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        __lookupSetter__: ObjectProto__lookupSetter__,
+        hasOwnProperty: ObjectProtoHasOwnProperty,
+    } = Object.prototype as any;
     const proxyTargetToPointerMap = new WeakMap();
     const LockerLiveValueMarkerSymbol = Symbol.for('@@lockerLiveValue');
 
@@ -126,14 +120,12 @@ export default function init(
     let foreignCallableConstruct: CallableConstruct;
     let foreignCallableDefineProperty: CallableDefineProperty;
     let foreignCallableDeleteProperty: CallableDeleteProperty;
-    let foreignCallableGet: CallableGet;
     let foreignCallableGetOwnPropertyDescriptor: CallableGetOwnPropertyDescriptor;
     let foreignCallableGetPrototypeOf: CallableGetPrototypeOf;
     let foreignCallableHas: CallableHas;
     let foreignCallableIsExtensible: CallableIsExtensible;
     let foreignCallableOwnKeys: CallableOwnKeys;
     let foreignCallablePreventExtensions: CallablePreventExtensions;
-    let foreignCallableSet: CallableSet;
     let foreignCallableSetPrototypeOf: CallableSetPrototypeOf;
     let foreignCallableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits;
     let foreignCallableHasOwnProperty: CallableHasOwnProperty;
@@ -737,74 +729,6 @@ export default function init(
          */
 
         /**
-         * This trap cannot just use `Reflect.get` directly on the `target` because
-         * the red object graph might have mutations that are only visible on the red side,
-         * which means looking into `target` directly is not viable. Instead, we need to
-         * implement a more crafty solution that looks into target's own properties, or
-         * in the red proto chain when needed.
-         *
-         * In a transparent membrane, this method will have been a lot simpler, like:
-         *
-         *   const { targetPointer } = this;
-         *   const receiverPointer = getValueOrPointer(receiver);
-         *   const foreignValueOrCallable = foreignCallableGet(targetPointer, key, receiverPointer);
-         *   return getLocalValue(foreignValueOrCallable);
-         *
-         */
-        private static dynamicGetTrap(
-            this: BoundaryProxyHandler,
-            _shadowTarget: ShadowTarget,
-            key: PropertyKey,
-            receiver: any
-        ): any {
-            // assert: trapMutations must be true
-            /**
-             * If the target has a non-configurable own data descriptor that was observed
-             * by the red side, and therefore installed in the shadowTarget, we might get
-             * into a situation where a writable, non-configurable value in the target is
-             * out of sync with the shadowTarget's value for the same key. This is fine
-             * because this does not violate the object invariants, and even though they
-             * are out of sync, the original descriptor can only change to something that
-             * is compatible with what was installed in shadowTarget, and in order to
-             * observe that, the getOwnPropertyDescriptor trap must be used, which will
-             * take care of synchronizing them again.
-             */
-            const { targetPointer } = this;
-            if (!foreignCallableHasOwnProperty(targetPointer, key)) {
-                // TODO: the following line is from red.ts, and I believe it is incorrect:
-                // looking in the foreign proto chain in case the proto chain has being mutated
-                const protoPointer = foreignCallableGetPrototypeOf(targetPointer);
-                if (protoPointer === null) {
-                    return undefined;
-                }
-                const proto = getLocalValue(protoPointer);
-                return get(proto, key, receiver);
-            }
-            let ownGetterPointer;
-            const callbackWithDescriptor = (
-                _configurable: boolean,
-                _enumerable: boolean,
-                _writable: boolean,
-                _valuePointer: PrimitiveOrPointer,
-                getPointer: PrimitiveOrPointer,
-                _setPointer: PrimitiveOrPointer
-            ) => {
-                ownGetterPointer = getPointer;
-            };
-            foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callbackWithDescriptor);
-            if (ownGetterPointer) {
-                // Knowing that it is an own getter, we can't still not use Reflect.get
-                // because there might be a distortion for such getter, in which case we
-                // must get the local getter, and call it.
-                return apply(getLocalValue(ownGetterPointer), receiver, []);
-            }
-            // if it is not an accessor property, is either a setter only accessor
-            // or a data property, in which case we could return undefined or the local value
-            // TODO: I think this is incorrect, or two slow:
-            return foreignCallableGet(targetPointer, key, undefined);
-        }
-
-        /**
          * This trap cannot just use `Reflect.has` or the `in` operator directly because
          * the red object graph might have mutations that are only visible on the red side,
          * which means looking into `target` directly is not viable. Instead, we need to
@@ -827,15 +751,62 @@ export default function init(
             if (foreignCallableHasOwnProperty(targetPointer, key)) {
                 return true;
             }
-            // TODO: the following comment is from red.ts, and I believe it is incorrect:
-            // looking in the foreign proto chain in case the proto chain has being mutated
+            // avoiding calling the has trap for any proto chain operation, instead we
+            // implement the regular logic here in this trap.
             const protoPointer = foreignCallableGetPrototypeOf(targetPointer);
             if (protoPointer === null) {
                 return false;
             }
-            const proto = getLocalValue(protoPointer);
-            // TODO: I think this is incorrect, or two slow:
-            return has(proto, key);
+            let O: object | null = getLocalValue(protoPointer);
+            // return has(O, key);
+            while (O !== null) {
+                if (ObjectProtoHasOwnProperty.call(O, key)) {
+                    return true;
+                }
+                O = getPrototypeOf(O);
+            }
+            return false;
+        }
+
+        /**
+         * This trap cannot just use `Reflect.get` directly on the `target` because
+         * the red object graph might have mutations that are only visible on the red side,
+         * which means looking into `target` directly is not viable. Instead, we need to
+         * implement a more crafty solution that looks into target's own properties, or
+         * in the red proto chain when needed.
+         *
+         * In a transparent membrane, this method will have been a lot simpler, like:
+         *
+         *   const { targetPointer } = this;
+         *   const receiverPointer = getValueOrPointer(receiver);
+         *   const foreignValueOrCallable = foreignCallableGet(targetPointer, key, receiverPointer);
+         *   return getLocalValue(foreignValueOrCallable);
+         *
+         */
+        private static dynamicGetTrap(
+            this: BoundaryProxyHandler,
+            _shadowTarget: ShadowTarget,
+            key: PropertyKey,
+            receiver: any
+        ): any {
+            // assert: trapMutations must be true
+            let O: object | null = this.proxy;
+            while (O !== null) {
+                if (ObjectProtoHasOwnProperty.call(O, key)) {
+                    // we know this is a single stop lookup because it has own property
+                    const getter = ObjectProto__lookupGetter__(O, key);
+                    if (getter) {
+                        // even though the getter function exists, we can't use Reflect.set because
+                        // there might be a distortion for that setter function, in which case we
+                        // must resolve the local setter and call it instead.
+                        return apply(getter, receiver, []);
+                    }
+                    // accessor exists without a setter
+                    return undefined;
+                }
+                O = getPrototypeOf(O);
+            }
+            return undefined;
         }
 
         /**
@@ -860,43 +831,39 @@ export default function init(
         ): boolean | undefined {
             // assert: trapMutations must be true
             const { targetPointer } = this;
-            if (!foreignCallableHasOwnProperty(targetPointer, key)) {
-                // TODO: the following line is from red.ts, and I believe it is incorrect:
-                // looking in the foreign proto chain in case the proto chain has being mutated
-                const protoPointer = foreignCallableGetPrototypeOf(targetPointer);
-                if (protoPointer === null) {
+            let O: object | null = this.proxy;
+            while (O !== null) {
+                if (ObjectProtoHasOwnProperty.call(O, key)) {
+                    // we know this is a single stop lookup because it has own property
+                    const setter = ObjectProto__lookupSetter__(O, key);
+                    if (setter) {
+                        // even though the setter function exists, we can't use Reflect.set because
+                        // there might be a distortion for that setter function, in which case we
+                        // must resolve the local setter and call it instead.
+                        apply(setter, receiver, [value]);
+                        // if there is a setter, it either throw or we can assume the
+                        // value was set
+                        return true;
+                    }
+                    // accessor exists without a setter
                     return false;
                 }
-                const proto = getLocalValue(protoPointer);
-                return set(proto, key, value, receiver);
-            }
-            let ownSetterPointer;
-            const callbackWithDescriptor = (
-                _configurable: boolean,
-                _enumerable: boolean,
-                _writable: boolean,
-                _valuePointer: PrimitiveOrPointer,
-                _getPointer: PrimitiveOrPointer,
-                setPointer: PrimitiveOrPointer
-            ) => {
-                ownSetterPointer = setPointer;
-            };
-            foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callbackWithDescriptor);
-            if (ownSetterPointer) {
-                // even though the setter function exists, we can't use Reflect.set because
-                // there might be a distortion for that setter function, in which case we
-                // must resolve the local setter and call it instead.
-                apply(getLocalValue(ownSetterPointer), receiver, [value]);
-                // if there is a callable setter, it either throw or we can assume the
-                // value was set
-                return true;
+                O = getPrototypeOf(O);
             }
             // if it is not an accessor property, is either a getter only accessor
             // or a data property, in which case we use Reflect.set to set the value,
             // and no receiver is needed since it will simply set the data property or nothing
             const valuePointer = getValueOrPointer(value);
-            // TODO: I think this is incorrect, or two slow:
-            return foreignCallableSet(targetPointer, key, valuePointer, undefined);
+            return foreignCallableDefineProperty(
+                targetPointer,
+                key,
+                true,
+                true,
+                true,
+                valuePointer,
+                undefinedSymbol,
+                undefinedSymbol
+            );
         }
 
         // pending traps
@@ -996,7 +963,7 @@ export default function init(
     // future optimization: hoping that proxies with frozen handlers can be faster
     freeze(BoundaryProxyHandler.prototype);
 
-    // exporting callable hooks
+    // exporting callable hooks for a foreign realm
     foreignCallableHooksCallback(
         // exportValues
         () =>
@@ -1082,18 +1049,6 @@ export default function init(
             const target = getSelectedTarget();
             return deleteProperty(target, key);
         },
-        // callableGet
-        (
-            targetPointer: Pointer,
-            key: PropertyKey,
-            receiverPointer: PrimitiveOrPointer
-        ): PrimitiveOrPointer => {
-            targetPointer();
-            const target = getSelectedTarget();
-            const receiver = getLocalValue(receiverPointer);
-            const value = get(target, key, receiver);
-            return isPrimitiveValue(value) ? value : getLocalPointer(value);
-        },
         // callableGetOwnPropertyDescriptor
         (
             targetPointer: Pointer,
@@ -1161,19 +1116,6 @@ export default function init(
             const target = getSelectedTarget();
             return preventExtensions(target);
         },
-        // callableSet
-        (
-            targetPointer: Pointer,
-            key: PropertyKey,
-            valuePointer: PrimitiveOrPointer,
-            receiverPointer: PrimitiveOrPointer
-        ): boolean => {
-            targetPointer();
-            const target = getSelectedTarget();
-            const value = getLocalValue(valuePointer);
-            const receiver = getLocalValue(receiverPointer);
-            return set(target, key, value, receiver);
-        },
         // callableSetPrototypeOf
         (targetPointer: Pointer, protoValueOrPointer: PrimitiveOrPointer): boolean => {
             targetPointer();
@@ -1216,7 +1158,7 @@ export default function init(
         (targetPointer: Pointer, key: PropertyKey): boolean => {
             targetPointer();
             const target = getSelectedTarget();
-            return hasOwnProperty.call(target, key);
+            return ObjectProtoHasOwnProperty.call(target, key);
         }
     );
     return (
@@ -1225,14 +1167,12 @@ export default function init(
         callableConstruct: CallableConstruct,
         callableDefineProperty: CallableDefineProperty,
         callableDeleteProperty: CallableDeleteProperty,
-        callableGet: CallableGet,
         callableGetOwnPropertyDescriptor: CallableGetOwnPropertyDescriptor,
         callableGetPrototypeOf: CallableGetPrototypeOf,
         callableHas: CallableHas,
         callableIsExtensible: CallableIsExtensible,
         callableOwnKeys: CallableOwnKeys,
         callablePreventExtensions: CallablePreventExtensions,
-        callableSet: CallableSet,
         callableSetPrototypeOf: CallableSetPrototypeOf,
         callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
         callableHasOwnProperty: CallableHasOwnProperty
@@ -1242,7 +1182,6 @@ export default function init(
         foreignCallableConstruct = foreignErrorControl(callableConstruct);
         foreignCallableDefineProperty = foreignErrorControl(callableDefineProperty);
         foreignCallableDeleteProperty = foreignErrorControl(callableDeleteProperty);
-        foreignCallableGet = foreignErrorControl(callableGet);
         foreignCallableGetOwnPropertyDescriptor = foreignErrorControl(
             callableGetOwnPropertyDescriptor
         );
@@ -1251,7 +1190,6 @@ export default function init(
         foreignCallableIsExtensible = foreignErrorControl(callableIsExtensible);
         foreignCallableOwnKeys = foreignErrorControl(callableOwnKeys);
         foreignCallablePreventExtensions = foreignErrorControl(callablePreventExtensions);
-        foreignCallableSet = foreignErrorControl(callableSet);
         foreignCallableSetPrototypeOf = foreignErrorControl(callableSetPrototypeOf);
         foreignCallableGetTargetIntegrityTraits = foreignErrorControl(
             callableGetTargetIntegrityTraits
