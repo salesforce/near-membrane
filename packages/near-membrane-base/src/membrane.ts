@@ -291,7 +291,7 @@ export default function init(
         );
     }
 
-    function getPointer(originalTarget: ProxyTarget): Pointer {
+    function getLocalPointer(originalTarget: ProxyTarget): Pointer {
         let pointer = WeakMapGet.call(proxyTargetToPointerMap, originalTarget);
         if (pointer) {
             return pointer;
@@ -348,7 +348,7 @@ export default function init(
     }
 
     function getValueOrPointer(value: any): PrimitiveOrPointer {
-        return isPrimitiveValue(value) ? value : getPointer(value);
+        return isPrimitiveValue(value) ? value : getLocalPointer(value);
     }
 
     function getPartialDescriptorMeta(partialDesc: PropertyDescriptor) {
@@ -1000,7 +1000,7 @@ export default function init(
     foreignCallableHooksCallback(
         // exportValues
         () =>
-            getPointer({
+            getLocalPointer({
                 globalThis,
                 indirectEval: (sourceText: string) => cachedLocalEval(sourceText),
                 importModule: (specifier: string) => import(specifier),
@@ -1027,7 +1027,7 @@ export default function init(
             const thisArg = getLocalValue(thisArgValueOrPointer);
             const args = listOfValuesOrPointers.map(getLocalValue);
             const value = apply(fn, thisArg, args);
-            return isPrimitiveValue(value) ? value : getPointer(value);
+            return isPrimitiveValue(value) ? value : getLocalPointer(value);
         },
         // callableConstruct
         (
@@ -1040,7 +1040,7 @@ export default function init(
             const newTarget = getLocalValue(newTargetPointer);
             const args = listOfValuesOrPointers.map(getLocalValue);
             const value = construct(constructor, args, newTarget);
-            return isPrimitiveValue(value) ? value : getPointer(value);
+            return isPrimitiveValue(value) ? value : getLocalPointer(value);
         },
         // callableDefineProperty
         (
@@ -1092,7 +1092,7 @@ export default function init(
             const target = getSelectedTarget();
             const receiver = getLocalValue(receiverPointer);
             const value = get(target, key, receiver);
-            return isPrimitiveValue(value) ? value : getPointer(value);
+            return isPrimitiveValue(value) ? value : getLocalPointer(value);
         },
         // callableGetOwnPropertyDescriptor
         (
