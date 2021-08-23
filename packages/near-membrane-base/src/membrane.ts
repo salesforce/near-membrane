@@ -77,11 +77,14 @@ type HooksCallback = (
     ...connectArgs: Parameters<ConnectCallback>
 ) => void;
 
+export type DistortionCallback = (target: ProxyTarget) => ProxyTarget;
+
 export default function init(
     undefinedSymbol: symbol,
     color: string,
     trapMutations: boolean,
-    foreignCallableHooksCallback: HooksCallback
+    foreignCallableHooksCallback: HooksCallback,
+    optionalDistortionCallback?: DistortionCallback
 ): ConnectCallback {
     const { eval: cachedLocalEval } = globalThis;
     const {
@@ -113,6 +116,7 @@ export default function init(
     } = Object.prototype as any;
     const proxyTargetToPointerMap = new WeakMap();
     const LockerLiveValueMarkerSymbol = Symbol.for('@@lockerLiveValue');
+    const distortionCallback = optionalDistortionCallback || ((o) => o);
 
     let selectedTarget: undefined | ProxyTarget;
     let foreignPushTarget: CallablePushTarget;
@@ -268,6 +272,20 @@ export default function init(
         defineProperties(shadowTarget, descriptors);
     }
 
+    function getDistortedValue(target: ProxyTarget): ProxyTarget {
+        let distortedTarget: ProxyTarget | undefined;
+        try {
+            distortedTarget = distortionCallback(target);
+        } finally {
+            // if a distortion entry is found, it must be a valid proxy target
+            if (distortedTarget !== target && typeof distortedTarget !== typeof target) {
+                // eslint-disable-next-line no-unsafe-finally
+                throw new TypeErrorCtor(`Invalid distortion ${target}.`);
+            }
+        }
+        return distortedTarget;
+    }
+
     function isPointer(
         primitiveValueOrForeignCallable: PrimitiveOrPointer
     ): primitiveValueOrForeignCallable is CallableFunction {
@@ -291,11 +309,12 @@ export default function init(
         // extracting the metadata about the proxy target
         let targetTraits = TargetTraits.None;
         let targetFunctionName: string | undefined;
-        if (typeof originalTarget === 'function') {
+        const distortedTarget = getDistortedValue(originalTarget);
+        if (typeof distortedTarget === 'function') {
             targetTraits |= TargetTraits.IsFunction;
             // detecting arrow function vs function
             try {
-                targetTraits |= +!('prototype' in originalTarget) && TargetTraits.IsArrowFunction;
+                targetTraits |= +!('prototype' in distortedTarget) && TargetTraits.IsArrowFunction;
             } catch {
                 // target is either a revoked proxy, or a proxy that throws on the
                 // `has` trap, in which case going with a strict mode function seems
@@ -303,7 +322,7 @@ export default function init(
             }
             try {
                 // a revoked proxy will throw when reading the function name
-                targetFunctionName = getOwnPropertyDescriptor(originalTarget, 'name')?.value;
+                targetFunctionName = getOwnPropertyDescriptor(distortedTarget, 'name')?.value;
             } catch {
                 // intentionally swallowing the error because this method is just extracting
                 // the function in a way that it should always succeed except for the cases
@@ -314,7 +333,7 @@ export default function init(
             let targetIsArray = false;
             try {
                 // try/catch in case Array.isArray throws when target is a revoked proxy
-                targetIsArray = isArrayOrNotOrThrowForRevoked(originalTarget);
+                targetIsArray = isArrayOrNotOrThrowForRevoked(distortedTarget);
             } catch {
                 // target is a revoked proxy, so the type doesn't matter much from this point on
                 targetTraits &= TargetTraits.Revoked;
@@ -323,10 +342,21 @@ export default function init(
             targetTraits |= +!targetIsArray && TargetTraits.IsObject;
         }
         // the closure works as the implicit WeakMap
-        const pointerForOriginalTarget = () => selectTarget(originalTarget);
-        pointer = foreignPushTarget(pointerForOriginalTarget, targetTraits, targetFunctionName);
+        const pointerForTarget = () => selectTarget(distortedTarget);
+        pointer = foreignPushTarget(pointerForTarget, targetTraits, targetFunctionName);
+
         // In case debugging is needed, the following line can help greatly:
         // pointerForOriginalTarget.originalTarget = pointer.originalTarget = originalTarget;
+
+        // the WeakMap is populated with the original target rather then the distorted one
+        // while the pointer always uses the distorted one.
+
+        // TODO: this mechanism poses another issue, which is that the return value of
+        // getSelectedTarget() can never be used to call across the membrane because that
+        // will cause a wrapping around the potential distorted value instead of the original
+        // value. This is not fatal, but implies that for every distorted value where will
+        // two proxies that are not ===, which is weird. Guaranteeing this is not easy because
+        // it means auditing the code.
         WeakMapSet.call(proxyTargetToPointerMap, originalTarget, pointer);
         return pointer;
     }
