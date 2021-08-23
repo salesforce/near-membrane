@@ -1,4 +1,4 @@
-export type Pointer = () => void;
+export type Pointer = CallableFunction;
 type PrimitiveValue = number | symbol | string | boolean | bigint | null | undefined;
 type PrimitiveOrPointer = Pointer | PrimitiveValue;
 export type ProxyTarget = CallableFunction | any[] | object;
@@ -157,8 +157,11 @@ export default function init(
         Revoked = 1 << 4,
     }
 
-    function foreignErrorControl<T>(foreignFn: T): T {
-        return (...args) => {
+    // TODO: this is really only needed if Realm constructor is not available, because
+    // it will prevent errors from another realm to leak into the caller realm, but
+    // if Realm constructor is in place, the callable boundary takes care of it.
+    function foreignErrorControl<T extends (...args: any[]) => any>(foreignFn: T): T {
+        return <T>function foreignErrorControlFn(...args: any[]): any {
             try {
                 return foreignFn(...args);
             } catch (e) {
@@ -369,73 +372,48 @@ export default function init(
         preventExtensions(shadowTarget);
     }
 
-    class BoundaryProxyHandler<T> implements ProxyHandler<ShadowTarget> {
+    class BoundaryProxyHandler implements ProxyHandler<ShadowTarget> {
+        // public fields
+        revoke: () => void;
+
+        proxy: ShadowTarget;
+
+        ownKeys: ProxyHandler<ShadowTarget>['ownKeys'];
+
+        isExtensible: ProxyHandler<ShadowTarget>['isExtensible'];
+
+        getOwnPropertyDescriptor: ProxyHandler<ShadowTarget>['getOwnPropertyDescriptor'];
+
+        getPrototypeOf: ProxyHandler<ShadowTarget>['getPrototypeOf'];
+
+        get: ProxyHandler<ShadowTarget>['get'];
+
+        set: ProxyHandler<ShadowTarget>['set'];
+
+        has: ProxyHandler<ShadowTarget>['has'];
+
+        setPrototypeOf: ProxyHandler<ShadowTarget>['setPrototypeOf'];
+
+        deleteProperty: ProxyHandler<ShadowTarget>['deleteProperty'];
+
+        preventExtensions: ProxyHandler<ShadowTarget>['preventExtensions'];
+
+        defineProperty: ProxyHandler<ShadowTarget>['defineProperty'];
+
+        // the purpose of this public field is to help developers to identify what side of the
+        // membrane they are debugging.
+        readonly color = color;
+
         // callback to prepare the foreign realm before any operation
         private readonly targetPointer: Pointer;
 
-        readonly apply = this.applyTrap;
-
-        readonly construct = this.constructTrap;
-
-        readonly color = color;
-
-        ownKeys = this.dynamicOwnKeysTrap;
-
-        isExtensible = this.dynamicIsExtensibleTrap;
-
-        getOwnPropertyDescriptor = this.dynamicGetOwnPropertyDescriptorTrap;
-
-        getPrototypeOf = this.dynamicGetPrototypeOfTrap;
-
-        // local graph dynamic traps are only really needed if this membrane
-        // traps mutations to avoid mutations operations on the
-        // side of the membrane.
-        // TODO: find a way to optimize the declaration rather than instantiation
-        get = trapMutations ? this.localGraphDynamicGetTrap : this.dynamicGetTrap;
-
-        has = trapMutations ? this.localGraphDynamicHasTrap : this.dynamicHasTrap;
-
-        // pending traps are only really needed if this membrane
-        // traps mutations to avoid mutations operations on the
-        // side of the membrane.
-        // TODO: find a way to optimize the declaration rather than instantiation
-        setPrototypeOf = trapMutations
-            ? this.pendingSetPrototypeOfTrap
-            : this.dynamicSetPrototypeOfTrap;
-
-        set = trapMutations ? this.pendingSetTrap : this.dynamicSetTrap;
-
-        deleteProperty = trapMutations
-            ? this.pendingDeletePropertyTrap
-            : this.dynamicDeletePropertyTrap;
-
-        preventExtensions = trapMutations
-            ? this.pendingPreventExtensionsTrap
-            : this.dynamicPreventExtensionsTrap;
-
-        defineProperty = trapMutations
-            ? this.pendingDefinePropertyTrap
-            : this.dynamicDefinePropertyTrap;
-
-        constructor(
-            targetPointer: Pointer,
-            targetTraits: TargetTraits,
-            targetFunctionName: string | undefined
-        ) {
-            this.targetPointer = targetPointer;
-            // future optimization: hoping that proxies with frozen handlers can be faster
-            freeze(this);
-            const shadowTarget = createShadowTarget(targetTraits, targetFunctionName);
-            const { proxy, revoke } = this.createRevocableProxy(shadowTarget);
-            this.revoke = revoke;
-            if (targetTraits & TargetTraits.Revoked) {
-                revoke();
-            }
-            return proxy;
-        }
-
-        // generic traps
-        private applyTrap(_shadowTarget: ShadowTarget, thisArg: any, args: any[]): any {
+        // apply trap is generic, and should never change independently of the type of membrane
+        readonly apply = function applyTrap(
+            this: BoundaryProxyHandler,
+            _shadowTarget: ShadowTarget,
+            thisArg: any,
+            args: any[]
+        ): any {
             const { targetPointer } = this;
             const thisArgValueOrPointer = getValueOrPointer(thisArg);
             const listOfValuesOrPointers = args.map(getValueOrPointer);
@@ -445,9 +423,15 @@ export default function init(
                 ...listOfValuesOrPointers
             );
             return getLocalValue(foreignValueOrCallable);
-        }
+        };
 
-        private constructTrap(_shadowTarget: ShadowTarget, args: any[], newTarget: any): any {
+        // construct trap is generic, and should never change independently of the type of membrane
+        readonly construct = function constructTrap(
+            this: BoundaryProxyHandler,
+            _shadowTarget: ShadowTarget,
+            args: any[],
+            newTarget: any
+        ): any {
             const { targetPointer } = this;
             if (newTarget === undefined) {
                 throw new TypeErrorCtor();
@@ -460,342 +444,48 @@ export default function init(
                 ...listOfValuesOrPointers
             );
             return getLocalValue(foreignValueOrCallable);
-        }
+        };
 
-        // dynamic traps
-        private dynamicDefinePropertyTrap(
-            shadowTarget: ShadowTarget,
-            key: PropertyKey,
-            partialDesc: PropertyDescriptor
-        ): boolean {
-            const { targetPointer } = this;
-            const {
-                configurable,
-                enumerable,
-                writable,
-                valuePointer,
-                getPointer,
-                setPointer,
-            } = getPartialDescriptorMeta(partialDesc);
-            const result = foreignCallableDefineProperty(
-                targetPointer,
-                key,
-                configurable,
-                enumerable,
-                writable,
-                valuePointer,
-                getPointer,
-                setPointer
-            );
-            if (result) {
-                // intentionally testing against true since it could be undefined as well
-                if (configurable === false) {
-                    copyForeignDescriptorIntoShadowTarget(shadowTarget, targetPointer, key);
-                }
+        constructor(
+            targetPointer: Pointer,
+            targetTraits: TargetTraits,
+            targetFunctionName: string | undefined
+        ) {
+            this.targetPointer = targetPointer;
+            const shadowTarget = createShadowTarget(targetTraits, targetFunctionName);
+            const { proxy, revoke } = ProxyRevocable(shadowTarget, this);
+            this.proxy = proxy;
+            this.revoke = revoke;
+            // inserting default traps
+            this.ownKeys = BoundaryProxyHandler.defaultOwnKeysTrap;
+            this.isExtensible = BoundaryProxyHandler.defaultIsExtensibleTrap;
+            this.getOwnPropertyDescriptor =
+                BoundaryProxyHandler.defaultGetOwnPropertyDescriptorTrap;
+            this.getPrototypeOf = BoundaryProxyHandler.defaultGetPrototypeOfTrap;
+            this.get = BoundaryProxyHandler.defaultGetTrap;
+            this.has = BoundaryProxyHandler.defaultHasTrap;
+            // @ts-ignore
+            this.setPrototypeOf = BoundaryProxyHandler.defaultSetPrototypeOfTrap;
+            // @ts-ignore
+            this.set = BoundaryProxyHandler.defaultSetTrap;
+            // @ts-ignore
+            this.deleteProperty = BoundaryProxyHandler.defaultDeletePropertyTrap;
+            // @ts-ignore
+            this.preventExtensions = BoundaryProxyHandler.defaultPreventExtensionsTrap;
+            // @ts-ignore
+            this.defineProperty = BoundaryProxyHandler.defaultDefinePropertyTrap;
+            if (targetTraits & TargetTraits.Revoked) {
+                revoke();
             }
-            return true;
-        }
-
-        private dynamicDeletePropertyTrap(_shadowTarget: ShadowTarget, key: PropertyKey): boolean {
-            const { targetPointer } = this;
-            return foreignCallableDeleteProperty(targetPointer, key);
-        }
-
-        private dynamicGetTrap(_shadowTarget: ShadowTarget, key: PropertyKey, receiver: any): any {
-            const { targetPointer } = this;
-            const receiverPointer = getValueOrPointer(receiver);
-            const foreignValueOrCallable = foreignCallableGet(targetPointer, key, receiverPointer);
-            return getLocalValue(foreignValueOrCallable);
-        }
-
-        private dynamicGetOwnPropertyDescriptorTrap(
-            shadowTarget: ShadowTarget,
-            key: PropertyKey
-        ): PropertyDescriptor | undefined {
-            const { targetPointer } = this;
-            let desc: PropertyDescriptor | undefined;
-            const callableDescriptorCallback = (
-                configurable: boolean,
-                enumerable: boolean,
-                writable: boolean,
-                valuePointer: PrimitiveOrPointer,
-                getPointer: PrimitiveOrPointer,
-                setPointer: PrimitiveOrPointer
-            ) => {
-                desc = { configurable, enumerable, writable };
-                if (getPointer || setPointer) {
-                    desc.get = getLocalValue(getPointer);
-                    desc.set = getLocalValue(setPointer);
-                } else {
-                    desc.value = getLocalValue(valuePointer);
-                }
-            };
-            foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callableDescriptorCallback);
-            if (desc === undefined) {
-                return desc!;
+            if (!trapMutations) {
+                // if local mutations are not trapped, then freezing the handler is ok because it
+                // is not expecting to change in the future.
+                // future optimization: hoping that proxies with frozen handlers can be faster
+                freeze(this);
             }
-            if (desc!.configurable === false) {
-                // updating the descriptor to non-configurable on the shadow
-                copyForeignDescriptorIntoShadowTarget(shadowTarget, targetPointer, key);
-            }
-            return desc;
-        }
-
-        private dynamicGetPrototypeOfTrap(_shadowTarget: ShadowTarget): any {
-            const { targetPointer } = this;
-            const protoPointer = foreignCallableGetPrototypeOf(targetPointer);
-            return getLocalValue(protoPointer);
-        }
-
-        private dynamicHasTrap(_shadowTarget: ShadowTarget, key: PropertyKey): boolean {
-            const { targetPointer } = this;
-            return foreignCallableHas(targetPointer, key);
-        }
-
-        private dynamicIsExtensibleTrap(shadowTarget: ShadowTarget): boolean {
-            // optimization to avoid attempting to lock down the shadowTarget multiple times
-            if (!isExtensible(shadowTarget)) {
-                return false; // was already locked down
-            }
-            const { targetPointer } = this;
-            if (!foreignCallableIsExtensible(targetPointer)) {
-                lockShadowTarget(shadowTarget, targetPointer);
-                return false;
-            }
-            return true;
-        }
-
-        private dynamicOwnKeysTrap(_shadowTarget: ShadowTarget): ArrayLike<string | symbol> {
-            const { targetPointer } = this;
-            let keys: ArrayLike<string | symbol> = [];
-            const callableKeysCallback = (...args: (string | symbol)[]) => {
-                keys = args;
-            };
-            foreignCallableOwnKeys(targetPointer, callableKeysCallback);
-            return keys;
-        }
-
-        private dynamicPreventExtensionsTrap(shadowTarget: ShadowTarget): boolean {
-            const { targetPointer } = this;
-            if (isExtensible(shadowTarget)) {
-                if (!foreignCallablePreventExtensions(targetPointer)) {
-                    // if the target is a proxy manually created, it might reject
-                    // the preventExtension call, in which case we should not attempt to lock down
-                    // the shadow target.
-                    if (!foreignCallableIsExtensible(targetPointer)) {
-                        lockShadowTarget(shadowTarget, targetPointer);
-                    }
-                    return false;
-                }
-                lockShadowTarget(shadowTarget, targetPointer);
-            }
-            return true;
-        }
-
-        private dynamicSetTrap(
-            _shadowTarget: ShadowTarget,
-            key: PropertyKey,
-            value: any,
-            receiver: any
-        ): boolean {
-            const { targetPointer } = this;
-            const valuePointer = getValueOrPointer(value);
-            const receiverPointer = getValueOrPointer(receiver);
-            return foreignCallableSet(targetPointer, key, valuePointer, receiverPointer);
-        }
-
-        private dynamicSetPrototypeOfTrap(_shadowTarget: ShadowTarget, prototype: any): boolean {
-            const { targetPointer } = this;
-            const protoValueOrPointer = getValueOrPointer(prototype);
-            return foreignCallableSetPrototypeOf(targetPointer, protoValueOrPointer);
-        }
-
-        // static traps
-
-        // pending traps
-        private pendingSetPrototypeOfTrap(shadowTarget: ShadowTarget, prototype: any): boolean {
-            // assert: trapMutations must be true
-            this.makeProxyUnambiguous(shadowTarget);
-            return this.setPrototypeOf(shadowTarget, prototype);
-        }
-
-        private pendingSetTrap(
-            shadowTarget: ShadowTarget,
-            key: PropertyKey,
-            value: any,
-            receiver: any
-        ): boolean {
-            // assert: trapMutations must be true
-            this.makeProxyUnambiguous(shadowTarget);
-            return this.set(shadowTarget, key, value, receiver);
-        }
-
-        private pendingDeletePropertyTrap(shadowTarget: ShadowTarget, key: PropertyKey): boolean {
-            // assert: trapMutations must be true
-            this.makeProxyUnambiguous(shadowTarget);
-            return this.deleteProperty(shadowTarget, key);
-        }
-
-        private pendingPreventExtensionsTrap(shadowTarget: ShadowTarget): boolean {
-            // assert: trapMutations must be true
-            this.makeProxyUnambiguous(shadowTarget);
-            return this.preventExtensions(shadowTarget);
-        }
-
-        private pendingDefinePropertyTrap(
-            shadowTarget: ShadowTarget,
-            key: PropertyKey,
-            partialDesc: PropertyDescriptor
-        ): boolean {
-            // assert: trapMutations must be true
-            this.makeProxyUnambiguous(shadowTarget);
-            return this.defineProperty(shadowTarget, key, partialDesc);
-        }
-
-        /**
-         * This trap cannot just use `Reflect.get` directly on the `target` because
-         * the red object graph might have mutations that are only visible on the red side,
-         * which means looking into `target` directly is not viable. Instead, we need to
-         * implement a more crafty solution that looks into target's own properties, or
-         * in the red proto chain when needed.
-         */
-        private localGraphDynamicGetTrap(
-            _shadowTarget: ShadowTarget,
-            key: PropertyKey,
-            receiver: any
-        ): any {
-            // assert: trapMutations must be true
-            /**
-             * If the target has a non-configurable own data descriptor that was observed
-             * by the red side, and therefore installed in the shadowTarget, we might get
-             * into a situation where a writable, non-configurable value in the target is
-             * out of sync with the shadowTarget's value for the same key. This is fine
-             * because this does not violate the object invariants, and even though they
-             * are out of sync, the original descriptor can only change to something that
-             * is compatible with what was installed in shadowTarget, and in order to
-             * observe that, the getOwnPropertyDescriptor trap must be used, which will
-             * take care of synchronizing them again.
-             */
-            const { targetPointer } = this;
-            if (!foreignCallableHasOwnProperty(targetPointer, key)) {
-                // TODO: the following line is from red.ts, and I believe it is incorrect:
-                // looking in the foreign proto chain in case the proto chain has being mutated
-                const protoPointer = foreignCallableGetPrototypeOf(targetPointer);
-                if (protoPointer === null) {
-                    return undefined;
-                }
-                const proto = getLocalValue(protoPointer);
-                return get(proto, key, receiver);
-            }
-            let ownGetterPointer;
-            const callbackWithDescriptor = (
-                _configurable: boolean,
-                _enumerable: boolean,
-                _writable: boolean,
-                _valuePointer: PrimitiveOrPointer,
-                getPointer: PrimitiveOrPointer,
-                _setPointer: PrimitiveOrPointer
-            ) => {
-                ownGetterPointer = getPointer;
-            };
-            foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callbackWithDescriptor);
-            if (ownGetterPointer) {
-                // Knowing that it is an own getter, we can't still not use Reflect.get
-                // because there might be a distortion for such getter, in which case we
-                // must get the local getter, and call it.
-                return apply(getLocalValue(ownGetterPointer), receiver, []);
-            }
-            // if it is not an accessor property, is either a setter only accessor
-            // or a data property, in which case we could return undefined or the local value
-            return foreignCallableGet(targetPointer, key, undefined);
-        }
-
-        /**
-         * This trap cannot just use `Reflect.set` directly on the `target` because
-         * the red object graph might have mutations that are only visible on the red side,
-         * which means looking into `target` directly is not viable. Instead, we need to
-         * implement a more crafty solution that looks into target's own properties, or
-         * in the red proto chain when needed.
-         */
-        private localGraphDynamicSetTrap(
-            _shadowTarget: ShadowTarget,
-            key: PropertyKey,
-            value: any,
-            receiver: any
-        ): boolean {
-            // assert: trapMutations must be true
-            const { targetPointer } = this;
-            if (!foreignCallableHasOwnProperty(targetPointer, key)) {
-                // TODO: the following line is from red.ts, and I believe it is incorrect:
-                // looking in the foreign proto chain in case the proto chain has being mutated
-                const protoPointer = foreignCallableGetPrototypeOf(targetPointer);
-                if (protoPointer === null) {
-                    return false;
-                }
-                const proto = getLocalValue(protoPointer);
-                return set(proto, key, value, receiver);
-            }
-            let ownSetterPointer;
-            const callbackWithDescriptor = (
-                _configurable: boolean,
-                _enumerable: boolean,
-                _writable: boolean,
-                _valuePointer: PrimitiveOrPointer,
-                _getPointer: PrimitiveOrPointer,
-                setPointer: PrimitiveOrPointer
-            ) => {
-                ownSetterPointer = setPointer;
-            };
-            foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callbackWithDescriptor);
-            if (ownSetterPointer) {
-                // even though the setter function exists, we can't use Reflect.set because
-                // there might be a distortion for that setter function, in which case we
-                // must resolve the local setter and call it instead.
-                apply(getLocalValue(ownSetterPointer), receiver, [value]);
-                // if there is a callable setter, it either throw or we can assume the
-                // value was set
-                return true;
-            }
-            // if it is not an accessor property, is either a getter only accessor
-            // or a data property, in which case we use Reflect.set to set the value,
-            // and no receiver is needed since it will simply set the data property or nothing
-            const valuePointer = getValueOrPointer(value);
-            return foreignCallableSet(targetPointer, key, valuePointer, undefined);
-        }
-
-        /**
-         * This trap cannot just use `Reflect.has` or the `in` operator directly because
-         * the red object graph might have mutations that are only visible on the red side,
-         * which means looking into `target` directly is not viable. Instead, we need to
-         * implement a more crafty solution that looks into target's own properties, or
-         * in the red proto chain when needed.
-         */
-        private localGraphDynamicHasTrap(_shadowTarget: ShadowTarget, key: PropertyKey): boolean {
-            // assert: trapMutations must be true
-            const { targetPointer } = this;
-            if (foreignCallableHasOwnProperty(targetPointer, key)) {
-                return true;
-            }
-            // TODO: the following line is from red.ts, and I believe it is incorrect:
-            // looking in the foreign proto chain in case the proto chain has being mutated
-            const protoPointer = foreignCallableGetPrototypeOf(targetPointer);
-            if (protoPointer === null) {
-                return false;
-            }
-            const proto = getLocalValue(protoPointer);
-            return has(proto, key);
         }
 
         // internal utilities
-        private revoke: () => void;
-
-        private createRevocableProxy(shadowTarget: ShadowTarget): Proxy<T> {
-            // in case we need this to revoke the proxy in the future
-            const { proxy, revoke } = ProxyRevocable<T>(shadowTarget, this);
-            this.revoke = revoke;
-            return proxy;
-        }
-
         private isTargetMarkAsDynamic(): boolean {
             // assert: trapMutations must be true
             const { targetPointer } = this;
@@ -812,11 +502,16 @@ export default function init(
             // assert: trapMutations must be true
             // replacing pending traps with dynamic traps that can work with the target
             // without taking snapshots.
-            this.set = this.localGraphDynamicSetTrap;
-            this.deleteProperty = this.dynamicDeletePropertyTrap;
-            this.setPrototypeOf = this.dynamicSetPrototypeOfTrap;
-            this.preventExtensions = this.dynamicPreventExtensionsTrap;
-            this.defineProperty = this.dynamicDefinePropertyTrap;
+            // @ts-ignore
+            this.set = BoundaryProxyHandler.dynamicSetTrap;
+            // @ts-ignore
+            this.deleteProperty = BoundaryProxyHandler.dynamicDeletePropertyTrap;
+            // @ts-ignore
+            this.setPrototypeOf = BoundaryProxyHandler.dynamicSetPrototypeOfTrap;
+            // @ts-ignore
+            this.preventExtensions = BoundaryProxyHandler.dynamicPreventExtensionsTrap;
+            // @ts-ignore
+            this.defineProperty = BoundaryProxyHandler.dynamicDefinePropertyTrap;
             // future optimization: hoping that proxies with frozen handlers can be faster
             freeze(this);
         }
@@ -880,6 +575,421 @@ export default function init(
                 this.makeProxyStatic(shadowTarget);
             }
         }
+
+        // logic implementation of all traps
+
+        // dynamic traps
+        private static dynamicDefinePropertyTrap(
+            this: BoundaryProxyHandler,
+            shadowTarget: ShadowTarget,
+            key: PropertyKey,
+            partialDesc: PropertyDescriptor
+        ): boolean | undefined {
+            const { targetPointer } = this;
+            const {
+                configurable,
+                enumerable,
+                writable,
+                valuePointer,
+                getPointer,
+                setPointer,
+            } = getPartialDescriptorMeta(partialDesc);
+            const result = foreignCallableDefineProperty(
+                targetPointer,
+                key,
+                configurable,
+                enumerable,
+                writable,
+                valuePointer,
+                getPointer,
+                setPointer
+            );
+            if (result) {
+                // intentionally testing against true since it could be undefined as well
+                if (configurable === false) {
+                    copyForeignDescriptorIntoShadowTarget(shadowTarget, targetPointer, key);
+                }
+            }
+            return true;
+        }
+
+        private static dynamicDeletePropertyTrap(
+            this: BoundaryProxyHandler,
+            _shadowTarget: ShadowTarget,
+            key: PropertyKey
+        ): boolean | undefined {
+            const { targetPointer } = this;
+            return foreignCallableDeleteProperty(targetPointer, key);
+        }
+
+        private static dynamicGetOwnPropertyDescriptorTrap(
+            this: BoundaryProxyHandler,
+            shadowTarget: ShadowTarget,
+            key: PropertyKey
+        ): PropertyDescriptor | undefined {
+            const { targetPointer } = this;
+            let desc: PropertyDescriptor | undefined;
+            const callableDescriptorCallback = (
+                configurable: boolean,
+                enumerable: boolean,
+                writable: boolean,
+                valuePointer: PrimitiveOrPointer,
+                getPointer: PrimitiveOrPointer,
+                setPointer: PrimitiveOrPointer
+            ) => {
+                desc = { configurable, enumerable, writable };
+                if (getPointer || setPointer) {
+                    desc.get = getLocalValue(getPointer);
+                    desc.set = getLocalValue(setPointer);
+                } else {
+                    desc.value = getLocalValue(valuePointer);
+                }
+            };
+            foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callableDescriptorCallback);
+            if (desc === undefined) {
+                return desc!;
+            }
+            if (desc!.configurable === false) {
+                // updating the descriptor to non-configurable on the shadow
+                copyForeignDescriptorIntoShadowTarget(shadowTarget, targetPointer, key);
+            }
+            return desc;
+        }
+
+        private static dynamicGetPrototypeOfTrap(
+            this: BoundaryProxyHandler,
+            _shadowTarget: ShadowTarget
+        ): any {
+            const { targetPointer } = this;
+            const protoPointer = foreignCallableGetPrototypeOf(targetPointer);
+            return getLocalValue(protoPointer);
+        }
+
+        private static dynamicIsExtensibleTrap(
+            this: BoundaryProxyHandler,
+            shadowTarget: ShadowTarget
+        ): boolean {
+            // optimization to avoid attempting to lock down the shadowTarget multiple times
+            if (!isExtensible(shadowTarget)) {
+                return false; // was already locked down
+            }
+            const { targetPointer } = this;
+            if (!foreignCallableIsExtensible(targetPointer)) {
+                lockShadowTarget(shadowTarget, targetPointer);
+                return false;
+            }
+            return true;
+        }
+
+        private static dynamicOwnKeysTrap(
+            this: BoundaryProxyHandler,
+            _shadowTarget: ShadowTarget
+        ): (string | symbol)[] {
+            const { targetPointer } = this;
+            let keys: (string | symbol)[] = [];
+            const callableKeysCallback = (...args: (string | symbol)[]) => {
+                keys = args;
+            };
+            foreignCallableOwnKeys(targetPointer, callableKeysCallback);
+            return keys;
+        }
+
+        private static dynamicPreventExtensionsTrap(
+            this: BoundaryProxyHandler,
+            shadowTarget: ShadowTarget
+        ): boolean | undefined {
+            const { targetPointer } = this;
+            if (isExtensible(shadowTarget)) {
+                if (!foreignCallablePreventExtensions(targetPointer)) {
+                    // if the target is a proxy manually created, it might reject
+                    // the preventExtension call, in which case we should not attempt to lock down
+                    // the shadow target.
+                    if (!foreignCallableIsExtensible(targetPointer)) {
+                        lockShadowTarget(shadowTarget, targetPointer);
+                    }
+                    return false;
+                }
+                lockShadowTarget(shadowTarget, targetPointer);
+            }
+            return true;
+        }
+
+        private static dynamicSetPrototypeOfTrap(
+            this: BoundaryProxyHandler,
+            _shadowTarget: ShadowTarget,
+            prototype: object | null
+        ): boolean | undefined {
+            const { targetPointer } = this;
+            const protoValueOrPointer = getValueOrPointer(prototype);
+            return foreignCallableSetPrototypeOf(targetPointer, protoValueOrPointer);
+        }
+
+        // dynamic with proto chain traversal traps:
+
+        /**
+         * Dynamic traps with proto chain traversal capabilities are the exception of
+         * the rules here, the problem is that the other side might or might not have:
+         * a) local mutations only
+         * b) distortions
+         *
+         * Therefore, the logic has to be bound to the caller (the one initiating the
+         * across membrane access).
+         */
+
+        /**
+         * This trap cannot just use `Reflect.get` directly on the `target` because
+         * the red object graph might have mutations that are only visible on the red side,
+         * which means looking into `target` directly is not viable. Instead, we need to
+         * implement a more crafty solution that looks into target's own properties, or
+         * in the red proto chain when needed.
+         *
+         * In a transparent membrane, this method will have been a lot simpler, like:
+         *
+         *   const { targetPointer } = this;
+         *   const receiverPointer = getValueOrPointer(receiver);
+         *   const foreignValueOrCallable = foreignCallableGet(targetPointer, key, receiverPointer);
+         *   return getLocalValue(foreignValueOrCallable);
+         *
+         */
+        private static dynamicGetTrap(
+            this: BoundaryProxyHandler,
+            _shadowTarget: ShadowTarget,
+            key: PropertyKey,
+            receiver: any
+        ): any {
+            // assert: trapMutations must be true
+            /**
+             * If the target has a non-configurable own data descriptor that was observed
+             * by the red side, and therefore installed in the shadowTarget, we might get
+             * into a situation where a writable, non-configurable value in the target is
+             * out of sync with the shadowTarget's value for the same key. This is fine
+             * because this does not violate the object invariants, and even though they
+             * are out of sync, the original descriptor can only change to something that
+             * is compatible with what was installed in shadowTarget, and in order to
+             * observe that, the getOwnPropertyDescriptor trap must be used, which will
+             * take care of synchronizing them again.
+             */
+            const { targetPointer } = this;
+            if (!foreignCallableHasOwnProperty(targetPointer, key)) {
+                // TODO: the following line is from red.ts, and I believe it is incorrect:
+                // looking in the foreign proto chain in case the proto chain has being mutated
+                const protoPointer = foreignCallableGetPrototypeOf(targetPointer);
+                if (protoPointer === null) {
+                    return undefined;
+                }
+                const proto = getLocalValue(protoPointer);
+                return get(proto, key, receiver);
+            }
+            let ownGetterPointer;
+            const callbackWithDescriptor = (
+                _configurable: boolean,
+                _enumerable: boolean,
+                _writable: boolean,
+                _valuePointer: PrimitiveOrPointer,
+                getPointer: PrimitiveOrPointer,
+                _setPointer: PrimitiveOrPointer
+            ) => {
+                ownGetterPointer = getPointer;
+            };
+            foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callbackWithDescriptor);
+            if (ownGetterPointer) {
+                // Knowing that it is an own getter, we can't still not use Reflect.get
+                // because there might be a distortion for such getter, in which case we
+                // must get the local getter, and call it.
+                return apply(getLocalValue(ownGetterPointer), receiver, []);
+            }
+            // if it is not an accessor property, is either a setter only accessor
+            // or a data property, in which case we could return undefined or the local value
+            // TODO: I think this is incorrect, or two slow:
+            return foreignCallableGet(targetPointer, key, undefined);
+        }
+
+        /**
+         * This trap cannot just use `Reflect.has` or the `in` operator directly because
+         * the red object graph might have mutations that are only visible on the red side,
+         * which means looking into `target` directly is not viable. Instead, we need to
+         * implement a more crafty solution that looks into target's own properties, or
+         * in the red proto chain when needed.
+         *
+         * In a transparent membrane, this method will have been a lot simpler, like:
+         *
+         *      const { targetPointer } = this;
+         *      return foreignCallableHas(targetPointer, key);
+         *
+         */
+        private static dynamicHasTrap(
+            this: BoundaryProxyHandler,
+            _shadowTarget: ShadowTarget,
+            key: PropertyKey
+        ): boolean {
+            // assert: trapMutations must be true
+            const { targetPointer } = this;
+            if (foreignCallableHasOwnProperty(targetPointer, key)) {
+                return true;
+            }
+            // TODO: the following comment is from red.ts, and I believe it is incorrect:
+            // looking in the foreign proto chain in case the proto chain has being mutated
+            const protoPointer = foreignCallableGetPrototypeOf(targetPointer);
+            if (protoPointer === null) {
+                return false;
+            }
+            const proto = getLocalValue(protoPointer);
+            // TODO: I think this is incorrect, or two slow:
+            return has(proto, key);
+        }
+
+        /**
+         * This trap cannot just use `Reflect.set` directly on the `target` because
+         * the red object graph might have mutations that are only visible on the red side,
+         * which means looking into `target` directly is not viable. Instead, we need to
+         * implement a more crafty solution that looks into target's own properties, or
+         * in the red proto chain when needed.
+         *
+         *  const { targetPointer } = this;
+         *  const valuePointer = getValueOrPointer(value);
+         *  const receiverPointer = getValueOrPointer(receiver);
+         *  return foreignCallableSet(targetPointer, key, valuePointer, receiverPointer);
+         *
+         */
+        private static dynamicSetTrap(
+            this: BoundaryProxyHandler,
+            _shadowTarget: ShadowTarget,
+            key: string | symbol,
+            value: any,
+            receiver: any
+        ): boolean | undefined {
+            // assert: trapMutations must be true
+            const { targetPointer } = this;
+            if (!foreignCallableHasOwnProperty(targetPointer, key)) {
+                // TODO: the following line is from red.ts, and I believe it is incorrect:
+                // looking in the foreign proto chain in case the proto chain has being mutated
+                const protoPointer = foreignCallableGetPrototypeOf(targetPointer);
+                if (protoPointer === null) {
+                    return false;
+                }
+                const proto = getLocalValue(protoPointer);
+                return set(proto, key, value, receiver);
+            }
+            let ownSetterPointer;
+            const callbackWithDescriptor = (
+                _configurable: boolean,
+                _enumerable: boolean,
+                _writable: boolean,
+                _valuePointer: PrimitiveOrPointer,
+                _getPointer: PrimitiveOrPointer,
+                setPointer: PrimitiveOrPointer
+            ) => {
+                ownSetterPointer = setPointer;
+            };
+            foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callbackWithDescriptor);
+            if (ownSetterPointer) {
+                // even though the setter function exists, we can't use Reflect.set because
+                // there might be a distortion for that setter function, in which case we
+                // must resolve the local setter and call it instead.
+                apply(getLocalValue(ownSetterPointer), receiver, [value]);
+                // if there is a callable setter, it either throw or we can assume the
+                // value was set
+                return true;
+            }
+            // if it is not an accessor property, is either a getter only accessor
+            // or a data property, in which case we use Reflect.set to set the value,
+            // and no receiver is needed since it will simply set the data property or nothing
+            const valuePointer = getValueOrPointer(value);
+            // TODO: I think this is incorrect, or two slow:
+            return foreignCallableSet(targetPointer, key, valuePointer, undefined);
+        }
+
+        // pending traps
+        private static pendingSetPrototypeOfTrap(
+            this: BoundaryProxyHandler,
+            shadowTarget: ShadowTarget,
+            prototype: object | null
+        ): boolean | undefined {
+            // assert: trapMutations must be true
+            this.makeProxyUnambiguous(shadowTarget);
+            return this.setPrototypeOf?.(shadowTarget, prototype);
+        }
+
+        private static pendingSetTrap(
+            this: BoundaryProxyHandler,
+            shadowTarget: ShadowTarget,
+            key: string | symbol,
+            value: any,
+            receiver: any
+        ): boolean | undefined {
+            // assert: trapMutations must be true
+            this.makeProxyUnambiguous(shadowTarget);
+            return this.set?.(shadowTarget, key, value, receiver);
+        }
+
+        private static pendingDeletePropertyTrap(
+            this: BoundaryProxyHandler,
+            shadowTarget: ShadowTarget,
+            key: string | symbol
+        ): boolean | undefined {
+            // assert: trapMutations must be true
+            this.makeProxyUnambiguous(shadowTarget);
+            return this.deleteProperty?.(shadowTarget, key);
+        }
+
+        private static pendingPreventExtensionsTrap(
+            this: BoundaryProxyHandler,
+            shadowTarget: ShadowTarget
+        ): boolean | undefined {
+            // assert: trapMutations must be true
+            this.makeProxyUnambiguous(shadowTarget);
+            return this.preventExtensions?.(shadowTarget);
+        }
+
+        private static pendingDefinePropertyTrap(
+            this: BoundaryProxyHandler,
+            shadowTarget: ShadowTarget,
+            key: string | symbol,
+            partialDesc: PropertyDescriptor
+        ): boolean | undefined {
+            // assert: trapMutations must be true
+            this.makeProxyUnambiguous(shadowTarget);
+            return this.defineProperty?.(shadowTarget, key, partialDesc);
+        }
+
+        // static default traps (optimization to avoid computations of the proper
+        // trap in constructor)
+        private static defaultOwnKeysTrap = BoundaryProxyHandler.dynamicOwnKeysTrap;
+
+        private static defaultIsExtensibleTrap = BoundaryProxyHandler.dynamicIsExtensibleTrap;
+
+        private static defaultGetOwnPropertyDescriptorTrap =
+            BoundaryProxyHandler.dynamicGetOwnPropertyDescriptorTrap;
+
+        private static defaultGetPrototypeOfTrap = BoundaryProxyHandler.dynamicGetPrototypeOfTrap;
+
+        private static defaultGetTrap = BoundaryProxyHandler.dynamicGetTrap;
+
+        private static defaultHasTrap = BoundaryProxyHandler.dynamicHasTrap;
+
+        // pending traps are only really needed if this membrane
+        // traps mutations to avoid mutations operations on the
+        // side of the membrane.
+        // TODO: find a way to optimize the declaration rather than instantiation
+        private static defaultSetPrototypeOfTrap = trapMutations
+            ? BoundaryProxyHandler.pendingSetPrototypeOfTrap
+            : BoundaryProxyHandler.dynamicSetPrototypeOfTrap;
+
+        private static defaultSetTrap = trapMutations
+            ? BoundaryProxyHandler.pendingSetTrap
+            : BoundaryProxyHandler.dynamicSetTrap;
+
+        private static defaultDeletePropertyTrap = trapMutations
+            ? BoundaryProxyHandler.pendingDeletePropertyTrap
+            : BoundaryProxyHandler.dynamicDeletePropertyTrap;
+
+        private static defaultPreventExtensionsTrap = trapMutations
+            ? BoundaryProxyHandler.pendingPreventExtensionsTrap
+            : BoundaryProxyHandler.dynamicPreventExtensionsTrap;
+
+        private static defaultDefinePropertyTrap = trapMutations
+            ? BoundaryProxyHandler.pendingDefinePropertyTrap
+            : BoundaryProxyHandler.dynamicDefinePropertyTrap;
     }
     setPrototypeOf(BoundaryProxyHandler.prototype, null);
 
@@ -902,7 +1012,7 @@ export default function init(
             targetTraits: TargetTraits,
             targetFunctionName: string | undefined
         ): Pointer => {
-            const proxy = new BoundaryProxyHandler(pointer, targetTraits, targetFunctionName);
+            const { proxy } = new BoundaryProxyHandler(pointer, targetTraits, targetFunctionName);
             WeakMapSet.call(proxyTargetToPointerMap, proxy, pointer);
             return selectTarget.bind(undefined, proxy);
         },
@@ -1042,7 +1152,7 @@ export default function init(
         ): void => {
             targetPointer();
             const target = getSelectedTarget();
-            const keys = ownKeys(target);
+            const keys = ownKeys(target) as (string | symbol)[];
             foreignCallableKeysCallback(...keys);
         },
         // callablePreventExtensions
