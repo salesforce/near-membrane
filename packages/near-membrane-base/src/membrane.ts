@@ -1,3 +1,24 @@
+/**
+ * This file contains an exportable (portable) function init can be used to initialize
+ * one side of a membrane on any realm. The only prerequisite is the ability to evaluate
+ * the sourceText of the `init` function there. Once evaluated, the function will return
+ * a set of values that can be used to wire up the side of the membrane with another
+ * existing `init` function from another realm, in which case they will exchange
+ * callable functions that are required to connect the two realms via the membrane.
+ *
+ * About the mechanics of the membrane, there are few important considerations:
+ *
+ * 1. Pointers are the way to pass reference to object and functions.
+ * 2. A dedicated symbol (undefinedSymbol) is needed to represent the absence of a value.
+ * 3. The realm that owns the object or function is responsible for projecting the proxy
+ *    onto the other side (via callablePushTarget), which returns a Pointer that can be
+ *    used by the realm to pass the reference to the same proxy over and over again.
+ * 4. The realm that owns the proxy (after the other side projects it into it) will hold
+ *    a Pointer alongside the proxy to signal what original object or function should
+ *    the foreign operation operates, it is always the first argument of the foreign
+ *    callable for proxies, and the other side can use it via `getSelectedTarget`.
+ */
+
 export type Pointer = CallableFunction;
 type PrimitiveValue = number | symbol | string | boolean | bigint | null | undefined;
 type PrimitiveOrPointer = Pointer | PrimitiveValue;
@@ -56,7 +77,7 @@ type CallableSetPrototypeOf = (
 type CallableGetTargetIntegrityTraits = (targetPointer: Pointer) => number;
 type CallableHasOwnProperty = (targetPointer: Pointer, key: PropertyKey) => boolean;
 export type ConnectCallback = (
-    pushTarget: CallablePushTarget,
+    callablePushTarget: CallablePushTarget,
     callableApply: CallableApply,
     callableConstruct: CallableConstruct,
     callableDefineProperty: CallableDefineProperty,
@@ -72,8 +93,7 @@ export type ConnectCallback = (
     callableHasOwnProperty: CallableHasOwnProperty
 ) => void;
 type HooksCallback = (
-    exportValues: () => Pointer,
-    getRef: () => ProxyTarget,
+    evaluate: (sourceText: string) => void,
     ...connectArgs: Parameters<ConnectCallback>
 ) => void;
 
@@ -102,7 +122,7 @@ export default function init(
         ownKeys,
         preventExtensions,
     } = Reflect;
-    const { freeze, create, seal, isFrozen, isSealed, defineProperties } = Object;
+    const { freeze, seal, isFrozen, isSealed, defineProperties } = Object;
     const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
     const { revocable: ProxyRevocable } = Proxy;
     const { set: WeakMapSet, get: WeakMapGet } = WeakMap.prototype;
@@ -119,7 +139,7 @@ export default function init(
     const distortionCallback = optionalDistortionCallback || ((o) => o);
 
     let selectedTarget: undefined | ProxyTarget;
-    let foreignPushTarget: CallablePushTarget;
+    let foreignCallablePushTarget: CallablePushTarget;
     let foreignCallableApply: CallableApply;
     let foreignCallableConstruct: CallableConstruct;
     let foreignCallableDefineProperty: CallableDefineProperty;
@@ -151,6 +171,10 @@ export default function init(
         IsSealed = 1 << 1,
         IsFrozen = 1 << 2,
         Revoked = 1 << 4,
+    }
+
+    function isUndefinedSymbol(v: any): boolean {
+        return v === undefinedSymbol;
     }
 
     // TODO: this is really only needed if Realm constructor is not available, because
@@ -244,7 +268,8 @@ export default function init(
             keys = args;
         };
         foreignCallableOwnKeys(targetPointer, callbackWithKeys);
-        const descriptors = create(null);
+        // @ts-ignore for some reason, TS doesn't like __proto__ on property descriptors
+        const descriptors: PropertyDescriptorMap = { __proto__: null };
         let desc: PropertyDescriptor;
         const callbackWithDescriptor = (
             configurable: boolean,
@@ -254,7 +279,8 @@ export default function init(
             getPointer: PrimitiveOrPointer,
             setPointer: PrimitiveOrPointer
         ) => {
-            desc = { configurable, enumerable, writable };
+            // @ts-ignore
+            desc = { __proto__: null, configurable, enumerable, writable };
             if (getPointer || setPointer) {
                 desc.get = getLocalValue(getPointer);
                 desc.set = getLocalValue(setPointer);
@@ -295,13 +321,15 @@ export default function init(
     function isPrimitiveValue(
         primitiveValueOrForeignCallable: PrimitiveOrPointer
     ): primitiveValueOrForeignCallable is PrimitiveValue {
+        // TODO: what other ways to optimize this method?
         return (
+            primitiveValueOrForeignCallable === null &&
             typeof primitiveValueOrForeignCallable !== 'function' &&
             typeof primitiveValueOrForeignCallable !== 'object'
         );
     }
 
-    function getLocalPointer(originalTarget: ProxyTarget): Pointer {
+    function getTransferablePointer(originalTarget: ProxyTarget): Pointer {
         let pointer = WeakMapGet.call(proxyTargetToPointerMap, originalTarget);
         if (pointer) {
             return pointer;
@@ -343,7 +371,7 @@ export default function init(
         }
         // the closure works as the implicit WeakMap
         const pointerForTarget = () => selectTarget(distortedTarget);
-        pointer = foreignPushTarget(pointerForTarget, targetTraits, targetFunctionName);
+        pointer = foreignCallablePushTarget(pointerForTarget, targetTraits, targetFunctionName);
 
         // In case debugging is needed, the following line can help greatly:
         // pointerForOriginalTarget.originalTarget = pointer.originalTarget = originalTarget;
@@ -361,16 +389,16 @@ export default function init(
         return pointer;
     }
 
-    function getLocalValue(primitiveValueOrForeignCallable: PrimitiveOrPointer): any {
-        if (isPointer(primitiveValueOrForeignCallable)) {
-            primitiveValueOrForeignCallable();
+    function getLocalValue(primitiveValueOrForeignPointer: PrimitiveOrPointer): any {
+        if (isPointer(primitiveValueOrForeignPointer)) {
+            primitiveValueOrForeignPointer();
             return getSelectedTarget();
         }
-        return primitiveValueOrForeignCallable;
+        return primitiveValueOrForeignPointer;
     }
 
-    function getValueOrPointer(value: any): PrimitiveOrPointer {
-        return isPrimitiveValue(value) ? value : getLocalPointer(value);
+    function getTransferableValue(value: any): PrimitiveOrPointer {
+        return isPrimitiveValue(value) ? value : getTransferablePointer(value);
     }
 
     function getPartialDescriptorMeta(partialDesc: PropertyDescriptor) {
@@ -379,9 +407,9 @@ export default function init(
             configurable: 'configurable' in partialDesc ? !!configurable : undefinedSymbol,
             enumerable: 'enumerable' in partialDesc ? !!enumerable : undefinedSymbol,
             writable: 'writable' in partialDesc ? !!writable : undefinedSymbol,
-            valuePointer: 'value' in partialDesc ? getValueOrPointer(value) : undefinedSymbol,
-            getPointer: 'get' in partialDesc ? getValueOrPointer(get) : undefinedSymbol,
-            setPointer: 'set' in partialDesc ? getValueOrPointer(set) : undefinedSymbol,
+            valuePointer: 'value' in partialDesc ? getTransferableValue(value) : undefinedSymbol,
+            getPointer: 'get' in partialDesc ? getTransferableValue(get) : undefinedSymbol,
+            setPointer: 'set' in partialDesc ? getTransferableValue(set) : undefinedSymbol,
         };
     }
 
@@ -437,8 +465,8 @@ export default function init(
             args: any[]
         ): any {
             const { targetPointer } = this;
-            const thisArgValueOrPointer = getValueOrPointer(thisArg);
-            const listOfValuesOrPointers = args.map(getValueOrPointer);
+            const thisArgValueOrPointer = getTransferableValue(thisArg);
+            const listOfValuesOrPointers = args.map(getTransferableValue);
             const foreignValueOrCallable = foreignCallableApply(
                 targetPointer,
                 thisArgValueOrPointer,
@@ -458,8 +486,8 @@ export default function init(
             if (newTarget === undefined) {
                 throw new TypeErrorCtor();
             }
-            const newTargetPointer = getValueOrPointer(newTarget);
-            const listOfValuesOrPointers = args.map(getValueOrPointer);
+            const newTargetPointer = getTransferableValue(newTarget);
+            const listOfValuesOrPointers = args.map(getTransferableValue);
             const foreignValueOrCallable = foreignCallableConstruct(
                 targetPointer,
                 newTargetPointer,
@@ -520,7 +548,7 @@ export default function init(
             return false; // TODO: is the default value truly false or should be true?
         }
 
-        private makeProxyDynamic(_shadowTarget: ShadowTarget) {
+        private makeProxyDynamic() {
             // assert: trapMutations must be true
             // replacing pending traps with dynamic traps that can work with the target
             // without taking snapshots.
@@ -592,7 +620,7 @@ export default function init(
             // assert: trapMutations must be true
             if (this.isTargetMarkAsDynamic()) {
                 // when the target has the a descriptor for the magic symbol, use the Dynamic traps
-                this.makeProxyDynamic(shadowTarget);
+                this.makeProxyDynamic();
             } else {
                 this.makeProxyStatic(shadowTarget);
             }
@@ -742,7 +770,7 @@ export default function init(
             prototype: object | null
         ): boolean | undefined {
             const { targetPointer } = this;
-            const protoValueOrPointer = getValueOrPointer(prototype);
+            const protoValueOrPointer = getTransferableValue(prototype);
             return foreignCallableSetPrototypeOf(targetPointer, protoValueOrPointer);
         }
 
@@ -883,7 +911,7 @@ export default function init(
             // if it is not an accessor property, is either a getter only accessor
             // or a data property, in which case we use Reflect.set to set the value,
             // and no receiver is needed since it will simply set the data property or nothing
-            const valuePointer = getValueOrPointer(value);
+            const valuePointer = getTransferableValue(value);
             return foreignCallableDefineProperty(
                 targetPointer,
                 key,
@@ -995,15 +1023,18 @@ export default function init(
 
     // exporting callable hooks for a foreign realm
     foreignCallableHooksCallback(
-        // exportValues
-        () =>
-            getLocalPointer({
-                globalThis,
-                indirectEval: (sourceText: string) => cachedLocalEval(sourceText),
-                importModule: (specifier: string) => import(specifier),
-            }),
-        getSelectedTarget,
-        // pushTarget
+        // evaluate
+        (sourceText: string): void => {
+            // no need to return the result of the eval
+            cachedLocalEval(sourceText);
+        },
+        /**
+         * callablePushTarget: This function can be used by a foreign realm to install a proxy
+         * into this realm that correspond to an object from the foreign realm. It returns
+         * a Pointer that can be used by the foreign realm to pass back a reference to this
+         * realm when passing arguments or returning from a foreign callable invocation. This
+         * function is extremely important to understand the mechanics of this membrane.
+         */
         (
             pointer: () => void,
             targetTraits: TargetTraits,
@@ -1024,7 +1055,7 @@ export default function init(
             const thisArg = getLocalValue(thisArgValueOrPointer);
             const args = listOfValuesOrPointers.map(getLocalValue);
             const value = apply(fn, thisArg, args);
-            return isPrimitiveValue(value) ? value : getLocalPointer(value);
+            return isPrimitiveValue(value) ? value : getTransferablePointer(value);
         },
         // callableConstruct
         (
@@ -1037,7 +1068,7 @@ export default function init(
             const newTarget = getLocalValue(newTargetPointer);
             const args = listOfValuesOrPointers.map(getLocalValue);
             const value = construct(constructor, args, newTarget);
-            return isPrimitiveValue(value) ? value : getLocalPointer(value);
+            return isPrimitiveValue(value) ? value : getTransferablePointer(value);
         },
         // callableDefineProperty
         (
@@ -1052,23 +1083,24 @@ export default function init(
         ): boolean => {
             targetPointer();
             const target = getSelectedTarget();
-            const desc = create(null);
-            if (configurable !== undefinedSymbol) {
-                desc.configurable = configurable;
+            // @ts-ignore for some reason, TS doesn't like __proto__ on property descriptors
+            const desc: PropertyDescriptor = { __proto__: null };
+            if (isUndefinedSymbol(configurable)) {
+                desc.configurable = !!configurable;
             }
-            if (enumerable !== undefinedSymbol) {
-                desc.enumerable = enumerable;
+            if (isUndefinedSymbol(enumerable)) {
+                desc.enumerable = !!enumerable;
             }
-            if (writable !== undefinedSymbol) {
-                desc.writable = writable;
+            if (isUndefinedSymbol(writable)) {
+                desc.writable = !!writable;
             }
-            if (getPointer !== undefinedSymbol) {
+            if (isUndefinedSymbol(getPointer)) {
                 desc.get = getLocalValue(getPointer);
             }
-            if (setPointer !== undefinedSymbol) {
+            if (isUndefinedSymbol(setPointer)) {
                 desc.set = getLocalValue(setPointer);
             }
-            if (valuePointer !== undefinedSymbol) {
+            if (isUndefinedSymbol(valuePointer)) {
                 desc.value = getLocalValue(valuePointer);
             }
             return defineProperty(target, key, desc);
@@ -1099,9 +1131,9 @@ export default function init(
                 return;
             }
             const { configurable, enumerable, writable, value, get, set } = desc;
-            const valuePointer = getValueOrPointer(value);
-            const getPointer = getValueOrPointer(get);
-            const setPointer = getValueOrPointer(set);
+            const valuePointer = getTransferableValue(value);
+            const getPointer = getTransferableValue(get);
+            const setPointer = getTransferableValue(set);
             foreignCallableDescriptorCallback(
                 !!configurable,
                 !!enumerable,
@@ -1116,7 +1148,7 @@ export default function init(
             targetPointer();
             const target = getSelectedTarget();
             const proto = getPrototypeOf(target);
-            return getValueOrPointer(proto);
+            return getTransferableValue(proto);
         },
         // callableHas
         (targetPointer: Pointer, key: PropertyKey): boolean => {
@@ -1192,7 +1224,7 @@ export default function init(
         }
     );
     return (
-        pushTarget: CallablePushTarget,
+        callablePushTarget: CallablePushTarget,
         callableApply: CallableApply,
         callableConstruct: CallableConstruct,
         callableDefineProperty: CallableDefineProperty,
@@ -1207,7 +1239,7 @@ export default function init(
         callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
         callableHasOwnProperty: CallableHasOwnProperty
     ) => {
-        foreignPushTarget = pushTarget;
+        foreignCallablePushTarget = callablePushTarget;
         foreignCallableApply = foreignErrorControl(callableApply);
         foreignCallableConstruct = foreignErrorControl(callableConstruct);
         foreignCallableDefineProperty = foreignErrorControl(callableDefineProperty);
