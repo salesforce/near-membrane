@@ -116,5 +116,9 @@
       "pre-commit": "lint-staged",
       "commit-msg": "yarn commitlint --edit $1"
     }
+  },
+  "dependencies": {
+    "@locker/near-membrane-dom": "^0.6.1",
+    "@locker/near-membrane-node": "^0.6.1"
   }
 }
