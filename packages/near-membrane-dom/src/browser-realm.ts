@@ -1,21 +1,41 @@
 import {
+    init,
     VirtualEnvironment,
-    EnvironmentOptions,
-    ReflectApply,
-    ObjectLookupOwnGetter,
-    emptyArray,
-    linkIntrinsics,
     getFilteredEndowmentDescriptors,
-    setupStackTrace,
+    ProxyTarget,
 } from '@locker/near-membrane-base';
 
-import { getCachedBlueReferences, getRedReferences, linkUnforgeables, tameDOM } from './window';
+import { getCachedBlueReferences, getRedReferences, tameDOM } from './window';
 
+interface EnvironmentOptions {
+    distortionCallback?: (originalTarget: ProxyTarget) => ProxyTarget;
+    endowments?: object;
+    globalThis: WindowProxy & typeof globalThis;
+}
+
+const emptyArray: [] = [];
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
+const initSourceText = `(${init.toString()})`;
+const TypeErrorCtor = TypeError;
 
 const { createElement: DocumentCreateElement } = document;
 const { remove: ElementProtoRemove } = Element.prototype;
 const { appendChild: NodeProtoAppendChild } = Node.prototype;
+const { apply: ReflectApply } = Reflect;
+const {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    __lookupGetter__: ObjectProto__lookupGetter__,
+    hasOwnProperty: ObjectProtoHasOwnProperty,
+} = Object.prototype as any;
+
+function ObjectLookupOwnGetter(obj: object, key: PropertyKey): Function | undefined {
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+    if (obj === null || obj === undefined || !ReflectApply(ObjectProtoHasOwnProperty, obj, [key])) {
+        return undefined;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+    return ReflectApply(ObjectProto__lookupGetter__, obj, [key]);
+}
 
 const DocumentProtoBodyGetter = ObjectLookupOwnGetter(Document.prototype, 'body')!;
 const NodeProtoIsConnectedGetter = ObjectLookupOwnGetter(Node.prototype, 'isConnected')!;
@@ -82,24 +102,24 @@ const { open, close } = document;
 export default function createVirtualEnvironment(
     options?: BrowserEnvironmentOptions
 ): (sourceText: string) => void {
-    const { distortionCallback, endowments, keepAlive } = options || { __proto__: null };
+    const { distortionCallback, endowments, keepAlive, globalThis = window } = options || {
+        __proto__: null,
+    };
     const iframe = createDetachableIframe();
-    const blueWindow = window;
+    const blueWindow = globalThis;
     const redWindow = (iframe.contentWindow as WindowProxy).window;
     const endowmentsDescriptors = getFilteredEndowmentDescriptors(endowments || {});
-    const { eval: redIndirectEval } = redWindow;
+    const blueConnector = init;
+    const redConnector = redWindow.eval(initSourceText);
     // extract the global references and descriptors before any interference
     const blueRefs = getCachedBlueReferences(blueWindow);
     const redRefs = getRedReferences(redWindow);
     // creating a new environment
     const env = new VirtualEnvironment({
-        blueGlobalThis: blueWindow,
-        redGlobalThis: redWindow,
+        blueConnector,
+        redConnector,
         distortionCallback,
     });
-    setupStackTrace(redWindow);
-    linkIntrinsics(env, blueWindow, redWindow);
-    linkUnforgeables(env, blueRefs, redRefs);
     tameDOM(env, blueRefs, redRefs, endowmentsDescriptors);
     // once we get the iframe info ready, and all mapped, we can proceed
     // to detach the iframe only if the keepAlive option isn't true
@@ -114,9 +134,10 @@ export default function createVirtualEnvironment(
     // finally, we return the evaluator function
     return (sourceText: string): void => {
         try {
-            redIndirectEval(sourceText);
+            env.evaluate(sourceText);
         } catch (e) {
-            throw env.getBlueValue(e);
+            // TODO: what error should we throw here?
+            throw new TypeErrorCtor();
         }
     };
 }
