@@ -50,17 +50,18 @@ export type CallableDefineProperty = (
     setPointer: PrimitiveOrPointer
 ) => boolean;
 type CallableDeleteProperty = (targetPointer: Pointer, key: PropertyKey) => boolean;
+type CallableDescriptorCallback = (
+    configurable: boolean | symbol,
+    enumerable: boolean | symbol,
+    writable: boolean | symbol,
+    valuePointer: PrimitiveOrPointer,
+    getPointer: PrimitiveOrPointer,
+    setPointer: PrimitiveOrPointer
+) => void;
 type CallableGetOwnPropertyDescriptor = (
     targetPointer: Pointer,
     key: PropertyKey,
-    foreignCallableDescriptorCallback: (
-        configurable: boolean,
-        enumerable: boolean,
-        writable: boolean,
-        valuePointer: PrimitiveOrPointer,
-        getPointer: PrimitiveOrPointer,
-        setPointer: PrimitiveOrPointer
-    ) => void
+    foreignCallableDescriptorCallback: CallableDescriptorCallback
 ) => void;
 type CallableGetPrototypeOf = (targetPointer: Pointer) => PrimitiveOrPointer;
 type CallableHas = (targetPointer: Pointer, key: PropertyKey) => boolean;
@@ -139,9 +140,9 @@ export function init(
     const TypeErrorCtor = TypeError;
     const {
         // eslint-disable-next-line @typescript-eslint/naming-convention
-        __lookupGetter__: ObjectProto__lookupGetter__,
+        // __lookupGetter__: ObjectProto__lookupGetter__,
         // eslint-disable-next-line @typescript-eslint/naming-convention
-        __lookupSetter__: ObjectProto__lookupSetter__,
+        // __lookupSetter__: ObjectProto__lookupSetter__,
         hasOwnProperty: ObjectProtoHasOwnProperty,
     } = Object.prototype as any;
     const proxyTargetToPointerMap = new WeakMap();
@@ -208,10 +209,15 @@ export function init(
         };
     }
 
-    function selectTarget(originalTarget: ProxyTarget): void {
-        // assert: selectedTarget is undefined
+    function createPointer(originalTarget: ProxyTarget): () => void {
         // assert: originalTarget is a ProxyTarget
-        selectedTarget = originalTarget;
+        const pointer = () => {
+            // assert: selectedTarget is undefined
+            selectedTarget = originalTarget;
+        };
+        // In case debugging is needed, the following line can help greatly:
+        pointer['[[OriginalTarget]]'] = originalTarget;
+        return pointer;
     }
 
     function getSelectedTarget(): any {
@@ -246,6 +252,38 @@ export function init(
         return shadowTarget;
     }
 
+    // metadata is the transferable descriptor definition
+    function createDescriptorFromMeta(
+        configurable: boolean | symbol,
+        enumerable: boolean | symbol,
+        writable: boolean | symbol,
+        valuePointer: PrimitiveOrPointer,
+        getPointer: PrimitiveOrPointer,
+        setPointer: PrimitiveOrPointer
+    ): PropertyDescriptor {
+        // @ts-ignore for some reason, TS doesn't like __proto__ on property descriptors
+        const desc: PropertyDescriptor = { __proto__: null };
+        if (!isUndefinedSymbol(configurable)) {
+            desc.configurable = !!configurable;
+        }
+        if (!isUndefinedSymbol(enumerable)) {
+            desc.enumerable = !!enumerable;
+        }
+        if (!isUndefinedSymbol(writable)) {
+            desc.writable = !!writable;
+        }
+        if (!isUndefinedSymbol(getPointer)) {
+            desc.get = getLocalValue(getPointer);
+        }
+        if (!isUndefinedSymbol(setPointer)) {
+            desc.set = getLocalValue(setPointer);
+        }
+        if (!isUndefinedSymbol(valuePointer)) {
+            desc.value = getLocalValue(valuePointer);
+        }
+        return desc;
+    }
+
     function copyForeignDescriptorIntoShadowTarget(
         shadowTarget: ShadowTarget,
         targetPointer: Pointer,
@@ -255,21 +293,8 @@ export function init(
         //       but it will always be compatible with the previous descriptor
         //       to preserve the object invariants, which makes these lines safe.
         let desc: PropertyDescriptor;
-        const callbackWithDescriptor = (
-            configurable: boolean,
-            enumerable: boolean,
-            writable: boolean,
-            valuePointer: PrimitiveOrPointer,
-            getPointer: PrimitiveOrPointer,
-            setPointer: PrimitiveOrPointer
-        ) => {
-            desc = { configurable, enumerable, writable };
-            if (getPointer || setPointer) {
-                desc.get = getLocalValue(getPointer);
-                desc.set = getLocalValue(setPointer);
-            } else {
-                desc.value = getLocalValue(valuePointer);
-            }
+        const callbackWithDescriptor: CallableDescriptorCallback = (...descMeta) => {
+            desc = createDescriptorFromMeta(...descMeta);
         };
         foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callbackWithDescriptor);
         if (desc! !== undefined) {
@@ -289,22 +314,8 @@ export function init(
         // @ts-ignore for some reason, TS doesn't like __proto__ on property descriptors
         const descriptors: PropertyDescriptorMap = { __proto__: null };
         let desc: PropertyDescriptor;
-        const callbackWithDescriptor = (
-            configurable: boolean,
-            enumerable: boolean,
-            writable: boolean,
-            valuePointer: PrimitiveOrPointer,
-            getPointer: PrimitiveOrPointer,
-            setPointer: PrimitiveOrPointer
-        ) => {
-            // @ts-ignore
-            desc = { __proto__: null, configurable, enumerable, writable };
-            if (getPointer || setPointer) {
-                desc.get = getLocalValue(getPointer);
-                desc.set = getLocalValue(setPointer);
-            } else {
-                desc.value = getLocalValue(valuePointer);
-            }
+        const callbackWithDescriptor: CallableDescriptorCallback = (...descMeta) => {
+            desc = createDescriptorFromMeta(...descMeta);
         };
         for (let i = 0, len = keys.length; i < len; i += 1) {
             const key = keys[i] as string;
@@ -336,14 +347,15 @@ export function init(
         return typeof primitiveValueOrForeignCallable === 'function';
     }
 
+    // TODO: this needs optimization
     function isPrimitiveValue(
         primitiveValueOrForeignCallable: PrimitiveOrPointer
     ): primitiveValueOrForeignCallable is PrimitiveValue {
         // TODO: what other ways to optimize this method?
         return (
-            primitiveValueOrForeignCallable === null &&
-            typeof primitiveValueOrForeignCallable !== 'function' &&
-            typeof primitiveValueOrForeignCallable !== 'object'
+            primitiveValueOrForeignCallable === null ||
+            (typeof primitiveValueOrForeignCallable !== 'function' &&
+                typeof primitiveValueOrForeignCallable !== 'object')
         );
     }
 
@@ -381,6 +393,10 @@ export function init(
                 // try/catch in case Array.isArray throws when target is a revoked proxy
                 targetIsArray = isArrayOrNotOrThrowForRevoked(distortedTarget);
             } catch {
+                // TODO: this might be problematic, because functions and arrow functions should
+                // also be subject to this, but it seems that we can still create a proxy of a
+                // revoke, and wait until the user-land code actually access something out of it
+                // to throw the proper error.
                 // target is a revoked proxy, so the type doesn't matter much from this point on
                 targetTraits &= TargetTraits.Revoked;
             }
@@ -388,15 +404,11 @@ export function init(
             targetTraits |= +!targetIsArray && TargetTraits.IsObject;
         }
         // the closure works as the implicit WeakMap
-        const pointerForTarget = () => selectTarget(distortedTarget);
+        const pointerForTarget = createPointer(distortedTarget);
         pointer = foreignCallablePushTarget(pointerForTarget, targetTraits, targetFunctionName);
-
-        // In case debugging is needed, the following line can help greatly:
-        // pointerForOriginalTarget.originalTarget = pointer.originalTarget = originalTarget;
 
         // the WeakMap is populated with the original target rather then the distorted one
         // while the pointer always uses the distorted one.
-
         // TODO: this mechanism poses another issue, which is that the return value of
         // getSelectedTarget() can never be used to call across the membrane because that
         // will cause a wrapping around the potential distorted value instead of the original
@@ -419,16 +431,18 @@ export function init(
         return isPrimitiveValue(value) ? value : getTransferablePointer(value);
     }
 
-    function getPartialDescriptorMeta(partialDesc: PropertyDescriptor) {
+    function getPartialDescriptorMeta(
+        partialDesc: PropertyDescriptor
+    ): Parameters<CallableDescriptorCallback> {
         const { configurable, enumerable, writable, value, get, set } = partialDesc;
-        return {
-            configurable: 'configurable' in partialDesc ? !!configurable : undefinedSymbol,
-            enumerable: 'enumerable' in partialDesc ? !!enumerable : undefinedSymbol,
-            writable: 'writable' in partialDesc ? !!writable : undefinedSymbol,
-            valuePointer: 'value' in partialDesc ? getTransferableValue(value) : undefinedSymbol,
-            getPointer: 'get' in partialDesc ? getTransferableValue(get) : undefinedSymbol,
-            setPointer: 'set' in partialDesc ? getTransferableValue(set) : undefinedSymbol,
-        };
+        return [
+            'configurable' in partialDesc ? !!configurable : undefinedSymbol,
+            'enumerable' in partialDesc ? !!enumerable : undefinedSymbol,
+            'writable' in partialDesc ? !!writable : undefinedSymbol,
+            'value' in partialDesc ? getTransferableValue(value) : undefinedSymbol,
+            'get' in partialDesc ? getTransferableValue(get) : undefinedSymbol,
+            'set' in partialDesc ? getTransferableValue(set) : undefinedSymbol,
+        ];
     }
 
     function lockShadowTarget(shadowTarget: ShadowTarget, targetPointer: Pointer) {
@@ -654,31 +668,16 @@ export function init(
             partialDesc: PropertyDescriptor
         ): boolean | undefined {
             const { targetPointer } = this;
-            const {
-                configurable,
-                enumerable,
-                writable,
-                valuePointer,
-                getPointer,
-                setPointer,
-            } = getPartialDescriptorMeta(partialDesc);
-            const result = foreignCallableDefineProperty(
-                targetPointer,
-                key,
-                configurable,
-                enumerable,
-                writable,
-                valuePointer,
-                getPointer,
-                setPointer
-            );
+            const descMeta = getPartialDescriptorMeta(partialDesc);
+            const result = foreignCallableDefineProperty(targetPointer, key, ...descMeta);
             if (result) {
+                const [configurable] = descMeta;
                 // intentionally testing against true since it could be undefined as well
                 if (configurable === false) {
                     copyForeignDescriptorIntoShadowTarget(shadowTarget, targetPointer, key);
                 }
             }
-            return true;
+            return result;
         }
 
         private static dynamicDeletePropertyTrap(
@@ -697,23 +696,10 @@ export function init(
         ): PropertyDescriptor | undefined {
             const { targetPointer } = this;
             let desc: PropertyDescriptor | undefined;
-            const callableDescriptorCallback = (
-                configurable: boolean,
-                enumerable: boolean,
-                writable: boolean,
-                valuePointer: PrimitiveOrPointer,
-                getPointer: PrimitiveOrPointer,
-                setPointer: PrimitiveOrPointer
-            ) => {
-                desc = { configurable, enumerable, writable };
-                if (getPointer || setPointer) {
-                    desc.get = getLocalValue(getPointer);
-                    desc.set = getLocalValue(setPointer);
-                } else {
-                    desc.value = getLocalValue(valuePointer);
-                }
+            const callbackWithDescriptor: CallableDescriptorCallback = (...descMeta) => {
+                desc = createDescriptorFromMeta(...descMeta);
             };
-            foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callableDescriptorCallback);
+            foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callbackWithDescriptor);
             if (desc === undefined) {
                 return desc!;
             }
@@ -870,15 +856,15 @@ export function init(
             while (O !== null) {
                 if (ObjectProtoHasOwnProperty.call(O, key)) {
                     // we know this is a single stop lookup because it has own property
-                    const getter = ObjectProto__lookupGetter__(O, key);
+                    const { get: getter, value: localValue } = getOwnPropertyDescriptor(O, key)!;
                     if (getter) {
-                        // even though the getter function exists, we can't use Reflect.set because
-                        // there might be a distortion for that setter function, in which case we
-                        // must resolve the local setter and call it instead.
+                        // even though the getter function exists, we can't use Reflect.get because
+                        // there might be a distortion for that getter function, in which case we
+                        // must resolve the local getter and call it instead.
                         return apply(getter, receiver, []);
                     }
-                    // accessor exists without a setter
-                    return undefined;
+                    // descriptor exists without a getter
+                    return localValue;
                 }
                 O = getPrototypeOf(O);
             }
@@ -911,7 +897,7 @@ export function init(
             while (O !== null) {
                 if (ObjectProtoHasOwnProperty.call(O, key)) {
                     // we know this is a single stop lookup because it has own property
-                    const setter = ObjectProto__lookupSetter__(O, key);
+                    const { set: setter, get: getter } = getOwnPropertyDescriptor(O, key)!;
                     if (setter) {
                         // even though the setter function exists, we can't use Reflect.set because
                         // there might be a distortion for that setter function, in which case we
@@ -921,8 +907,13 @@ export function init(
                         // value was set
                         return true;
                     }
-                    // accessor exists without a setter
-                    return false;
+                    if (getter) {
+                        // accessor descriptor exists without a setter
+                        return false;
+                    }
+                    // setting the descriptor with only a value entry should not
+                    // affect existing descriptor traits
+                    return defineProperty(O, key, { value });
                 }
                 O = getPrototypeOf(O);
             }
@@ -1066,13 +1057,16 @@ export function init(
         // this mapping return a pointer for each of the reflective intrinsics
         // and their respective prototype so both sides of the membrane can link them out.
         const reflectiveValue = globalThis[globalName];
-        const reflectiveValueProto = reflectiveValue.prototype;
+        const reflectivePointer = createPointer(reflectiveValue);
         reflectiveValues.push(reflectiveValue);
-        reflectiveValues.push(reflectiveValueProto);
-        const reflectivePointer = () => selectTarget(reflectiveValue);
-        const reflectiveProtoPointer = () => selectTarget(reflectiveValueProto);
         reflectivePointers.push(reflectivePointer);
-        reflectiveValues.push(reflectiveProtoPointer);
+        const reflectiveValueProto = reflectiveValue.prototype;
+        // Proxy.prototype is undefined, being the only weird thing here
+        if (reflectiveValueProto) {
+            const reflectiveProtoPointer = createPointer(reflectiveValueProto);
+            reflectiveValues.push(reflectiveValueProto);
+            reflectivePointers.push(reflectiveProtoPointer);
+        }
     });
 
     const unforgeablePointers: Pointer[] = [];
@@ -1082,38 +1076,21 @@ export function init(
     if (globalThis.window === globalThis) {
         // window.document
         const { document } = globalThis;
-        unforgeablePointers.push(() => selectTarget(document));
+        unforgeablePointers.push(createPointer(document));
         unforgeableValues.push(document);
-        // document.__proto__ (aka Document.prototype)
-        const DocumentPrototype = getPrototypeOf(document)!;
-        unforgeablePointers.push(() => selectTarget(DocumentPrototype));
-        unforgeableValues.push(DocumentPrototype);
         // window.__proto__ (aka Window.prototype)
         const WindowPrototype = getPrototypeOf(globalThis)!;
-        unforgeablePointers.push(() => selectTarget(WindowPrototype));
+        unforgeablePointers.push(createPointer(WindowPrototype));
         unforgeableValues.push(WindowPrototype);
         // window.__proto__.__proto__ (aka WindowProperties.prototype)
         const WindowPropertiesPrototype = getPrototypeOf(WindowPrototype)!;
-        unforgeablePointers.push(() => selectTarget(WindowPropertiesPrototype));
+        unforgeablePointers.push(createPointer(WindowPropertiesPrototype));
         unforgeableValues.push(WindowPropertiesPrototype);
         // window.__proto__.__proto__.__proto__ (aka EventTarget.prototype)
         const EventTargetPrototype = getPrototypeOf(WindowPropertiesPrototype)!;
-        unforgeablePointers.push(() => selectTarget(EventTargetPrototype));
+        unforgeablePointers.push(createPointer(EventTargetPrototype));
         unforgeableValues.push(EventTargetPrototype);
     }
-
-    ReflectiveIntrinsicObjectNames.forEach((globalName) => {
-        // this mapping return a pointer for each of the reflective intrinsics
-        // and their respective prototype so both sides of the membrane can link them out.
-        const reflectiveValue = globalThis[globalName];
-        const reflectiveValueProto = reflectiveValue.prototype;
-        reflectiveValues.push(reflectiveValue);
-        reflectiveValues.push(reflectiveValueProto);
-        const reflectivePointer = () => selectTarget(reflectiveValue);
-        const reflectiveProtoPointer = () => selectTarget(reflectiveValueProto);
-        reflectivePointers.push(reflectivePointer);
-        reflectiveValues.push(reflectiveProtoPointer);
-    });
 
     function createLazyDescriptor(
         unforgeable: object,
@@ -1122,21 +1099,8 @@ export function init(
     ): PropertyDescriptor {
         const targetPointer = getTransferablePointer(unforgeable);
         let desc: PropertyDescriptor;
-        const callbackWithDescriptor = (
-            configurable: boolean,
-            enumerable: boolean,
-            writable: boolean,
-            valuePointer: PrimitiveOrPointer,
-            getPointer: PrimitiveOrPointer,
-            setPointer: PrimitiveOrPointer
-        ) => {
-            desc = { configurable, enumerable, writable };
-            if (getPointer || setPointer) {
-                desc.get = getLocalValue(getPointer);
-                desc.set = getLocalValue(setPointer);
-            } else {
-                desc.value = getLocalValue(valuePointer);
-            }
+        const callbackWithDescriptor: CallableDescriptorCallback = (...descMeta) => {
+            desc = createDescriptorFromMeta(...descMeta);
         };
         // the role of this descriptor is to serve as a bouncer, when either a getter or a setter
         // is accessed, the descriptor will be replaced with the descriptor from the foreign side
@@ -1210,7 +1174,7 @@ export function init(
         ): Pointer => {
             const { proxy } = new BoundaryProxyHandler(pointer, targetTraits, targetFunctionName);
             WeakMapSet.call(proxyTargetToPointerMap, proxy, pointer);
-            return selectTarget.bind(undefined, proxy);
+            return createPointer(proxy);
         },
         // callableApply
         (
@@ -1242,35 +1206,11 @@ export function init(
         (
             targetPointer: Pointer,
             key: PropertyKey,
-            configurable: boolean | symbol,
-            enumerable: boolean | symbol,
-            writable: boolean | symbol,
-            valuePointer: PrimitiveOrPointer,
-            getPointer: PrimitiveOrPointer,
-            setPointer: PrimitiveOrPointer
+            ...descMeta: Parameters<CallableDescriptorCallback>
         ): boolean => {
             targetPointer();
             const target = getSelectedTarget();
-            // @ts-ignore for some reason, TS doesn't like __proto__ on property descriptors
-            const desc: PropertyDescriptor = { __proto__: null };
-            if (isUndefinedSymbol(configurable)) {
-                desc.configurable = !!configurable;
-            }
-            if (isUndefinedSymbol(enumerable)) {
-                desc.enumerable = !!enumerable;
-            }
-            if (isUndefinedSymbol(writable)) {
-                desc.writable = !!writable;
-            }
-            if (isUndefinedSymbol(getPointer)) {
-                desc.get = getLocalValue(getPointer);
-            }
-            if (isUndefinedSymbol(setPointer)) {
-                desc.set = getLocalValue(setPointer);
-            }
-            if (isUndefinedSymbol(valuePointer)) {
-                desc.value = getLocalValue(valuePointer);
-            }
+            const desc = createDescriptorFromMeta(...descMeta);
             return defineProperty(target, key, desc);
         },
         // callableDeleteProperty
@@ -1283,14 +1223,7 @@ export function init(
         (
             targetPointer: Pointer,
             key: PropertyKey,
-            foreignCallableDescriptorCallback: (
-                configurable: boolean,
-                enumerable: boolean,
-                writable: boolean,
-                valuePointer: PrimitiveOrPointer,
-                getPointer: PrimitiveOrPointer,
-                setPointer: PrimitiveOrPointer
-            ) => void
+            foreignCallableDescriptorCallback: CallableDescriptorCallback
         ): void => {
             targetPointer();
             const target = getSelectedTarget();
@@ -1298,18 +1231,8 @@ export function init(
             if (!desc) {
                 return;
             }
-            const { configurable, enumerable, writable, value, get, set } = desc;
-            const valuePointer = getTransferableValue(value);
-            const getPointer = getTransferableValue(get);
-            const setPointer = getTransferableValue(set);
-            foreignCallableDescriptorCallback(
-                !!configurable,
-                !!enumerable,
-                !!writable,
-                valuePointer,
-                getPointer,
-                setPointer
-            );
+            const descMeta = getPartialDescriptorMeta(desc);
+            foreignCallableDescriptorCallback(...descMeta);
         },
         // callableGetPrototypeOf
         (targetPointer: Pointer): PrimitiveOrPointer => {
@@ -1393,7 +1316,7 @@ export function init(
         // callableLinkIntrinsics
         (...foreignReflectivePointers: Pointer[]) => {
             // remapping intrinsics that are realm's agnostic
-            for (let i = 0, len = ReflectiveIntrinsicObjectNames.length; i < len; i += 1) {
+            for (let i = 0, len = reflectiveValues.length; i < len; i += 1) {
                 if (reflectiveValues[i] !== null) {
                     WeakMapSet.call(
                         proxyTargetToPointerMap,
@@ -1418,7 +1341,7 @@ export function init(
         },
         // globalThisPointer
         // When crossing, should be mapped to the foreign globalThis
-        () => selectTarget(globalThis)
+        createPointer(globalThis)
     );
     return (...hooks: Parameters<HooksCallback>) => {
         // prettier-ignore
