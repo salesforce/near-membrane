@@ -71,13 +71,13 @@ export class VirtualEnvironment {
         localConnect(...redHooks!);
         foreignConnect(...blueHooks!);
 
-        const [blueGetTransferableValue] = redHooks!;
+        const [blueGetTransferableValue] = blueHooks!;
         this.blueGetTransferableValue = blueGetTransferableValue;
         // prettier-ignore
         const [,
             redCallableEvaluate,
             redCallableInstallLazyDescriptors,,,,
-            redCallableDefineProperty,,,,,,,
+            redCallableDefineProperty,,,,,,,,
             redCallableSetPrototypeOf
         ] = redHooks!;
         this.redCallableEvaluate = redCallableEvaluate;

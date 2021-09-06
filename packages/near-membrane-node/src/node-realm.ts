@@ -17,7 +17,8 @@ interface EnvironmentOptions {
 // (it's *something* but we aren't sure what), however an indirect eval of
 // 'this' will be the correct global object.
 const unsafeGlobalEvalSrc = `(0, eval)("'use strict'; this")`;
-const initSourceText = `(${init.toString()})`;
+// TODO: how to guarantee that the function is actually running in strict mode?
+const initSourceText = `(function(){'use strict';return (${init.toString()})})()`;
 const TypeErrorCtor = TypeError;
 
 export default function createVirtualEnvironment(

@@ -15,7 +15,8 @@ interface EnvironmentOptions {
 
 const emptyArray: [] = [];
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
-const initSourceText = `(${init.toString()})`;
+// TODO: how to guarantee that the function is actually running in strict mode?
+const initSourceText = `(function(){'use strict';return (${init.toString()})})()`;
 const TypeErrorCtor = TypeError;
 
 const { createElement: DocumentCreateElement } = document;
