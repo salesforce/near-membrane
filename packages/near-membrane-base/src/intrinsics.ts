@@ -104,23 +104,6 @@ const ESGlobalKeys = new Set([
     // 'Intl',  // Unstable & Remapped
 ]);
 
-// These are foundational things that should never be wrapped but are equivalent
-// TODO: revisit this list.
-// const ReflectiveIntrinsicObjectNames = [
-//     'AggregateError',
-//     'Array',
-//     'Error',
-//     'EvalError',
-//     'Function',
-//     'Object',
-//     'Proxy',
-//     'RangeError',
-//     'ReferenceError',
-//     'SyntaxError',
-//     'TypeError',
-//     'URIError',
-// ];
-
 export function getFilteredEndowmentDescriptors(endowments: object): PropertyDescriptorMap {
     const to: PropertyDescriptorMap = { __proto__: null } as any;
     const globalKeys = ReflectOwnKeys(endowments);

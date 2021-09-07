@@ -1091,8 +1091,11 @@ export function init(
     const unforgeablePointers: Pointer[] = [];
     const unforgeableValues: any[] = [];
     // In a ShadowRealm, there will be no unforgeable, but in an detached iframe
-    // there will be few. This routine is needed for that case:
-    if (globalThis.window === globalThis) {
+    // there will be few. This routine is needed for that case. The test of
+    // instance of event target is important to discard environments in which
+    // a fake window (e.g. jest) is not following the specs, and can break this
+    // membrane.
+    if (globalThis.EventTarget && globalThis instanceof EventTarget) {
         // window.document
         const { document } = globalThis;
         unforgeablePointers.push(createPointer(document));
