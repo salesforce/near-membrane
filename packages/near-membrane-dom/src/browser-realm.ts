@@ -17,7 +17,6 @@ const emptyArray: [] = [];
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 // TODO: how to guarantee that the function is actually running in strict mode?
 const initSourceText = `(function(){'use strict';return (${init.toString()})})()`;
-const TypeErrorCtor = TypeError;
 
 const { createElement: DocumentCreateElement } = document;
 const { remove: ElementProtoRemove } = Element.prototype;
@@ -133,12 +132,5 @@ export default function createVirtualEnvironment(
         close.call(redRefs.document);
     }
     // finally, we return the evaluator function
-    return (sourceText: string): void => {
-        try {
-            env.evaluate(sourceText);
-        } catch (e) {
-            // TODO: what error should we throw here?
-            throw new TypeErrorCtor();
-        }
-    };
+    return (sourceText: string): void => env.evaluate(sourceText);
 }
