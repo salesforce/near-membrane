@@ -8,6 +8,7 @@ import {
     Pointer,
     CallableDefineProperty,
     ProxyTarget,
+    GetSelectedTarget,
 } from './membrane';
 
 const frameGlobalNamesRegExp = /^\d+$/;
@@ -35,6 +36,8 @@ const { hasOwnProperty: ObjectHasOwnProperty } = Object.prototype as any;
 
 export class VirtualEnvironment {
     private blueGetTransferableValue: GetTransferableValue;
+
+    private blueGetSelectedTarget: GetSelectedTarget;
 
     private redCallableSetPrototypeOf: CallableSetPrototypeOf;
 
@@ -71,10 +74,11 @@ export class VirtualEnvironment {
         localConnect(...redHooks!);
         foreignConnect(...blueHooks!);
 
-        const [blueGetTransferableValue] = blueHooks!;
+        const [blueGetSelectedTarget, blueGetTransferableValue] = blueHooks!;
+        this.blueGetSelectedTarget = blueGetSelectedTarget;
         this.blueGetTransferableValue = blueGetTransferableValue;
         // prettier-ignore
-        const [,
+        const [,,
             redCallableEvaluate,
             redCallableInstallLazyDescriptors,,,,
             redCallableDefineProperty,,,,,,,,
@@ -87,7 +91,15 @@ export class VirtualEnvironment {
     }
 
     evaluate(sourceText: string): void {
-        this.redCallableEvaluate(sourceText);
+        try {
+            this.redCallableEvaluate(sourceText);
+        } catch (e) {
+            const pushedError = this.blueGetSelectedTarget();
+            if (pushedError !== undefined) {
+                throw pushedError;
+            }
+            throw e;
+        }
     }
 
     remap(o: ProxyTarget, blueDescriptors: PropertyDescriptorMap) {

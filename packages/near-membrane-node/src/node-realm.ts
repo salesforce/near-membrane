@@ -19,7 +19,6 @@ interface EnvironmentOptions {
 const unsafeGlobalEvalSrc = `(0, eval)("'use strict'; this")`;
 // TODO: how to guarantee that the function is actually running in strict mode?
 const initSourceText = `(function(){'use strict';return (${init.toString()})})()`;
-const TypeErrorCtor = TypeError;
 
 export default function createVirtualEnvironment(
     options?: EnvironmentOptions
@@ -41,12 +40,5 @@ export default function createVirtualEnvironment(
     // remapping globals
     env.remap(redGlobalThis, endowmentsDescriptors);
 
-    return (sourceText: string): void => {
-        try {
-            env.evaluate(sourceText);
-        } catch (e) {
-            // TODO: what error should we throw here?
-            throw new TypeErrorCtor();
-        }
-    };
+    return (sourceText: string): void => env.evaluate(sourceText);
 }

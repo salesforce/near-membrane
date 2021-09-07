@@ -1,5 +1,5 @@
 /**
- * This file contains an exportable (portable) function init can be used to initialize
+ * This file contains an exportable (portable) function `init` used to initialize
  * one side of a membrane on any realm. The only prerequisite is the ability to evaluate
  * the sourceText of the `init` function there. Once evaluated, the function will return
  * a set of values that can be used to wire up the side of the membrane with another
@@ -85,7 +85,9 @@ export type CallableInstallLazyDescriptors = (
 ) => void;
 export type CallableEvaluate = (sourceText: string) => void;
 export type GetTransferableValue = (value: any) => PrimitiveOrPointer;
+export type GetSelectedTarget = () => any;
 export type HooksCallback = (
+    getSelectedTarget: GetSelectedTarget,
     getTransferableValue: GetTransferableValue,
     callableEvaluate: CallableEvaluate,
     callableInstallLazyDescriptor: CallableInstallLazyDescriptors,
@@ -204,9 +206,21 @@ export function init(
             try {
                 return foreignFn(...args);
             } catch (e) {
+                const pushedError = getSelectedTarget();
+                if (pushedError !== undefined) {
+                    throw pushedError;
+                }
                 throw new TypeErrorCtor(e.message);
             }
         };
+    }
+
+    function pushErrorAcrossBoundary(e: any): any {
+        const ePointer = getTransferableValue(e);
+        if (typeof ePointer === 'function') {
+            ePointer();
+        }
+        return e;
     }
 
     function createPointer(originalTarget: ProxyTarget): () => void {
@@ -1134,12 +1148,17 @@ export function init(
 
     // exporting callable hooks for a foreign realm
     foreignCallableHooksCallback(
+        getSelectedTarget,
         // getTransferableValue
         getTransferableValue,
         // evaluate
         (sourceText: string): void => {
             // no need to return the result of the eval
-            cachedLocalEval(sourceText);
+            try {
+                cachedLocalEval(sourceText);
+            } catch (e) {
+                throw pushErrorAcrossBoundary(e);
+            }
         },
         // callableInstallLazyDescriptors
         (targetPointer: Pointer, ...keyAndEnumTuple: PropertyKey[]) => {
@@ -1186,7 +1205,12 @@ export function init(
             const fn = getSelectedTarget();
             const thisArg = getLocalValue(thisArgValueOrPointer);
             const args = listOfValuesOrPointers.map(getLocalValue);
-            const value = apply(fn, thisArg, args);
+            let value;
+            try {
+                value = apply(fn, thisArg, args);
+            } catch (e) {
+                throw pushErrorAcrossBoundary(e);
+            }
             return isPrimitiveValue(value) ? value : getTransferablePointer(value);
         },
         // callableConstruct
@@ -1199,7 +1223,12 @@ export function init(
             const constructor = getSelectedTarget();
             const newTarget = getLocalValue(newTargetPointer);
             const args = listOfValuesOrPointers.map(getLocalValue);
-            const value = construct(constructor, args, newTarget);
+            let value;
+            try {
+                value = construct(constructor, args, newTarget);
+            } catch (e) {
+                throw pushErrorAcrossBoundary(e);
+            }
             return isPrimitiveValue(value) ? value : getTransferablePointer(value);
         },
         // callableDefineProperty
@@ -1211,13 +1240,21 @@ export function init(
             targetPointer();
             const target = getSelectedTarget();
             const desc = createDescriptorFromMeta(...descMeta);
-            return defineProperty(target, key, desc);
+            try {
+                return defineProperty(target, key, desc);
+            } catch (e) {
+                throw pushErrorAcrossBoundary(e);
+            }
         },
         // callableDeleteProperty
         (targetPointer: Pointer, key: PropertyKey): boolean => {
             targetPointer();
             const target = getSelectedTarget();
-            return deleteProperty(target, key);
+            try {
+                return deleteProperty(target, key);
+            } catch (e) {
+                throw pushErrorAcrossBoundary(e);
+            }
         },
         // callableGetOwnPropertyDescriptor
         (
@@ -1227,7 +1264,12 @@ export function init(
         ): void => {
             targetPointer();
             const target = getSelectedTarget();
-            const desc = getOwnPropertyDescriptor(target, key);
+            let desc;
+            try {
+                desc = getOwnPropertyDescriptor(target, key);
+            } catch (e) {
+                throw pushErrorAcrossBoundary(e);
+            }
             if (!desc) {
                 return;
             }
@@ -1238,20 +1280,33 @@ export function init(
         (targetPointer: Pointer): PrimitiveOrPointer => {
             targetPointer();
             const target = getSelectedTarget();
-            const proto = getPrototypeOf(target);
+            let proto;
+            try {
+                proto = getPrototypeOf(target);
+            } catch (e) {
+                throw pushErrorAcrossBoundary(e);
+            }
             return getTransferableValue(proto);
         },
         // callableHas
         (targetPointer: Pointer, key: PropertyKey): boolean => {
             targetPointer();
             const target = getSelectedTarget();
-            return has(target, key);
+            try {
+                return has(target, key);
+            } catch (e) {
+                throw pushErrorAcrossBoundary(e);
+            }
         },
         // callableIsExtensible
         (targetPointer: Pointer): boolean => {
             targetPointer();
             const target = getSelectedTarget();
-            return isExtensible(target);
+            try {
+                return isExtensible(target);
+            } catch (e) {
+                throw pushErrorAcrossBoundary(e);
+            }
         },
         // callableOwnKeys
         (
@@ -1260,21 +1315,34 @@ export function init(
         ): void => {
             targetPointer();
             const target = getSelectedTarget();
-            const keys = ownKeys(target) as (string | symbol)[];
+            let keys;
+            try {
+                keys = ownKeys(target) as (string | symbol)[];
+            } catch (e) {
+                throw pushErrorAcrossBoundary(e);
+            }
             foreignCallableKeysCallback(...keys);
         },
         // callablePreventExtensions
         (targetPointer: Pointer): boolean => {
             targetPointer();
             const target = getSelectedTarget();
-            return preventExtensions(target);
+            try {
+                return preventExtensions(target);
+            } catch (e) {
+                throw pushErrorAcrossBoundary(e);
+            }
         },
         // callableSetPrototypeOf
         (targetPointer: Pointer, protoValueOrPointer: PrimitiveOrPointer): boolean => {
             targetPointer();
             const target = getSelectedTarget();
             const proto = getLocalValue(protoValueOrPointer);
-            return setPrototypeOf(target, proto);
+            try {
+                return setPrototypeOf(target, proto);
+            } catch (e) {
+                throw pushErrorAcrossBoundary(e);
+            }
         },
         // callableGetTargetIntegrityTraits
         (targetPointer: Pointer): TargetIntegrityTraits => {
@@ -1311,7 +1379,11 @@ export function init(
         (targetPointer: Pointer, key: PropertyKey): boolean => {
             targetPointer();
             const target = getSelectedTarget();
-            return ObjectProtoHasOwnProperty.call(target, key);
+            try {
+                return ObjectProtoHasOwnProperty.call(target, key);
+            } catch (e) {
+                throw pushErrorAcrossBoundary(e);
+            }
         },
         // callableLinkIntrinsics
         (...foreignReflectivePointers: Pointer[]) => {
@@ -1345,7 +1417,7 @@ export function init(
     );
     return (...hooks: Parameters<HooksCallback>) => {
         // prettier-ignore
-        const [,,,
+        const [,,,,
             callablePushTarget,
             callableApply,
             callableConstruct,
