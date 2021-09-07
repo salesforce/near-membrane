@@ -24,6 +24,7 @@ export default function createVirtualEnvironment(
     options?: EnvironmentOptions
 ): (sourceText: string) => void {
     const { distortionCallback, endowments } = options || { __proto__: null };
+    const blueGlobalThis = globalThis;
     // Use unsafeGlobalEvalSrc to ensure we get the right 'this'.
     const redGlobalThis: typeof globalThis = runInNewContext(unsafeGlobalEvalSrc);
     const blueConnector = init;
@@ -38,7 +39,7 @@ export default function createVirtualEnvironment(
     });
 
     // remapping globals
-    env.remap(redGlobalThis, endowmentsDescriptors);
+    env.remap(blueGlobalThis, endowmentsDescriptors);
 
     return (sourceText: string): void => env.evaluate(sourceText);
 }
