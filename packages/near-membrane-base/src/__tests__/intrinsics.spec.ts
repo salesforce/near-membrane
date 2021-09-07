@@ -1,5 +1,8 @@
-import { VirtualEnvironment } from '../../types';
-import { isIntrinsicGlobalName, linkIntrinsics, setupStackTrace } from '../intrinsics';
+import {
+    getFilteredEndowmentDescriptors,
+    isIntrinsicGlobalName,
+    VirtualEnvironment,
+} from '../index';
 
 const intrinsicNames = [
     'Infinity',
@@ -67,12 +70,16 @@ const remappedIntrinsicNames = [
 
 describe('isIntrinsicGlobalName()', () => {
     it('should return false foe ES global names that are remapped', () => {
+        // Ignoring "Property 'assertions' does not exist on type '{...}'."
+        // @ts-ignore
         expect.assertions(remappedIntrinsicNames.length);
         remappedIntrinsicNames.forEach((remappedIntrinsicName) => {
             expect(isIntrinsicGlobalName(remappedIntrinsicName)).toBe(false);
         });
     });
     it('should return true for all non-remapped ES global names', () => {
+        // Ignoring "Property 'assertions' does not exist on type '{...}'."
+        // @ts-ignore
         expect.assertions(intrinsicNames.length);
         intrinsicNames.forEach((intrinsicName) => {
             expect(isIntrinsicGlobalName(intrinsicName)).toBe(true);
@@ -80,71 +87,31 @@ describe('isIntrinsicGlobalName()', () => {
     });
 });
 
-describe('setupStackTrace()', () => {
-    it('should double the stackTraceLimit if Error.stackTraceLimit exists', () => {
+describe('getFilteredEndowmentDescriptors()', () => {
+    it('ignores ES built-ins', () => {
+        // Ignoring "Property 'assertions' does not exist on type '{...}'."
+        // @ts-ignore
         expect.assertions(1);
-        const Error = {
-            stackTraceLimit: 9,
-        };
-        setupStackTrace({
-            Error,
+        const filteredEndowmentDescriptors = getFilteredEndowmentDescriptors({
+            Math,
         });
-        expect(Error.stackTraceLimit).toBe(18);
+        expect(filteredEndowmentDescriptors.Math).toBe(undefined);
     });
-    it('should do nothing if Error.stackTraceLimit does not exist', () => {
+    it('should create a descriptor for non-ES built-ins', () => {
+        // Ignoring "Property 'assertions' does not exist on type '{...}'."
+        // @ts-ignore
         expect.assertions(1);
-        const Error = {};
-        setupStackTrace({
-            Error,
+        const filteredEndowmentDescriptors = getFilteredEndowmentDescriptors({
+            Foo: 1,
         });
-        expect(Error.stackTraceLimit).toBe(undefined);
-    });
-});
-
-describe('linkIntrinsics()', () => {
-    it('should attempt to link reflective intrinsics that are in the blue realm', () => {
-        expect.assertions(2);
-        const fakeEnv = ({
-            setRefMapEntries: jest.fn(),
-        } as unknown) as VirtualEnvironment;
-        expect(() => {
-            linkIntrinsics(fakeEnv, globalThis, {} as typeof globalThis);
-            // We _want_ an error, because we know that redGlobalThis is
-            // empty and there for will have nothing to link to; neither
-            // will that nothing have a prototype to link to!
-        }).toThrow(TypeError);
-        expect(fakeEnv.setRefMapEntries).toHaveBeenCalledTimes(1);
-    });
-    it('should link reflective intrinsics that are in the blue realm to the red realm', () => {
-        expect.assertions(3);
-        const stopper = new Error('done');
-        const fakeEnv = ({
-            setRefMapEntries: jest.fn(() => {
-                // We only care about this being called once!
-                throw stopper;
-            }),
-        } as unknown) as VirtualEnvironment;
-        const fakeRedGlobalThis = ({
-            AggregateError: {
-                prototype: {},
-            },
-        } as unknown) as typeof globalThis;
-
-        expect(() => {
-            linkIntrinsics(fakeEnv, globalThis, fakeRedGlobalThis);
-        }).toThrow(stopper);
-        expect(fakeEnv.setRefMapEntries).toHaveBeenCalledTimes(1);
-        expect(fakeEnv.setRefMapEntries).toHaveBeenCalledWith(
-            fakeRedGlobalThis.AggregateError,
-            globalThis.AggregateError
-        );
-    });
-    it('should ignore intrinsics that are not in the blue realm', () => {
-        expect.assertions(1);
-        const fakeEnv = ({
-            setRefMapEntries: jest.fn(),
-        } as unknown) as VirtualEnvironment;
-        linkIntrinsics(fakeEnv, {} as typeof globalThis, {} as typeof globalThis);
-        expect(fakeEnv.setRefMapEntries).not.toHaveBeenCalled();
+        // Ignoring
+        //  "Property 'toMatchObject' does not exist on type 'Matchers<PropertyDescriptor>'."
+        // @ts-ignore
+        expect(filteredEndowmentDescriptors.Foo).toMatchObject({
+            configurable: true,
+            enumerable: true,
+            value: 1,
+            writable: true,
+        });
     });
 });
