@@ -112,6 +112,7 @@ export type HooksCallback = (
 
 export type DistortionCallback = (target: ProxyTarget) => ProxyTarget;
 
+// istanbul ignore next
 export function init(
     undefinedSymbol: symbol,
     color: string,
