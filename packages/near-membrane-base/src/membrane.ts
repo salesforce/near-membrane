@@ -442,6 +442,11 @@ export function init(
     }
 
     function getTransferableValue(value: any): PrimitiveOrPointer {
+        // internationally ignoring the case of (typeof document.all === 'undefined') because
+        // in the reserve membrane, you never get one of those exotic objects
+        if (typeof value === 'undefined') {
+            return undefined;
+        }
         return isPrimitiveValue(value) ? value : getTransferablePointer(value);
     }
 
@@ -1211,7 +1216,7 @@ export function init(
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
-            return isPrimitiveValue(value) ? value : getTransferablePointer(value);
+            return getTransferableValue(value);
         },
         // callableConstruct
         (
@@ -1229,7 +1234,7 @@ export function init(
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
-            return isPrimitiveValue(value) ? value : getTransferablePointer(value);
+            return getTransferableValue(value);
         },
         // callableDefineProperty
         (
