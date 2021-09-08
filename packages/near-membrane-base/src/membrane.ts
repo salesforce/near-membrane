@@ -138,6 +138,7 @@ export function init(
     } = Reflect;
     const { freeze, seal, isFrozen, isSealed, defineProperties } = Object;
     const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
+    const { push: ArrayPush } = Array.prototype;
     const { revocable: ProxyRevocable } = Proxy;
     const { set: WeakMapSet, get: WeakMapGet } = WeakMap.prototype;
     const TypeErrorCtor = TypeError;
@@ -208,7 +209,7 @@ export function init(
                 return foreignFn(...args);
             } catch (e) {
                 const pushedError = getSelectedTarget();
-                if (pushedError !== undefined) {
+                if (pushedError) {
                     throw pushedError;
                 }
                 throw new TypeErrorCtor(e.message);
@@ -689,7 +690,15 @@ export function init(
         ): boolean | undefined {
             const { targetPointer } = this;
             const descMeta = getPartialDescriptorMeta(partialDesc);
-            const result = foreignCallableDefineProperty(targetPointer, key, ...descMeta);
+            // Perf: Optimization to avoid hitting Symbol.iterator, which will
+            // normally be: foreignCallableDefineProperty(targetPointer, key, ...descMeta)
+            const args = [targetPointer, key];
+            apply(
+                ArrayPush,
+                args, // first two arguments
+                descMeta // rest arguments
+            );
+            const result = apply(foreignCallableDefineProperty, undefined, args);
             if (result) {
                 const [configurable] = descMeta;
                 // intentionally testing against true since it could be undefined as well

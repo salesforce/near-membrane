@@ -25,14 +25,13 @@ interface VirtualEnvironmentOptions {
 const undefinedSymbol = Symbol('membrane@undefined');
 const { test: RegExpProtoTest } = RegExp.prototype;
 const ErrorCtor = Error;
-const { propertyIsEnumerable: ObjectPropertyIsEnumerable } = Object;
+const { propertyIsEnumerable: ObjectPropertyIsEnumerable, keys: ObjectKeys } = Object;
 const { apply: ReflectApply, ownKeys: ReflectOwnKeys } = Reflect;
+const { includes: ArrayIncludes, push: ArrayPush } = Array.prototype;
 
 function RegExpTest(regexp: RegExp, str: string): boolean {
     return ReflectApply(RegExpProtoTest, regexp, [str]);
 }
-
-const { hasOwnProperty: ObjectHasOwnProperty } = Object.prototype as any;
 
 export class VirtualEnvironment {
     private blueGetTransferableValue: GetTransferableValue;
@@ -71,17 +70,32 @@ export class VirtualEnvironment {
             distortionCallback
         );
         const foreignConnect = foreignInit(undefinedSymbol, 'red', true, redExportsCallback);
-        localConnect(...redHooks!);
-        foreignConnect(...blueHooks!);
+        ReflectApply(localConnect, undefined, redHooks!);
+        ReflectApply(foreignConnect, undefined, blueHooks!);
 
         const [blueGetSelectedTarget, blueGetTransferableValue] = blueHooks!;
         this.blueGetSelectedTarget = blueGetSelectedTarget;
         this.blueGetTransferableValue = blueGetTransferableValue;
         // prettier-ignore
-        const [,,
+        const [
+            , // redGetSelectedTarget
+            // eslint-disable-next-line comma-style
+            , // redGetTransferableValue
             redCallableEvaluate,
-            redCallableInstallLazyDescriptors,,,,
-            redCallableDefineProperty,,,,,,,,
+            redCallableInstallLazyDescriptors,
+            , // redCallablePushTarget
+            , // redCallableApply
+            // eslint-disable-next-line comma-style
+            , // redCallableConstruct
+            redCallableDefineProperty,
+            , // redCallableDeleteProperty
+            , // redCallableGetOwnPropertyDescriptor
+            , // redCallableGetPrototypeOf
+            , // redCallableHas
+            , // redCallableIsExtensible
+            , // redCallableOwnKeys
+            // eslint-disable-next-line comma-style
+            , // redCallablePreventExtensions
             redCallableSetPrototypeOf
         ] = redHooks!;
         this.redCallableEvaluate = redCallableEvaluate;
@@ -95,7 +109,7 @@ export class VirtualEnvironment {
             this.redCallableEvaluate(sourceText);
         } catch (e) {
             const pushedError = this.blueGetSelectedTarget();
-            if (pushedError !== undefined) {
+            if (pushedError) {
                 throw pushedError;
             }
             throw e;
@@ -115,24 +129,24 @@ export class VirtualEnvironment {
             // Avoid poisoning by only installing own properties from blueDescriptors
             // @ts-ignore
             const blueDescriptor = { __proto__: null, ...blueDescriptors[key] };
-            const configurable = ObjectHasOwnProperty.call(blueDescriptor, 'configurable')
-                ? !!blueDescriptor.configurable
-                : undefinedSymbol;
-            const enumerable = ObjectHasOwnProperty.call(blueDescriptor, 'enumerable')
-                ? !!blueDescriptor.enumerable
-                : undefinedSymbol;
-            const writable = ObjectHasOwnProperty.call(blueDescriptor, 'writable')
-                ? !!blueDescriptor.writable
-                : undefinedSymbol;
-            const valuePointer = ObjectHasOwnProperty.call(blueDescriptor, 'value')
-                ? this.blueGetTransferableValue(blueDescriptor.value)
-                : undefinedSymbol;
-            const getPointer = ObjectHasOwnProperty.call(blueDescriptor, 'get')
-                ? this.blueGetTransferableValue(blueDescriptor.get)
-                : undefinedSymbol;
-            const setPointer = ObjectHasOwnProperty.call(blueDescriptor, 'set')
-                ? this.blueGetTransferableValue(blueDescriptor.set)
-                : undefinedSymbol;
+            const configurable =
+                'configurable' in blueDescriptor ? !!blueDescriptor.configurable : undefinedSymbol;
+            const enumerable =
+                'enumerable' in blueDescriptor ? !!blueDescriptor.enumerable : undefinedSymbol;
+            const writable =
+                'writable' in blueDescriptor ? !!blueDescriptor.writable : undefinedSymbol;
+            const valuePointer =
+                'value' in blueDescriptor
+                    ? this.blueGetTransferableValue(blueDescriptor.value)
+                    : undefinedSymbol;
+            const getPointer =
+                'get' in blueDescriptor
+                    ? this.blueGetTransferableValue(blueDescriptor.get)
+                    : undefinedSymbol;
+            const setPointer =
+                'set' in blueDescriptor
+                    ? this.blueGetTransferableValue(blueDescriptor.set)
+                    : undefinedSymbol;
             // installing descriptor into the red side
             this.redCallableDefineProperty(
                 oPointer,
@@ -148,8 +162,9 @@ export class VirtualEnvironment {
     }
 
     lazyRemap(o: ProxyTarget, keys: PropertyKey[]) {
-        const enumerablePropertyKeys = Object.keys(o); // except symbols
-        const keysTuple: (PropertyKey | boolean)[] = [];
+        const enumerablePropertyKeys = ObjectKeys(o); // except symbols
+        const oPointer = this.blueGetTransferableValue(o) as Pointer;
+        const args: Parameters<CallableInstallLazyDescriptors> = [oPointer];
         for (let i = 0, len = keys.length; i < len; i += 1) {
             const key = keys[i];
             let isEnumerable = true;
@@ -165,12 +180,11 @@ export class VirtualEnvironment {
                 // eslint-disable-next-line no-continue
                 continue;
             } else {
-                isEnumerable = enumerablePropertyKeys.includes(key as string);
+                isEnumerable = ArrayIncludes.call(enumerablePropertyKeys, key);
             }
-            keysTuple.push(key, isEnumerable);
+            ArrayPush.call(args, key, isEnumerable);
         }
-        const oPointer = this.blueGetTransferableValue(o) as Pointer;
-        this.redCallableInstallLazyDescriptors(oPointer, ...(keysTuple as any));
+        ReflectApply(this.redCallableInstallLazyDescriptors, undefined, args);
     }
 
     remapProto(o: ProxyTarget, proto: object) {
