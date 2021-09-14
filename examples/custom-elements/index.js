@@ -1,4 +1,3 @@
-// eslint-disable-next-line import/no-unresolved
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 const evalScript = createVirtualEnvironment();

@@ -1,5 +1,4 @@
 /* eslint-disable no-proto */
-// eslint-disable-next-line import/no-unresolved
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 // outer element declaration

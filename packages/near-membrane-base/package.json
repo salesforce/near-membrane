@@ -4,7 +4,8 @@
     "license": "MIT",
     "author": "Caridy Patiño <caridy@gmail.com>",
     "description": "JavaScript Near Membrane Library to create a sandboxed environment",
-    "module": "lib/index.js",
+    "main": "lib/index.js",
+    "type": "module",
     "types": "types/index.d.ts",
     "scripts": {
         "clean": "rimraf lib types",
