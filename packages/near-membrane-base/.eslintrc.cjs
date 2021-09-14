@@ -6,7 +6,7 @@ module.exports = {
     ignorePatterns: ['.eslintrc.js'],
     overrides: [
         {
-            files: ['**/*.{js,ts}'],
+            files: ['**/*.{ts}'],
             rules: {
                 'import/no-extraneous-dependencies': [
                     'error',

@@ -3,6 +3,7 @@
         {
             "files": ["**/*.{js,ts}"],
             "rules": {
+                "import/no-unresolved": "off",
                 "import/no-extraneous-dependencies": "off"
             }
         }
