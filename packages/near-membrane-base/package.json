@@ -1,6 +1,6 @@
 {
     "name": "@locker/near-membrane-base",
-    "version": "0.6.1",
+    "version": "0.6.2",
     "license": "MIT",
     "author": "Caridy Patiño <caridy@gmail.com>",
     "description": "JavaScript Near Membrane Library to create a sandboxed environment",
