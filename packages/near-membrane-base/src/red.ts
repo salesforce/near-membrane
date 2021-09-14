@@ -78,6 +78,7 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
     const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
 
     const {
+        assign: ObjectAssign,
         defineProperties: ObjectDefineProperties,
         getOwnPropertyDescriptors: ObjectGetOwnPropertyDescriptors,
         freeze: ObjectFreeze,
@@ -194,7 +195,10 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
     }
 
     function getBluePartialDescriptor(redPartialDesc: PropertyDescriptor): PropertyDescriptor {
-        const bluePartialDesc = { __proto__: null, ...redPartialDesc };
+        // We cannot use object spread inside the serialized redEnvFactory
+        // function because it will be missing the _objectSpread Babel helper.
+        // eslint-disable-next-line prefer-object-spread
+        const bluePartialDesc = ObjectAssign({ __proto__: null }, redPartialDesc);
         if ('writable' in bluePartialDesc) {
             // We are dealing with a value descriptor.
             bluePartialDesc.value = blueEnv.getBlueValue(bluePartialDesc.value);
@@ -226,7 +230,10 @@ export const serializedRedEnvSourceText = /* prettier-ignore */ (function redEnv
     }
 
     function getRedDescriptor(blueDescriptor: PropertyDescriptor): PropertyDescriptor {
-        const redDescriptor = { __proto__: null, ...blueDescriptor };
+        // We cannot use object spread inside the serialized redEnvFactory
+        // function because it will be missing the _objectSpread Babel helper.
+        // eslint-disable-next-line prefer-object-spread
+        const redDescriptor = ObjectAssign({ __proto__: null }, blueDescriptor);
         if ('writable' in redDescriptor) {
             // We are dealing with a value descriptor.
             redDescriptor.value = getRedValue(redDescriptor.value);
