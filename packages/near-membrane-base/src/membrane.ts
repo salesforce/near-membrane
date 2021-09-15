@@ -112,13 +112,19 @@ export type HooksCallback = (
 
 export type DistortionCallback = (target: ProxyTarget) => ProxyTarget;
 
+interface InstrumentationHooks {
+    start(label: string): void;
+    end(label: string): void;
+}
+
 // istanbul ignore next
 export function init(
     undefinedSymbol: symbol,
     color: string,
     trapMutations: boolean,
     foreignCallableHooksCallback: HooksCallback,
-    optionalDistortionCallback?: DistortionCallback
+    optionalDistortionCallback?: DistortionCallback,
+    instrumentation?: InstrumentationHooks
 ): HooksCallback {
     const { eval: cachedLocalEval } = globalThis;
     const {
@@ -152,6 +158,8 @@ export function init(
     const proxyTargetToPointerMap = new WeakMap();
     const LockerLiveValueMarkerSymbol = Symbol.for('@@lockerLiveValue');
     const distortionCallback = optionalDistortionCallback || ((o) => o);
+    const InboundInstrumentation = `to:${color}`;
+    const OutboundInstrumentation = `from:${color}`;
 
     let selectedTarget: undefined | ProxyTarget;
     let foreignCallablePushTarget: CallablePushTarget;
@@ -200,9 +208,9 @@ export function init(
         return v === undefinedSymbol;
     }
 
-    // TODO: this is really only needed if Realm constructor is not available, because
-    // it will prevent errors from another realm to leak into the caller realm, but
-    // if Realm constructor is in place, the callable boundary takes care of it.
+    // this is needed even when using ShadowRealm, because the errors are not going
+    // to cross the callable boundary in a try/catch, instead, they need to be ported
+    // via the membrane artifacts.
     function foreignErrorControl<T extends (...args: any[]) => any>(foreignFn: T): T {
         return <T>function foreignErrorControlFn(...args: any[]): any {
             try {
@@ -215,6 +223,26 @@ export function init(
                 throw new TypeErrorCtor(e.message);
             }
         };
+    }
+
+    // This wrapping mechanism provides the means to add instrumentation
+    // to the callable functions used to coordinate work between the sides
+    // of the membrane.
+    // TODO: do we need to pass more info into instrumentation hooks?
+    function instrumentCallableWrapper<T extends (...args: any[]) => any>(fn: T, label: string): T {
+        if (instrumentation) {
+            return <T>function instrumentedFn(...args: any[]): any {
+                let result;
+                instrumentation.start(label);
+                try {
+                    result = fn(...args);
+                } finally {
+                    instrumentation.end(label);
+                }
+                return result;
+            };
+        }
+        return fn;
     }
 
     function pushErrorAcrossBoundary(e: any): any {
@@ -1214,58 +1242,67 @@ export function init(
             return createPointer(proxy);
         },
         // callableApply
-        (
-            targetPointer: Pointer,
-            thisArgValueOrPointer: PrimitiveOrPointer,
-            ...listOfValuesOrPointers: PrimitiveOrPointer[]
-        ): PrimitiveOrPointer => {
-            targetPointer();
-            const fn = getSelectedTarget();
-            const thisArg = getLocalValue(thisArgValueOrPointer);
-            const args = listOfValuesOrPointers.map(getLocalValue);
-            let value;
-            try {
-                value = apply(fn, thisArg, args);
-            } catch (e) {
-                throw pushErrorAcrossBoundary(e);
-            }
-            return getTransferableValue(value);
-        },
+        instrumentCallableWrapper(
+            (
+                targetPointer: Pointer,
+                thisArgValueOrPointer: PrimitiveOrPointer,
+                ...listOfValuesOrPointers: PrimitiveOrPointer[]
+            ): PrimitiveOrPointer => {
+                targetPointer();
+                const fn = getSelectedTarget();
+                const thisArg = getLocalValue(thisArgValueOrPointer);
+                const args = listOfValuesOrPointers.map(getLocalValue);
+                let value;
+                try {
+                    value = apply(fn, thisArg, args);
+                } catch (e) {
+                    throw pushErrorAcrossBoundary(e);
+                }
+                return getTransferableValue(value);
+            },
+            InboundInstrumentation
+        ),
         // callableConstruct
-        (
-            targetPointer: Pointer,
-            newTargetPointer: PrimitiveOrPointer,
-            ...listOfValuesOrPointers: PrimitiveOrPointer[]
-        ): PrimitiveOrPointer => {
-            targetPointer();
-            const constructor = getSelectedTarget();
-            const newTarget = getLocalValue(newTargetPointer);
-            const args = listOfValuesOrPointers.map(getLocalValue);
-            let value;
-            try {
-                value = construct(constructor, args, newTarget);
-            } catch (e) {
-                throw pushErrorAcrossBoundary(e);
-            }
-            return getTransferableValue(value);
-        },
+        instrumentCallableWrapper(
+            (
+                targetPointer: Pointer,
+                newTargetPointer: PrimitiveOrPointer,
+                ...listOfValuesOrPointers: PrimitiveOrPointer[]
+            ): PrimitiveOrPointer => {
+                targetPointer();
+                const constructor = getSelectedTarget();
+                const newTarget = getLocalValue(newTargetPointer);
+                const args = listOfValuesOrPointers.map(getLocalValue);
+                let value;
+                try {
+                    value = construct(constructor, args, newTarget);
+                } catch (e) {
+                    throw pushErrorAcrossBoundary(e);
+                }
+                return getTransferableValue(value);
+            },
+            InboundInstrumentation
+        ),
         // callableDefineProperty
-        (
-            targetPointer: Pointer,
-            key: PropertyKey,
-            ...descMeta: Parameters<CallableDescriptorCallback>
-        ): boolean => {
-            targetPointer();
-            const target = getSelectedTarget();
-            const desc = createDescriptorFromMeta(...descMeta);
-            try {
-                return defineProperty(target, key, desc);
-            } catch (e) {
-                throw pushErrorAcrossBoundary(e);
-            }
-        },
+        instrumentCallableWrapper(
+            (
+                targetPointer: Pointer,
+                key: PropertyKey,
+                ...descMeta: Parameters<CallableDescriptorCallback>
+            ): boolean => {
+                targetPointer();
+                const target = getSelectedTarget();
+                const desc = createDescriptorFromMeta(...descMeta);
+                try {
+                    return defineProperty(target, key, desc);
+                } catch (e) {
+                    throw pushErrorAcrossBoundary(e);
+                }
+            },
+            InboundInstrumentation
+        ),
         // callableDeleteProperty
-        (targetPointer: Pointer, key: PropertyKey): boolean => {
+        instrumentCallableWrapper((targetPointer: Pointer, key: PropertyKey): boolean => {
             targetPointer();
             const target = getSelectedTarget();
             try {
@@ -1273,29 +1310,32 @@ export function init(
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
-        },
+        }, InboundInstrumentation),
         // callableGetOwnPropertyDescriptor
-        (
-            targetPointer: Pointer,
-            key: PropertyKey,
-            foreignCallableDescriptorCallback: CallableDescriptorCallback
-        ): void => {
-            targetPointer();
-            const target = getSelectedTarget();
-            let desc;
-            try {
-                desc = getOwnPropertyDescriptor(target, key);
-            } catch (e) {
-                throw pushErrorAcrossBoundary(e);
-            }
-            if (!desc) {
-                return;
-            }
-            const descMeta = getPartialDescriptorMeta(desc);
-            foreignCallableDescriptorCallback(...descMeta);
-        },
+        instrumentCallableWrapper(
+            (
+                targetPointer: Pointer,
+                key: PropertyKey,
+                foreignCallableDescriptorCallback: CallableDescriptorCallback
+            ): void => {
+                targetPointer();
+                const target = getSelectedTarget();
+                let desc;
+                try {
+                    desc = getOwnPropertyDescriptor(target, key);
+                } catch (e) {
+                    throw pushErrorAcrossBoundary(e);
+                }
+                if (!desc) {
+                    return;
+                }
+                const descMeta = getPartialDescriptorMeta(desc);
+                foreignCallableDescriptorCallback(...descMeta);
+            },
+            InboundInstrumentation
+        ),
         // callableGetPrototypeOf
-        (targetPointer: Pointer): PrimitiveOrPointer => {
+        instrumentCallableWrapper((targetPointer: Pointer): PrimitiveOrPointer => {
             targetPointer();
             const target = getSelectedTarget();
             let proto;
@@ -1305,9 +1345,9 @@ export function init(
                 throw pushErrorAcrossBoundary(e);
             }
             return getTransferableValue(proto);
-        },
+        }, InboundInstrumentation),
         // callableHas
-        (targetPointer: Pointer, key: PropertyKey): boolean => {
+        instrumentCallableWrapper((targetPointer: Pointer, key: PropertyKey): boolean => {
             targetPointer();
             const target = getSelectedTarget();
             try {
@@ -1315,9 +1355,9 @@ export function init(
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
-        },
+        }, InboundInstrumentation),
         // callableIsExtensible
-        (targetPointer: Pointer): boolean => {
+        instrumentCallableWrapper((targetPointer: Pointer): boolean => {
             targetPointer();
             const target = getSelectedTarget();
             try {
@@ -1325,24 +1365,27 @@ export function init(
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
-        },
+        }, InboundInstrumentation),
         // callableOwnKeys
-        (
-            targetPointer: Pointer,
-            foreignCallableKeysCallback: (...args: (string | symbol)[]) => void
-        ): void => {
-            targetPointer();
-            const target = getSelectedTarget();
-            let keys;
-            try {
-                keys = ownKeys(target) as (string | symbol)[];
-            } catch (e) {
-                throw pushErrorAcrossBoundary(e);
-            }
-            foreignCallableKeysCallback(...keys);
-        },
+        instrumentCallableWrapper(
+            (
+                targetPointer: Pointer,
+                foreignCallableKeysCallback: (...args: (string | symbol)[]) => void
+            ): void => {
+                targetPointer();
+                const target = getSelectedTarget();
+                let keys;
+                try {
+                    keys = ownKeys(target) as (string | symbol)[];
+                } catch (e) {
+                    throw pushErrorAcrossBoundary(e);
+                }
+                foreignCallableKeysCallback(...keys);
+            },
+            InboundInstrumentation
+        ),
         // callablePreventExtensions
-        (targetPointer: Pointer): boolean => {
+        instrumentCallableWrapper((targetPointer: Pointer): boolean => {
             targetPointer();
             const target = getSelectedTarget();
             try {
@@ -1350,20 +1393,23 @@ export function init(
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
-        },
+        }, InboundInstrumentation),
         // callableSetPrototypeOf
-        (targetPointer: Pointer, protoValueOrPointer: PrimitiveOrPointer): boolean => {
-            targetPointer();
-            const target = getSelectedTarget();
-            const proto = getLocalValue(protoValueOrPointer);
-            try {
-                return setPrototypeOf(target, proto);
-            } catch (e) {
-                throw pushErrorAcrossBoundary(e);
-            }
-        },
+        instrumentCallableWrapper(
+            (targetPointer: Pointer, protoValueOrPointer: PrimitiveOrPointer): boolean => {
+                targetPointer();
+                const target = getSelectedTarget();
+                const proto = getLocalValue(protoValueOrPointer);
+                try {
+                    return setPrototypeOf(target, proto);
+                } catch (e) {
+                    throw pushErrorAcrossBoundary(e);
+                }
+            },
+            InboundInstrumentation
+        ),
         // callableGetTargetIntegrityTraits
-        (targetPointer: Pointer): TargetIntegrityTraits => {
+        instrumentCallableWrapper((targetPointer: Pointer): TargetIntegrityTraits => {
             targetPointer();
             const target = getSelectedTarget();
             let targetIntegrityTraits = TargetIntegrityTraits.None;
@@ -1392,9 +1438,9 @@ export function init(
                 targetIntegrityTraits &= TargetIntegrityTraits.Revoked;
             }
             return targetIntegrityTraits;
-        },
+        }, InboundInstrumentation),
         // callableHasOwnProperty
-        (targetPointer: Pointer, key: PropertyKey): boolean => {
+        instrumentCallableWrapper((targetPointer: Pointer, key: PropertyKey): boolean => {
             targetPointer();
             const target = getSelectedTarget();
             try {
@@ -1402,7 +1448,7 @@ export function init(
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
-        },
+        }, InboundInstrumentation),
         // callableLinkIntrinsics
         (...foreignReflectivePointers: Pointer[]) => {
             // remapping intrinsics that are realm's agnostic
@@ -1455,23 +1501,46 @@ export function init(
             globalThisPointer,
         ] = hooks;
         foreignCallablePushTarget = callablePushTarget;
-        foreignCallableApply = foreignErrorControl(callableApply);
-        foreignCallableConstruct = foreignErrorControl(callableConstruct);
-        foreignCallableDefineProperty = foreignErrorControl(callableDefineProperty);
-        foreignCallableDeleteProperty = foreignErrorControl(callableDeleteProperty);
+        // traps utilities
+        foreignCallableApply = foreignErrorControl(
+            instrumentCallableWrapper(callableApply, OutboundInstrumentation)
+        );
+        foreignCallableConstruct = foreignErrorControl(
+            instrumentCallableWrapper(callableConstruct, OutboundInstrumentation)
+        );
+        foreignCallableDefineProperty = foreignErrorControl(
+            instrumentCallableWrapper(callableDefineProperty, OutboundInstrumentation)
+        );
+        foreignCallableDeleteProperty = foreignErrorControl(
+            instrumentCallableWrapper(callableDeleteProperty, OutboundInstrumentation)
+        );
         foreignCallableGetOwnPropertyDescriptor = foreignErrorControl(
-            callableGetOwnPropertyDescriptor
+            instrumentCallableWrapper(callableGetOwnPropertyDescriptor, OutboundInstrumentation)
         );
-        foreignCallableGetPrototypeOf = foreignErrorControl(callableGetPrototypeOf);
-        foreignCallableHas = foreignErrorControl(callableHas);
-        foreignCallableIsExtensible = foreignErrorControl(callableIsExtensible);
-        foreignCallableOwnKeys = foreignErrorControl(callableOwnKeys);
-        foreignCallablePreventExtensions = foreignErrorControl(callablePreventExtensions);
-        foreignCallableSetPrototypeOf = foreignErrorControl(callableSetPrototypeOf);
+        foreignCallableGetPrototypeOf = foreignErrorControl(
+            instrumentCallableWrapper(callableGetPrototypeOf, OutboundInstrumentation)
+        );
+        foreignCallableHas = foreignErrorControl(
+            instrumentCallableWrapper(callableHas, OutboundInstrumentation)
+        );
+        foreignCallableIsExtensible = foreignErrorControl(
+            instrumentCallableWrapper(callableIsExtensible, OutboundInstrumentation)
+        );
+        foreignCallableOwnKeys = foreignErrorControl(
+            instrumentCallableWrapper(callableOwnKeys, OutboundInstrumentation)
+        );
+        foreignCallablePreventExtensions = foreignErrorControl(
+            instrumentCallableWrapper(callablePreventExtensions, OutboundInstrumentation)
+        );
+        foreignCallableSetPrototypeOf = foreignErrorControl(
+            instrumentCallableWrapper(callableSetPrototypeOf, OutboundInstrumentation)
+        );
         foreignCallableGetTargetIntegrityTraits = foreignErrorControl(
-            callableGetTargetIntegrityTraits
+            instrumentCallableWrapper(callableGetTargetIntegrityTraits, OutboundInstrumentation)
         );
-        foreignCallableHasOwnProperty = foreignErrorControl(callableHasOwnProperty);
+        foreignCallableHasOwnProperty = foreignErrorControl(
+            instrumentCallableWrapper(callableHasOwnProperty, OutboundInstrumentation)
+        );
         // initial linkage
         linkGlobalThis(globalThisPointer);
         callableLinkIntrinsics(...reflectivePointers);
