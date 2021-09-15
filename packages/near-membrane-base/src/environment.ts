@@ -1,5 +1,5 @@
 import {
-    init,
+    MembraneInit,
     CallableEvaluate,
     CallableInstallLazyDescriptors,
     GetTransferableValue,
@@ -15,9 +15,9 @@ const frameGlobalNamesRegExp = /^\d+$/;
 
 interface VirtualEnvironmentOptions {
     // Blue connector factory
-    blueConnector: typeof init;
+    blueConnector: MembraneInit;
     // Red connector factory
-    redConnector: typeof init;
+    redConnector: MembraneInit;
     // Optional distortion callback to tame functionalities observed through the membrane
     distortionCallback?: (originalTarget: ProxyTarget) => ProxyTarget;
 }

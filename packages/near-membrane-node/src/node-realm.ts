@@ -1,5 +1,6 @@
 import {
     init,
+    Instrumentation,
     VirtualEnvironment,
     getFilteredEndowmentDescriptors,
     ProxyTarget,
@@ -21,13 +22,14 @@ const unsafeGlobalEvalSrc = `(0, eval)("'use strict'; this")`;
 const initSourceText = `(function(){'use strict';return (${init.toString()})})()`;
 
 export default function createVirtualEnvironment(
-    options?: EnvironmentOptions
+    options?: EnvironmentOptions,
+    instrumentation?: Instrumentation
 ): (sourceText: string) => void {
     const { distortionCallback, endowments } = options || { __proto__: null };
     const blueGlobalThis = globalThis;
     // Use unsafeGlobalEvalSrc to ensure we get the right 'this'.
     const redGlobalThis: typeof globalThis = runInNewContext(unsafeGlobalEvalSrc);
-    const blueConnector = init;
+    const blueConnector = init(instrumentation);
     const redConnector = redGlobalThis.eval(initSourceText);
     const endowmentsDescriptors = getFilteredEndowmentDescriptors(
         endowments || { __proto__: null }

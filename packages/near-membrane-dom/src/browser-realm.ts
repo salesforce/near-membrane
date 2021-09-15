@@ -1,5 +1,6 @@
 import {
     init,
+    Instrumentation,
     VirtualEnvironment,
     getFilteredEndowmentDescriptors,
     ProxyTarget,
@@ -11,6 +12,7 @@ interface EnvironmentOptions {
     distortionCallback?: (originalTarget: ProxyTarget) => ProxyTarget;
     endowments?: object;
     globalThis: WindowProxy & typeof globalThis;
+    instrumentation: Instrumentation;
 }
 
 const emptyArray: [] = [];
@@ -100,7 +102,8 @@ interface BrowserEnvironmentOptions extends EnvironmentOptions {
 const { open, close } = document;
 
 export default function createVirtualEnvironment(
-    options?: BrowserEnvironmentOptions
+    options?: BrowserEnvironmentOptions,
+    instrumentation?: Instrumentation
 ): (sourceText: string) => void {
     const { distortionCallback, endowments, keepAlive, globalThis = window } = options || {
         __proto__: null,
@@ -109,7 +112,7 @@ export default function createVirtualEnvironment(
     const blueWindow = globalThis;
     const redWindow = (iframe.contentWindow as WindowProxy).window;
     const endowmentsDescriptors = getFilteredEndowmentDescriptors(endowments || {});
-    const blueConnector = init;
+    const blueConnector = init(instrumentation);
     const redConnector = redWindow.eval(initSourceText);
     // extract the global references and descriptors before any interference
     const blueRefs = getCachedBlueReferences(blueWindow);
