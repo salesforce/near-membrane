@@ -12,6 +12,8 @@ import {
 } from './membrane';
 
 const frameGlobalNamesRegExp = /^\d+$/;
+const ShouldTrapMutation = true;
+const ShouldNotTrapMutation = false;
 
 interface VirtualEnvironmentOptions {
     // Blue connector factory
@@ -62,14 +64,23 @@ export class VirtualEnvironment {
             redHooks = hooks;
         };
 
+        const initLocalOptions = {
+            distortionCallback,
+        };
+
         const localConnect = localInit(
             undefinedSymbol,
             'blue',
-            false,
+            ShouldNotTrapMutation,
             blueExportsCallback,
-            distortionCallback
+            initLocalOptions
         );
-        const foreignConnect = foreignInit(undefinedSymbol, 'red', true, redExportsCallback);
+        const foreignConnect = foreignInit(
+            undefinedSymbol,
+            'red',
+            ShouldTrapMutation,
+            redExportsCallback
+        );
         ReflectApply(localConnect, undefined, redHooks!);
         ReflectApply(foreignConnect, undefined, blueHooks!);
 

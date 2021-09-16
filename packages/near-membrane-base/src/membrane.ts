@@ -112,9 +112,14 @@ export type HooksCallback = (
 
 export type DistortionCallback = (target: ProxyTarget) => ProxyTarget;
 
-interface InstrumentationHooks {
+export interface InstrumentationHooks {
     start(label: string): void;
     end(label: string): void;
+}
+
+export interface InitLocalOptions {
+    distortionCallback?: DistortionCallback;
+    instrumentation?: InstrumentationHooks;
 }
 
 // istanbul ignore next
@@ -123,9 +128,11 @@ export function init(
     color: string,
     trapMutations: boolean,
     foreignCallableHooksCallback: HooksCallback,
-    optionalDistortionCallback?: DistortionCallback,
-    instrumentation?: InstrumentationHooks
+    options?: InitLocalOptions
 ): HooksCallback {
+    const { distortionCallback = (o: ProxyTarget) => o, instrumentation } = options || {
+        __proto__: null,
+    };
     const { eval: cachedLocalEval } = globalThis;
     const {
         defineProperty,
@@ -148,16 +155,9 @@ export function init(
     const { revocable: ProxyRevocable } = Proxy;
     const { set: WeakMapSet, get: WeakMapGet } = WeakMap.prototype;
     const TypeErrorCtor = TypeError;
-    const {
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        // __lookupGetter__: ObjectProto__lookupGetter__,
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        // __lookupSetter__: ObjectProto__lookupSetter__,
-        hasOwnProperty: ObjectProtoHasOwnProperty,
-    } = Object.prototype as any;
+    const { hasOwnProperty: ObjectProtoHasOwnProperty } = Object.prototype as any;
     const proxyTargetToPointerMap = new WeakMap();
     const LockerLiveValueMarkerSymbol = Symbol.for('@@lockerLiveValue');
-    const distortionCallback = optionalDistortionCallback || ((o) => o);
     const InboundInstrumentation = `to:${color}`;
     const OutboundInstrumentation = `from:${color}`;
 
