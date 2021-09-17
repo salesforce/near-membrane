@@ -414,7 +414,7 @@ export function init(
                 // revoke, and wait until the user-land code actually access something out of it
                 // to throw the proper error.
                 // target is a revoked proxy, so the type doesn't matter much from this point on
-                targetTraits &= TargetTraits.Revoked;
+                targetTraits |= TargetTraits.Revoked;
             }
             targetTraits |= +targetIsArray && TargetTraits.IsArray;
             targetTraits |= +!targetIsArray && TargetTraits.IsObject;
@@ -1370,14 +1370,14 @@ export function init(
             try {
                 // a revoked proxy will break the membrane when reading the meta
                 if (isFrozen(target)) {
-                    targetIntegrityTraits &=
+                    targetIntegrityTraits |=
                         TargetIntegrityTraits.IsSealed &
                         TargetIntegrityTraits.IsFrozen &
                         TargetIntegrityTraits.IsNotExtensible;
                 } else if (isSealed(target)) {
-                    targetIntegrityTraits &= TargetIntegrityTraits.IsSealed;
+                    targetIntegrityTraits |= TargetIntegrityTraits.IsSealed;
                 } else if (!isExtensible(target)) {
-                    targetIntegrityTraits &= TargetIntegrityTraits.IsNotExtensible;
+                    targetIntegrityTraits |= TargetIntegrityTraits.IsNotExtensible;
                 }
                 // if the target was revoked or become revoked during the extraction
                 // of the metadata, we mark it as broken in the catch.
@@ -1389,7 +1389,7 @@ export function init(
                 // either revoked or has some logic that is incompatible with the
                 // membrane, in which case we will just create the proxy for the
                 // membrane but revoke it right after to prevent any leakage.
-                targetIntegrityTraits &= TargetIntegrityTraits.Revoked;
+                targetIntegrityTraits |= TargetIntegrityTraits.Revoked;
             }
             return targetIntegrityTraits;
         },
