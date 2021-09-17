@@ -1,45 +1,51 @@
 import {
+    init,
     VirtualEnvironment,
-    EnvironmentOptions,
     getFilteredEndowmentDescriptors,
-    linkIntrinsics,
-    setupStackTrace,
+    ProxyTarget,
 } from '@locker/near-membrane-base';
 
 import { runInNewContext } from 'vm';
+
+interface EnvironmentOptions {
+    distortionCallback?: (originalTarget: ProxyTarget) => ProxyTarget;
+    endowments?: object;
+    globalThis: typeof globalThis;
+}
 
 // note: in a node module, the top-level 'this' is not the global object
 // (it's *something* but we aren't sure what), however an indirect eval of
 // 'this' will be the correct global object.
 const unsafeGlobalEvalSrc = `(0, eval)("'use strict'; this")`;
+const initSourceText = `(${init.toString()})`;
+const TypeErrorCtor = TypeError;
 
 export default function createVirtualEnvironment(
     options?: EnvironmentOptions
 ): (sourceText: string) => void {
     const { distortionCallback, endowments } = options || { __proto__: null };
     // Use unsafeGlobalEvalSrc to ensure we get the right 'this'.
-    const redGlobalThis = runInNewContext(unsafeGlobalEvalSrc);
+    const redGlobalThis: typeof globalThis = runInNewContext(unsafeGlobalEvalSrc);
+    const blueConnector = init;
+    const redConnector = redGlobalThis.eval(initSourceText);
     const endowmentsDescriptors = getFilteredEndowmentDescriptors(
         endowments || { __proto__: null }
     );
-    const { eval: redIndirectEval } = redGlobalThis;
-    const blueGlobalThis = globalThis as any;
     const env = new VirtualEnvironment({
-        blueGlobalThis,
-        redGlobalThis,
+        blueConnector,
+        redConnector,
         distortionCallback,
     });
-    setupStackTrace(redGlobalThis);
-    linkIntrinsics(env, blueGlobalThis, redGlobalThis);
 
     // remapping globals
-    env.remap(redGlobalThis, blueGlobalThis, endowmentsDescriptors);
+    env.remap(redGlobalThis, endowmentsDescriptors);
 
     return (sourceText: string): void => {
         try {
-            redIndirectEval(sourceText);
+            env.evaluate(sourceText);
         } catch (e) {
-            throw env.getBlueValue(e);
+            // TODO: what error should we throw here?
+            throw new TypeErrorCtor();
         }
     };
 }

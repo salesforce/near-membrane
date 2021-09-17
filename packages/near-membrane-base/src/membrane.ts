@@ -39,7 +39,7 @@ type CallableConstruct = (
     newTargetPointer: PrimitiveOrPointer,
     ...listOfValuesOrPointers: PrimitiveOrPointer[]
 ) => PrimitiveOrPointer;
-type CallableDefineProperty = (
+export type CallableDefineProperty = (
     targetPointer: Pointer,
     key: PropertyKey,
     configurable: boolean | symbol,
@@ -70,13 +70,24 @@ type CallableOwnKeys = (
     foreignCallableKeysCallback: (...args: (string | symbol)[]) => void
 ) => void;
 type CallablePreventExtensions = (targetPointer: Pointer) => boolean;
-type CallableSetPrototypeOf = (
+export type CallableSetPrototypeOf = (
     targetPointer: Pointer,
     protoValueOrPointer: PrimitiveOrPointer
 ) => boolean;
 type CallableGetTargetIntegrityTraits = (targetPointer: Pointer) => number;
 type CallableHasOwnProperty = (targetPointer: Pointer, key: PropertyKey) => boolean;
-export type ConnectCallback = (
+type CallableLinkIntrinsics = (...reflectiveIntrinsicPointers: Pointer[]) => void;
+type CallableLinkUnforgeables = (...unforgeablePointers: Pointer[]) => void;
+export type CallableInstallLazyDescriptors = (
+    targetPointer: Pointer,
+    ...keyAndEnumTuple: PropertyKey[]
+) => void;
+export type CallableEvaluate = (sourceText: string) => void;
+export type GetTransferableValue = (value: any) => PrimitiveOrPointer;
+export type HooksCallback = (
+    getTransferableValue: GetTransferableValue,
+    callableEvaluate: CallableEvaluate,
+    callableInstallLazyDescriptor: CallableInstallLazyDescriptors,
     callablePushTarget: CallablePushTarget,
     callableApply: CallableApply,
     callableConstruct: CallableConstruct,
@@ -90,22 +101,21 @@ export type ConnectCallback = (
     callablePreventExtensions: CallablePreventExtensions,
     callableSetPrototypeOf: CallableSetPrototypeOf,
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
-    callableHasOwnProperty: CallableHasOwnProperty
-) => void;
-type HooksCallback = (
-    evaluate: (sourceText: string) => void,
-    ...connectArgs: Parameters<ConnectCallback>
+    callableHasOwnProperty: CallableHasOwnProperty,
+    callableLinkIntrinsics: CallableLinkIntrinsics,
+    callableLinkUnforgeables: CallableLinkUnforgeables,
+    globalThisPointer: Pointer
 ) => void;
 
 export type DistortionCallback = (target: ProxyTarget) => ProxyTarget;
 
-export default function init(
+export function init(
     undefinedSymbol: symbol,
     color: string,
     trapMutations: boolean,
     foreignCallableHooksCallback: HooksCallback,
     optionalDistortionCallback?: DistortionCallback
-): ConnectCallback {
+): HooksCallback {
     const { eval: cachedLocalEval } = globalThis;
     const {
         defineProperty,
@@ -171,6 +181,14 @@ export default function init(
         IsSealed = 1 << 1,
         IsFrozen = 1 << 2,
         Revoked = 1 << 4,
+    }
+
+    if (
+        ObjectProtoHasOwnProperty.call(Error, 'stackTraceLimit') &&
+        typeof Error.stackTraceLimit === 'number'
+    ) {
+        // The default stack trace limit is 10. Increasing to 20 as a baby step.
+        Error.stackTraceLimit *= 2;
     }
 
     function isUndefinedSymbol(v: any): boolean {
@@ -1021,12 +1039,162 @@ export default function init(
     // future optimization: hoping that proxies with frozen handlers can be faster
     freeze(BoundaryProxyHandler.prototype);
 
+    function linkGlobalThis(foreignGlobalThisPointers: Pointer) {
+        WeakMapSet.call(proxyTargetToPointerMap, globalThis, foreignGlobalThisPointers);
+    }
+
+    // These are foundational things that should never be wrapped but are equivalent
+    // TODO: revisit this list.
+    const ReflectiveIntrinsicObjectNames = [
+        'AggregateError',
+        'Array',
+        'Error',
+        'EvalError',
+        'Function',
+        'Object',
+        'Proxy',
+        'RangeError',
+        'ReferenceError',
+        'SyntaxError',
+        'TypeError',
+        'URIError',
+    ];
+
+    const reflectivePointers: Pointer[] = [];
+    const reflectiveValues: any[] = [];
+    ReflectiveIntrinsicObjectNames.forEach((globalName) => {
+        // this mapping return a pointer for each of the reflective intrinsics
+        // and their respective prototype so both sides of the membrane can link them out.
+        const reflectiveValue = globalThis[globalName];
+        const reflectiveValueProto = reflectiveValue.prototype;
+        reflectiveValues.push(reflectiveValue);
+        reflectiveValues.push(reflectiveValueProto);
+        const reflectivePointer = () => selectTarget(reflectiveValue);
+        const reflectiveProtoPointer = () => selectTarget(reflectiveValueProto);
+        reflectivePointers.push(reflectivePointer);
+        reflectiveValues.push(reflectiveProtoPointer);
+    });
+
+    const unforgeablePointers: Pointer[] = [];
+    const unforgeableValues: any[] = [];
+    // In a ShadowRealm, there will be no unforgeable, but in an detached iframe
+    // there will be few. This routine is needed for that case:
+    if (globalThis.window === globalThis) {
+        // window.document
+        const { document } = globalThis;
+        unforgeablePointers.push(() => selectTarget(document));
+        unforgeableValues.push(document);
+        // document.__proto__ (aka Document.prototype)
+        const DocumentPrototype = getPrototypeOf(document)!;
+        unforgeablePointers.push(() => selectTarget(DocumentPrototype));
+        unforgeableValues.push(DocumentPrototype);
+        // window.__proto__ (aka Window.prototype)
+        const WindowPrototype = getPrototypeOf(globalThis)!;
+        unforgeablePointers.push(() => selectTarget(WindowPrototype));
+        unforgeableValues.push(WindowPrototype);
+        // window.__proto__.__proto__ (aka WindowProperties.prototype)
+        const WindowPropertiesPrototype = getPrototypeOf(WindowPrototype)!;
+        unforgeablePointers.push(() => selectTarget(WindowPropertiesPrototype));
+        unforgeableValues.push(WindowPropertiesPrototype);
+        // window.__proto__.__proto__.__proto__ (aka EventTarget.prototype)
+        const EventTargetPrototype = getPrototypeOf(WindowPropertiesPrototype)!;
+        unforgeablePointers.push(() => selectTarget(EventTargetPrototype));
+        unforgeableValues.push(EventTargetPrototype);
+    }
+
+    ReflectiveIntrinsicObjectNames.forEach((globalName) => {
+        // this mapping return a pointer for each of the reflective intrinsics
+        // and their respective prototype so both sides of the membrane can link them out.
+        const reflectiveValue = globalThis[globalName];
+        const reflectiveValueProto = reflectiveValue.prototype;
+        reflectiveValues.push(reflectiveValue);
+        reflectiveValues.push(reflectiveValueProto);
+        const reflectivePointer = () => selectTarget(reflectiveValue);
+        const reflectiveProtoPointer = () => selectTarget(reflectiveValueProto);
+        reflectivePointers.push(reflectivePointer);
+        reflectiveValues.push(reflectiveProtoPointer);
+    });
+
+    function createLazyDescriptor(
+        unforgeable: object,
+        key: PropertyKey,
+        isEnumerable: boolean
+    ): PropertyDescriptor {
+        const targetPointer = getTransferablePointer(unforgeable);
+        let desc: PropertyDescriptor;
+        const callbackWithDescriptor = (
+            configurable: boolean,
+            enumerable: boolean,
+            writable: boolean,
+            valuePointer: PrimitiveOrPointer,
+            getPointer: PrimitiveOrPointer,
+            setPointer: PrimitiveOrPointer
+        ) => {
+            desc = { configurable, enumerable, writable };
+            if (getPointer || setPointer) {
+                desc.get = getLocalValue(getPointer);
+                desc.set = getLocalValue(setPointer);
+            } else {
+                desc.value = getLocalValue(valuePointer);
+            }
+        };
+        // the role of this descriptor is to serve as a bouncer, when either a getter or a setter
+        // is accessed, the descriptor will be replaced with the descriptor from the foreign side
+        // and the get/set operation will be carry on from there.
+        // TODO: somehow we need to track the unforgeable/key value pairs in case the local realm
+        // ever attempt to access the descriptor, in which case the same mechanism must be applied
+        return {
+            enumerable: isEnumerable,
+            configurable: true,
+            writable: true,
+            get(): any {
+                foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callbackWithDescriptor);
+                if (desc! === undefined) {
+                    delete unforgeable[key];
+                } else {
+                    defineProperty(unforgeable, key, desc);
+                }
+                return get(unforgeable, key);
+            },
+            set(v: any) {
+                foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callbackWithDescriptor);
+                if (desc! === undefined) {
+                    delete unforgeable[key];
+                } else {
+                    defineProperty(unforgeable, key, desc);
+                }
+                set(unforgeable, key, v);
+            },
+        };
+    }
+
     // exporting callable hooks for a foreign realm
     foreignCallableHooksCallback(
+        // getTransferableValue
+        getTransferableValue,
         // evaluate
         (sourceText: string): void => {
             // no need to return the result of the eval
             cachedLocalEval(sourceText);
+        },
+        // callableInstallLazyDescriptors
+        (targetPointer: Pointer, ...keyAndEnumTuple: PropertyKey[]) => {
+            targetPointer();
+            const target = getSelectedTarget();
+            for (let i = 0, len = keyAndEnumTuple.length; i < len; i += 2) {
+                const key = keyAndEnumTuple[i];
+                const isEnumerable = !!keyAndEnumTuple[i + 1];
+                const descriptor = createLazyDescriptor(target, key, isEnumerable);
+                try {
+                    // installing lazy descriptors into the local unforgeable reference
+                    defineProperty(target, key, descriptor);
+                } catch {
+                    // this could happen if the foreign side attempt to install a
+                    // descriptor that exists already on this side as non-configurable
+                    // in which case we will probably just ignore the error.
+                    // TODO: should we really just ignore it?
+                }
+            }
         },
         /**
          * callablePushTarget: This function can be used by a foreign realm to install a proxy
@@ -1221,24 +1389,58 @@ export default function init(
             targetPointer();
             const target = getSelectedTarget();
             return ObjectProtoHasOwnProperty.call(target, key);
-        }
+        },
+        // callableLinkIntrinsics
+        (...foreignReflectivePointers: Pointer[]) => {
+            // remapping intrinsics that are realm's agnostic
+            for (let i = 0, len = ReflectiveIntrinsicObjectNames.length; i < len; i += 1) {
+                if (reflectiveValues[i] !== null) {
+                    WeakMapSet.call(
+                        proxyTargetToPointerMap,
+                        reflectiveValues[i],
+                        foreignReflectivePointers[i]
+                    );
+                }
+            }
+        },
+        // callableLinkUnforgeable
+        (...foreignUnforgeablePointers: Pointer[]) => {
+            // remapping unforgeables in case they exists in the environment
+            for (let i = 0, len = unforgeableValues.length; i < len; i += 1) {
+                if (unforgeableValues[i] !== null) {
+                    WeakMapSet.call(
+                        proxyTargetToPointerMap,
+                        unforgeableValues[i],
+                        foreignUnforgeablePointers[i]
+                    );
+                }
+            }
+        },
+        // globalThisPointer
+        // When crossing, should be mapped to the foreign globalThis
+        () => selectTarget(globalThis)
     );
-    return (
-        callablePushTarget: CallablePushTarget,
-        callableApply: CallableApply,
-        callableConstruct: CallableConstruct,
-        callableDefineProperty: CallableDefineProperty,
-        callableDeleteProperty: CallableDeleteProperty,
-        callableGetOwnPropertyDescriptor: CallableGetOwnPropertyDescriptor,
-        callableGetPrototypeOf: CallableGetPrototypeOf,
-        callableHas: CallableHas,
-        callableIsExtensible: CallableIsExtensible,
-        callableOwnKeys: CallableOwnKeys,
-        callablePreventExtensions: CallablePreventExtensions,
-        callableSetPrototypeOf: CallableSetPrototypeOf,
-        callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
-        callableHasOwnProperty: CallableHasOwnProperty
-    ) => {
+    return (...hooks: Parameters<HooksCallback>) => {
+        // prettier-ignore
+        const [,,,
+            callablePushTarget,
+            callableApply,
+            callableConstruct,
+            callableDefineProperty,
+            callableDeleteProperty,
+            callableGetOwnPropertyDescriptor,
+            callableGetPrototypeOf,
+            callableHas,
+            callableIsExtensible,
+            callableOwnKeys,
+            callablePreventExtensions,
+            callableSetPrototypeOf,
+            callableGetTargetIntegrityTraits,
+            callableHasOwnProperty,
+            callableLinkIntrinsics,
+            callableLinkUnforgeables,
+            globalThisPointer,
+        ] = hooks;
         foreignCallablePushTarget = callablePushTarget;
         foreignCallableApply = foreignErrorControl(callableApply);
         foreignCallableConstruct = foreignErrorControl(callableConstruct);
@@ -1257,5 +1459,9 @@ export default function init(
             callableGetTargetIntegrityTraits
         );
         foreignCallableHasOwnProperty = foreignErrorControl(callableHasOwnProperty);
+        // initial linkage
+        linkGlobalThis(globalThisPointer);
+        callableLinkIntrinsics(...reflectivePointers);
+        callableLinkUnforgeables(...unforgeablePointers);
     };
 }
