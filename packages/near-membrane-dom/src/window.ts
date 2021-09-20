@@ -1,15 +1,26 @@
-import {
-    isIntrinsicGlobalName,
-    ObjectAssign,
-    ObjectGetOwnPropertyDescriptors,
-    ReflectGetPrototypeOf,
-    ReflectOwnKeys,
-    ReflectSetPrototypeOf,
-    VirtualEnvironment,
-    WeakMapCtor,
-    WeakMapGet,
-    WeakMapSet,
-} from '@locker/near-membrane-base';
+import { isIntrinsicGlobalName, VirtualEnvironment } from '@locker/near-membrane-base';
+
+const { assign: ObjectAssign, getOwnPropertyDescriptors: ObjectGetOwnPropertyDescriptors } = Object;
+
+const {
+    getPrototypeOf: ReflectGetPrototypeOf,
+    ownKeys: ReflectOwnKeys,
+    apply: ReflectApply,
+} = Reflect;
+
+const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMap.prototype;
+
+function WeakMapGet(map: WeakMap<object, object>, key: object): object | undefined {
+    return ReflectApply(WeakMapProtoGet, map, [key]);
+}
+
+function WeakMapSet(
+    map: WeakMap<object, object>,
+    key: object,
+    value: object
+): WeakMap<object, object> {
+    return ReflectApply(WeakMapProtoSet, map, [key, value]);
+}
 
 /**
  * - Unforgeable object and prototype references
@@ -43,10 +54,7 @@ interface RedReferencesRecord extends BaseReferencesRecord {
     WindowPropertiesProtoOwnKeys: PropertyKey[];
 }
 
-const cachedBlueGlobalMap: WeakMap<
-    typeof globalThis,
-    CachedBlueReferencesRecord
-> = new WeakMapCtor();
+const cachedBlueGlobalMap: WeakMap<typeof globalThis, CachedBlueReferencesRecord> = new WeakMap();
 
 export function getBaseReferences(window: Window & typeof globalThis): BaseReferencesRecord {
     const record = ({ __proto__: null } as any) as BaseReferencesRecord;
@@ -213,7 +221,7 @@ export function tameDOM(
     endowmentsDescriptors: PropertyDescriptorMap
 ) {
     // adjusting proto chain of window.document
-    ReflectSetPrototypeOf(redRefs.document, env.getRedValue(blueRefs.DocumentProto));
+    env.remapProto(blueRefs.document, blueRefs.DocumentProto);
     const globalDescriptors = aggregateWindowDescriptors(
         redRefs.windowOwnKeys,
         blueRefs.windowDescriptors,
@@ -224,29 +232,9 @@ export function tameDOM(
         blueRefs.WindowPropertiesProtoDescriptors
     );
     // remapping globals
-    env.remap(redRefs.window, blueRefs.window, globalDescriptors);
+    env.remap(blueRefs.window, globalDescriptors);
     // remapping unforgeable objects
-    env.remap(
-        redRefs.EventTargetProto,
-        blueRefs.EventTargetProto,
-        blueRefs.EventTargetProtoDescriptors
-    );
-    env.remap(
-        redRefs.WindowPropertiesProto,
-        blueRefs.WindowPropertiesProto,
-        WindowPropertiesDescriptors
-    );
-    env.remap(redRefs.WindowProto, blueRefs.WindowProto, blueRefs.WindowProtoDescriptors);
-}
-
-export function linkUnforgeables(
-    env: VirtualEnvironment,
-    blueRefs: CachedBlueReferencesRecord,
-    redRefs: RedReferencesRecord
-) {
-    env.setRefMapEntries(redRefs.window, blueRefs.window);
-    env.setRefMapEntries(redRefs.document, blueRefs.document);
-    env.setRefMapEntries(redRefs.EventTargetProto, blueRefs.EventTargetProto);
-    env.setRefMapEntries(redRefs.WindowPropertiesProto, blueRefs.WindowPropertiesProto);
-    env.setRefMapEntries(redRefs.WindowProto, blueRefs.WindowProto);
+    env.remap(blueRefs.EventTargetProto, blueRefs.EventTargetProtoDescriptors);
+    env.remap(blueRefs.WindowPropertiesProto, WindowPropertiesDescriptors);
+    env.remap(blueRefs.WindowProto, blueRefs.WindowProtoDescriptors);
 }

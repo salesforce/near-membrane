@@ -1,22 +1,13 @@
-import {
-    ObjectHasOwnProperty,
-    ReflectGetOwnPropertyDescriptor,
-    ReflectOwnKeys,
-    SetCtor,
-    SetHas,
-    WeakMapCtor,
-    WeakMapSet,
-    WeakMapGet,
-} from './shared';
-import { VirtualEnvironment } from './environment';
+const { has: SetProtoHas } = Set.prototype;
+const {
+    apply: ReflectApply,
+    getOwnPropertyDescriptor: ReflectGetOwnPropertyDescriptor,
+    ownKeys: ReflectOwnKeys,
+} = Reflect;
 
-// TODO: type this better based on ReflectiveIntrinsicObjectNames
-type ReflectiveIntrinsicsMap = Record<string, any>;
-
-const cachedReflectiveIntrinsicsMap: WeakMap<
-    typeof globalThis,
-    ReflectiveIntrinsicsMap
-> = new WeakMapCtor();
+function SetHas(set: Set<any>, key: any): boolean {
+    return ReflectApply(SetProtoHas, set, [key]);
+}
 
 /**
  * This list must be in sync with ecma-262, anything new added to the global object
@@ -37,7 +28,7 @@ const cachedReflectiveIntrinsicsMap: WeakMap<
  * problematic, and requires a lot more work to guarantee that objects from both sides
  * can be considered equivalents (without identity discontinuity).
  */
-const ESGlobalKeys = new SetCtor([
+const ESGlobalKeys = new Set([
     // *** 18.1 Value Properties of the Global Object
     'Infinity',
     'NaN',
@@ -113,63 +104,6 @@ const ESGlobalKeys = new SetCtor([
     // 'Intl',  // Unstable & Remapped
 ]);
 
-// These are foundational things that should never be wrapped but are equivalent
-// TODO: revisit this list.
-const ReflectiveIntrinsicObjectNames = [
-    'AggregateError',
-    'Array',
-    'Error',
-    'EvalError',
-    'Function',
-    'Object',
-    'Proxy',
-    'RangeError',
-    'ReferenceError',
-    'SyntaxError',
-    'TypeError',
-    'URIError',
-];
-
-function getReflectiveIntrinsics(global: typeof globalThis): ReflectiveIntrinsicsMap {
-    let reflectiveIntrinsics: ReflectiveIntrinsicsMap | undefined = WeakMapGet(
-        cachedReflectiveIntrinsicsMap,
-        global
-    );
-    if (reflectiveIntrinsics !== undefined) {
-        return reflectiveIntrinsics;
-    }
-    reflectiveIntrinsics = { __proto__: null } as ReflectiveIntrinsicsMap;
-    WeakMapSet(cachedReflectiveIntrinsicsMap, global, reflectiveIntrinsics);
-    // remapping intrinsics that are realm's agnostic
-    for (let i = 0, len = ReflectiveIntrinsicObjectNames.length; i < len; i += 1) {
-        const name = ReflectiveIntrinsicObjectNames[i];
-        reflectiveIntrinsics[name] = global[name];
-    }
-    return reflectiveIntrinsics;
-}
-
-export function linkIntrinsics(
-    env: VirtualEnvironment,
-    blueGlobalThis: typeof globalThis,
-    redGlobalThis: typeof globalThis
-) {
-    // remapping intrinsics that are realm's agnostic
-    const blueIntrinsics = getReflectiveIntrinsics(blueGlobalThis);
-    const redIntrinsics = getReflectiveIntrinsics(redGlobalThis);
-    for (let i = 0, len = ReflectiveIntrinsicObjectNames.length; i < len; i += 1) {
-        const name = ReflectiveIntrinsicObjectNames[i];
-        const blue = blueIntrinsics[name];
-        const red = redIntrinsics[name];
-        // new intrinsics might not be available in some browsers, e.g.: AggregateError
-        if (blue) {
-            env.setRefMapEntries(red, blue);
-            if (blue.prototype) {
-                env.setRefMapEntries(red.prototype, blue.prototype);
-            }
-        }
-    }
-}
-
 export function getFilteredEndowmentDescriptors(endowments: object): PropertyDescriptorMap {
     const to: PropertyDescriptorMap = { __proto__: null } as any;
     const globalKeys = ReflectOwnKeys(endowments);
@@ -191,15 +125,4 @@ export function getFilteredEndowmentDescriptors(endowments: object): PropertyDes
 
 export function isIntrinsicGlobalName(key: PropertyKey): boolean {
     return SetHas(ESGlobalKeys, key);
-}
-
-export function setupStackTrace(global: typeof globalThis) {
-    const { Error } = global;
-    if (
-        ObjectHasOwnProperty(Error, 'stackTraceLimit') &&
-        typeof Error.stackTraceLimit === 'number'
-    ) {
-        // The default stack trace limit is 10. Increasing to 20 as a baby step.
-        Error.stackTraceLimit *= 2;
-    }
 }
