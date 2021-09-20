@@ -1,8 +1,4 @@
-import {
-    getFilteredEndowmentDescriptors,
-    isIntrinsicGlobalName,
-    VirtualEnvironment,
-} from '../index';
+import { getFilteredEndowmentDescriptors, isIntrinsicGlobalName } from '../index';
 
 const intrinsicNames = [
     'Infinity',

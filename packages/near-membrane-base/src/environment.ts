@@ -27,7 +27,7 @@ interface VirtualEnvironmentOptions {
 const undefinedSymbol = Symbol('membrane@undefined');
 const { test: RegExpProtoTest } = RegExp.prototype;
 const ErrorCtor = Error;
-const { propertyIsEnumerable: ObjectPropertyIsEnumerable, keys: ObjectKeys } = Object;
+const { keys: ObjectKeys } = Object;
 const { apply: ReflectApply, ownKeys: ReflectOwnKeys } = Reflect;
 const { includes: ArrayIncludes, push: ArrayPush } = Array.prototype;
 
@@ -178,21 +178,15 @@ export class VirtualEnvironment {
         const args: Parameters<CallableInstallLazyDescriptors> = [oPointer];
         for (let i = 0, len = keys.length; i < len; i += 1) {
             const key = keys[i];
-            let isEnumerable = true;
-            if (typeof key === 'symbol') {
-                if (ReflectApply(ObjectPropertyIsEnumerable, o, [key])) {
-                    isEnumerable = true;
-                }
-            }
             // Skip index keys for magical descriptors of frames on the window proxy.
             // TODO: this applies to all objects rather than just `window`, it might
             // be a problem.
-            else if (RegExpTest(frameGlobalNamesRegExp, key as string)) {
+            if (typeof key !== 'symbol' && RegExpTest(frameGlobalNamesRegExp, key as string)) {
                 // eslint-disable-next-line no-continue
                 continue;
-            } else {
-                isEnumerable = ReflectApply(ArrayIncludes, enumerablePropertyKeys, [key]);
             }
+            const isEnumerable = ReflectApply(ArrayIncludes, enumerablePropertyKeys, [key]);
+
             ReflectApply(ArrayPush, args, [key, isEnumerable]);
         }
         ReflectApply(this.redCallableInstallLazyDescriptors, undefined, args);
