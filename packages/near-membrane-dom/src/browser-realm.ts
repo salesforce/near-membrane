@@ -102,11 +102,15 @@ const { open, close } = document;
 export default function createVirtualEnvironment(
     options?: BrowserEnvironmentOptions
 ): (sourceText: string) => void {
-    const { distortionCallback, endowments, keepAlive, globalThis = window } = options || {
+    const {
+        distortionCallback,
+        endowments,
+        keepAlive,
+        globalThis: blueWindow = window,
+    } = options || {
         __proto__: null,
     };
     const iframe = createDetachableIframe();
-    const blueWindow = globalThis;
     const redWindow = (iframe.contentWindow as WindowProxy).window;
     const endowmentsDescriptors = getFilteredEndowmentDescriptors(endowments || {});
     const blueConnector = init;
