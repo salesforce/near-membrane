@@ -132,8 +132,8 @@ export default function createVirtualEnvironment(
     } else {
         // TODO: temporary hack to preserve the document reference in FF
         // https://bugzilla.mozilla.org/show_bug.cgi?id=543435
-        open.call(redRefs.document);
-        close.call(redRefs.document);
+        ReflectApply(open, redRefs.document, []);
+        ReflectApply(close, redRefs.document, []);
     }
     // finally, we return the evaluator function
     return (sourceText: string): void => env.evaluate(sourceText);

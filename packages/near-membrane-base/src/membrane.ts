@@ -151,7 +151,7 @@ export function init(
     } = Reflect;
     const { freeze, seal, isFrozen, isSealed, defineProperties } = Object;
     const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
-    const { push: ArrayPush } = Array.prototype;
+    const { push: ArrayPush, map: ArrayMap } = Array.prototype;
     const { revocable: ProxyRevocable } = Proxy;
     const { set: WeakMapSet, get: WeakMapGet } = WeakMap.prototype;
     const TypeErrorCtor = TypeError;
@@ -197,7 +197,7 @@ export function init(
     }
 
     if (
-        ObjectProtoHasOwnProperty.call(Error, 'stackTraceLimit') &&
+        apply(ObjectProtoHasOwnProperty, Error, ['stackTraceLimit']) &&
         typeof Error.stackTraceLimit === 'number'
     ) {
         // The default stack trace limit is 10. Increasing to 20 as a baby step.
@@ -212,9 +212,9 @@ export function init(
     // to cross the callable boundary in a try/catch, instead, they need to be ported
     // via the membrane artifacts.
     function foreignErrorControl<T extends (...args: any[]) => any>(foreignFn: T): T {
-        return <T>function foreignErrorControlFn(...args: any[]): any {
+        return <T>function foreignErrorControlFn(this: any, ...args: any[]): any {
             try {
-                return foreignFn(...args);
+                return apply(foreignFn, this, args);
             } catch (e) {
                 const pushedError = getSelectedTarget();
                 if (pushedError) {
@@ -231,11 +231,11 @@ export function init(
     // TODO: do we need to pass more info into instrumentation hooks?
     function instrumentCallableWrapper<T extends (...args: any[]) => any>(fn: T, label: string): T {
         if (instrumentation) {
-            return <T>function instrumentedFn(...args: any[]): any {
+            return <T>function instrumentedFn(this: any, ...args: any[]): any {
                 let result;
                 instrumentation.start(label);
                 try {
-                    result = fn(...args);
+                    result = apply(fn, this, args);
                 } finally {
                     instrumentation.end(label);
                 }
@@ -338,7 +338,7 @@ export function init(
         //       to preserve the object invariants, which makes these lines safe.
         let desc: PropertyDescriptor;
         const callbackWithDescriptor: CallableDescriptorCallback = (...descMeta) => {
-            desc = createDescriptorFromMeta(...descMeta);
+            desc = apply(createDescriptorFromMeta, undefined, descMeta);
         };
         foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callbackWithDescriptor);
         if (desc! !== undefined) {
@@ -359,7 +359,7 @@ export function init(
         const descriptors: PropertyDescriptorMap = { __proto__: null };
         let desc: PropertyDescriptor;
         const callbackWithDescriptor: CallableDescriptorCallback = (...descMeta) => {
-            desc = createDescriptorFromMeta(...descMeta);
+            desc = apply(createDescriptorFromMeta, undefined, descMeta);
         };
         for (let i = 0, len = keys.length; i < len; i += 1) {
             const key = keys[i] as string;
@@ -404,7 +404,7 @@ export function init(
     }
 
     function getTransferablePointer(originalTarget: ProxyTarget): Pointer {
-        let pointer = WeakMapGet.call(proxyTargetToPointerMap, originalTarget);
+        let pointer = apply(WeakMapGet, proxyTargetToPointerMap, [originalTarget]);
         if (pointer) {
             return pointer;
         }
@@ -459,7 +459,7 @@ export function init(
         // value. This is not fatal, but implies that for every distorted value where will
         // two proxies that are not ===, which is weird. Guaranteeing this is not easy because
         // it means auditing the code.
-        WeakMapSet.call(proxyTargetToPointerMap, originalTarget, pointer);
+        apply(WeakMapSet, proxyTargetToPointerMap, [originalTarget, pointer]);
         return pointer;
     }
 
@@ -547,7 +547,7 @@ export function init(
         ): any {
             const { targetPointer } = this;
             const thisArgValueOrPointer = getTransferableValue(thisArg);
-            const listOfValuesOrPointers = args.map(getTransferableValue);
+            const listOfValuesOrPointers = apply(ArrayMap, args, [getTransferableValue]);
             const foreignValueOrCallable = foreignCallableApply(
                 targetPointer,
                 thisArgValueOrPointer,
@@ -568,7 +568,7 @@ export function init(
                 throw new TypeErrorCtor();
             }
             const newTargetPointer = getTransferableValue(newTarget);
-            const listOfValuesOrPointers = args.map(getTransferableValue);
+            const listOfValuesOrPointers = apply(ArrayMap, args, [getTransferableValue]);
             const foreignValueOrCallable = foreignCallableConstruct(
                 targetPointer,
                 newTargetPointer,
@@ -754,7 +754,7 @@ export function init(
             const { targetPointer } = this;
             let desc: PropertyDescriptor | undefined;
             const callbackWithDescriptor: CallableDescriptorCallback = (...descMeta) => {
-                desc = createDescriptorFromMeta(...descMeta);
+                desc = apply(createDescriptorFromMeta, undefined, descMeta);
             };
             foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callbackWithDescriptor);
             if (desc === undefined) {
@@ -879,7 +879,7 @@ export function init(
             let O: object | null = getLocalValue(protoPointer);
             // return has(O, key);
             while (O !== null) {
-                if (ObjectProtoHasOwnProperty.call(O, key)) {
+                if (apply(ObjectProtoHasOwnProperty, O, [key])) {
                     return true;
                 }
                 O = getPrototypeOf(O);
@@ -911,7 +911,7 @@ export function init(
             // assert: trapMutations must be true
             let O: object | null = this.proxy;
             while (O !== null) {
-                if (ObjectProtoHasOwnProperty.call(O, key)) {
+                if (apply(ObjectProtoHasOwnProperty, O, [key])) {
                     // we know this is a single stop lookup because it has own property
                     const { get: getter, value: localValue } = getOwnPropertyDescriptor(O, key)!;
                     if (getter) {
@@ -952,7 +952,7 @@ export function init(
             const { targetPointer } = this;
             let O: object | null = this.proxy;
             while (O !== null) {
-                if (ObjectProtoHasOwnProperty.call(O, key)) {
+                if (apply(ObjectProtoHasOwnProperty, O, [key])) {
                     // we know this is a single stop lookup because it has own property
                     const { set: setter, get: getter } = getOwnPropertyDescriptor(O, key)!;
                     if (setter) {
@@ -1088,7 +1088,7 @@ export function init(
     freeze(BoundaryProxyHandler.prototype);
 
     function linkGlobalThis(foreignGlobalThisPointers: Pointer) {
-        WeakMapSet.call(proxyTargetToPointerMap, globalThis, foreignGlobalThisPointers);
+        apply(WeakMapSet, proxyTargetToPointerMap, [globalThis, foreignGlobalThisPointers]);
     }
 
     // These are foundational things that should never be wrapped but are equivalent
@@ -1160,7 +1160,7 @@ export function init(
         const targetPointer = getTransferablePointer(unforgeable);
         let desc: PropertyDescriptor;
         const callbackWithDescriptor: CallableDescriptorCallback = (...descMeta) => {
-            desc = createDescriptorFromMeta(...descMeta);
+            desc = apply(createDescriptorFromMeta, undefined, descMeta);
         };
         // the role of this descriptor is to serve as a bouncer, when either a getter or a setter
         // is accessed, the descriptor will be replaced with the descriptor from the foreign side
@@ -1238,7 +1238,7 @@ export function init(
             targetFunctionName: string | undefined
         ): Pointer => {
             const { proxy } = new BoundaryProxyHandler(pointer, targetTraits, targetFunctionName);
-            WeakMapSet.call(proxyTargetToPointerMap, proxy, pointer);
+            apply(WeakMapSet, proxyTargetToPointerMap, [proxy, pointer]);
             return createPointer(proxy);
         },
         // callableApply
@@ -1251,7 +1251,7 @@ export function init(
                 targetPointer();
                 const fn = getSelectedTarget();
                 const thisArg = getLocalValue(thisArgValueOrPointer);
-                const args = listOfValuesOrPointers.map(getLocalValue);
+                const args = apply(ArrayMap, listOfValuesOrPointers, [getLocalValue]);
                 let value;
                 try {
                     value = apply(fn, thisArg, args);
@@ -1272,7 +1272,7 @@ export function init(
                 targetPointer();
                 const constructor = getSelectedTarget();
                 const newTarget = getLocalValue(newTargetPointer);
-                const args = listOfValuesOrPointers.map(getLocalValue);
+                const args = apply(ArrayMap, listOfValuesOrPointers, [getLocalValue]);
                 let value;
                 try {
                     value = construct(constructor, args, newTarget);
@@ -1292,7 +1292,7 @@ export function init(
             ): boolean => {
                 targetPointer();
                 const target = getSelectedTarget();
-                const desc = createDescriptorFromMeta(...descMeta);
+                const desc = apply(createDescriptorFromMeta, undefined, descMeta);
                 try {
                     return defineProperty(target, key, desc);
                 } catch (e) {
@@ -1330,7 +1330,7 @@ export function init(
                     return;
                 }
                 const descMeta = getPartialDescriptorMeta(desc);
-                foreignCallableDescriptorCallback(...descMeta);
+                apply(foreignCallableDescriptorCallback, undefined, descMeta);
             },
             InboundInstrumentation
         ),
@@ -1380,7 +1380,7 @@ export function init(
                 } catch (e) {
                     throw pushErrorAcrossBoundary(e);
                 }
-                foreignCallableKeysCallback(...keys);
+                apply(foreignCallableKeysCallback, undefined, keys);
             },
             InboundInstrumentation
         ),
@@ -1444,7 +1444,7 @@ export function init(
             targetPointer();
             const target = getSelectedTarget();
             try {
-                return ObjectProtoHasOwnProperty.call(target, key);
+                return apply(ObjectProtoHasOwnProperty, target, [key]);
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
@@ -1454,11 +1454,10 @@ export function init(
             // remapping intrinsics that are realm's agnostic
             for (let i = 0, len = reflectiveValues.length; i < len; i += 1) {
                 if (reflectiveValues[i] !== null) {
-                    WeakMapSet.call(
-                        proxyTargetToPointerMap,
+                    apply(WeakMapSet, proxyTargetToPointerMap, [
                         reflectiveValues[i],
-                        foreignReflectivePointers[i]
-                    );
+                        foreignReflectivePointers[i],
+                    ]);
                 }
             }
         },
@@ -1467,11 +1466,10 @@ export function init(
             // remapping unforgeables in case they exists in the environment
             for (let i = 0, len = unforgeableValues.length; i < len; i += 1) {
                 if (unforgeableValues[i] !== null) {
-                    WeakMapSet.call(
-                        proxyTargetToPointerMap,
+                    apply(WeakMapSet, proxyTargetToPointerMap, [
                         unforgeableValues[i],
-                        foreignUnforgeablePointers[i]
-                    );
+                        foreignUnforgeablePointers[i],
+                    ]);
                 }
             }
         },
@@ -1543,7 +1541,7 @@ export function init(
         );
         // initial linkage
         linkGlobalThis(globalThisPointer);
-        callableLinkIntrinsics(...reflectivePointers);
-        callableLinkUnforgeables(...unforgeablePointers);
+        apply(callableLinkIntrinsics, undefined, reflectivePointers);
+        apply(callableLinkUnforgeables, undefined, unforgeablePointers);
     };
 }

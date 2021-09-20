@@ -180,7 +180,7 @@ export class VirtualEnvironment {
             const key = keys[i];
             let isEnumerable = true;
             if (typeof key === 'symbol') {
-                if (ObjectPropertyIsEnumerable.call(o, key)) {
+                if (ReflectApply(ObjectPropertyIsEnumerable, o, [key])) {
                     isEnumerable = true;
                 }
             }
@@ -191,9 +191,9 @@ export class VirtualEnvironment {
                 // eslint-disable-next-line no-continue
                 continue;
             } else {
-                isEnumerable = ArrayIncludes.call(enumerablePropertyKeys, key);
+                isEnumerable = ReflectApply(ArrayIncludes, enumerablePropertyKeys, [key]);
             }
-            ArrayPush.call(args, key, isEnumerable);
+            ReflectApply(ArrayPush, args, [key, isEnumerable]);
         }
         ReflectApply(this.redCallableInstallLazyDescriptors, undefined, args);
     }
