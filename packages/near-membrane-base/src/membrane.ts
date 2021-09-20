@@ -151,7 +151,7 @@ export function init(
     } = Reflect;
     const { freeze, seal, isFrozen, isSealed, defineProperties } = Object;
     const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
-    const { push: ArrayPush, map: ArrayMap } = Array.prototype;
+    const { map: ArrayMap, push: ArrayPush, slice: ArraySlice } = Array.prototype;
     const { revocable: ProxyRevocable } = Proxy;
     const { set: WeakMapSet, get: WeakMapGet } = WeakMap.prototype;
     const TypeErrorCtor = TypeError;
@@ -160,6 +160,19 @@ export function init(
     const LockerLiveValueMarkerSymbol = Symbol.for('@@lockerLiveValue');
     const InboundInstrumentation = `to:${color}`;
     const OutboundInstrumentation = `from:${color}`;
+
+    const ArrayConcat = (
+        arr: any[],
+        ...args: Parameters<typeof Array.prototype.concat>
+    ): ReturnType<typeof Array.prototype.concat> => {
+        const result: any[] = apply(ArraySlice, arr, [0]);
+        const { length } = args;
+        for (let i = 0; i < length; i += 1) {
+            const value = args[i];
+            apply(ArrayPush, result, isArrayOrNotOrThrowForRevoked(value) ? value : [value]);
+        }
+        return result;
+    };
 
     let selectedTarget: undefined | ProxyTarget;
     let foreignCallablePushTarget: CallablePushTarget;
@@ -548,12 +561,11 @@ export function init(
             const { targetPointer } = this;
             const thisArgValueOrPointer = getTransferableValue(thisArg);
             const listOfValuesOrPointers = apply(ArrayMap, args, [getTransferableValue]);
-            const foreignValueOrCallable = foreignCallableApply(
-                targetPointer,
-                thisArgValueOrPointer,
-                ...listOfValuesOrPointers
+            const combinedArgs = ArrayConcat(
+                [targetPointer, thisArgValueOrPointer],
+                listOfValuesOrPointers
             );
-            return getLocalValue(foreignValueOrCallable);
+            return getLocalValue(apply(foreignCallableApply, undefined, combinedArgs));
         };
 
         // construct trap is generic, and should never change independently of the type of membrane
@@ -569,12 +581,11 @@ export function init(
             }
             const newTargetPointer = getTransferableValue(newTarget);
             const listOfValuesOrPointers = apply(ArrayMap, args, [getTransferableValue]);
-            const foreignValueOrCallable = foreignCallableConstruct(
-                targetPointer,
-                newTargetPointer,
-                ...listOfValuesOrPointers
+            const combinedArgs = ArrayConcat(
+                [targetPointer, newTargetPointer],
+                listOfValuesOrPointers
             );
-            return getLocalValue(foreignValueOrCallable);
+            return getLocalValue(apply(foreignCallableConstruct, undefined, combinedArgs));
         };
 
         constructor(
