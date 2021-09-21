@@ -185,7 +185,9 @@ export class VirtualEnvironment {
                 // eslint-disable-next-line no-continue
                 continue;
             }
-            const isEnumerable = ReflectApply(ArrayIncludes, enumerablePropertyKeys, [key]);
+            const isEnumerable = typeof key === 'symbol'
+                ? ReflectApply(ObjectPropertyIsEnumerable, o, [key])
+                : ReflectApply(ArrayIncludes, enumerablePropertyKeys, [key]);
 
             ReflectApply(ArrayPush, args, [key, isEnumerable]);
         }
