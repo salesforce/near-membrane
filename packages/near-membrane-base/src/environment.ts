@@ -27,7 +27,7 @@ interface VirtualEnvironmentOptions {
 const undefinedSymbol = Symbol('membrane@undefined');
 const { test: RegExpProtoTest } = RegExp.prototype;
 const ErrorCtor = Error;
-const { keys: ObjectKeys } = Object;
+const { keys: ObjectKeys, propertyIsEnumerable: ObjectPropertyIsEnumerable } = Object;
 const { apply: ReflectApply, ownKeys: ReflectOwnKeys } = Reflect;
 const { includes: ArrayIncludes, push: ArrayPush } = Array.prototype;
 
@@ -185,9 +185,10 @@ export class VirtualEnvironment {
                 // eslint-disable-next-line no-continue
                 continue;
             }
-            const isEnumerable = typeof key === 'symbol'
-                ? ReflectApply(ObjectPropertyIsEnumerable, o, [key])
-                : ReflectApply(ArrayIncludes, enumerablePropertyKeys, [key]);
+            const isEnumerable =
+                typeof key === 'symbol'
+                    ? ReflectApply(ObjectPropertyIsEnumerable, o, [key])
+                    : ReflectApply(ArrayIncludes, enumerablePropertyKeys, [key]);
 
             ReflectApply(ArrayPush, args, [key, isEnumerable]);
         }
