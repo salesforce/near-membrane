@@ -1556,3 +1556,5 @@ export function init(
         apply(callableLinkUnforgeables, undefined, unforgeablePointers);
     };
 }
+
+export const initSourceTextInStrictMode = `(function(){'use strict';return (${init.toString()})})()`;

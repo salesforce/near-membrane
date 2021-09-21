@@ -1,4 +1,9 @@
-import { getFilteredEndowmentDescriptors, init, VirtualEnvironment } from '../index';
+import {
+    getFilteredEndowmentDescriptors,
+    init,
+    initSourceTextInStrictMode,
+    VirtualEnvironment,
+} from '../index';
 
 describe('VirtualEnvironment', () => {
     afterEach(() => {
@@ -21,9 +26,8 @@ describe('VirtualEnvironment', () => {
             // @ts-ignore
             expect.assertions(1);
 
-            const initSourceText = `(function(){'use strict';return (${init.toString()})})()`;
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceText);
+            const redConnector = globalThis.eval(initSourceTextInStrictMode);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -47,9 +51,8 @@ describe('VirtualEnvironment', () => {
             // @ts-ignore
             expect.assertions(1);
 
-            const initSourceText = `(function(){'use strict';return (${init.toString()})})()`;
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceText);
+            const redConnector = globalThis.eval(initSourceTextInStrictMode);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -60,17 +63,17 @@ describe('VirtualEnvironment', () => {
             });
 
             const redValue = {} as any;
-            Object.defineProperty(redValue, 'p', {
+            Object.defineProperty(redValue, 'a', {
                 value: 0,
                 configurable: false,
             });
             const endowments = {
-                p: 1,
+                a: 1,
             };
 
             ve.remap(redValue, getFilteredEndowmentDescriptors(endowments));
 
-            expect(redValue.p).toBe(0);
+            expect(redValue.a).toBe(0);
         });
 
         it('calls a lazy endowment getter', () => {
@@ -80,10 +83,9 @@ describe('VirtualEnvironment', () => {
 
             let count = 0;
 
-            const initSourceText = `(function(){'use strict';return (${init.toString()})})()`;
             // istanbul ignore next
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceText);
+            const redConnector = globalThis.eval(initSourceTextInStrictMode);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -101,7 +103,7 @@ describe('VirtualEnvironment', () => {
 
             const endowments = {};
 
-            Object.defineProperty(endowments, 'p', {
+            Object.defineProperty(endowments, 'b', {
                 get() {
                     count += 1;
                     return 1;
@@ -111,7 +113,7 @@ describe('VirtualEnvironment', () => {
 
             ve.remap(globalThis, getFilteredEndowmentDescriptors(endowments));
 
-            expect(globalThis.p).toBe(1);
+            expect(globalThis.b).toBe(1);
             expect(count).toBe(3);
         });
 
@@ -123,9 +125,8 @@ describe('VirtualEnvironment', () => {
             let count = 0;
             let blueSetValue = null;
 
-            const initSourceText = `(function(){'use strict';return (${init.toString()})})()`;
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceText);
+            const redConnector = globalThis.eval(initSourceTextInStrictMode);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -136,7 +137,7 @@ describe('VirtualEnvironment', () => {
             });
 
             const endowments = {};
-            Object.defineProperty(endowments, 'p', {
+            Object.defineProperty(endowments, 'c', {
                 get() {
                     // This WILL be reached, but only until the setter is called
                     count += 1;
@@ -152,14 +153,279 @@ describe('VirtualEnvironment', () => {
 
             ve.remap(globalThis, getFilteredEndowmentDescriptors(endowments));
 
-            expect(globalThis.p).toBe(1); // count + 1
-            expect(globalThis.p).toBe(1); // count + 1
-            expect(globalThis.p).toBe(1); // count + 1
+            expect(globalThis.c).toBe(1); // count + 1
+            expect(globalThis.c).toBe(1); // count + 1
+            expect(globalThis.c).toBe(1); // count + 1
             expect(count).toBe(3);
-            globalThis.p = 99;
-            expect(globalThis.p).toBe(1);
+            globalThis.c = 99;
+            expect(globalThis.c).toBe(1);
             expect(blueSetValue).toBe(99);
             expect(count).toBe(6);
+        });
+    });
+    describe('VirtualEnvironment.prototype.lazyRemap', () => {
+        it('Skips index-like properties', () => {
+            // Ignoring "Property 'assertions' does not exist on type '{...}'."
+            // @ts-ignore
+            expect.assertions(1);
+
+            // eslint-disable-next-line no-eval
+            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+
+            const ve = new VirtualEnvironment({
+                blueConnector: init,
+                redConnector,
+                distortionCallback(v) {
+                    return v;
+                },
+            });
+
+            const redValue = {};
+            const endowments = {
+                0: 'foo',
+            };
+
+            ve.lazyRemap(redValue, Object.keys(getFilteredEndowmentDescriptors(endowments)));
+            expect(Object.getOwnPropertyNames(redValue).length).toBe(0);
+        });
+
+        it('Skips index-like properties, called after remap', () => {
+            // Ignoring "Property 'assertions' does not exist on type '{...}'."
+            // @ts-ignore
+            expect.assertions(2);
+
+            // eslint-disable-next-line no-eval
+            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+
+            const ve = new VirtualEnvironment({
+                blueConnector: init,
+                redConnector,
+                distortionCallback(v) {
+                    return v;
+                },
+            });
+
+            const redValue = {};
+            const endowments = {
+                0: 'foo',
+            };
+
+            ve.remap(redValue, getFilteredEndowmentDescriptors(endowments));
+            expect(Object.getOwnPropertyNames(redValue).length).toBe(0);
+
+            ve.lazyRemap(redValue, Object.keys(getFilteredEndowmentDescriptors(endowments)));
+            expect(Object.getOwnPropertyNames(redValue).length).toBe(0);
+        });
+
+        it('Skips untamable properties, ie. descriptor is not configurable', () => {
+            // Ignoring "Property 'assertions' does not exist on type '{...}'."
+            // @ts-ignore
+            expect.assertions(2);
+
+            // eslint-disable-next-line no-eval
+            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+
+            const ve = new VirtualEnvironment({
+                blueConnector: init,
+                redConnector,
+                distortionCallback(v) {
+                    return v;
+                },
+            });
+
+            const redValue = {} as any;
+            Object.defineProperty(redValue, 'd', {
+                value: 0,
+                configurable: false,
+            });
+            const endowments = {
+                d: 1,
+            };
+
+            ve.remap(redValue, getFilteredEndowmentDescriptors(endowments));
+            expect(redValue.d).toBe(0);
+
+            ve.lazyRemap(redValue, Object.keys(getFilteredEndowmentDescriptors(endowments)));
+            expect(redValue.d).toBe(0);
+        });
+
+        it('will not call an endowment getter that does not exist', () => {
+            // Ignoring "Property 'assertions' does not exist on type '{...}'."
+            // @ts-ignore
+            expect.assertions(2);
+
+            let count = 0;
+
+            // istanbul ignore next
+            // eslint-disable-next-line no-eval
+            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+
+            const ve = new VirtualEnvironment({
+                blueConnector: init,
+                redConnector,
+                distortionCallback(v) {
+                    return v;
+                },
+            });
+
+            const endowments = {};
+
+            Object.defineProperty(endowments, 'e', {
+                get() {
+                    count += 1;
+                    return 1;
+                },
+                configurable: true,
+            });
+
+            ve.lazyRemap(globalThis, Object.keys(getFilteredEndowmentDescriptors(endowments)));
+
+            expect(globalThis.e).toBe(undefined);
+            expect(count).toBe(0);
+        });
+
+        it('calls a lazy endowment getter, called after remap', () => {
+            // Ignoring "Property 'assertions' does not exist on type '{...}'."
+            // @ts-ignore
+            expect.assertions(5);
+
+            let count = 0;
+
+            // istanbul ignore next
+            // eslint-disable-next-line no-eval
+            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+
+            const ve = new VirtualEnvironment({
+                blueConnector: init,
+                redConnector,
+                distortionCallback(v) {
+                    count += 1;
+                    // This ignore is to suppress the following:
+                    //  "Not all constituents of type 'RedProxyTarget' are callable."
+                    // Which is generally true, but not in this case.
+                    // @ts-ignore
+                    expect(v()).toBe(1);
+                    return v;
+                },
+            });
+
+            const endowments = {};
+
+            Object.defineProperty(endowments, 'f', {
+                get() {
+                    count += 1;
+                    return 1;
+                },
+                configurable: true,
+            });
+
+            ve.remap(globalThis, getFilteredEndowmentDescriptors(endowments));
+            expect(globalThis.f).toBe(1);
+            expect(count).toBe(3);
+
+            ve.lazyRemap(globalThis, Object.keys(getFilteredEndowmentDescriptors(endowments)));
+
+            expect(globalThis.f).toBe(1);
+            expect(count).toBe(4);
+        });
+
+        it('will not call an endowment setter that does not exist', () => {
+            // Ignoring "Property 'assertions' does not exist on type '{...}'."
+            // @ts-ignore
+            // expect.assertions(11);
+
+            let count = 0;
+            let blueSetValue = null;
+
+            // eslint-disable-next-line no-eval
+            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+
+            const ve = new VirtualEnvironment({
+                blueConnector: init,
+                redConnector,
+                distortionCallback(v) {
+                    return v;
+                },
+            });
+
+            const endowments = {};
+            Object.defineProperty(endowments, 'g', {
+                get() {
+                    // This WILL be reached, but only until the setter is called
+                    count += 1;
+                    return 1;
+                },
+                // @ts-ignore
+                set(v) {
+                    // This should NOT be reached
+                    blueSetValue = v;
+                    count += 1;
+                },
+            });
+
+            ve.lazyRemap(globalThis, Object.keys(getFilteredEndowmentDescriptors(endowments)));
+
+            expect(count).toBe(0);
+
+            globalThis.g = 999;
+            expect(globalThis.g).toBe(999);
+            expect(blueSetValue).toBe(null);
+            expect(count).toBe(0);
+        });
+
+        it('calls a lazy endowment setter, called after remap', () => {
+            // Ignoring "Property 'assertions' does not exist on type '{...}'."
+            // @ts-ignore
+            expect.assertions(11);
+
+            let count = 0;
+            let blueSetValue = null;
+
+            // eslint-disable-next-line no-eval
+            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+
+            const ve = new VirtualEnvironment({
+                blueConnector: init,
+                redConnector,
+                distortionCallback(v) {
+                    return v;
+                },
+            });
+
+            const endowments = {};
+            Object.defineProperty(endowments, 'h', {
+                get() {
+                    // This WILL be reached, but only until the setter is called
+                    count += 1;
+                    return 1;
+                },
+                // @ts-ignore
+                set(v) {
+                    // This should NOT be reached
+                    blueSetValue = v;
+                    count += 1;
+                },
+            });
+
+            ve.remap(globalThis, getFilteredEndowmentDescriptors(endowments));
+
+            expect(globalThis.h).toBe(1); // count + 1
+            expect(globalThis.h).toBe(1); // count + 1
+            expect(globalThis.h).toBe(1); // count + 1
+            expect(count).toBe(3);
+            globalThis.h = 99;
+            expect(globalThis.h).toBe(1);
+            expect(blueSetValue).toBe(99);
+            expect(count).toBe(6);
+
+            ve.lazyRemap(globalThis, Object.keys(getFilteredEndowmentDescriptors(endowments)));
+
+            expect(count).toBe(6);
+
+            globalThis.h = 999;
+            expect(globalThis.h).toBe(1);
+            expect(blueSetValue).toBe(999);
+            expect(count).toBe(9);
         });
     });
 });

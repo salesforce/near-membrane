@@ -1,8 +1,9 @@
 import {
-    init,
-    VirtualEnvironment,
     getFilteredEndowmentDescriptors,
+    init,
+    initSourceTextInStrictMode,
     ProxyTarget,
+    VirtualEnvironment,
 } from '@locker/near-membrane-base';
 
 import { getCachedBlueReferences, getRedReferences, tameDOM } from './window';
@@ -15,9 +16,6 @@ interface EnvironmentOptions {
 
 const emptyArray: [] = [];
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
-// TODO: how to guarantee that the function is actually running in strict mode?
-const initSourceText = `(function(){'use strict';return (${init.toString()})})()`;
-
 const { createElement: DocumentCreateElement } = document;
 const { remove: ElementProtoRemove } = Element.prototype;
 const { appendChild: NodeProtoAppendChild } = Node.prototype;
@@ -29,6 +27,9 @@ const {
 } = Object.prototype as any;
 
 function ObjectLookupOwnGetter(obj: object, key: PropertyKey): Function | undefined {
+    // Since this function is only used internally, and would not otherwise be reachable
+    // by user code, istanbul can ignore test coverage for the following condition.
+    // istanbul ignore next
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     if (obj === null || obj === undefined || !ReflectApply(ObjectProtoHasOwnProperty, obj, [key])) {
         return undefined;
@@ -114,7 +115,7 @@ export default function createVirtualEnvironment(
     const redWindow = (iframe.contentWindow as WindowProxy).window;
     const endowmentsDescriptors = getFilteredEndowmentDescriptors(endowments || {});
     const blueConnector = init;
-    const redConnector = redWindow.eval(initSourceText);
+    const redConnector = redWindow.eval(initSourceTextInStrictMode);
     // extract the global references and descriptors before any interference
     const blueRefs = getCachedBlueReferences(blueWindow);
     const redRefs = getRedReferences(redWindow);
