@@ -27,9 +27,10 @@ interface VirtualEnvironmentOptions {
 const undefinedSymbol = Symbol('membrane@undefined');
 const { test: RegExpProtoTest } = RegExp.prototype;
 const ErrorCtor = Error;
-const { keys: ObjectKeys, propertyIsEnumerable: ObjectPropertyIsEnumerable } = Object;
+const { assign: ObjectAssign, keys: ObjectKeys } = Object;
+const { propertyIsEnumerable: ObjectProtoPropertyIsEnumerable } = Object.prototype;
 const { apply: ReflectApply, ownKeys: ReflectOwnKeys } = Reflect;
-const { includes: ArrayIncludes, push: ArrayPush } = Array.prototype;
+const { includes: ArrayProtoIncludes, push: ArrayProtoPush } = Array.prototype;
 
 function RegExpTest(regexp: RegExp, str: string): boolean {
     return ReflectApply(RegExpProtoTest, regexp, [str]);
@@ -138,8 +139,8 @@ export class VirtualEnvironment {
                 continue;
             }
             // Avoid poisoning by only installing own properties from blueDescriptors
-            // @ts-ignore
-            const blueDescriptor = { __proto__: null, ...blueDescriptors[key] };
+            // eslint-disable-next-line prefer-object-spread
+            const blueDescriptor = ObjectAssign({ __proto__: null }, (blueDescriptors as any)[key]);
             const configurable =
                 'configurable' in blueDescriptor ? !!blueDescriptor.configurable : undefinedSymbol;
             const enumerable =
@@ -187,10 +188,10 @@ export class VirtualEnvironment {
             }
             const isEnumerable =
                 typeof key === 'symbol'
-                    ? ReflectApply(ObjectPropertyIsEnumerable, o, [key])
-                    : ReflectApply(ArrayIncludes, enumerablePropertyKeys, [key]);
+                    ? ReflectApply(ObjectProtoPropertyIsEnumerable, o, [key])
+                    : ReflectApply(ArrayProtoIncludes, enumerablePropertyKeys, [key]);
 
-            ReflectApply(ArrayPush, args, [key, isEnumerable]);
+            ReflectApply(ArrayProtoPush, args, [key, isEnumerable]);
         }
         ReflectApply(this.redCallableInstallLazyDescriptors, undefined, args);
     }

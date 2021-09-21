@@ -5,6 +5,7 @@
     "author": "Caridy Patiño <caridy@gmail.com>",
     "description": "JavaScript Near Membrane Library to create a sandboxed environment",
     "main": "lib/index.js",
+    "sideEffects": false,
     "type": "module",
     "types": "types/index.d.ts",
     "scripts": {
