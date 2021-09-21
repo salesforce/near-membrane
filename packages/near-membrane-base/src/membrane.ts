@@ -1125,6 +1125,9 @@ export function init(
         // this mapping return a pointer for each of the reflective intrinsics
         // and their respective prototype so both sides of the membrane can link them out.
         const reflectiveValue = globalThis[globalName];
+        if (!reflectiveValue) {
+            return;
+        }
         const reflectivePointer = createPointer(reflectiveValue);
         reflectiveValues.push(reflectiveValue);
         reflectivePointers.push(reflectivePointer);
