@@ -5,10 +5,6 @@ const {
     ownKeys: ReflectOwnKeys,
 } = Reflect;
 
-function SetHas(set: Set<any>, key: any): boolean {
-    return ReflectApply(SetProtoHas, set, [key]);
-}
-
 /**
  * This list must be in sync with ecma-262, anything new added to the global object
  * should be considered, to decide whether or not they need remapping. The default
@@ -116,7 +112,7 @@ export function getFilteredEndowmentDescriptors(endowments: object): PropertyDes
         // will be ignored if present in the endowments object.
         // TODO: what if the intent is to polyfill one of those
         // intrinsics?
-        if (!SetHas(ESGlobalKeys, key)) {
+        if (!ReflectApply(SetProtoHas, ESGlobalKeys, [key])) {
             to[key] = ReflectGetOwnPropertyDescriptor(endowments, key)!;
         }
     }
@@ -124,5 +120,5 @@ export function getFilteredEndowmentDescriptors(endowments: object): PropertyDes
 }
 
 export function isIntrinsicGlobalName(key: PropertyKey): boolean {
-    return SetHas(ESGlobalKeys, key);
+    return ReflectApply(SetProtoHas, ESGlobalKeys, [key]);
 }

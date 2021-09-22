@@ -135,44 +135,38 @@ export function init(
     };
     const { eval: cachedLocalEval } = globalThis;
     const {
-        defineProperty,
-        getOwnPropertyDescriptor,
-        setPrototypeOf,
-        apply,
-        construct,
-        deleteProperty,
-        get,
-        set,
-        has,
-        getPrototypeOf,
-        isExtensible,
-        ownKeys,
-        preventExtensions,
+        defineProperty: ReflectDefineProperty,
+        getOwnPropertyDescriptor: ReflectOwnPropertyDescriptor,
+        setPrototypeOf: ReflectSetPrototypeOf,
+        apply: ReflectApply,
+        construct: ReflectConstruct,
+        deleteProperty: ReflectDeleteProperty,
+        get: ReflectGet,
+        set: ReflectSet,
+        has: ReflectHas,
+        getPrototypeOf: ReflectGetPrototypeOf,
+        isExtensible: ReflectIsExtensible,
+        ownKeys: ReflectOwnKeys,
+        preventExtensions: ReflectPreventExtensions,
     } = Reflect;
-    const { freeze, seal, isFrozen, isSealed, defineProperties } = Object;
+    const {
+        defineProperties: ObjectDefineProperties,
+        freeze: ObjectFreeze,
+        isFrozen: ObjectIsFrozen,
+        isSealed: ObjectIsSealed,
+        seal: ObjectSeal,
+    } = Object;
+    const ArrayCtor = Array;
     const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
-    const { map: ArrayMap, push: ArrayPush, slice: ArraySlice } = Array.prototype;
+    const { push: ArrayProtoPush } = Array.prototype;
     const { revocable: ProxyRevocable } = Proxy;
-    const { set: WeakMapSet, get: WeakMapGet } = WeakMap.prototype;
+    const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMap.prototype;
     const TypeErrorCtor = TypeError;
-    const { hasOwnProperty: ObjectProtoHasOwnProperty } = Object.prototype as any;
+    const { hasOwnProperty: ObjectProtoHasOwnProperty } = Object.prototype;
     const proxyTargetToPointerMap = new WeakMap();
     const LockerLiveValueMarkerSymbol = Symbol.for('@@lockerLiveValue');
     const InboundInstrumentation = `to:${color}`;
     const OutboundInstrumentation = `from:${color}`;
-
-    const ArrayConcat = (
-        arr: any[],
-        ...args: Parameters<typeof Array.prototype.concat>
-    ): ReturnType<typeof Array.prototype.concat> => {
-        const result: any[] = apply(ArraySlice, arr, [0]);
-        const { length } = args;
-        for (let i = 0; i < length; i += 1) {
-            const value = args[i];
-            apply(ArrayPush, result, isArrayOrNotOrThrowForRevoked(value) ? value : [value]);
-        }
-        return result;
-    };
 
     let selectedTarget: undefined | ProxyTarget;
     let foreignCallablePushTarget: CallablePushTarget;
@@ -210,7 +204,7 @@ export function init(
     }
 
     if (
-        apply(ObjectProtoHasOwnProperty, Error, ['stackTraceLimit']) &&
+        ReflectApply(ObjectProtoHasOwnProperty, Error, ['stackTraceLimit']) &&
         typeof Error.stackTraceLimit === 'number'
     ) {
         // The default stack trace limit is 10. Increasing to 20 as a baby step.
@@ -227,13 +221,13 @@ export function init(
     function foreignErrorControl<T extends (...args: any[]) => any>(foreignFn: T): T {
         return <T>function foreignErrorControlFn(this: any, ...args: any[]): any {
             try {
-                return apply(foreignFn, this, args);
-            } catch (e) {
+                return ReflectApply(foreignFn, this, args);
+            } catch (e: any) {
                 const pushedError = getSelectedTarget();
                 if (pushedError) {
                     throw pushedError;
                 }
-                throw new TypeErrorCtor(e.message);
+                throw new TypeErrorCtor(e?.message);
             }
         };
     }
@@ -248,7 +242,7 @@ export function init(
                 let result;
                 instrumentation.start(label);
                 try {
-                    result = apply(fn, this, args);
+                    result = ReflectApply(fn, this, args);
                 } finally {
                     instrumentation.end(label);
                 }
@@ -298,7 +292,7 @@ export function init(
             // eslint-disable-next-line func-names
             shadowTarget = targetTraits & TargetTraits.IsArrowFunction ? () => {} : function () {};
             // This is only really needed for debugging, it helps to identify the proxy by name
-            defineProperty(shadowTarget, 'name', {
+            ReflectDefineProperty(shadowTarget, 'name', {
                 value: targetFunctionName,
                 configurable: true,
             });
@@ -351,11 +345,11 @@ export function init(
         //       to preserve the object invariants, which makes these lines safe.
         let desc: PropertyDescriptor;
         const callbackWithDescriptor: CallableDescriptorCallback = (...descMeta) => {
-            desc = apply(createDescriptorFromMeta, undefined, descMeta);
+            desc = ReflectApply(createDescriptorFromMeta, undefined, descMeta);
         };
         foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callbackWithDescriptor);
         if (desc! !== undefined) {
-            defineProperty(shadowTarget, key, desc);
+            ReflectDefineProperty(shadowTarget, key, desc);
         }
     }
 
@@ -372,16 +366,16 @@ export function init(
         const descriptors: PropertyDescriptorMap = { __proto__: null };
         let desc: PropertyDescriptor;
         const callbackWithDescriptor: CallableDescriptorCallback = (...descMeta) => {
-            desc = apply(createDescriptorFromMeta, undefined, descMeta);
+            desc = ReflectApply(createDescriptorFromMeta, undefined, descMeta);
         };
         for (let i = 0, len = keys.length; i < len; i += 1) {
             const key = keys[i] as string;
             foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callbackWithDescriptor);
             descriptors[key] = desc!;
         }
-        // Use `Object.defineProperties()` instead of individual
-        // `Reflect.defineProperty()` calls for better performance.
-        defineProperties(shadowTarget, descriptors);
+        // Use `ObjectDefineProperties()` instead of individual
+        // `ReflectDefineProperty()` calls for better performance.
+        ObjectDefineProperties(shadowTarget, descriptors);
     }
 
     function getDistortedValue(target: ProxyTarget): ProxyTarget {
@@ -417,7 +411,7 @@ export function init(
     }
 
     function getTransferablePointer(originalTarget: ProxyTarget): Pointer {
-        let pointer = apply(WeakMapGet, proxyTargetToPointerMap, [originalTarget]);
+        let pointer = ReflectApply(WeakMapProtoGet, proxyTargetToPointerMap, [originalTarget]);
         if (pointer) {
             return pointer;
         }
@@ -437,7 +431,7 @@ export function init(
             }
             try {
                 // a revoked proxy will throw when reading the function name
-                targetFunctionName = getOwnPropertyDescriptor(distortedTarget, 'name')?.value;
+                targetFunctionName = ReflectOwnPropertyDescriptor(distortedTarget, 'name')?.value;
             } catch {
                 // intentionally swallowing the error because this method is just extracting
                 // the function in a way that it should always succeed except for the cases
@@ -472,7 +466,7 @@ export function init(
         // value. This is not fatal, but implies that for every distorted value where will
         // two proxies that are not ===, which is weird. Guaranteeing this is not easy because
         // it means auditing the code.
-        apply(WeakMapSet, proxyTargetToPointerMap, [originalTarget, pointer]);
+        ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [originalTarget, pointer]);
         return pointer;
     }
 
@@ -511,9 +505,9 @@ export function init(
         copyForeignDescriptorsIntoShadowTarget(shadowTarget, targetPointer);
         const protoPointer = foreignCallableGetPrototypeOf(targetPointer);
         // setting up __proto__ of the shadowTarget
-        setPrototypeOf(shadowTarget, getLocalValue(protoPointer));
+        ReflectSetPrototypeOf(shadowTarget, getLocalValue(protoPointer));
         // locking down the extensibility of shadowTarget
-        preventExtensions(shadowTarget);
+        ReflectPreventExtensions(shadowTarget);
     }
 
     class BoundaryProxyHandler implements ProxyHandler<ShadowTarget> {
@@ -560,12 +554,14 @@ export function init(
         ): any {
             const { targetPointer } = this;
             const thisArgValueOrPointer = getTransferableValue(thisArg);
-            const listOfValuesOrPointers = apply(ArrayMap, args, [getTransferableValue]);
-            const combinedArgs = ArrayConcat(
-                [targetPointer, thisArgValueOrPointer],
-                listOfValuesOrPointers
-            );
-            return getLocalValue(apply(foreignCallableApply, undefined, combinedArgs));
+            const combinedArgs = [targetPointer, thisArgValueOrPointer];
+            const { length: argsLen } = args;
+            const { length: combinedOffset } = combinedArgs;
+            combinedArgs.length += argsLen;
+            for (let i = 0, len = argsLen; i < len; i += 1) {
+                combinedArgs[i + combinedOffset] = getTransferableValue(args[i]);
+            }
+            return getLocalValue(ReflectApply(foreignCallableApply, undefined, combinedArgs));
         };
 
         // construct trap is generic, and should never change independently of the type of membrane
@@ -580,12 +576,14 @@ export function init(
                 throw new TypeErrorCtor();
             }
             const newTargetPointer = getTransferableValue(newTarget);
-            const listOfValuesOrPointers = apply(ArrayMap, args, [getTransferableValue]);
-            const combinedArgs = ArrayConcat(
-                [targetPointer, newTargetPointer],
-                listOfValuesOrPointers
-            );
-            return getLocalValue(apply(foreignCallableConstruct, undefined, combinedArgs));
+            const combinedArgs = [targetPointer, newTargetPointer];
+            const { length: argsLen } = args;
+            const { length: combinedOffset } = combinedArgs;
+            combinedArgs.length += argsLen;
+            for (let i = 0, len = argsLen; i < len; i += 1) {
+                combinedArgs[i + combinedOffset] = getTransferableValue(args[i]);
+            }
+            return getLocalValue(ReflectApply(foreignCallableConstruct, undefined, combinedArgs));
         };
 
         constructor(
@@ -623,7 +621,7 @@ export function init(
                 // if local mutations are not trapped, then freezing the handler is ok because it
                 // is not expecting to change in the future.
                 // future optimization: hoping that proxies with frozen handlers can be faster
-                freeze(this);
+                ObjectFreeze(this);
             }
         }
 
@@ -655,7 +653,7 @@ export function init(
             // @ts-ignore
             this.defineProperty = BoundaryProxyHandler.dynamicDefinePropertyTrap;
             // future optimization: hoping that proxies with frozen handlers can be faster
-            freeze(this);
+            ObjectFreeze(this);
         }
 
         private makeProxyStatic(shadowTarget: ShadowTarget) {
@@ -674,7 +672,7 @@ export function init(
                 // a proxy that revoke itself when the __proto__ is accessed can break
                 // the membrane, therefore we need protection
                 protoPointer = foreignCallableGetPrototypeOf(targetPointer);
-                setPrototypeOf(shadowTarget, getLocalValue(protoPointer));
+                ReflectSetPrototypeOf(shadowTarget, getLocalValue(protoPointer));
             } catch {
                 // TODO: is revoke the right action here? maybe just setting proto to null instead?
                 this.revoke();
@@ -684,28 +682,28 @@ export function init(
             copyForeignDescriptorsIntoShadowTarget(shadowTarget, targetPointer);
             // preserving the semantics of the object
             if (targetIntegrityTraits & TargetIntegrityTraits.IsFrozen) {
-                freeze(shadowTarget);
+                ObjectFreeze(shadowTarget);
             } else if (targetIntegrityTraits & TargetIntegrityTraits.IsSealed) {
-                seal(shadowTarget);
+                ObjectSeal(shadowTarget);
             } else if (targetIntegrityTraits & TargetIntegrityTraits.IsNotExtensible) {
-                preventExtensions(shadowTarget);
+                ReflectPreventExtensions(shadowTarget);
             }
             // resetting all traps except apply and construct for static proxies since the
             // proxy target is the shadow target and all operations are going to be applied
             // to it rather than the real target.
-            this.getOwnPropertyDescriptor = getOwnPropertyDescriptor;
-            this.getPrototypeOf = getPrototypeOf;
-            this.get = get;
-            this.has = has;
-            this.ownKeys = ownKeys;
-            this.isExtensible = isExtensible;
-            this.set = set;
-            this.defineProperty = defineProperty;
-            this.deleteProperty = deleteProperty;
-            this.setPrototypeOf = setPrototypeOf;
-            this.preventExtensions = preventExtensions;
+            this.getOwnPropertyDescriptor = ReflectOwnPropertyDescriptor;
+            this.getPrototypeOf = ReflectGetPrototypeOf;
+            this.get = ReflectGet;
+            this.has = ReflectHas;
+            this.ownKeys = ReflectOwnKeys;
+            this.isExtensible = ReflectIsExtensible;
+            this.set = ReflectSet;
+            this.defineProperty = ReflectDefineProperty;
+            this.deleteProperty = ReflectDeleteProperty;
+            this.setPrototypeOf = ReflectSetPrototypeOf;
+            this.preventExtensions = ReflectPreventExtensions;
             // future optimization: hoping that proxies with frozen handlers can be faster
-            freeze(this);
+            ObjectFreeze(this);
         }
 
         private makeProxyUnambiguous(shadowTarget: ShadowTarget) {
@@ -732,12 +730,12 @@ export function init(
             // Perf: Optimization to avoid hitting Symbol.iterator, which will
             // normally be: foreignCallableDefineProperty(targetPointer, key, ...descMeta)
             const args = [targetPointer, key];
-            apply(
-                ArrayPush,
+            ReflectApply(
+                ArrayProtoPush,
                 args, // first two arguments
                 descMeta // rest arguments
             );
-            const result = apply(foreignCallableDefineProperty, undefined, args);
+            const result = ReflectApply(foreignCallableDefineProperty, undefined, args);
             if (result) {
                 const [configurable] = descMeta;
                 // intentionally testing against true since it could be undefined as well
@@ -765,7 +763,7 @@ export function init(
             const { targetPointer } = this;
             let desc: PropertyDescriptor | undefined;
             const callbackWithDescriptor: CallableDescriptorCallback = (...descMeta) => {
-                desc = apply(createDescriptorFromMeta, undefined, descMeta);
+                desc = ReflectApply(createDescriptorFromMeta, undefined, descMeta);
             };
             foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callbackWithDescriptor);
             if (desc === undefined) {
@@ -792,7 +790,7 @@ export function init(
             shadowTarget: ShadowTarget
         ): boolean {
             // optimization to avoid attempting to lock down the shadowTarget multiple times
-            if (!isExtensible(shadowTarget)) {
+            if (!ReflectIsExtensible(shadowTarget)) {
                 return false; // was already locked down
             }
             const { targetPointer } = this;
@@ -821,7 +819,7 @@ export function init(
             shadowTarget: ShadowTarget
         ): boolean | undefined {
             const { targetPointer } = this;
-            if (isExtensible(shadowTarget)) {
+            if (ReflectIsExtensible(shadowTarget)) {
                 if (!foreignCallablePreventExtensions(targetPointer)) {
                     // if the target is a proxy manually created, it might reject
                     // the preventExtension call, in which case we should not attempt to lock down
@@ -890,16 +888,16 @@ export function init(
             let O: object | null = getLocalValue(protoPointer);
             // return has(O, key);
             while (O !== null) {
-                if (apply(ObjectProtoHasOwnProperty, O, [key])) {
+                if (ReflectApply(ObjectProtoHasOwnProperty, O, [key])) {
                     return true;
                 }
-                O = getPrototypeOf(O);
+                O = ReflectGetPrototypeOf(O);
             }
             return false;
         }
 
         /**
-         * This trap cannot just use `Reflect.get` directly on the `target` because
+         * This trap cannot just use `ReflectGet` directly on the `target` because
          * the red object graph might have mutations that are only visible on the red side,
          * which means looking into `target` directly is not viable. Instead, we need to
          * implement a more crafty solution that looks into target's own properties, or
@@ -922,25 +920,28 @@ export function init(
             // assert: trapMutations must be true
             let O: object | null = this.proxy;
             while (O !== null) {
-                if (apply(ObjectProtoHasOwnProperty, O, [key])) {
+                if (ReflectApply(ObjectProtoHasOwnProperty, O, [key])) {
                     // we know this is a single stop lookup because it has own property
-                    const { get: getter, value: localValue } = getOwnPropertyDescriptor(O, key)!;
+                    const { get: getter, value: localValue } = ReflectOwnPropertyDescriptor(
+                        O,
+                        key
+                    )!;
                     if (getter) {
                         // even though the getter function exists, we can't use Reflect.get because
                         // there might be a distortion for that getter function, in which case we
                         // must resolve the local getter and call it instead.
-                        return apply(getter, receiver, []);
+                        return ReflectApply(getter, receiver, []);
                     }
                     // descriptor exists without a getter
                     return localValue;
                 }
-                O = getPrototypeOf(O);
+                O = ReflectGetPrototypeOf(O);
             }
             return undefined;
         }
 
         /**
-         * This trap cannot just use `Reflect.set` directly on the `target` because
+         * This trap cannot just use `ReflectSet` directly on the `target` because
          * the red object graph might have mutations that are only visible on the red side,
          * which means looking into `target` directly is not viable. Instead, we need to
          * implement a more crafty solution that looks into target's own properties, or
@@ -963,14 +964,14 @@ export function init(
             const { targetPointer } = this;
             let O: object | null = this.proxy;
             while (O !== null) {
-                if (apply(ObjectProtoHasOwnProperty, O, [key])) {
+                if (ReflectApply(ObjectProtoHasOwnProperty, O, [key])) {
                     // we know this is a single stop lookup because it has own property
-                    const { set: setter, get: getter } = getOwnPropertyDescriptor(O, key)!;
+                    const { get: getter, set: setter } = ReflectOwnPropertyDescriptor(O, key)!;
                     if (setter) {
                         // even though the setter function exists, we can't use Reflect.set because
                         // there might be a distortion for that setter function, in which case we
                         // must resolve the local setter and call it instead.
-                        apply(setter, receiver, [value]);
+                        ReflectApply(setter, receiver, [value]);
                         // if there is a setter, it either throw or we can assume the
                         // value was set
                         return true;
@@ -981,9 +982,9 @@ export function init(
                     }
                     // setting the descriptor with only a value entry should not
                     // affect existing descriptor traits
-                    return defineProperty(O, key, { value });
+                    return ReflectDefineProperty(O, key, { value });
                 }
-                O = getPrototypeOf(O);
+                O = ReflectGetPrototypeOf(O);
             }
             // if it is not an accessor property, is either a getter only accessor
             // or a data property, in which case we use Reflect.set to set the value,
@@ -1093,13 +1094,16 @@ export function init(
             ? BoundaryProxyHandler.pendingDefinePropertyTrap
             : BoundaryProxyHandler.dynamicDefinePropertyTrap;
     }
-    setPrototypeOf(BoundaryProxyHandler.prototype, null);
+    ReflectSetPrototypeOf(BoundaryProxyHandler.prototype, null);
 
     // future optimization: hoping that proxies with frozen handlers can be faster
-    freeze(BoundaryProxyHandler.prototype);
+    ObjectFreeze(BoundaryProxyHandler.prototype);
 
     function linkGlobalThis(foreignGlobalThisPointers: Pointer) {
-        apply(WeakMapSet, proxyTargetToPointerMap, [globalThis, foreignGlobalThisPointers]);
+        ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [
+            globalThis,
+            foreignGlobalThisPointers,
+        ]);
     }
 
     // These are foundational things that should never be wrapped but are equivalent
@@ -1153,15 +1157,15 @@ export function init(
         unforgeablePointers.push(createPointer(document));
         unforgeableValues.push(document);
         // window.__proto__ (aka Window.prototype)
-        const WindowPrototype = getPrototypeOf(globalThis)!;
+        const WindowPrototype = ReflectGetPrototypeOf(globalThis)!;
         unforgeablePointers.push(createPointer(WindowPrototype));
         unforgeableValues.push(WindowPrototype);
         // window.__proto__.__proto__ (aka WindowProperties.prototype)
-        const WindowPropertiesPrototype = getPrototypeOf(WindowPrototype)!;
+        const WindowPropertiesPrototype = ReflectGetPrototypeOf(WindowPrototype)!;
         unforgeablePointers.push(createPointer(WindowPropertiesPrototype));
         unforgeableValues.push(WindowPropertiesPrototype);
         // window.__proto__.__proto__.__proto__ (aka EventTarget.prototype)
-        const EventTargetPrototype = getPrototypeOf(WindowPropertiesPrototype)!;
+        const EventTargetPrototype = ReflectGetPrototypeOf(WindowPropertiesPrototype)!;
         unforgeablePointers.push(createPointer(EventTargetPrototype));
         unforgeableValues.push(EventTargetPrototype);
     }
@@ -1174,7 +1178,7 @@ export function init(
         const targetPointer = getTransferablePointer(unforgeable);
         let desc: PropertyDescriptor;
         const callbackWithDescriptor: CallableDescriptorCallback = (...descMeta) => {
-            desc = apply(createDescriptorFromMeta, undefined, descMeta);
+            desc = ReflectApply(createDescriptorFromMeta, undefined, descMeta);
         };
         // the role of this descriptor is to serve as a bouncer, when either a getter or a setter
         // is accessed, the descriptor will be replaced with the descriptor from the foreign side
@@ -1190,18 +1194,18 @@ export function init(
                 if (desc! === undefined) {
                     delete unforgeable[key];
                 } else {
-                    defineProperty(unforgeable, key, desc);
+                    ReflectDefineProperty(unforgeable, key, desc);
                 }
-                return get(unforgeable, key);
+                return ReflectGet(unforgeable, key);
             },
             set(v: any) {
                 foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callbackWithDescriptor);
                 if (desc! === undefined) {
                     delete unforgeable[key];
                 } else {
-                    defineProperty(unforgeable, key, desc);
+                    ReflectDefineProperty(unforgeable, key, desc);
                 }
-                set(unforgeable, key, v);
+                ReflectSet(unforgeable, key, v);
             },
         };
     }
@@ -1230,7 +1234,7 @@ export function init(
                 const descriptor = createLazyDescriptor(target, key, isEnumerable);
                 try {
                     // installing lazy descriptors into the local unforgeable reference
-                    defineProperty(target, key, descriptor);
+                    ReflectDefineProperty(target, key, descriptor);
                 } catch {
                     // this could happen if the foreign side attempt to install a
                     // descriptor that exists already on this side as non-configurable
@@ -1252,7 +1256,7 @@ export function init(
             targetFunctionName: string | undefined
         ): Pointer => {
             const { proxy } = new BoundaryProxyHandler(pointer, targetTraits, targetFunctionName);
-            apply(WeakMapSet, proxyTargetToPointerMap, [proxy, pointer]);
+            ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [proxy, pointer]);
             return createPointer(proxy);
         },
         // callableApply
@@ -1265,10 +1269,14 @@ export function init(
                 targetPointer();
                 const fn = getSelectedTarget();
                 const thisArg = getLocalValue(thisArgValueOrPointer);
-                const args = apply(ArrayMap, listOfValuesOrPointers, [getLocalValue]);
+                const { length: argsLen } = listOfValuesOrPointers;
+                const args = new ArrayCtor(argsLen);
+                for (let i = 0, len = argsLen; i < len; i += 1) {
+                    args[i] = getLocalValue(listOfValuesOrPointers[i]);
+                }
                 let value;
                 try {
-                    value = apply(fn, thisArg, args);
+                    value = ReflectApply(fn, thisArg, args);
                 } catch (e) {
                     throw pushErrorAcrossBoundary(e);
                 }
@@ -1286,10 +1294,14 @@ export function init(
                 targetPointer();
                 const constructor = getSelectedTarget();
                 const newTarget = getLocalValue(newTargetPointer);
-                const args = apply(ArrayMap, listOfValuesOrPointers, [getLocalValue]);
+                const { length: argsLen } = listOfValuesOrPointers;
+                const args = new ArrayCtor(argsLen);
+                for (let i = 0, len = argsLen; i < len; i += 1) {
+                    args[i] = getLocalValue(listOfValuesOrPointers[i]);
+                }
                 let value;
                 try {
-                    value = construct(constructor, args, newTarget);
+                    value = ReflectConstruct(constructor, args, newTarget);
                 } catch (e) {
                     throw pushErrorAcrossBoundary(e);
                 }
@@ -1306,9 +1318,9 @@ export function init(
             ): boolean => {
                 targetPointer();
                 const target = getSelectedTarget();
-                const desc = apply(createDescriptorFromMeta, undefined, descMeta);
+                const desc = ReflectApply(createDescriptorFromMeta, undefined, descMeta);
                 try {
-                    return defineProperty(target, key, desc);
+                    return ReflectDefineProperty(target, key, desc);
                 } catch (e) {
                     throw pushErrorAcrossBoundary(e);
                 }
@@ -1320,7 +1332,7 @@ export function init(
             targetPointer();
             const target = getSelectedTarget();
             try {
-                return deleteProperty(target, key);
+                return ReflectDeleteProperty(target, key);
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
@@ -1336,7 +1348,7 @@ export function init(
                 const target = getSelectedTarget();
                 let desc;
                 try {
-                    desc = getOwnPropertyDescriptor(target, key);
+                    desc = ReflectOwnPropertyDescriptor(target, key);
                 } catch (e) {
                     throw pushErrorAcrossBoundary(e);
                 }
@@ -1344,7 +1356,7 @@ export function init(
                     return;
                 }
                 const descMeta = getPartialDescriptorMeta(desc);
-                apply(foreignCallableDescriptorCallback, undefined, descMeta);
+                ReflectApply(foreignCallableDescriptorCallback, undefined, descMeta);
             },
             InboundInstrumentation
         ),
@@ -1354,7 +1366,7 @@ export function init(
             const target = getSelectedTarget();
             let proto;
             try {
-                proto = getPrototypeOf(target);
+                proto = ReflectGetPrototypeOf(target);
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
@@ -1365,7 +1377,7 @@ export function init(
             targetPointer();
             const target = getSelectedTarget();
             try {
-                return has(target, key);
+                return ReflectHas(target, key);
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
@@ -1375,7 +1387,7 @@ export function init(
             targetPointer();
             const target = getSelectedTarget();
             try {
-                return isExtensible(target);
+                return ReflectIsExtensible(target);
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
@@ -1390,11 +1402,11 @@ export function init(
                 const target = getSelectedTarget();
                 let keys;
                 try {
-                    keys = ownKeys(target) as (string | symbol)[];
+                    keys = ReflectOwnKeys(target) as (string | symbol)[];
                 } catch (e) {
                     throw pushErrorAcrossBoundary(e);
                 }
-                apply(foreignCallableKeysCallback, undefined, keys);
+                ReflectApply(foreignCallableKeysCallback, undefined, keys);
             },
             InboundInstrumentation
         ),
@@ -1403,7 +1415,7 @@ export function init(
             targetPointer();
             const target = getSelectedTarget();
             try {
-                return preventExtensions(target);
+                return ReflectPreventExtensions(target);
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
@@ -1415,7 +1427,7 @@ export function init(
                 const target = getSelectedTarget();
                 const proto = getLocalValue(protoValueOrPointer);
                 try {
-                    return setPrototypeOf(target, proto);
+                    return ReflectSetPrototypeOf(target, proto);
                 } catch (e) {
                     throw pushErrorAcrossBoundary(e);
                 }
@@ -1429,14 +1441,14 @@ export function init(
             let targetIntegrityTraits = TargetIntegrityTraits.None;
             try {
                 // a revoked proxy will break the membrane when reading the meta
-                if (isFrozen(target)) {
+                if (ObjectIsFrozen(target)) {
                     targetIntegrityTraits |=
                         TargetIntegrityTraits.IsSealed &
                         TargetIntegrityTraits.IsFrozen &
                         TargetIntegrityTraits.IsNotExtensible;
-                } else if (isSealed(target)) {
+                } else if (ObjectIsSealed(target)) {
                     targetIntegrityTraits |= TargetIntegrityTraits.IsSealed;
-                } else if (!isExtensible(target)) {
+                } else if (!ReflectIsExtensible(target)) {
                     targetIntegrityTraits |= TargetIntegrityTraits.IsNotExtensible;
                 }
                 // if the target was revoked or become revoked during the extraction
@@ -1458,7 +1470,7 @@ export function init(
             targetPointer();
             const target = getSelectedTarget();
             try {
-                return apply(ObjectProtoHasOwnProperty, target, [key]);
+                return ReflectApply(ObjectProtoHasOwnProperty, target, [key]);
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
@@ -1468,7 +1480,7 @@ export function init(
             // remapping intrinsics that are realm's agnostic
             for (let i = 0, len = reflectiveValues.length; i < len; i += 1) {
                 if (reflectiveValues[i] !== null) {
-                    apply(WeakMapSet, proxyTargetToPointerMap, [
+                    ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [
                         reflectiveValues[i],
                         foreignReflectivePointers[i],
                     ]);
@@ -1480,7 +1492,7 @@ export function init(
             // remapping unforgeables in case they exists in the environment
             for (let i = 0, len = unforgeableValues.length; i < len; i += 1) {
                 if (unforgeableValues[i] !== null) {
-                    apply(WeakMapSet, proxyTargetToPointerMap, [
+                    ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [
                         unforgeableValues[i],
                         foreignUnforgeablePointers[i],
                     ]);
@@ -1555,8 +1567,8 @@ export function init(
         );
         // initial linkage
         linkGlobalThis(globalThisPointer);
-        apply(callableLinkIntrinsics, undefined, reflectivePointers);
-        apply(callableLinkUnforgeables, undefined, unforgeablePointers);
+        ReflectApply(callableLinkIntrinsics, undefined, reflectivePointers);
+        ReflectApply(callableLinkUnforgeables, undefined, unforgeablePointers);
     };
 }
 
