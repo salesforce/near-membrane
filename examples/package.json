@@ -1,12 +1,12 @@
 {
     "name": "examples",
-    "version": "0.7.0",
+    "version": "0.7.1",
     "private": true,
     "scripts": {
         "clean": "rimraf */bundle.js",
         "build": "rollup -c"
     },
     "dependencies": {
-        "@locker/near-membrane-dom": "0.7.0"
+        "@locker/near-membrane-dom": "0.7.1"
     }
 }
