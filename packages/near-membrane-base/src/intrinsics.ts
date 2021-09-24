@@ -1,3 +1,5 @@
+import { VirtualEnvironment } from './environment';
+
 const { has: SetProtoHas } = Set.prototype;
 const {
     apply: ReflectApply,
@@ -99,6 +101,39 @@ const ESGlobalKeys = new Set([
     // *** ECMA-402
     // 'Intl',  // Unstable & Remapped
 ]);
+
+// These are foundational things that should never be wrapped but are equivalent
+// TODO: revisit this list.
+const ReflectiveIntrinsicObjectNames = [
+    'AggregateError',
+    'Array',
+    'Error',
+    'EvalError',
+    'Function',
+    'Object',
+    'Proxy',
+    'RangeError',
+    'ReferenceError',
+    'SyntaxError',
+    'TypeError',
+    'URIError',
+];
+
+export function linkIntrinsics(env: VirtualEnvironment, blueGlobalThis: typeof globalThis) {
+    // remapping intrinsics that are realm's agnostic
+    for (let i = 0, len = ReflectiveIntrinsicObjectNames.length; i < len; i += 1) {
+        const globalName = ReflectiveIntrinsicObjectNames[i];
+        const reflectiveValue = blueGlobalThis[globalName];
+        if (reflectiveValue) {
+            env.link(globalName);
+            const reflectiveValueProto = reflectiveValue.prototype;
+            // Proxy.prototype is undefined, being the only weird thing here
+            if (reflectiveValueProto) {
+                env.link(`${globalName}.prototype`);
+            }
+        }
+    }
+}
 
 export function getFilteredEndowmentDescriptors(endowments: object): PropertyDescriptorMap {
     const to: PropertyDescriptorMap = { __proto__: null } as any;

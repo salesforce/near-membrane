@@ -77,19 +77,22 @@ export type CallableSetPrototypeOf = (
 ) => boolean;
 type CallableGetTargetIntegrityTraits = (targetPointer: Pointer) => number;
 type CallableHasOwnProperty = (targetPointer: Pointer, key: PropertyKey) => boolean;
-type CallableLinkIntrinsics = (...reflectiveIntrinsicPointers: Pointer[]) => void;
-type CallableLinkUnforgeables = (...unforgeablePointers: Pointer[]) => void;
+export type CallableLinkPointers = (targetPointer: Pointer, foreignTargetPointer: Pointer) => void;
 export type CallableInstallLazyDescriptors = (
     targetPointer: Pointer,
     ...keyAndEnumTuple: PropertyKey[]
 ) => void;
+export type CallableGetPropertyValuePointer = (targetPointer: Pointer, key: PropertyKey) => Pointer;
 export type CallableEvaluate = (sourceText: string) => void;
 export type GetTransferableValue = (value: any) => PrimitiveOrPointer;
 export type GetSelectedTarget = () => any;
 export type HooksCallback = (
+    globalThisPointer: Pointer,
     getSelectedTarget: GetSelectedTarget,
     getTransferableValue: GetTransferableValue,
+    callableGetPropertyValuePointer: CallableGetPropertyValuePointer,
     callableEvaluate: CallableEvaluate,
+    callableLinkPointers: CallableLinkPointers,
     callableInstallLazyDescriptor: CallableInstallLazyDescriptors,
     callablePushTarget: CallablePushTarget,
     callableApply: CallableApply,
@@ -104,10 +107,7 @@ export type HooksCallback = (
     callablePreventExtensions: CallablePreventExtensions,
     callableSetPrototypeOf: CallableSetPrototypeOf,
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
-    callableHasOwnProperty: CallableHasOwnProperty,
-    callableLinkIntrinsics: CallableLinkIntrinsics,
-    callableLinkUnforgeables: CallableLinkUnforgeables,
-    globalThisPointer: Pointer
+    callableHasOwnProperty: CallableHasOwnProperty
 ) => void;
 
 export type DistortionCallback = (target: ProxyTarget) => ProxyTarget;
@@ -1099,77 +1099,6 @@ export function init(
     // future optimization: hoping that proxies with frozen handlers can be faster
     ObjectFreeze(BoundaryProxyHandler.prototype);
 
-    function linkGlobalThis(foreignGlobalThisPointers: Pointer) {
-        ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [
-            globalThis,
-            foreignGlobalThisPointers,
-        ]);
-    }
-
-    // These are foundational things that should never be wrapped but are equivalent
-    // TODO: revisit this list.
-    const ReflectiveIntrinsicObjectNames = [
-        'AggregateError',
-        'Array',
-        'Error',
-        'EvalError',
-        'Function',
-        'Object',
-        'Proxy',
-        'RangeError',
-        'ReferenceError',
-        'SyntaxError',
-        'TypeError',
-        'URIError',
-    ];
-
-    const reflectivePointers: Pointer[] = [];
-    const reflectiveValues: any[] = [];
-    ReflectiveIntrinsicObjectNames.forEach((globalName) => {
-        // this mapping return a pointer for each of the reflective intrinsics
-        // and their respective prototype so both sides of the membrane can link them out.
-        const reflectiveValue = globalThis[globalName];
-        if (!reflectiveValue) {
-            return;
-        }
-        const reflectivePointer = createPointer(reflectiveValue);
-        reflectiveValues.push(reflectiveValue);
-        reflectivePointers.push(reflectivePointer);
-        const reflectiveValueProto = reflectiveValue.prototype;
-        // Proxy.prototype is undefined, being the only weird thing here
-        if (reflectiveValueProto) {
-            const reflectiveProtoPointer = createPointer(reflectiveValueProto);
-            reflectiveValues.push(reflectiveValueProto);
-            reflectivePointers.push(reflectiveProtoPointer);
-        }
-    });
-
-    const unforgeablePointers: Pointer[] = [];
-    const unforgeableValues: any[] = [];
-    // In a ShadowRealm, there will be no unforgeable, but in an detached iframe
-    // there will be few. This routine is needed for that case. The test of
-    // instance of event target is important to discard environments in which
-    // a fake window (e.g. jest) is not following the specs, and can break this
-    // membrane.
-    if (globalThis.EventTarget && globalThis instanceof EventTarget) {
-        // window.document
-        const { document } = globalThis;
-        unforgeablePointers.push(createPointer(document));
-        unforgeableValues.push(document);
-        // window.__proto__ (aka Window.prototype)
-        const WindowPrototype = ReflectGetPrototypeOf(globalThis)!;
-        unforgeablePointers.push(createPointer(WindowPrototype));
-        unforgeableValues.push(WindowPrototype);
-        // window.__proto__.__proto__ (aka WindowProperties.prototype)
-        const WindowPropertiesPrototype = ReflectGetPrototypeOf(WindowPrototype)!;
-        unforgeablePointers.push(createPointer(WindowPropertiesPrototype));
-        unforgeableValues.push(WindowPropertiesPrototype);
-        // window.__proto__.__proto__.__proto__ (aka EventTarget.prototype)
-        const EventTargetPrototype = ReflectGetPrototypeOf(WindowPropertiesPrototype)!;
-        unforgeablePointers.push(createPointer(EventTargetPrototype));
-        unforgeableValues.push(EventTargetPrototype);
-    }
-
     function createLazyDescriptor(
         unforgeable: object,
         key: PropertyKey,
@@ -1212,10 +1141,25 @@ export function init(
 
     // exporting callable hooks for a foreign realm
     foreignCallableHooksCallback(
+        // globalThisPointer
+        // When crossing, should be mapped to the foreign globalThis
+        createPointer(globalThis),
+        // getSelectedTarget
         getSelectedTarget,
         // getTransferableValue
         getTransferableValue,
-        // evaluate
+        // callableGetPropertyValuePointer: this callable function allows the foreign
+        // realm to access a linkable pointer for a property value. In
+        // order to do that, the foreign side must provide a pointer and a key
+        // access the value in order to produce a pointer
+        (targetPointer: Pointer, key: PropertyKey) => {
+            targetPointer();
+            const target = getSelectedTarget();
+            const value: ProxyTarget = target[key];
+            // TODO: what if the value is not a valid proxy target?
+            return createPointer(value);
+        },
+        // callableEvaluate
         (sourceText: string): void => {
             // no need to return the result of the eval
             try {
@@ -1223,6 +1167,13 @@ export function init(
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
+        },
+        // callableLinkPointers: this callable function allows the foreign
+        // realm to define a linkage between two values across the membrane.
+        (targetPointer: Pointer, newPointer: Pointer) => {
+            targetPointer();
+            const target = getSelectedTarget();
+            ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [target, newPointer]);
         },
         // callableInstallLazyDescriptors
         (targetPointer: Pointer, ...keyAndEnumTuple: PropertyKey[]) => {
@@ -1474,38 +1425,11 @@ export function init(
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
-        }, InboundInstrumentation),
-        // callableLinkIntrinsics
-        (...foreignReflectivePointers: Pointer[]) => {
-            // remapping intrinsics that are realm's agnostic
-            for (let i = 0, len = reflectiveValues.length; i < len; i += 1) {
-                if (reflectiveValues[i] !== null) {
-                    ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [
-                        reflectiveValues[i],
-                        foreignReflectivePointers[i],
-                    ]);
-                }
-            }
-        },
-        // callableLinkUnforgeable
-        (...foreignUnforgeablePointers: Pointer[]) => {
-            // remapping unforgeables in case they exists in the environment
-            for (let i = 0, len = unforgeableValues.length; i < len; i += 1) {
-                if (unforgeableValues[i] !== null) {
-                    ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [
-                        unforgeableValues[i],
-                        foreignUnforgeablePointers[i],
-                    ]);
-                }
-            }
-        },
-        // globalThisPointer
-        // When crossing, should be mapped to the foreign globalThis
-        createPointer(globalThis)
+        }, InboundInstrumentation)
     );
     return (...hooks: Parameters<HooksCallback>) => {
         // prettier-ignore
-        const [,,,,
+        const [,,,,,,,
             callablePushTarget,
             callableApply,
             callableConstruct,
@@ -1520,9 +1444,6 @@ export function init(
             callableSetPrototypeOf,
             callableGetTargetIntegrityTraits,
             callableHasOwnProperty,
-            callableLinkIntrinsics,
-            callableLinkUnforgeables,
-            globalThisPointer,
         ] = hooks;
         foreignCallablePushTarget = callablePushTarget;
         // traps utilities
@@ -1565,10 +1486,6 @@ export function init(
         foreignCallableHasOwnProperty = foreignErrorControl(
             instrumentCallableWrapper(callableHasOwnProperty, OutboundInstrumentation)
         );
-        // initial linkage
-        linkGlobalThis(globalThisPointer);
-        ReflectApply(callableLinkIntrinsics, undefined, reflectivePointers);
-        ReflectApply(callableLinkUnforgeables, undefined, unforgeablePointers);
     };
 }
 

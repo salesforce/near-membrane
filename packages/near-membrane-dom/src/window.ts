@@ -238,3 +238,22 @@ export function tameDOM(
     env.remap(blueRefs.WindowPropertiesProto, WindowPropertiesDescriptors);
     env.remap(blueRefs.WindowProto, blueRefs.WindowProtoDescriptors);
 }
+
+export function linkUnforgeables(
+    env: VirtualEnvironment,
+    blueGlobalThis: Window & typeof globalThis
+) {
+    // The test of instance of event target is important to discard environments in which
+    // a fake window (e.g. jest) is not following the specs, and can break this
+    // membrane.
+    if (blueGlobalThis.EventTarget && blueGlobalThis instanceof EventTarget) {
+        // window.document
+        env.link(`document`);
+        // window.__proto__ (aka Window.prototype)
+        env.link(`__proto__`);
+        // window.__proto__.__proto__ (aka WindowProperties.prototype)
+        env.link(`__proto__.__proto__`);
+        // window.__proto__.__proto__.__proto__ (aka EventTarget.prototype)
+        env.link(`__proto__.__proto__.__proto__`);
+    }
+}

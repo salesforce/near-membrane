@@ -36,6 +36,7 @@ describe('VirtualEnvironment', () => {
                     return v;
                 },
             });
+            ve.link('globalThis');
 
             const redValue = {};
             const endowments = {
@@ -61,6 +62,7 @@ describe('VirtualEnvironment', () => {
                     return v;
                 },
             });
+            ve.link('globalThis');
 
             const redValue = {} as any;
             Object.defineProperty(redValue, 'a', {
@@ -100,6 +102,7 @@ describe('VirtualEnvironment', () => {
                     return v;
                 },
             });
+            ve.link('globalThis');
 
             const endowments = {};
 
@@ -135,6 +138,7 @@ describe('VirtualEnvironment', () => {
                     return v;
                 },
             });
+            ve.link('globalThis');
 
             const endowments = {};
             Object.defineProperty(endowments, 'c', {
@@ -179,6 +183,7 @@ describe('VirtualEnvironment', () => {
                     return v;
                 },
             });
+            ve.link('globalThis');
 
             const redValue = {};
             const endowments = {
@@ -204,6 +209,7 @@ describe('VirtualEnvironment', () => {
                     return v;
                 },
             });
+            ve.link('globalThis');
 
             const redValue = {};
             const endowments = {
@@ -232,6 +238,7 @@ describe('VirtualEnvironment', () => {
                     return v;
                 },
             });
+            ve.link('globalThis');
 
             const redValue = {} as any;
             Object.defineProperty(redValue, 'd', {
@@ -267,6 +274,7 @@ describe('VirtualEnvironment', () => {
                     return v;
                 },
             });
+            ve.link('globalThis');
 
             const endowments = {};
 
@@ -308,6 +316,7 @@ describe('VirtualEnvironment', () => {
                     return v;
                 },
             });
+            ve.link('globalThis');
 
             const endowments = {};
 
@@ -347,6 +356,7 @@ describe('VirtualEnvironment', () => {
                     return v;
                 },
             });
+            ve.link('globalThis');
 
             const endowments = {};
             Object.defineProperty(endowments, 'g', {
@@ -391,6 +401,7 @@ describe('VirtualEnvironment', () => {
                     return v;
                 },
             });
+            ve.link('globalThis');
 
             const endowments = {};
             Object.defineProperty(endowments, 'h', {
