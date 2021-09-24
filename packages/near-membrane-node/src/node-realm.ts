@@ -4,6 +4,7 @@ import {
     initSourceTextInStrictMode,
     ProxyTarget,
     VirtualEnvironment,
+    linkIntrinsics,
 } from '@locker/near-membrane-base';
 
 import { runInNewContext } from 'vm';
@@ -31,6 +32,8 @@ export default function createVirtualEnvironment(
         redConnector,
         distortionCallback,
     });
+    env.link('globalThis');
+    linkIntrinsics(env, blueGlobalThis);
 
     // remapping globals
     env.remap(blueGlobalThis, endowmentsDescriptors);

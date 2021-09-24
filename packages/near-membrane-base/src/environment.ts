@@ -9,6 +9,8 @@ import {
     CallableDefineProperty,
     ProxyTarget,
     GetSelectedTarget,
+    CallableLinkPointers,
+    CallableGetPropertyValuePointer,
 } from './membrane';
 
 const frameGlobalNamesRegExp = /^\d+$/;
@@ -37,9 +39,17 @@ function RegExpTest(regexp: RegExp, str: string): boolean {
 }
 
 export class VirtualEnvironment {
+    private blueGlobalThisPointer: Pointer;
+
     private blueGetTransferableValue: GetTransferableValue;
 
+    private blueCallableLinkPointers: CallableLinkPointers;
+
     private blueGetSelectedTarget: GetSelectedTarget;
+
+    private blueCallableGetPropertyValuePointer: CallableGetPropertyValuePointer;
+
+    private redGlobalThisPointer: Pointer;
 
     private redCallableSetPrototypeOf: CallableSetPrototypeOf;
 
@@ -48,6 +58,10 @@ export class VirtualEnvironment {
     private redCallableInstallLazyDescriptors: CallableInstallLazyDescriptors;
 
     private redCallableDefineProperty: CallableDefineProperty;
+
+    private redCallableLinkPointers: CallableLinkPointers;
+
+    private redCallableGetPropertyValuePointer: CallableGetPropertyValuePointer;
 
     constructor(options: VirtualEnvironmentOptions) {
         if (options === undefined) {
@@ -84,16 +98,30 @@ export class VirtualEnvironment {
         );
         ReflectApply(localConnect, undefined, redHooks!);
         ReflectApply(foreignConnect, undefined, blueHooks!);
-
-        const [blueGetSelectedTarget, blueGetTransferableValue] = blueHooks!;
-        this.blueGetSelectedTarget = blueGetSelectedTarget;
-        this.blueGetTransferableValue = blueGetTransferableValue;
         // prettier-ignore
         const [
+            blueGlobalThisPointer,
+            blueGetSelectedTarget,
+            blueGetTransferableValue,
+            blueCallableGetPropertyValuePointer,
+            // eslint-disable-next-line comma-style
+            ,
+            blueCallableLinkPointers
+        ] = blueHooks!;
+        this.blueGlobalThisPointer = blueGlobalThisPointer;
+        this.blueGetSelectedTarget = blueGetSelectedTarget;
+        this.blueGetTransferableValue = blueGetTransferableValue;
+        this.blueCallableGetPropertyValuePointer = blueCallableGetPropertyValuePointer;
+        this.blueCallableLinkPointers = blueCallableLinkPointers;
+        // prettier-ignore
+        const [
+            redGlobalThisPointer,
             , // redGetSelectedTarget
             // eslint-disable-next-line comma-style
             , // redGetTransferableValue
+            redCallableGetPropertyValuePointer,
             redCallableEvaluate,
+            redCallableLinkPointers,
             redCallableInstallLazyDescriptors,
             , // redCallablePushTarget
             , // redCallableApply
@@ -108,12 +136,15 @@ export class VirtualEnvironment {
             , // redCallableOwnKeys
             // eslint-disable-next-line comma-style
             , // redCallablePreventExtensions
-            redCallableSetPrototypeOf
+            redCallableSetPrototypeOf,
         ] = redHooks!;
+        this.redGlobalThisPointer = redGlobalThisPointer;
         this.redCallableEvaluate = redCallableEvaluate;
         this.redCallableInstallLazyDescriptors = redCallableInstallLazyDescriptors;
         this.redCallableSetPrototypeOf = redCallableSetPrototypeOf;
         this.redCallableDefineProperty = redCallableDefineProperty;
+        this.redCallableGetPropertyValuePointer = redCallableGetPropertyValuePointer;
+        this.redCallableLinkPointers = redCallableLinkPointers;
     }
 
     evaluate(sourceText: string): void {
@@ -126,6 +157,18 @@ export class VirtualEnvironment {
             }
             throw e;
         }
+    }
+
+    link(path: string) {
+        const keys = path.split('.');
+        let bluePointer = this.blueGlobalThisPointer;
+        let redPointer = this.redGlobalThisPointer;
+        for (let i = 0, len = keys.length; i < len; i += 1) {
+            bluePointer = this.blueCallableGetPropertyValuePointer(bluePointer, keys[i]);
+            redPointer = this.redCallableGetPropertyValuePointer(redPointer, keys[i]);
+        }
+        this.redCallableLinkPointers(redPointer, bluePointer);
+        this.blueCallableLinkPointers(bluePointer, redPointer);
     }
 
     remap(o: ProxyTarget, blueDescriptors: PropertyDescriptorMap) {

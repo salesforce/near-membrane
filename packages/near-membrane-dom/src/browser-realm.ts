@@ -4,9 +4,10 @@ import {
     initSourceTextInStrictMode,
     ProxyTarget,
     VirtualEnvironment,
+    linkIntrinsics,
 } from '@locker/near-membrane-base';
 
-import { getCachedBlueReferences, getRedReferences, tameDOM } from './window';
+import { getCachedBlueReferences, getRedReferences, linkUnforgeables, tameDOM } from './window';
 
 interface EnvironmentOptions {
     distortionCallback?: (originalTarget: ProxyTarget) => ProxyTarget;
@@ -125,6 +126,9 @@ export default function createVirtualEnvironment(
         redConnector,
         distortionCallback,
     });
+    env.link('window');
+    linkIntrinsics(env, blueWindow);
+    linkUnforgeables(env, blueWindow);
     tameDOM(env, blueRefs, redRefs, endowmentsDescriptors);
     // once we get the iframe info ready, and all mapped, we can proceed
     // to detach the iframe only if the keepAlive option isn't true
