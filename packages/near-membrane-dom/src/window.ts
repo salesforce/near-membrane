@@ -252,8 +252,8 @@ export function linkUnforgeables(
         // window.__proto__ (aka Window.prototype)
         env.link(`__proto__`);
         // window.__proto__.__proto__ (aka WindowProperties.prototype)
-        env.link(`__proto__.__proto__`);
+        env.link(`__proto__`, `__proto__`);
         // window.__proto__.__proto__.__proto__ (aka EventTarget.prototype)
-        env.link(`__proto__.__proto__.__proto__`);
+        env.link(`__proto__`, `__proto__`, `__proto__`);
     }
 }
