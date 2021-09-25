@@ -159,8 +159,7 @@ export class VirtualEnvironment {
         }
     }
 
-    link(path: string) {
-        const keys = path.split('.');
+    link(...keys: PropertyKey[]) {
         let bluePointer = this.blueGlobalThisPointer;
         let redPointer = this.redGlobalThisPointer;
         for (let i = 0, len = keys.length; i < len; i += 1) {

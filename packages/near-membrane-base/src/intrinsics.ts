@@ -129,7 +129,7 @@ export function linkIntrinsics(env: VirtualEnvironment, blueGlobalThis: typeof g
             const reflectiveValueProto = reflectiveValue.prototype;
             // Proxy.prototype is undefined, being the only weird thing here
             if (reflectiveValueProto) {
-                env.link(`${globalName}.prototype`);
+                env.link(globalName, `prototype`);
             }
         }
     }
