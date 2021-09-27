@@ -20,6 +20,86 @@ describe('VirtualEnvironment', () => {
             new VirtualEnvironment();
         }).toThrow(/Missing VirtualEnvironmentOptions options bag/);
     });
+    describe('VirtualEnvironment.prototype.evaluate', () => {
+        it("calls through to the red realm's callable evaluation function", () => {
+            // Ignoring "Property 'assertions' does not exist on type '{...}'."
+            // @ts-ignore
+            expect.assertions(1);
+
+            // eslint-disable-next-line no-eval
+            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+
+            const ve = new VirtualEnvironment({
+                blueConnector: init,
+                redConnector,
+                distortionCallback(v) {
+                    return v;
+                },
+            });
+            ve.link('globalThis');
+
+            const sourceTextToEvaluate = 'Hello!';
+            // @ts-ignore
+            ve.redCallableEvaluate = (sourceText) => {
+                expect(sourceText).toBe(sourceTextToEvaluate);
+            };
+
+            ve.evaluate(sourceTextToEvaluate);
+        });
+
+        it('throws pushed error from blue target', () => {
+            // Ignoring "Property 'assertions' does not exist on type '{...}'."
+            // @ts-ignore
+            expect.assertions(1);
+
+            // eslint-disable-next-line no-eval
+            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+
+            const ve = new VirtualEnvironment({
+                blueConnector: init,
+                redConnector,
+                distortionCallback(v) {
+                    return v;
+                },
+            });
+            ve.link('globalThis');
+
+            expect(() => {
+                ve.evaluate('foo');
+            }).toThrow('foo is not defined');
+        });
+
+        it('rethrows if blue target does not have pushed error', () => {
+            // Ignoring "Property 'assertions' does not exist on type '{...}'."
+            // @ts-ignore
+            expect.assertions(1);
+
+            // eslint-disable-next-line no-eval
+            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+
+            const ve = new VirtualEnvironment({
+                blueConnector: init,
+                redConnector,
+                distortionCallback(v) {
+                    return v;
+                },
+            });
+            ve.link('globalThis');
+
+            const ExpectedError = class extends Error {};
+            const error = new ExpectedError();
+            // @ts-ignore
+            ve.redCallableEvaluate = (sourceText) => {
+                throw error;
+            };
+            // @ts-ignore
+            ve.blueGetSelectedTarget = () => undefined;
+
+            expect(() => {
+                ve.evaluate('foo');
+            }).toThrow(error);
+        });
+    });
     describe('VirtualEnvironment.prototype.remap', () => {
         it('Skips index-like properties', () => {
             // Ignoring "Property 'assertions' does not exist on type '{...}'."
@@ -437,6 +517,72 @@ describe('VirtualEnvironment', () => {
             expect(globalThis.h).toBe(1);
             expect(blueSetValue).toBe(999);
             expect(count).toBe(9);
+        });
+
+        it('respects enumerable symbol properties on target', () => {
+            // Ignoring "Property 'assertions' does not exist on type '{...}'."
+            // @ts-ignore
+            expect.assertions(2);
+
+            // eslint-disable-next-line no-eval
+            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+
+            const ve = new VirtualEnvironment({
+                blueConnector: init,
+                redConnector,
+                distortionCallback(v) {
+                    return v;
+                },
+            });
+            ve.link('globalThis');
+
+            const symbol = Symbol.for('@@something');
+            const target = {};
+            Object.defineProperty(target, symbol, {
+                value: undefined,
+                enumerable: true,
+            });
+
+            // @ts-ignore
+            ve.redCallableInstallLazyDescriptors = (...args) => {
+                expect(args[1]).toBe(symbol);
+                expect(args[2]).toBe(true);
+            };
+
+            ve.lazyRemap(target, [symbol]);
+        });
+
+        it('respects non-enumerable symbol properties on target', () => {
+            // Ignoring "Property 'assertions' does not exist on type '{...}'."
+            // @ts-ignore
+            expect.assertions(2);
+
+            // eslint-disable-next-line no-eval
+            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+
+            const ve = new VirtualEnvironment({
+                blueConnector: init,
+                redConnector,
+                distortionCallback(v) {
+                    return v;
+                },
+            });
+            ve.link('globalThis');
+
+            const symbol = Symbol.for('@@something');
+            const target = {};
+            Object.defineProperty(target, symbol, {
+                value: undefined,
+                enumerable: false,
+            });
+
+            // @ts-ignore
+            ve.redCallableInstallLazyDescriptors = (...args) => {
+                expect(args[1]).toBe(symbol);
+                expect(args[2]).toBe(false);
+            };
+
+            ve.lazyRemap(target, [symbol]);
         });
     });
 });
