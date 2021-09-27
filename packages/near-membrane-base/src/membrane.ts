@@ -246,6 +246,7 @@ export function init(
     // to the callable functions used to coordinate work between the sides
     // of the membrane.
     // TODO: do we need to pass more info into instrumentation hooks?
+    // prettier-ignore
     function instrumentCallableWrapper<T extends (...args: any[]) => any>(
         fn: T,
         activityName: string,
