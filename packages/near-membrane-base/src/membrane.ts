@@ -9,7 +9,7 @@
  * About the mechanics of the membrane, there are few important considerations:
  *
  * 1. Pointers are the way to pass reference to object and functions.
- * 2. A dedicated symbol (undefinedSymbol) is needed to represent the absence of a value.
+ * 2. A dedicated symbol (UNDEFINED_SYMBOL) is needed to represent the absence of a value.
  * 3. The realm that owns the object or function is responsible for projecting the proxy
  *    onto the other side (via callablePushTarget), which returns a Pointer that can be
  *    used by the realm to pass the reference to the same proxy over and over again.
@@ -129,7 +129,6 @@ export interface InitLocalOptions {
 
 // istanbul ignore next
 export function init(
-    undefinedSymbol: symbol,
     color: string,
     trapMutations: boolean,
     supportFlags: SupportFlagsField = SupportFlagsField.None,
@@ -165,6 +164,18 @@ export function init(
         __proto__: null,
     };
     const { eval: cachedLocalEval } = globalThis;
+    const ArrayCtor = Array;
+    const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
+    const { push: ArrayProtoPush } = Array.prototype;
+    const {
+        defineProperties: ObjectDefineProperties,
+        freeze: ObjectFreeze,
+        isFrozen: ObjectIsFrozen,
+        isSealed: ObjectIsSealed,
+        seal: ObjectSeal,
+    } = Object;
+    const { hasOwnProperty: ObjectProtoHasOwnProperty } = Object.prototype;
+    const { revocable: ProxyRevocable } = Proxy;
     const {
         defineProperty: ReflectDefineProperty,
         getOwnPropertyDescriptor: ReflectOwnPropertyDescriptor,
@@ -180,26 +191,19 @@ export function init(
         ownKeys: ReflectOwnKeys,
         preventExtensions: ReflectPreventExtensions,
     } = Reflect;
-    const {
-        defineProperties: ObjectDefineProperties,
-        freeze: ObjectFreeze,
-        isFrozen: ObjectIsFrozen,
-        isSealed: ObjectIsSealed,
-        seal: ObjectSeal,
-    } = Object;
-    const ArrayCtor = Array;
-    const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
-    const { push: ArrayProtoPush } = Array.prototype;
-    const { revocable: ProxyRevocable } = Proxy;
-    const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMap.prototype;
     const TypeErrorCtor = TypeError;
-    const { hasOwnProperty: ObjectProtoHasOwnProperty } = Object.prototype;
+    const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMap.prototype;
+
     const proxyTargetToPointerMap = new WeakMap();
-    const supportsMagicMarker = supportFlags & SourceFlags.MagicMarker;
-    const LockerLiveValueMarkerSymbol = Symbol.for('@@lockerLiveValue');
-    const LockerMagicValueMarkerSymbol = Symbol.for('@@lockerMagicValue');
-    const InboundInstrumentation = `to:${color}`;
-    const OutboundInstrumentation = `from:${color}`;
+
+    const LOCKER_LIVE_MARKER_SYMBOL = Symbol.for('@@lockerLiveValue');
+    const LOCKER_MAGIC_MARKER_SYMBOL = Symbol.for('@@lockerMagicValue');
+    const UNDEFINED_SYMBOL = Symbol.for('@@membraneUndefinedValue');
+
+    const INBOUND_INSTRUMENTATION_LABEL = `to:${color}`;
+    const OUTBOUND_INSTRUMENTATION_LABEL = `from:${color}`;
+
+    const SUPPORT_MAGIC_MARKER = supportFlags & SourceFlags.MagicMarker;
 
     let selectedTarget: undefined | ProxyTarget;
     let foreignCallablePushTarget: CallablePushTarget;
@@ -223,10 +227,6 @@ export function init(
     ) {
         // The default stack trace limit is 10. Increasing to 20 as a baby step.
         Error.stackTraceLimit *= 2;
-    }
-
-    function isUndefinedSymbol(v: any): boolean {
-        return v === undefinedSymbol;
     }
 
     // this is needed even when using ShadowRealm, because the errors are not going
@@ -328,22 +328,22 @@ export function init(
     ): PropertyDescriptor {
         // @ts-ignore for some reason, TS doesn't like __proto__ on property descriptors
         const desc: PropertyDescriptor = { __proto__: null };
-        if (!isUndefinedSymbol(configurable)) {
+        if (configurable !== UNDEFINED_SYMBOL) {
             desc.configurable = !!configurable;
         }
-        if (!isUndefinedSymbol(enumerable)) {
+        if (enumerable !== UNDEFINED_SYMBOL) {
             desc.enumerable = !!enumerable;
         }
-        if (!isUndefinedSymbol(writable)) {
+        if (writable !== UNDEFINED_SYMBOL) {
             desc.writable = !!writable;
         }
-        if (!isUndefinedSymbol(getPointer)) {
+        if (getPointer !== UNDEFINED_SYMBOL) {
             desc.get = getLocalValue(getPointer);
         }
-        if (!isUndefinedSymbol(setPointer)) {
+        if (setPointer !== UNDEFINED_SYMBOL) {
             desc.set = getLocalValue(setPointer);
         }
-        if (!isUndefinedSymbol(valuePointer)) {
+        if (valuePointer !== UNDEFINED_SYMBOL) {
             desc.value = getLocalValue(valuePointer);
         }
         return desc;
@@ -506,12 +506,12 @@ export function init(
     ): Parameters<CallableDescriptorCallback> {
         const { configurable, enumerable, writable, value, get, set } = partialDesc;
         return [
-            'configurable' in partialDesc ? !!configurable : undefinedSymbol,
-            'enumerable' in partialDesc ? !!enumerable : undefinedSymbol,
-            'writable' in partialDesc ? !!writable : undefinedSymbol,
-            'value' in partialDesc ? getTransferableValue(value) : undefinedSymbol,
-            'get' in partialDesc ? getTransferableValue(get) : undefinedSymbol,
-            'set' in partialDesc ? getTransferableValue(set) : undefinedSymbol,
+            'configurable' in partialDesc ? !!configurable : UNDEFINED_SYMBOL,
+            'enumerable' in partialDesc ? !!enumerable : UNDEFINED_SYMBOL,
+            'writable' in partialDesc ? !!writable : UNDEFINED_SYMBOL,
+            'value' in partialDesc ? getTransferableValue(value) : UNDEFINED_SYMBOL,
+            'get' in partialDesc ? getTransferableValue(get) : UNDEFINED_SYMBOL,
+            'set' in partialDesc ? getTransferableValue(set) : UNDEFINED_SYMBOL,
         ];
     }
 
@@ -552,11 +552,12 @@ export function init(
 
         defineProperty: ProxyHandler<ShadowTarget>['defineProperty'];
 
-        // the purpose of this public field is to help developers to identify what side of the
-        // membrane they are debugging.
+        // the purpose of this public field is to help developers to identify
+        // what side of the membrane they are debugging.
         readonly color = color;
 
-        private targetMarkAsMagic = false;
+        // flag used for CSSStyleDeclaration objects in Safari <= 14
+        private targetMarkedAsMagic = false;
 
         // callback to prepare the foreign realm before any operation
         private readonly targetPointer: Pointer;
@@ -642,11 +643,11 @@ export function init(
         }
 
         // internal utilities
-        private isTargetMarkAsDynamic(): boolean {
+        private isTargetMarkedAsLive(): boolean {
             // assert: trapMutations must be true
             const { targetPointer } = this;
             try {
-                return foreignCallableHas(targetPointer, LockerLiveValueMarkerSymbol);
+                return foreignCallableHas(targetPointer, LOCKER_LIVE_MARKER_SYMBOL);
             } catch {
                 // try-catching this because blue could be a proxy that is revoked
                 // or throws from the `has` trap.
@@ -654,12 +655,12 @@ export function init(
             return false; // TODO: is the default value truly false or should be true?
         }
 
-        private isTargetMarkAsMagic(): boolean {
-            if (supportsMagicMarker) {
+        private isTargetMarkedAsMagic(): boolean {
+            if (SUPPORT_MAGIC_MARKER) {
                 // assert: trapMutations must be true
                 const { targetPointer } = this;
                 try {
-                    return foreignCallableHas(targetPointer, LockerMagicValueMarkerSymbol);
+                    return foreignCallableHas(targetPointer, LOCKER_MAGIC_MARKER_SYMBOL);
                 } catch {
                     // try-catching this because blue could be a proxy that is revoked
                     // or throws from the `has` trap.
@@ -682,7 +683,7 @@ export function init(
             this.preventExtensions = BoundaryProxyHandler.dynamicPreventExtensionsTrap;
             // @ts-ignore
             this.defineProperty = BoundaryProxyHandler.dynamicDefinePropertyTrap;
-            this.targetMarkAsMagic = this.isTargetMarkAsMagic();
+            this.targetMarkedAsMagic = this.isTargetMarkedAsMagic();
             // future optimization: hoping that proxies with frozen handlers can be faster
             ObjectFreeze(this);
         }
@@ -739,7 +740,7 @@ export function init(
 
         private makeProxyUnambiguous(shadowTarget: ShadowTarget) {
             // assert: trapMutations must be true
-            if (this.isTargetMarkAsDynamic()) {
+            if (this.isTargetMarkedAsLive()) {
                 // when the target has the a descriptor for the magic symbol, use the Dynamic traps
                 this.makeProxyDynamic();
             } else {
@@ -1011,11 +1012,14 @@ export function init(
                         // accessor descriptor exists without a setter
                         return false;
                     }
-                    // setting the descriptor with only a value entry should not
-                    // affect existing descriptor traits
-                    return this.targetMarkAsMagic
-                        ? ReflectSet(O, key, value, O)
-                        : ReflectDefineProperty(O, key, { value });
+                    return this.targetMarkedAsMagic
+                        ? // workaround for Safari <= 14 bug on CSSStyleDeclaration
+                          // objects which lose their magic setters if set with
+                          // defineProperty
+                          ReflectSet(O, key, value, O)
+                        : // setting the descriptor with only a value entry should
+                          // not affect existing descriptor traits
+                          ReflectDefineProperty(O, key, { value });
                 }
                 O = ReflectGetPrototypeOf(O);
             }
@@ -1030,8 +1034,8 @@ export function init(
                 true,
                 true,
                 valuePointer,
-                undefinedSymbol,
-                undefinedSymbol
+                UNDEFINED_SYMBOL,
+                UNDEFINED_SYMBOL
             );
         }
 
@@ -1266,7 +1270,7 @@ export function init(
                 }
                 return getTransferableValue(value);
             },
-            InboundInstrumentation
+            INBOUND_INSTRUMENTATION_LABEL
         ),
         // callableConstruct
         instrumentCallableWrapper(
@@ -1291,7 +1295,7 @@ export function init(
                 }
                 return getTransferableValue(value);
             },
-            InboundInstrumentation
+            INBOUND_INSTRUMENTATION_LABEL
         ),
         // callableDefineProperty
         instrumentCallableWrapper(
@@ -1309,7 +1313,7 @@ export function init(
                     throw pushErrorAcrossBoundary(e);
                 }
             },
-            InboundInstrumentation
+            INBOUND_INSTRUMENTATION_LABEL
         ),
         // callableDeleteProperty
         instrumentCallableWrapper((targetPointer: Pointer, key: PropertyKey): boolean => {
@@ -1320,7 +1324,7 @@ export function init(
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
-        }, InboundInstrumentation),
+        }, INBOUND_INSTRUMENTATION_LABEL),
         // callableGetOwnPropertyDescriptor
         instrumentCallableWrapper(
             (
@@ -1342,7 +1346,7 @@ export function init(
                 const descMeta = getPartialDescriptorMeta(desc);
                 ReflectApply(foreignCallableDescriptorCallback, undefined, descMeta);
             },
-            InboundInstrumentation
+            INBOUND_INSTRUMENTATION_LABEL
         ),
         // callableGetPrototypeOf
         instrumentCallableWrapper((targetPointer: Pointer): PrimitiveOrPointer => {
@@ -1355,7 +1359,7 @@ export function init(
                 throw pushErrorAcrossBoundary(e);
             }
             return getTransferableValue(proto);
-        }, InboundInstrumentation),
+        }, INBOUND_INSTRUMENTATION_LABEL),
         // callableHas
         instrumentCallableWrapper((targetPointer: Pointer, key: PropertyKey): boolean => {
             targetPointer();
@@ -1365,7 +1369,7 @@ export function init(
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
-        }, InboundInstrumentation),
+        }, INBOUND_INSTRUMENTATION_LABEL),
         // callableIsExtensible
         instrumentCallableWrapper((targetPointer: Pointer): boolean => {
             targetPointer();
@@ -1375,7 +1379,7 @@ export function init(
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
-        }, InboundInstrumentation),
+        }, INBOUND_INSTRUMENTATION_LABEL),
         // callableOwnKeys
         instrumentCallableWrapper(
             (
@@ -1392,7 +1396,7 @@ export function init(
                 }
                 ReflectApply(foreignCallableKeysCallback, undefined, keys);
             },
-            InboundInstrumentation
+            INBOUND_INSTRUMENTATION_LABEL
         ),
         // callablePreventExtensions
         instrumentCallableWrapper((targetPointer: Pointer): boolean => {
@@ -1403,7 +1407,7 @@ export function init(
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
-        }, InboundInstrumentation),
+        }, INBOUND_INSTRUMENTATION_LABEL),
         // callableSetPrototypeOf
         instrumentCallableWrapper(
             (targetPointer: Pointer, protoValueOrPointer: PrimitiveOrPointer): boolean => {
@@ -1416,7 +1420,7 @@ export function init(
                     throw pushErrorAcrossBoundary(e);
                 }
             },
-            InboundInstrumentation
+            INBOUND_INSTRUMENTATION_LABEL
         ),
         // callableGetTargetIntegrityTraits
         instrumentCallableWrapper((targetPointer: Pointer): TargetIntegrityTraits => {
@@ -1448,7 +1452,7 @@ export function init(
                 targetIntegrityTraits |= TargetIntegrityTraits.Revoked;
             }
             return targetIntegrityTraits;
-        }, InboundInstrumentation),
+        }, INBOUND_INSTRUMENTATION_LABEL),
         // callableHasOwnProperty
         instrumentCallableWrapper((targetPointer: Pointer, key: PropertyKey): boolean => {
             targetPointer();
@@ -1458,7 +1462,7 @@ export function init(
             } catch (e) {
                 throw pushErrorAcrossBoundary(e);
             }
-        }, InboundInstrumentation)
+        }, INBOUND_INSTRUMENTATION_LABEL)
     );
     return (...hooks: Parameters<HooksCallback>) => {
         // prettier-ignore
@@ -1481,43 +1485,49 @@ export function init(
         foreignCallablePushTarget = callablePushTarget;
         // traps utilities
         foreignCallableApply = foreignErrorControl(
-            instrumentCallableWrapper(callableApply, OutboundInstrumentation)
+            instrumentCallableWrapper(callableApply, OUTBOUND_INSTRUMENTATION_LABEL)
         );
         foreignCallableConstruct = foreignErrorControl(
-            instrumentCallableWrapper(callableConstruct, OutboundInstrumentation)
+            instrumentCallableWrapper(callableConstruct, OUTBOUND_INSTRUMENTATION_LABEL)
         );
         foreignCallableDefineProperty = foreignErrorControl(
-            instrumentCallableWrapper(callableDefineProperty, OutboundInstrumentation)
+            instrumentCallableWrapper(callableDefineProperty, OUTBOUND_INSTRUMENTATION_LABEL)
         );
         foreignCallableDeleteProperty = foreignErrorControl(
-            instrumentCallableWrapper(callableDeleteProperty, OutboundInstrumentation)
+            instrumentCallableWrapper(callableDeleteProperty, OUTBOUND_INSTRUMENTATION_LABEL)
         );
         foreignCallableGetOwnPropertyDescriptor = foreignErrorControl(
-            instrumentCallableWrapper(callableGetOwnPropertyDescriptor, OutboundInstrumentation)
+            instrumentCallableWrapper(
+                callableGetOwnPropertyDescriptor,
+                OUTBOUND_INSTRUMENTATION_LABEL
+            )
         );
         foreignCallableGetPrototypeOf = foreignErrorControl(
-            instrumentCallableWrapper(callableGetPrototypeOf, OutboundInstrumentation)
+            instrumentCallableWrapper(callableGetPrototypeOf, OUTBOUND_INSTRUMENTATION_LABEL)
         );
         foreignCallableHas = foreignErrorControl(
-            instrumentCallableWrapper(callableHas, OutboundInstrumentation)
+            instrumentCallableWrapper(callableHas, OUTBOUND_INSTRUMENTATION_LABEL)
         );
         foreignCallableIsExtensible = foreignErrorControl(
-            instrumentCallableWrapper(callableIsExtensible, OutboundInstrumentation)
+            instrumentCallableWrapper(callableIsExtensible, OUTBOUND_INSTRUMENTATION_LABEL)
         );
         foreignCallableOwnKeys = foreignErrorControl(
-            instrumentCallableWrapper(callableOwnKeys, OutboundInstrumentation)
+            instrumentCallableWrapper(callableOwnKeys, OUTBOUND_INSTRUMENTATION_LABEL)
         );
         foreignCallablePreventExtensions = foreignErrorControl(
-            instrumentCallableWrapper(callablePreventExtensions, OutboundInstrumentation)
+            instrumentCallableWrapper(callablePreventExtensions, OUTBOUND_INSTRUMENTATION_LABEL)
         );
         foreignCallableSetPrototypeOf = foreignErrorControl(
-            instrumentCallableWrapper(callableSetPrototypeOf, OutboundInstrumentation)
+            instrumentCallableWrapper(callableSetPrototypeOf, OUTBOUND_INSTRUMENTATION_LABEL)
         );
         foreignCallableGetTargetIntegrityTraits = foreignErrorControl(
-            instrumentCallableWrapper(callableGetTargetIntegrityTraits, OutboundInstrumentation)
+            instrumentCallableWrapper(
+                callableGetTargetIntegrityTraits,
+                OUTBOUND_INSTRUMENTATION_LABEL
+            )
         );
         foreignCallableHasOwnProperty = foreignErrorControl(
-            instrumentCallableWrapper(callableHasOwnProperty, OutboundInstrumentation)
+            instrumentCallableWrapper(callableHasOwnProperty, OUTBOUND_INSTRUMENTATION_LABEL)
         );
     };
 }
