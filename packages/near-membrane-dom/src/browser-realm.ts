@@ -5,6 +5,7 @@ import {
     ProxyTarget,
     VirtualEnvironment,
     linkIntrinsics,
+    SupportFlagsObject,
 } from '@locker/near-membrane-base';
 
 import { getCachedBlueReferences, getRedReferences, linkUnforgeables, tameDOM } from './window';
@@ -13,6 +14,7 @@ interface EnvironmentOptions {
     distortionCallback?: (originalTarget: ProxyTarget) => ProxyTarget;
     endowments?: object;
     globalThis: WindowProxy & typeof globalThis;
+    support?: SupportFlagsObject;
 }
 
 const emptyArray: [] = [];
@@ -109,6 +111,7 @@ export default function createVirtualEnvironment(
         endowments,
         keepAlive,
         globalThis: blueWindow = window,
+        support,
     } = options || {
         __proto__: null,
     };
@@ -125,6 +128,7 @@ export default function createVirtualEnvironment(
         blueConnector,
         redConnector,
         distortionCallback,
+        support,
     });
     env.link('window');
     linkIntrinsics(env, blueWindow);

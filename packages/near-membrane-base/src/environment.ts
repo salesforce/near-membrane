@@ -11,11 +11,16 @@ import {
     GetSelectedTarget,
     CallableLinkPointers,
     CallableGetPropertyValuePointer,
+    SupportFlagsField,
 } from './membrane';
 
 const frameGlobalNamesRegExp = /^\d+$/;
 const ShouldTrapMutation = true;
 const ShouldNotTrapMutation = false;
+
+export interface SupportFlagsObject {
+    magicMarker?: boolean;
+}
 
 interface VirtualEnvironmentOptions {
     // Blue connector factory
@@ -24,6 +29,7 @@ interface VirtualEnvironmentOptions {
     redConnector: typeof init;
     // Optional distortion callback to tame functionalities observed through the membrane
     distortionCallback?: (originalTarget: ProxyTarget) => ProxyTarget;
+    support?: SupportFlagsObject;
 }
 
 const undefinedSymbol = Symbol('membrane@undefined');
@@ -67,7 +73,12 @@ export class VirtualEnvironment {
         if (options === undefined) {
             throw new ErrorCtor(`Missing VirtualEnvironmentOptions options bag.`);
         }
-        const { blueConnector: localInit, redConnector: foreignInit, distortionCallback } = options;
+        const {
+            blueConnector: localInit,
+            redConnector: foreignInit,
+            distortionCallback,
+            support,
+        } = options;
 
         let blueHooks: Parameters<HooksCallback>;
         let redHooks: Parameters<HooksCallback>;
@@ -83,10 +94,14 @@ export class VirtualEnvironment {
             distortionCallback,
         };
 
+        let supportFlags = SupportFlagsField.None;
+        supportFlags |= (support?.magicMarker as any) && SupportFlagsField.MagicMarker;
+
         const localConnect = localInit(
             undefinedSymbol,
             'blue',
             ShouldNotTrapMutation,
+            supportFlags,
             blueExportsCallback,
             initLocalOptions
         );
@@ -94,6 +109,7 @@ export class VirtualEnvironment {
             undefinedSymbol,
             'red',
             ShouldTrapMutation,
+            supportFlags,
             redExportsCallback
         );
         ReflectApply(localConnect, undefined, redHooks!);

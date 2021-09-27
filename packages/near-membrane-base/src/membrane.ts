@@ -109,6 +109,11 @@ export type HooksCallback = (
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableHasOwnProperty: CallableHasOwnProperty
 ) => void;
+// eslint-disable-next-line no-shadow
+export enum SupportFlagsField {
+    None = 0,
+    MagicMarker = 1 << 0,
+}
 
 export type DistortionCallback = (target: ProxyTarget) => ProxyTarget;
 
@@ -127,9 +132,35 @@ export function init(
     undefinedSymbol: symbol,
     color: string,
     trapMutations: boolean,
+    supportFlags: SupportFlagsField = SupportFlagsField.None,
     foreignCallableHooksCallback: HooksCallback,
     options?: InitLocalOptions
 ): HooksCallback {
+    // eslint-disable-next-line no-shadow
+    enum SourceFlags {
+        None = 0,
+        MagicMarker = 1 << 0,
+    }
+
+    // eslint-disable-next-line no-shadow
+    enum TargetTraits {
+        None = 0,
+        IsArray = 1 << 0,
+        IsFunction = 1 << 1,
+        IsObject = 1 << 2,
+        IsArrowFunction = 1 << 3,
+        Revoked = 1 << 4,
+    }
+
+    // eslint-disable-next-line no-shadow
+    enum TargetIntegrityTraits {
+        None = 0,
+        IsNotExtensible = 1 << 0,
+        IsSealed = 1 << 1,
+        IsFrozen = 1 << 2,
+        Revoked = 1 << 4,
+    }
+
     const { distortionCallback = (o: ProxyTarget) => o, instrumentation } = options || {
         __proto__: null,
     };
@@ -164,7 +195,9 @@ export function init(
     const TypeErrorCtor = TypeError;
     const { hasOwnProperty: ObjectProtoHasOwnProperty } = Object.prototype;
     const proxyTargetToPointerMap = new WeakMap();
+    const supportsMagicMarker = supportFlags & SourceFlags.MagicMarker;
     const LockerLiveValueMarkerSymbol = Symbol.for('@@lockerLiveValue');
+    const LockerMagicValueMarkerSymbol = Symbol.for('@@lockerMagicValue');
     const InboundInstrumentation = `to:${color}`;
     const OutboundInstrumentation = `from:${color}`;
 
@@ -183,25 +216,6 @@ export function init(
     let foreignCallableSetPrototypeOf: CallableSetPrototypeOf;
     let foreignCallableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits;
     let foreignCallableHasOwnProperty: CallableHasOwnProperty;
-
-    // eslint-disable-next-line no-shadow
-    enum TargetTraits {
-        None = 0,
-        IsArray = 1 << 0,
-        IsFunction = 1 << 1,
-        IsObject = 1 << 2,
-        IsArrowFunction = 1 << 3,
-        Revoked = 1 << 4,
-    }
-
-    // eslint-disable-next-line no-shadow
-    enum TargetIntegrityTraits {
-        None = 0,
-        IsNotExtensible = 1 << 0,
-        IsSealed = 1 << 1,
-        IsFrozen = 1 << 2,
-        Revoked = 1 << 4,
-    }
 
     if (
         ReflectApply(ObjectProtoHasOwnProperty, Error, ['stackTraceLimit']) &&
@@ -542,6 +556,8 @@ export function init(
         // membrane they are debugging.
         readonly color = color;
 
+        private targetMarkAsMagic = false;
+
         // callback to prepare the foreign realm before any operation
         private readonly targetPointer: Pointer;
 
@@ -638,6 +654,20 @@ export function init(
             return false; // TODO: is the default value truly false or should be true?
         }
 
+        private isTargetMarkAsMagic(): boolean {
+            if (supportsMagicMarker) {
+                // assert: trapMutations must be true
+                const { targetPointer } = this;
+                try {
+                    return foreignCallableHas(targetPointer, LockerMagicValueMarkerSymbol);
+                } catch {
+                    // try-catching this because blue could be a proxy that is revoked
+                    // or throws from the `has` trap.
+                }
+            }
+            return false; // TODO: is the default value truly false or should be true?
+        }
+
         private makeProxyDynamic() {
             // assert: trapMutations must be true
             // replacing pending traps with dynamic traps that can work with the target
@@ -652,6 +682,7 @@ export function init(
             this.preventExtensions = BoundaryProxyHandler.dynamicPreventExtensionsTrap;
             // @ts-ignore
             this.defineProperty = BoundaryProxyHandler.dynamicDefinePropertyTrap;
+            this.targetMarkAsMagic = this.isTargetMarkAsMagic();
             // future optimization: hoping that proxies with frozen handlers can be faster
             ObjectFreeze(this);
         }
@@ -982,7 +1013,9 @@ export function init(
                     }
                     // setting the descriptor with only a value entry should not
                     // affect existing descriptor traits
-                    return ReflectDefineProperty(O, key, { value });
+                    return this.targetMarkAsMagic
+                        ? ReflectSet(O, key, value, O)
+                        : ReflectDefineProperty(O, key, { value });
                 }
                 O = ReflectGetPrototypeOf(O);
             }
