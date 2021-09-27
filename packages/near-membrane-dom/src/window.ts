@@ -26,12 +26,12 @@ function WeakMapSet(
  * - Unforgeable object and prototype references
  */
 interface BaseReferencesRecord extends Object {
-    window: WindowProxy;
     document: Document;
-    WindowProto: object;
-    WindowPropertiesProto: object;
-    EventTargetProto: object;
+    window: WindowProxy;
     DocumentProto: object;
+    EventTargetProto: object;
+    WindowPropertiesProto: object;
+    WindowProto: object;
 }
 
 /**
@@ -40,9 +40,9 @@ interface BaseReferencesRecord extends Object {
  */
 interface CachedBlueReferencesRecord extends BaseReferencesRecord {
     windowDescriptors: PropertyDescriptorMap;
-    WindowProtoDescriptors: PropertyDescriptorMap;
-    WindowPropertiesProtoDescriptors: PropertyDescriptorMap;
     EventTargetProtoDescriptors: PropertyDescriptorMap;
+    WindowPropertiesProtoDescriptors: PropertyDescriptorMap;
+    WindowProtoDescriptors: PropertyDescriptorMap;
 }
 
 /**
@@ -243,17 +243,17 @@ export function linkUnforgeables(
     env: VirtualEnvironment,
     blueGlobalThis: Window & typeof globalThis
 ) {
-    // The test of instance of event target is important to discard environments in which
-    // a fake window (e.g. jest) is not following the specs, and can break this
-    // membrane.
+    // The test of instance of event target is important to discard environments
+    // in which a fake window (e.g. jest) is not following the specs, and can
+    // break this membrane.
     if (blueGlobalThis.EventTarget && blueGlobalThis instanceof EventTarget) {
         // window.document
-        env.link(`document`);
+        env.link('document');
         // window.__proto__ (aka Window.prototype)
-        env.link(`__proto__`);
+        env.link('__proto__');
         // window.__proto__.__proto__ (aka WindowProperties.prototype)
-        env.link(`__proto__`, `__proto__`);
+        env.link('__proto__', '__proto__');
         // window.__proto__.__proto__.__proto__ (aka EventTarget.prototype)
-        env.link(`__proto__`, `__proto__`, `__proto__`);
+        env.link('__proto__', '__proto__', '__proto__');
     }
 }

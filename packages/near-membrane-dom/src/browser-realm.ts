@@ -2,32 +2,31 @@ import {
     getFilteredEndowmentDescriptors,
     init,
     initSourceTextInStrictMode,
-    ProxyTarget,
-    VirtualEnvironment,
     linkIntrinsics,
+    DistortionCallback,
     SupportFlagsObject,
+    VirtualEnvironment,
 } from '@locker/near-membrane-base';
 
 import { getCachedBlueReferences, getRedReferences, linkUnforgeables, tameDOM } from './window';
 
-interface EnvironmentOptions {
-    distortionCallback?: (originalTarget: ProxyTarget) => ProxyTarget;
-    endowments?: object;
-    globalThis: WindowProxy & typeof globalThis;
-    support?: SupportFlagsObject;
-}
+const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 
 const emptyArray: [] = [];
-const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
-const { createElement: DocumentCreateElement } = document;
-const { remove: ElementProtoRemove } = Element.prototype;
+const {
+    close: DocumentProtoClose,
+    createElement: DocumentProtoCreateElement,
+    open: DocumentProtoOpen,
+} = document;
+const { remove: ElementProtoRemove, setAttribute: ElementProtoSetAttribute } = Element.prototype;
 const { appendChild: NodeProtoAppendChild } = Node.prototype;
-const { apply: ReflectApply } = Reflect;
+const { assign: ObjectAssign } = Object;
 const {
     // eslint-disable-next-line @typescript-eslint/naming-convention
     __lookupGetter__: ObjectProto__lookupGetter__,
     hasOwnProperty: ObjectProtoHasOwnProperty,
 } = Object.prototype as any;
+const { apply: ReflectApply } = Reflect;
 
 function ObjectLookupOwnGetter(obj: object, key: PropertyKey): Function | undefined {
     // Since this function is only used internally, and would not otherwise be reachable
@@ -42,38 +41,82 @@ function ObjectLookupOwnGetter(obj: object, key: PropertyKey): Function | undefi
 }
 
 const DocumentProtoBodyGetter = ObjectLookupOwnGetter(Document.prototype, 'body')!;
+const HTMLElementProtoStyleGetter = ObjectLookupOwnGetter(HTMLElement.prototype, 'style')!;
+const HTMLIFrameElementProtoContentWindowGetter = ObjectLookupOwnGetter(
+    HTMLIFrameElement.prototype,
+    'contentWindow'
+)!;
 const NodeProtoIsConnectedGetter = ObjectLookupOwnGetter(Node.prototype, 'isConnected')!;
 const NodeProtoLastChildGetter = ObjectLookupOwnGetter(Node.prototype, 'lastChild')!;
 
-const DocumentBody = (doc: Document): HTMLBodyElement =>
-    ReflectApply(DocumentProtoBodyGetter, doc, emptyArray);
-const ElementRemove = (element: Element): Element =>
-    ReflectApply(ElementProtoRemove, element, emptyArray);
-const NodeAppendChild = (parent: Node, child: ChildNode): ChildNode =>
-    ReflectApply(NodeProtoAppendChild, parent, [child]);
+function DocumentBody(doc: Document): typeof Document.prototype.body {
+    return ReflectApply(DocumentProtoBodyGetter, doc, emptyArray);
+}
+
+function DocumentClose(doc: Document): ReturnType<typeof Document.prototype.close> {
+    return ReflectApply(DocumentProtoClose, doc, emptyArray);
+}
+
+function DocumentCreateElement(
+    doc: Document,
+    tagName: string
+): ReturnType<typeof Document.prototype.createElement> {
+    return ReflectApply(DocumentProtoCreateElement, doc, [tagName]);
+}
+
+function DocumentOpen(doc: Document): ReturnType<typeof Document.prototype.open> {
+    return ReflectApply(DocumentProtoOpen, doc, emptyArray);
+}
+
+function ElementSetAttribute(
+    el: Element,
+    name: string,
+    value: string
+): ReturnType<typeof Element.prototype.setAttribute> {
+    return ReflectApply(ElementProtoSetAttribute, el, [name, value]);
+}
+
+function ElementRemove(element: Element): Element {
+    return ReflectApply(ElementProtoRemove, element, emptyArray);
+}
+
+function HTMLElementStyleGetter(el: HTMLElement): typeof HTMLElement.prototype.style {
+    return ReflectApply(HTMLElementProtoStyleGetter, el, emptyArray);
+}
+
+function HTMLIFrameElementContentWindowGetter(
+    iframe: HTMLIFrameElement
+): typeof HTMLIFrameElement.prototype.contentWindow {
+    return ReflectApply(HTMLIFrameElementProtoContentWindowGetter, iframe, emptyArray);
+}
+
+function NodeAppendChild(parent: Node, child: ChildNode): ChildNode {
+    return ReflectApply(NodeProtoAppendChild, parent, [child]);
+}
 
 // It's impossible to test whether NodeLastChild(document) is reached
 // in a normal Karma test environment, because the document will always
 // have a body element. Ignore this in coverage reporting to
 // avoid a penalty.
 // istanbul ignore next
-const NodeLastChild = (node: Node): ChildNode =>
-    ReflectApply(NodeProtoLastChildGetter, node, emptyArray);
+function NodeLastChild(node: Node): typeof Node.prototype.lastChild {
+    return ReflectApply(NodeProtoLastChildGetter, node, emptyArray);
+}
 
-const createElement = (doc: Document, tagName: string): Element =>
-    ReflectApply(DocumentCreateElement, doc, [tagName]);
-const isConnected = (node: Node): boolean =>
-    ReflectApply(NodeProtoIsConnectedGetter, node, emptyArray);
+function NodeIsConnected(node: Node): boolean {
+    return ReflectApply(NodeProtoIsConnectedGetter, node, emptyArray);
+}
 
 function createDetachableIframe(): HTMLIFrameElement {
     // @ts-ignore document global ref - in browsers
-    const iframe = createElement(document, 'iframe') as HTMLIFrameElement;
-    iframe.setAttribute('sandbox', IFRAME_SANDBOX_ATTRIBUTE_VALUE);
-    iframe.style.display = 'none';
+    const iframe = DocumentCreateElement(document, 'iframe') as HTMLIFrameElement;
     // It's impossible to test whether NodeLastChild(document) is reached
     // in a normal Karma test environment. (See explanation above,
     // at NodeLastChild definition.)
     const parent = DocumentBody(document) || /* istanbul ignore next */ NodeLastChild(document);
+    const style = HTMLElementStyleGetter(iframe);
+    style.display = 'none';
+    ElementSetAttribute(iframe, 'sandbox', IFRAME_SANDBOX_ATTRIBUTE_VALUE);
     NodeAppendChild(parent, iframe);
     return iframe;
 }
@@ -91,33 +134,42 @@ function removeIframe(iframe: HTMLIFrameElement) {
     // For this reason, ignore the lack of `else` path coverage.
     //
     // istanbul ignore else
-    if (isConnected(iframe)) {
+    if (NodeIsConnected(iframe)) {
         ElementRemove(iframe);
     }
 }
 
-interface BrowserEnvironmentOptions extends EnvironmentOptions {
+interface BrowserEnvironmentOptions {
+    distortionCallback?: DistortionCallback;
+    endowments?: object;
+    globalThis: WindowProxy & typeof globalThis;
     keepAlive?: boolean;
+    support?: SupportFlagsObject;
 }
 
-// caching references
-const { open, close } = document;
-
 export default function createVirtualEnvironment(
-    options?: BrowserEnvironmentOptions
+    providedOptions?: BrowserEnvironmentOptions
 ): (sourceText: string) => void {
+    // eslint-disable-next-line prefer-object-spread
+    const options = ObjectAssign(
+        {
+            __proto__: null,
+            globalThis: window,
+            keepAlive: false,
+        },
+        providedOptions
+    );
+    // eslint-disable-next-line prefer-object-spread
     const {
         distortionCallback,
-        endowments,
+        endowments = {},
+        globalThis: blueWindow,
         keepAlive,
-        globalThis: blueWindow = window,
         support,
-    } = options || {
-        __proto__: null,
-    };
+    } = options;
     const iframe = createDetachableIframe();
-    const redWindow = (iframe.contentWindow as WindowProxy).window;
-    const endowmentsDescriptors = getFilteredEndowmentDescriptors(endowments || {});
+    const redWindow = HTMLIFrameElementContentWindowGetter(iframe)!.window;
+    const endowmentsDescriptors = getFilteredEndowmentDescriptors(endowments);
     const blueConnector = init;
     const redConnector = redWindow.eval(initSourceTextInStrictMode);
     // extract the global references and descriptors before any interference
@@ -126,8 +178,8 @@ export default function createVirtualEnvironment(
     // creating a new environment
     const env = new VirtualEnvironment({
         blueConnector,
-        redConnector,
         distortionCallback,
+        redConnector,
         support,
     });
     env.link('window');
@@ -141,8 +193,8 @@ export default function createVirtualEnvironment(
     } else {
         // TODO: temporary hack to preserve the document reference in FF
         // https://bugzilla.mozilla.org/show_bug.cgi?id=543435
-        ReflectApply(open, redRefs.document, []);
-        ReflectApply(close, redRefs.document, []);
+        DocumentOpen(redRefs.document);
+        DocumentClose(redRefs.document);
     }
     // finally, we return the evaluator function
     return (sourceText: string): void => env.evaluate(sourceText);
