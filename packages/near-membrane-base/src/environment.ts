@@ -1,22 +1,19 @@
 import {
     init,
+    CallableDefineProperty,
     CallableEvaluate,
+    CallableGetPropertyValuePointer,
     CallableInstallLazyDescriptors,
+    CallableLinkPointers,
+    CallableSetPrototypeOf,
+    DistortionCallback,
+    GetSelectedTarget,
     GetTransferableValue,
     HooksCallback,
-    CallableSetPrototypeOf,
     Pointer,
-    CallableDefineProperty,
     ProxyTarget,
-    GetSelectedTarget,
-    CallableLinkPointers,
-    CallableGetPropertyValuePointer,
     SupportFlagsField,
 } from './membrane';
-
-const frameGlobalNamesRegExp = /^\d+$/;
-const ShouldTrapMutation = true;
-const ShouldNotTrapMutation = false;
 
 export interface SupportFlagsObject {
     magicMarker?: boolean;
@@ -25,20 +22,26 @@ export interface SupportFlagsObject {
 interface VirtualEnvironmentOptions {
     // Blue connector factory
     blueConnector: typeof init;
+    // Optional distortion callback to tame functionalities observed through the membrane
+    distortionCallback?: DistortionCallback;
     // Red connector factory
     redConnector: typeof init;
-    // Optional distortion callback to tame functionalities observed through the membrane
-    distortionCallback?: (originalTarget: ProxyTarget) => ProxyTarget;
+    // Environment support object
     support?: SupportFlagsObject;
 }
 
-const undefinedSymbol = Symbol('membrane@undefined');
-const { test: RegExpProtoTest } = RegExp.prototype;
+const SHOULD_TRAP_MUTATION = true;
+const SHOULD_NOT_TRAP_MUTATION = false;
+const UNDEFINED_SYMBOL = Symbol.for('@@membraneUndefinedValue');
+
+const frameGlobalNamesRegExp = /^\d+$/;
+
+const { includes: ArrayProtoIncludes, push: ArrayProtoPush } = Array.prototype;
 const ErrorCtor = Error;
 const { assign: ObjectAssign, keys: ObjectKeys } = Object;
 const { propertyIsEnumerable: ObjectProtoPropertyIsEnumerable } = Object.prototype;
 const { apply: ReflectApply, ownKeys: ReflectOwnKeys } = Reflect;
-const { includes: ArrayProtoIncludes, push: ArrayProtoPush } = Array.prototype;
+const { test: RegExpProtoTest } = RegExp.prototype;
 
 function RegExpTest(regexp: RegExp, str: string): boolean {
     return ReflectApply(RegExpProtoTest, regexp, [str]);
@@ -98,17 +101,15 @@ export class VirtualEnvironment {
         supportFlags |= (support?.magicMarker as any) && SupportFlagsField.MagicMarker;
 
         const localConnect = localInit(
-            undefinedSymbol,
             'blue',
-            ShouldNotTrapMutation,
+            SHOULD_NOT_TRAP_MUTATION,
             supportFlags,
             blueExportsCallback,
             initLocalOptions
         );
         const foreignConnect = foreignInit(
-            undefinedSymbol,
             'red',
-            ShouldTrapMutation,
+            SHOULD_TRAP_MUTATION,
             supportFlags,
             redExportsCallback
         );
@@ -200,23 +201,23 @@ export class VirtualEnvironment {
             // eslint-disable-next-line prefer-object-spread
             const blueDescriptor = ObjectAssign({ __proto__: null }, (blueDescriptors as any)[key]);
             const configurable =
-                'configurable' in blueDescriptor ? !!blueDescriptor.configurable : undefinedSymbol;
+                'configurable' in blueDescriptor ? !!blueDescriptor.configurable : UNDEFINED_SYMBOL;
             const enumerable =
-                'enumerable' in blueDescriptor ? !!blueDescriptor.enumerable : undefinedSymbol;
+                'enumerable' in blueDescriptor ? !!blueDescriptor.enumerable : UNDEFINED_SYMBOL;
             const writable =
-                'writable' in blueDescriptor ? !!blueDescriptor.writable : undefinedSymbol;
+                'writable' in blueDescriptor ? !!blueDescriptor.writable : UNDEFINED_SYMBOL;
             const valuePointer =
                 'value' in blueDescriptor
                     ? this.blueGetTransferableValue(blueDescriptor.value)
-                    : undefinedSymbol;
+                    : UNDEFINED_SYMBOL;
             const getPointer =
                 'get' in blueDescriptor
                     ? this.blueGetTransferableValue(blueDescriptor.get)
-                    : undefinedSymbol;
+                    : UNDEFINED_SYMBOL;
             const setPointer =
                 'set' in blueDescriptor
                     ? this.blueGetTransferableValue(blueDescriptor.set)
-                    : undefinedSymbol;
+                    : UNDEFINED_SYMBOL;
             // installing descriptor into the red side
             this.redCallableDefineProperty(
                 oPointer,
