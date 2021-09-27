@@ -19,6 +19,8 @@
  *    callable for proxies, and the other side can use it via `getSelectedTarget`.
  */
 
+import { InstrumentationHooks } from './instrumentation';
+
 export type Pointer = CallableFunction;
 type PrimitiveValue = number | symbol | string | boolean | bigint | null | undefined;
 type PrimitiveOrPointer = Pointer | PrimitiveValue;
@@ -116,12 +118,6 @@ export enum SupportFlagsField {
 }
 
 export type DistortionCallback = (target: ProxyTarget) => ProxyTarget;
-
-export interface InstrumentationHooks {
-    start(label: string): void;
-    end(label: string): void;
-}
-
 export interface InitLocalOptions {
     distortionCallback?: DistortionCallback;
     instrumentation?: InstrumentationHooks;
@@ -250,15 +246,26 @@ export function init(
     // to the callable functions used to coordinate work between the sides
     // of the membrane.
     // TODO: do we need to pass more info into instrumentation hooks?
-    function instrumentCallableWrapper<T extends (...args: any[]) => any>(fn: T, label: string): T {
+    function instrumentCallableWrapper<T extends (...args: any[]) => any>(
+        fn: T,
+        activityName: string,
+        crossingDirection: string): T {
         if (instrumentation) {
             return <T>function instrumentedFn(this: any, ...args: any[]): any {
                 let result;
-                instrumentation.start(label);
+                const activity = instrumentation.startActivity(activityName, { crossingDirection });
+                let error: Error;
                 try {
                     result = ReflectApply(fn, this, args);
+                } catch (ex) {
+                    if (ex instanceof Error) {
+                        error = ex;
+                    } else {
+                        error = new Error(`Unkown type of catch variable: ${ex}`);
+                    }
+                    activity.error(error);
                 } finally {
-                    instrumentation.end(label);
+                    activity.stop();
                 }
                 return result;
             };
@@ -1267,6 +1274,7 @@ export function init(
                 }
                 return getTransferableValue(value);
             },
+            'callableApply',
             INBOUND_INSTRUMENTATION_LABEL
         ),
         // callableConstruct
@@ -1292,6 +1300,7 @@ export function init(
                 }
                 return getTransferableValue(value);
             },
+            'callableConstruct',
             INBOUND_INSTRUMENTATION_LABEL
         ),
         // callableDefineProperty
@@ -1310,18 +1319,23 @@ export function init(
                     throw pushErrorAcrossBoundary(e);
                 }
             },
+            'callableDefineProperty',
             INBOUND_INSTRUMENTATION_LABEL
         ),
         // callableDeleteProperty
-        instrumentCallableWrapper((targetPointer: Pointer, key: PropertyKey): boolean => {
-            targetPointer();
-            const target = getSelectedTarget();
-            try {
-                return ReflectDeleteProperty(target, key);
-            } catch (e) {
-                throw pushErrorAcrossBoundary(e);
-            }
-        }, INBOUND_INSTRUMENTATION_LABEL),
+        instrumentCallableWrapper(
+            (targetPointer: Pointer, key: PropertyKey): boolean => {
+                targetPointer();
+                const target = getSelectedTarget();
+                try {
+                    return ReflectDeleteProperty(target, key);
+                } catch (e) {
+                    throw pushErrorAcrossBoundary(e);
+                }
+            },
+            'callableDeleteProperty',
+            INBOUND_INSTRUMENTATION_LABEL
+        ),
         // callableGetOwnPropertyDescriptor
         instrumentCallableWrapper(
             (
@@ -1343,40 +1357,53 @@ export function init(
                 const descMeta = getPartialDescriptorMeta(desc);
                 ReflectApply(foreignCallableDescriptorCallback, undefined, descMeta);
             },
+            'callableGetOwnPropertyDescriptor',
             INBOUND_INSTRUMENTATION_LABEL
         ),
         // callableGetPrototypeOf
-        instrumentCallableWrapper((targetPointer: Pointer): PrimitiveOrPointer => {
-            targetPointer();
-            const target = getSelectedTarget();
-            let proto;
-            try {
-                proto = ReflectGetPrototypeOf(target);
-            } catch (e) {
-                throw pushErrorAcrossBoundary(e);
-            }
-            return getTransferableValue(proto);
-        }, INBOUND_INSTRUMENTATION_LABEL),
+        instrumentCallableWrapper(
+            (targetPointer: Pointer): PrimitiveOrPointer => {
+                targetPointer();
+                const target = getSelectedTarget();
+                let proto;
+                try {
+                    proto = ReflectGetPrototypeOf(target);
+                } catch (e) {
+                    throw pushErrorAcrossBoundary(e);
+                }
+                return getTransferableValue(proto);
+            },
+            'callableGetPrototypeOf',
+            INBOUND_INSTRUMENTATION_LABEL
+        ),
         // callableHas
-        instrumentCallableWrapper((targetPointer: Pointer, key: PropertyKey): boolean => {
-            targetPointer();
-            const target = getSelectedTarget();
-            try {
-                return ReflectHas(target, key);
-            } catch (e) {
-                throw pushErrorAcrossBoundary(e);
-            }
-        }, INBOUND_INSTRUMENTATION_LABEL),
+        instrumentCallableWrapper(
+            (targetPointer: Pointer, key: PropertyKey): boolean => {
+                targetPointer();
+                const target = getSelectedTarget();
+                try {
+                    return ReflectHas(target, key);
+                } catch (e) {
+                    throw pushErrorAcrossBoundary(e);
+                }
+            },
+            'callableHas',
+            INBOUND_INSTRUMENTATION_LABEL
+        ),
         // callableIsExtensible
-        instrumentCallableWrapper((targetPointer: Pointer): boolean => {
-            targetPointer();
-            const target = getSelectedTarget();
-            try {
-                return ReflectIsExtensible(target);
-            } catch (e) {
-                throw pushErrorAcrossBoundary(e);
-            }
-        }, INBOUND_INSTRUMENTATION_LABEL),
+        instrumentCallableWrapper(
+            (targetPointer: Pointer): boolean => {
+                targetPointer();
+                const target = getSelectedTarget();
+                try {
+                    return ReflectIsExtensible(target);
+                } catch (e) {
+                    throw pushErrorAcrossBoundary(e);
+                }
+            },
+            'callableIsExtensible',
+            INBOUND_INSTRUMENTATION_LABEL
+        ),
         // callableOwnKeys
         instrumentCallableWrapper(
             (
@@ -1393,18 +1420,23 @@ export function init(
                 }
                 ReflectApply(foreignCallableKeysCallback, undefined, keys);
             },
+            'callableOwnKeys',
             INBOUND_INSTRUMENTATION_LABEL
         ),
         // callablePreventExtensions
-        instrumentCallableWrapper((targetPointer: Pointer): boolean => {
-            targetPointer();
-            const target = getSelectedTarget();
-            try {
-                return ReflectPreventExtensions(target);
-            } catch (e) {
-                throw pushErrorAcrossBoundary(e);
-            }
-        }, INBOUND_INSTRUMENTATION_LABEL),
+        instrumentCallableWrapper(
+            (targetPointer: Pointer): boolean => {
+                targetPointer();
+                const target = getSelectedTarget();
+                try {
+                    return ReflectPreventExtensions(target);
+                } catch (e) {
+                    throw pushErrorAcrossBoundary(e);
+                }
+            },
+            'callablePreventExtensions',
+            INBOUND_INSTRUMENTATION_LABEL
+        ),
         // callableSetPrototypeOf
         instrumentCallableWrapper(
             (targetPointer: Pointer, protoValueOrPointer: PrimitiveOrPointer): boolean => {
@@ -1417,49 +1449,58 @@ export function init(
                     throw pushErrorAcrossBoundary(e);
                 }
             },
+            'callableSetPrototypeOf',
             INBOUND_INSTRUMENTATION_LABEL
         ),
         // callableGetTargetIntegrityTraits
-        instrumentCallableWrapper((targetPointer: Pointer): TargetIntegrityTraits => {
-            targetPointer();
-            const target = getSelectedTarget();
-            let targetIntegrityTraits = TargetIntegrityTraits.None;
-            try {
-                // a revoked proxy will break the membrane when reading the meta
-                if (ObjectIsFrozen(target)) {
-                    targetIntegrityTraits |=
-                        TargetIntegrityTraits.IsSealed &
-                        TargetIntegrityTraits.IsFrozen &
-                        TargetIntegrityTraits.IsNotExtensible;
-                } else if (ObjectIsSealed(target)) {
-                    targetIntegrityTraits |= TargetIntegrityTraits.IsSealed;
-                } else if (!ReflectIsExtensible(target)) {
-                    targetIntegrityTraits |= TargetIntegrityTraits.IsNotExtensible;
+        instrumentCallableWrapper(
+            (targetPointer: Pointer): TargetIntegrityTraits => {
+                targetPointer();
+                const target = getSelectedTarget();
+                let targetIntegrityTraits = TargetIntegrityTraits.None;
+                try {
+                    // a revoked proxy will break the membrane when reading the meta
+                    if (ObjectIsFrozen(target)) {
+                        targetIntegrityTraits |=
+                            TargetIntegrityTraits.IsSealed &
+                            TargetIntegrityTraits.IsFrozen &
+                            TargetIntegrityTraits.IsNotExtensible;
+                    } else if (ObjectIsSealed(target)) {
+                        targetIntegrityTraits |= TargetIntegrityTraits.IsSealed;
+                    } else if (!ReflectIsExtensible(target)) {
+                        targetIntegrityTraits |= TargetIntegrityTraits.IsNotExtensible;
+                    }
+                    // if the target was revoked or become revoked during the extraction
+                    // of the metadata, we mark it as broken in the catch.
+                    isArrayOrNotOrThrowForRevoked(target);
+                } catch {
+                    // intentionally swallowing the error because this method is just
+                    // extracting the metadata in a way that it should always succeed
+                    // except for the cases in which the target is a proxy that is
+                    // either revoked or has some logic that is incompatible with the
+                    // membrane, in which case we will just create the proxy for the
+                    // membrane but revoke it right after to prevent any leakage.
+                    targetIntegrityTraits |= TargetIntegrityTraits.Revoked;
                 }
-                // if the target was revoked or become revoked during the extraction
-                // of the metadata, we mark it as broken in the catch.
-                isArrayOrNotOrThrowForRevoked(target);
-            } catch {
-                // intentionally swallowing the error because this method is just
-                // extracting the metadata in a way that it should always succeed
-                // except for the cases in which the target is a proxy that is
-                // either revoked or has some logic that is incompatible with the
-                // membrane, in which case we will just create the proxy for the
-                // membrane but revoke it right after to prevent any leakage.
-                targetIntegrityTraits |= TargetIntegrityTraits.Revoked;
-            }
-            return targetIntegrityTraits;
-        }, INBOUND_INSTRUMENTATION_LABEL),
+                return targetIntegrityTraits;
+            },
+            'callableGetTargetIntegrityTraits',
+            INBOUND_INSTRUMENTATION_LABEL
+        ),
         // callableHasOwnProperty
-        instrumentCallableWrapper((targetPointer: Pointer, key: PropertyKey): boolean => {
-            targetPointer();
-            const target = getSelectedTarget();
-            try {
-                return ReflectApply(ObjectProtoHasOwnProperty, target, [key]);
-            } catch (e) {
-                throw pushErrorAcrossBoundary(e);
-            }
-        }, INBOUND_INSTRUMENTATION_LABEL)
+        instrumentCallableWrapper(
+            (targetPointer: Pointer, key: PropertyKey): boolean => {
+                targetPointer();
+                const target = getSelectedTarget();
+                try {
+                    return ReflectApply(ObjectProtoHasOwnProperty, target, [key]);
+                } catch (e) {
+                    throw pushErrorAcrossBoundary(e);
+                }
+            },
+            'callableHasOwnProperty',
+            INBOUND_INSTRUMENTATION_LABEL
+        )
     );
     return (...hooks: Parameters<HooksCallback>) => {
         // prettier-ignore
@@ -1481,50 +1522,99 @@ export function init(
         ] = hooks;
         foreignCallablePushTarget = callablePushTarget;
         // traps utilities
+        // prettier-ignore
         foreignCallableApply = foreignErrorControl(
-            instrumentCallableWrapper(callableApply, OUTBOUND_INSTRUMENTATION_LABEL)
+            instrumentCallableWrapper(
+                callableApply,
+                'callableApply',
+                OUTBOUND_INSTRUMENTATION_LABEL
+            )
         );
         foreignCallableConstruct = foreignErrorControl(
-            instrumentCallableWrapper(callableConstruct, OUTBOUND_INSTRUMENTATION_LABEL)
+            instrumentCallableWrapper(
+                callableConstruct,
+                'callableConstruct',
+                OUTBOUND_INSTRUMENTATION_LABEL
+            )
         );
         foreignCallableDefineProperty = foreignErrorControl(
-            instrumentCallableWrapper(callableDefineProperty, OUTBOUND_INSTRUMENTATION_LABEL)
+            instrumentCallableWrapper(
+                callableDefineProperty,
+                'callableDefineProperty',
+                OUTBOUND_INSTRUMENTATION_LABEL
+            )
         );
         foreignCallableDeleteProperty = foreignErrorControl(
-            instrumentCallableWrapper(callableDeleteProperty, OUTBOUND_INSTRUMENTATION_LABEL)
+            instrumentCallableWrapper(
+                callableDeleteProperty,
+                'callableDeleteProperty',
+                OUTBOUND_INSTRUMENTATION_LABEL
+            )
         );
         foreignCallableGetOwnPropertyDescriptor = foreignErrorControl(
             instrumentCallableWrapper(
                 callableGetOwnPropertyDescriptor,
+                'callableGetOwnPropertyDescriptor',
                 OUTBOUND_INSTRUMENTATION_LABEL
             )
         );
         foreignCallableGetPrototypeOf = foreignErrorControl(
-            instrumentCallableWrapper(callableGetPrototypeOf, OUTBOUND_INSTRUMENTATION_LABEL)
+            instrumentCallableWrapper(
+                callableGetPrototypeOf,
+                'callableGetPrototypeOf',
+                OUTBOUND_INSTRUMENTATION_LABEL
+            )
         );
+        // prettier-ignore
         foreignCallableHas = foreignErrorControl(
-            instrumentCallableWrapper(callableHas, OUTBOUND_INSTRUMENTATION_LABEL)
+            instrumentCallableWrapper(
+                callableHas,
+                'callableHas',
+                OUTBOUND_INSTRUMENTATION_LABEL
+            )
         );
         foreignCallableIsExtensible = foreignErrorControl(
-            instrumentCallableWrapper(callableIsExtensible, OUTBOUND_INSTRUMENTATION_LABEL)
+            instrumentCallableWrapper(
+                callableIsExtensible,
+                'callableIsExtensible',
+                OUTBOUND_INSTRUMENTATION_LABEL
+            )
         );
+        // prettier-ignore
         foreignCallableOwnKeys = foreignErrorControl(
-            instrumentCallableWrapper(callableOwnKeys, OUTBOUND_INSTRUMENTATION_LABEL)
+            instrumentCallableWrapper(
+                callableOwnKeys,
+                'callableOwnKeys',
+                OUTBOUND_INSTRUMENTATION_LABEL
+            )
         );
         foreignCallablePreventExtensions = foreignErrorControl(
-            instrumentCallableWrapper(callablePreventExtensions, OUTBOUND_INSTRUMENTATION_LABEL)
+            instrumentCallableWrapper(
+                callablePreventExtensions,
+                'callablePreventExtensions',
+                OUTBOUND_INSTRUMENTATION_LABEL
+            )
         );
         foreignCallableSetPrototypeOf = foreignErrorControl(
-            instrumentCallableWrapper(callableSetPrototypeOf, OUTBOUND_INSTRUMENTATION_LABEL)
+            instrumentCallableWrapper(
+                callableSetPrototypeOf,
+                'callableSetPrototypeOf',
+                OUTBOUND_INSTRUMENTATION_LABEL
+            )
         );
         foreignCallableGetTargetIntegrityTraits = foreignErrorControl(
             instrumentCallableWrapper(
                 callableGetTargetIntegrityTraits,
+                'callableGetTargetIntegrityTraits',
                 OUTBOUND_INSTRUMENTATION_LABEL
             )
         );
         foreignCallableHasOwnProperty = foreignErrorControl(
-            instrumentCallableWrapper(callableHasOwnProperty, OUTBOUND_INSTRUMENTATION_LABEL)
+            instrumentCallableWrapper(
+                callableHasOwnProperty,
+                'callableHasOwnProperty',
+                OUTBOUND_INSTRUMENTATION_LABEL
+            )
         );
     };
 }
