@@ -5,6 +5,7 @@ import {
     ProxyTarget,
     VirtualEnvironment,
     linkIntrinsics,
+    SupportFlagsObject,
 } from '@locker/near-membrane-base';
 
 import { runInNewContext } from 'vm';
@@ -13,12 +14,18 @@ interface EnvironmentOptions {
     distortionCallback?: (originalTarget: ProxyTarget) => ProxyTarget;
     endowments?: object;
     globalThis: typeof globalThis;
+    support?: SupportFlagsObject;
 }
 
 export default function createVirtualEnvironment(
     options?: EnvironmentOptions
 ): (sourceText: string) => void {
-    const { distortionCallback, endowments, globalThis: blueGlobalThis = globalThis } = options || {
+    const {
+        distortionCallback,
+        endowments,
+        globalThis: blueGlobalThis = globalThis,
+        support,
+    } = options || {
         __proto__: null,
     };
     const redGlobalThis: typeof globalThis = runInNewContext('globalThis');
@@ -31,6 +38,7 @@ export default function createVirtualEnvironment(
         blueConnector,
         redConnector,
         distortionCallback,
+        support,
     });
     env.link('globalThis');
     linkIntrinsics(env, blueGlobalThis);
