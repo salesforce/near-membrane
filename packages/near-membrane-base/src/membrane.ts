@@ -255,16 +255,10 @@ export function init(
             return <T>function instrumentedFn(this: any, ...args: any[]): any {
                 let result;
                 const activity = instrumentation.startActivity(activityName, { crossingDirection });
-                let error: Error;
                 try {
                     result = ReflectApply(fn, this, args);
                 } catch (ex) {
-                    if (ex instanceof Error) {
-                        error = ex;
-                    } else {
-                        error = new Error(`Unkown type of catch variable: ${ex}`);
-                    }
-                    activity.error(error);
+                    activity.error(ex as any);
                 } finally {
                     activity.stop();
                 }
