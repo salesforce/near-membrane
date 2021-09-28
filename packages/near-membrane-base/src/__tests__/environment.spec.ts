@@ -89,7 +89,7 @@ describe('VirtualEnvironment', () => {
             const ExpectedError = class extends Error {};
             const error = new ExpectedError();
             // @ts-ignore
-            ve.redCallableEvaluate = (sourceText) => {
+            ve.redCallableEvaluate = (_sourceText) => {
                 throw error;
             };
             // @ts-ignore
