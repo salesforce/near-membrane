@@ -406,6 +406,16 @@ export function init(
         return distortedTarget;
     }
 
+    function isMarked(targetPointer: Pointer, marker: symbol): boolean {
+        try {
+            return foreignCallableHas(targetPointer, marker);
+        } catch {
+            // try-catching this because blue could be a proxy that is revoked
+            // or throws from the `has` trap.
+        }
+        return false;
+    }
+
     function isPointer(
         primitiveValueOrForeignCallable: PrimitiveOrPointer
     ): primitiveValueOrForeignCallable is CallableFunction {
@@ -556,8 +566,22 @@ export function init(
         // what side of the membrane they are debugging.
         readonly color = color;
 
-        // flag used for CSSStyleDeclaration objects in Safari <= 14
-        private targetMarkedAsMagic = false;
+        // memoized live marker check
+        private get targetMarkedAsLive() {
+            // assert: trapMutations must be true
+            const value = isMarked(this.targetPointer, LOCKER_LIVE_MARKER_SYMBOL);
+            ReflectDefineProperty(this, 'targetMarkedAsLive', { value });
+            return value;
+        }
+
+        // memoized magic marker check
+        private get targetMarkedAsMagic() {
+            const value = SUPPORT_MAGIC_MARKER
+                ? isMarked(this.targetPointer, LOCKER_MAGIC_MARKER_SYMBOL)
+                : false;
+            ReflectDefineProperty(this, 'targetMarkedAsMagic', { value });
+            return value;
+        }
 
         // callback to prepare the foreign realm before any operation
         private readonly targetPointer: Pointer;
@@ -643,32 +667,6 @@ export function init(
         }
 
         // internal utilities
-        private isTargetMarkedAsLive(): boolean {
-            // assert: trapMutations must be true
-            const { targetPointer } = this;
-            try {
-                return foreignCallableHas(targetPointer, LOCKER_LIVE_MARKER_SYMBOL);
-            } catch {
-                // try-catching this because blue could be a proxy that is revoked
-                // or throws from the `has` trap.
-            }
-            return false; // TODO: is the default value truly false or should be true?
-        }
-
-        private isTargetMarkedAsMagic(): boolean {
-            if (SUPPORT_MAGIC_MARKER) {
-                // assert: trapMutations must be true
-                const { targetPointer } = this;
-                try {
-                    return foreignCallableHas(targetPointer, LOCKER_MAGIC_MARKER_SYMBOL);
-                } catch {
-                    // try-catching this because blue could be a proxy that is revoked
-                    // or throws from the `has` trap.
-                }
-            }
-            return false; // TODO: is the default value truly false or should be true?
-        }
-
         private makeProxyDynamic() {
             // assert: trapMutations must be true
             // replacing pending traps with dynamic traps that can work with the target
@@ -683,7 +681,6 @@ export function init(
             this.preventExtensions = BoundaryProxyHandler.dynamicPreventExtensionsTrap;
             // @ts-ignore
             this.defineProperty = BoundaryProxyHandler.dynamicDefinePropertyTrap;
-            this.targetMarkedAsMagic = this.isTargetMarkedAsMagic();
             // future optimization: hoping that proxies with frozen handlers can be faster
             ObjectFreeze(this);
         }
@@ -740,7 +737,7 @@ export function init(
 
         private makeProxyUnambiguous(shadowTarget: ShadowTarget) {
             // assert: trapMutations must be true
-            if (this.isTargetMarkedAsLive()) {
+            if (this.targetMarkedAsLive) {
                 // when the target has the a descriptor for the magic symbol, use the Dynamic traps
                 this.makeProxyDynamic();
             } else {
