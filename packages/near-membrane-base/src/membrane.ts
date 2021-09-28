@@ -1198,10 +1198,9 @@ export function init(
         },
         // callableEvaluate
         (sourceText: string): void => {
-            // no need to return the result of the eval
             try {
-                cachedLocalEval(sourceText);
-            } catch (e) {
+                return cachedLocalEval(sourceText);
+            } catch (e: any) {
                 throw pushErrorAcrossBoundary(e);
             }
         },

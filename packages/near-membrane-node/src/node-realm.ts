@@ -40,5 +40,5 @@ export default function createVirtualEnvironment(
     linkIntrinsics(env, blueGlobalThis);
     // remapping globals
     env.remap(blueGlobalThis, endowmentsDescriptors);
-    return (sourceText: string): void => env.evaluate(sourceText);
+    return (sourceText: string): any => env.evaluate(sourceText);
 }

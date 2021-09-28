@@ -197,5 +197,5 @@ export default function createVirtualEnvironment(
         DocumentClose(redRefs.document);
     }
     // finally, we return the evaluator function
-    return (sourceText: string): void => env.evaluate(sourceText);
+    return (sourceText: string): any => env.evaluate(sourceText);
 }

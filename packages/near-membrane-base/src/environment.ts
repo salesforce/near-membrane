@@ -164,10 +164,14 @@ export class VirtualEnvironment {
         this.redCallableLinkPointers = redCallableLinkPointers;
     }
 
-    evaluate(sourceText: string): void {
+    evaluate(sourceText: string): any {
         try {
-            this.redCallableEvaluate(sourceText);
-        } catch (e) {
+            const result = this.redCallableEvaluate(sourceText);
+            if (typeof result === 'object' && result !== null) {
+                throw new TypeError();
+            }
+            return result;
+        } catch (e: any) {
             const pushedError = this.blueGetSelectedTarget();
             if (pushedError) {
                 throw pushedError;

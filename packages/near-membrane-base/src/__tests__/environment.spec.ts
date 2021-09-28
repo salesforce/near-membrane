@@ -2,6 +2,12 @@ import { SupportFlagsField } from '../../types';
 import { getFilteredEndowmentDescriptors, VirtualEnvironment } from '../index';
 import { HooksCallback, init, initSourceTextInStrictMode } from '../membrane';
 
+const { toString: ObjectProtoToString } = Object.prototype;
+
+function getToStringTag(object) {
+    return ObjectProtoToString.call(object).slice(8, -1);
+}
+
 describe('VirtualEnvironment', () => {
     afterEach(() => {
         jest.resetAllMocks();
@@ -59,7 +65,7 @@ describe('VirtualEnvironment', () => {
             });
             ve.link('globalThis');
 
-            const sourceTextToEvaluate = 'Hello!';
+            const sourceTextToEvaluate = '"Hello!"';
             // @ts-ignore
             ve.redCallableEvaluate = (sourceText) => {
                 expect(sourceText).toBe(sourceTextToEvaluate);
@@ -113,6 +119,36 @@ describe('VirtualEnvironment', () => {
             expect(() => {
                 ve.evaluate('foo');
             }).toThrow(error);
+        });
+
+        it('returns result of evaluated expression', () => {
+            // Ignoring "Property 'assertions' does not exist on type '{...}'."
+            // @ts-ignore
+            expect.assertions(8);
+
+            // eslint-disable-next-line no-eval
+            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+
+            const ve = new VirtualEnvironment({
+                blueConnector: init,
+                redConnector,
+            });
+            ve.link('globalThis');
+
+            // expect(ve.evaluate('["a"]')).toEqual(['a']);
+            expect(ve.evaluate('true')).toBe(true);
+            expect(ve.evaluate('false')).toBe(false);
+            expect(getToStringTag(ve.evaluate('(function a(){})'))).toBe('Function');
+            expect(getToStringTag(ve.evaluate('(async ()=>{})'))).toBe('AsyncFunction');
+            expect(getToStringTag(ve.evaluate('(function * (){})'))).toBe('GeneratorFunction');
+            expect(getToStringTag(ve.evaluate('(async function * (){})'))).toBe(
+                'AsyncGeneratorFunction'
+            );
+            // expect(getToStringTag(ve.evaluate('new Date()'))).toBe('Date');
+            // expect(ve.evaluate('({ a: 1 })')).toEqual({ a: 1 });
+            expect(ve.evaluate('1 + 2')).toBe(3);
+            // expect(getToStringTag(ve.evaluate('/a/'))).toBe('RegExp');
+            expect(ve.evaluate('"Hello!"')).toBe('Hello!');
         });
     });
     describe('VirtualEnvironment.prototype.remap', () => {
