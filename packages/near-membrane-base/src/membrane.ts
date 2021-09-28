@@ -257,8 +257,9 @@ export function init(
                 const activity = instrumentation.startActivity(activityName, { crossingDirection });
                 try {
                     result = ReflectApply(fn, this, args);
-                } catch (ex) {
-                    activity.error(ex as any);
+                } catch (e: any) {
+                    activity.error(e);
+                    throw e;
                 } finally {
                     activity.stop();
                 }
