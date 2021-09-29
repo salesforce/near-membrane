@@ -13,12 +13,12 @@ import { runInNewContext } from 'vm';
 interface NodeEnvironmentOptions {
     distortionCallback?: DistortionCallback;
     endowments: object;
-    globalThis: typeof globalThis;
+    globalThis?: typeof globalThis;
     support?: SupportFlagsObject;
 }
 
 export default function createVirtualEnvironment(
-    providedOptions?: NodeEnvironmentOptions
+    providedOptions: NodeEnvironmentOptions
 ): (sourceText: string) => void {
     const options = {
         __proto__: null,

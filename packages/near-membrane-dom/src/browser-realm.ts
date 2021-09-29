@@ -142,7 +142,7 @@ function removeIframe(iframe: HTMLIFrameElement) {
 interface BrowserEnvironmentOptions {
     distortionCallback?: DistortionCallback;
     endowments: object;
-    globalThis: WindowProxy & typeof globalThis;
+    globalThis?: WindowProxy & typeof globalThis;
     keepAlive?: boolean;
     support?: SupportFlagsObject;
 }
