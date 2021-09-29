@@ -6,7 +6,7 @@ describe('Freezing', () => {
             expect.assertions(10);
             globalThis.bar = { a: 1, b: 2 };
             Object.freeze(globalThis.bar);
-            const evalScript = createVirtualEnvironment({ endowments: window });
+            const evalScript = createVirtualEnvironment({ endowments: globalThis });
             // checking the state of bar in the blue realm
             expect(Object.isExtensible(globalThis.bar)).toBe(false);
             expect(Object.isSealed(globalThis.bar)).toBe(true);
@@ -49,7 +49,7 @@ describe('Freezing', () => {
         it('should not be observed from within the sandbox after a mutation', () => {
             expect.assertions(9);
             globalThis.baz = { a: 1, b: 2 };
-            const evalScript = createVirtualEnvironment({ endowments: window });
+            const evalScript = createVirtualEnvironment({ endowments: globalThis });
             // checking the state of bar in the sandbox
             evalScript(`
                 expect(Object.isExtensible(globalThis.baz)).toBe(true);
@@ -88,7 +88,7 @@ describe('Freezing', () => {
                     o.z = 3;
                 }).toThrowError();
             };
-            const evalScript = createVirtualEnvironment({ endowments: window });
+            const evalScript = createVirtualEnvironment({ endowments: globalThis });
             evalScript(`
                 'use strict';
                 const o = { x: 1 };

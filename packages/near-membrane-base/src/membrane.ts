@@ -1154,7 +1154,6 @@ export function init(
         return {
             enumerable: isEnumerable,
             configurable: true,
-            writable: true,
             get(): any {
                 foreignCallableGetOwnPropertyDescriptor(targetPointer, key, callbackWithDescriptor);
                 if (desc! === undefined) {

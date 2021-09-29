@@ -24,7 +24,7 @@ globalThis.foo = {
 describe('The Error Boundary', () => {
     it('should preserve identity of errors after a membrane roundtrip', () => {
         expect.assertions(3);
-        const evalScript = createVirtualEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment({ endowments: globalThis });
         evalScript(`foo.expose(() => { foo.a })`);
         expect(() => {
             sandboxedValue();
@@ -40,7 +40,7 @@ describe('The Error Boundary', () => {
     });
     it('should remap the Blue Realm Error instance to the sandbox errors', () => {
         expect.assertions(3);
-        const evalScript = createVirtualEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment({ endowments: globalThis });
 
         evalScript(`
             expect(() => {
@@ -60,7 +60,7 @@ describe('The Error Boundary', () => {
     });
     it('should capture throwing from user proxy', () => {
         expect.assertions(3);
-        const evalScript = createVirtualEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment({ endowments: globalThis });
         evalScript(`
             const revocable = Proxy.revocable(() => undefined, {});
             revocable.revoke();
@@ -78,7 +78,7 @@ describe('The Error Boundary', () => {
         }).toThrowError(Error);
     });
     it('should protect from leaking sandbox errors during evaluation', () => {
-        const evalScript = createVirtualEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment({ endowments: globalThis });
 
         expect(() => {
             evalScript(`
@@ -87,7 +87,7 @@ describe('The Error Boundary', () => {
         }).toThrowError(TypeError);
     });
     it('should protect from leaking sandbox errors during parsing', () => {
-        const evalScript = createVirtualEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment({ endowments: globalThis });
 
         expect(() => {
             evalScript(`

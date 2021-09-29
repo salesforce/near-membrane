@@ -7,15 +7,13 @@ describe('VirtualEnvironment', () => {
             expect(() => evalScript('')).not.toThrow();
         });
         it('empty object provided', () => {
-            const evalScript = createVirtualEnvironment({
-                /* empty options */
-            });
-            expect(() => evalScript('')).not.toThrow();
+            const evalScript = createVirtualEnvironment({});
+            expect(() => evalScript('')).toThrow();
         });
         it('object has endowments, but is undefined', () => {
             let endowments;
             const evalScript = createVirtualEnvironment({ endowments });
-            expect(() => evalScript('')).not.toThrow();
+            expect(() => evalScript('')).toThrow();
         });
         it('object has endowments, but is empty', () => {
             const evalScript = createVirtualEnvironment({ endowments: {} });
@@ -33,7 +31,7 @@ describe('VirtualEnvironment', () => {
                 expect(a2 instanceof Array).toBe(true);
                 expect(a2).toStrictEqual([3, 4]);
             };
-            const evalScript = createVirtualEnvironment({ endowments: window });
+            const evalScript = createVirtualEnvironment({ endowments: globalThis });
             evalScript(`blueArrayFactory([1, 2], new Array(3, 4))`);
         });
         it('should not have identity discontinuity for objects', () => {
