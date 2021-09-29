@@ -1,57 +1,68 @@
-import { SupportFlagsField } from '../../types';
-import { getFilteredEndowmentDescriptors, VirtualEnvironment } from '../index';
-import { HooksCallback, init, initSourceTextInStrictMode } from '../membrane';
+import {
+    getFilteredEndowmentDescriptors,
+    init,
+    initSourceTextInStrictMode,
+    VirtualEnvironment,
+} from '@locker/near-membrane-base';
 
-describe('VirtualEnvironment', () => {
+/*
+    These tests are exercising the BUILT near-membrane-base,
+    ie. package/near-membrane-base/lib/index.js
+*/
+describe('Implementing an environment with VirtualEnvironment', () => {
+    let redRealmGlobal;
+
+    beforeEach(() => {
+        const iframe = document.createElement('iframe');
+        iframe.id = 'red-realm';
+        document.body.appendChild(iframe);
+
+        redRealmGlobal = iframe.contentWindow;
+    });
+
     afterEach(() => {
-        jest.resetAllMocks();
+        const iframe = document.getElementById('red-realm');
+        iframe.remove();
     });
 
     it('throws when options bag is missing', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
         expect.assertions(1);
         expect(() => {
-            // @ts-ignore
             // eslint-disable-next-line no-new
             new VirtualEnvironment();
-        }).toThrow(/Missing VirtualEnvironmentOptions options bag/);
+        }).toThrow();
     });
+
     it('forwards support { ... } as bit fields to init functions', () => {
         // Ignoring "Property 'assertions' does not exist on type '{...}'."
         // @ts-ignore
         expect.assertions(2);
 
-        // @ts-ignore
-        const interceptor: typeof init = (
-            _name: string,
-            _shouldOrNotTrapMutation: boolean,
-            supportFlags: SupportFlagsField,
-            exportsCallback: HooksCallback
-        ) => {
+        const interceptor = (_name, _shouldOrNotTrapMutation, supportFlags, exportsCallback) => {
             expect(supportFlags).toBe(0b1 /* 1 */);
-            // @ts-ignore
             exportsCallback();
             return () => {};
         };
+
+        const distortionCallback = (v) => v;
 
         // eslint-disable-next-line no-new
         new VirtualEnvironment({
             blueConnector: interceptor,
             redConnector: interceptor,
+            distortionCallback,
             support: {
                 magicMarker: true,
             },
         });
     });
+
     describe('VirtualEnvironment.prototype.evaluate', () => {
         it("calls through to the red realm's callable evaluation function", () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = redRealmGlobal.eval(initSourceTextInStrictMode);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -60,7 +71,6 @@ describe('VirtualEnvironment', () => {
             ve.link('globalThis');
 
             const sourceTextToEvaluate = 'Hello!';
-            // @ts-ignore
             ve.redCallableEvaluate = (sourceText) => {
                 expect(sourceText).toBe(sourceTextToEvaluate);
             };
@@ -69,12 +79,10 @@ describe('VirtualEnvironment', () => {
         });
 
         it('throws pushed error from blue target', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = redRealmGlobal.eval(initSourceTextInStrictMode);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -83,17 +91,22 @@ describe('VirtualEnvironment', () => {
             ve.link('globalThis');
 
             expect(() => {
-                ve.evaluate('foo');
-            }).toThrow('foo is not defined');
+                ve.evaluate('a_very_specific_string');
+            }).toThrowMatching((thrown) => {
+                // Since this is tested against two different browsers, which both have different error message
+                // strings, the test here is to vaguely assess that error is "probably" correct.
+                return (
+                    String(thrown).includes('ReferenceError') &&
+                    String(thrown).includes('a_very_specific_string')
+                );
+            });
         });
 
         it('rethrows if blue target does not have pushed error', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = redRealmGlobal.eval(initSourceTextInStrictMode);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -103,11 +116,9 @@ describe('VirtualEnvironment', () => {
 
             const ExpectedError = class extends Error {};
             const error = new ExpectedError();
-            // @ts-ignore
-            ve.redCallableEvaluate = (_sourceText) => {
+            ve.redCallableEvaluate = () => {
                 throw error;
             };
-            // @ts-ignore
             ve.blueGetSelectedTarget = () => undefined;
 
             expect(() => {
@@ -115,14 +126,13 @@ describe('VirtualEnvironment', () => {
             }).toThrow(error);
         });
     });
+
     describe('VirtualEnvironment.prototype.remap', () => {
         it('Skips index-like properties', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = redRealmGlobal.eval(initSourceTextInStrictMode);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -140,12 +150,10 @@ describe('VirtualEnvironment', () => {
             expect(Object.getOwnPropertyNames(redValue).length).toBe(0);
         });
         it('Skips untamable properties, ie. descriptor is not configurable', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = redRealmGlobal.eval(initSourceTextInStrictMode);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -153,7 +161,7 @@ describe('VirtualEnvironment', () => {
             });
             ve.link('globalThis');
 
-            const redValue = {} as any;
+            const redValue = {};
             Object.defineProperty(redValue, 'a', {
                 value: 0,
                 configurable: false,
@@ -166,101 +174,14 @@ describe('VirtualEnvironment', () => {
 
             expect(redValue.a).toBe(0);
         });
-
-        it('calls a lazy endowment getter', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
-            expect.assertions(3);
-
-            let count = 0;
-
-            // istanbul ignore next
-            // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
-
-            const ve = new VirtualEnvironment({
-                blueConnector: init,
-                redConnector,
-                distortionCallback(v) {
-                    count += 1;
-                    // This ignore is to suppress the following:
-                    //  "Not all constituents of type 'RedProxyTarget' are callable."
-                    // Which is generally true, but not in this case.
-                    // @ts-ignore
-                    expect(v()).toBe(1);
-                    return v;
-                },
-            });
-            ve.link('globalThis');
-
-            const endowments = {};
-
-            Object.defineProperty(endowments, 'b', {
-                get() {
-                    count += 1;
-                    return 1;
-                },
-                configurable: true,
-            });
-
-            ve.remap(globalThis, getFilteredEndowmentDescriptors(endowments));
-
-            expect(globalThis.b).toBe(1);
-            expect(count).toBe(3);
-        });
-
-        it('calls a lazy endowment setter', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
-            expect.assertions(7);
-
-            let count = 0;
-            let blueSetValue = null;
-
-            // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
-
-            const ve = new VirtualEnvironment({
-                blueConnector: init,
-                redConnector,
-            });
-            ve.link('globalThis');
-
-            const endowments = {};
-            Object.defineProperty(endowments, 'c', {
-                get() {
-                    // This WILL be reached, but only until the setter is called
-                    count += 1;
-                    return 1;
-                },
-                // @ts-ignore
-                set(v) {
-                    // This should NOT be reached
-                    blueSetValue = v;
-                    count += 1;
-                },
-            });
-
-            ve.remap(globalThis, getFilteredEndowmentDescriptors(endowments));
-
-            expect(globalThis.c).toBe(1); // count + 1
-            expect(globalThis.c).toBe(1); // count + 1
-            expect(globalThis.c).toBe(1); // count + 1
-            expect(count).toBe(3);
-            globalThis.c = 99;
-            expect(globalThis.c).toBe(1);
-            expect(blueSetValue).toBe(99);
-            expect(count).toBe(6);
-        });
     });
+
     describe('VirtualEnvironment.prototype.lazyRemap', () => {
         it('Skips index-like properties', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = redRealmGlobal.eval(initSourceTextInStrictMode);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -278,12 +199,10 @@ describe('VirtualEnvironment', () => {
         });
 
         it('Skips index-like properties, called after remap', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             expect.assertions(2);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = redRealmGlobal.eval(initSourceTextInStrictMode);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -304,12 +223,10 @@ describe('VirtualEnvironment', () => {
         });
 
         it('Skips untamable properties, ie. descriptor is not configurable', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             expect.assertions(2);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = redRealmGlobal.eval(initSourceTextInStrictMode);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -317,7 +234,7 @@ describe('VirtualEnvironment', () => {
             });
             ve.link('globalThis');
 
-            const redValue = {} as any;
+            const redValue = {};
             Object.defineProperty(redValue, 'd', {
                 value: 0,
                 configurable: false,
@@ -334,15 +251,13 @@ describe('VirtualEnvironment', () => {
         });
 
         it('will not call an endowment getter that does not exist', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             expect.assertions(2);
 
             let count = 0;
 
             // istanbul ignore next
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = redRealmGlobal.eval(initSourceTextInStrictMode);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -366,62 +281,14 @@ describe('VirtualEnvironment', () => {
             expect(count).toBe(0);
         });
 
-        it('calls a lazy endowment getter, called after remap', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
-            expect.assertions(5);
-
-            let count = 0;
-
-            // istanbul ignore next
-            // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
-
-            const ve = new VirtualEnvironment({
-                blueConnector: init,
-                redConnector,
-                distortionCallback(v) {
-                    count += 1;
-                    // This ignore is to suppress the following:
-                    //  "Not all constituents of type 'RedProxyTarget' are callable."
-                    // Which is generally true, but not in this case.
-                    // @ts-ignore
-                    expect(v()).toBe(1);
-                    return v;
-                },
-            });
-            ve.link('globalThis');
-
-            const endowments = {};
-
-            Object.defineProperty(endowments, 'f', {
-                get() {
-                    count += 1;
-                    return 1;
-                },
-                configurable: true,
-            });
-
-            ve.remap(globalThis, getFilteredEndowmentDescriptors(endowments));
-            expect(globalThis.f).toBe(1);
-            expect(count).toBe(3);
-
-            ve.lazyRemap(globalThis, Object.keys(getFilteredEndowmentDescriptors(endowments)));
-
-            expect(globalThis.f).toBe(1);
-            expect(count).toBe(4);
-        });
-
         it('will not call an endowment setter that does not exist', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             // expect.assertions(11);
 
             let count = 0;
             let blueSetValue = null;
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = redRealmGlobal.eval(initSourceTextInStrictMode);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -436,7 +303,6 @@ describe('VirtualEnvironment', () => {
                     count += 1;
                     return 1;
                 },
-                // @ts-ignore
                 set(v) {
                     // This should NOT be reached
                     blueSetValue = v;
@@ -454,66 +320,11 @@ describe('VirtualEnvironment', () => {
             expect(count).toBe(0);
         });
 
-        it('calls a lazy endowment setter, called after remap', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
-            expect.assertions(11);
-
-            let count = 0;
-            let blueSetValue = null;
-
-            // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
-
-            const ve = new VirtualEnvironment({
-                blueConnector: init,
-                redConnector,
-            });
-            ve.link('globalThis');
-
-            const endowments = {};
-            Object.defineProperty(endowments, 'h', {
-                get() {
-                    // This WILL be reached, but only until the setter is called
-                    count += 1;
-                    return 1;
-                },
-                // @ts-ignore
-                set(v) {
-                    // This should NOT be reached
-                    blueSetValue = v;
-                    count += 1;
-                },
-            });
-
-            ve.remap(globalThis, getFilteredEndowmentDescriptors(endowments));
-
-            expect(globalThis.h).toBe(1); // count + 1
-            expect(globalThis.h).toBe(1); // count + 1
-            expect(globalThis.h).toBe(1); // count + 1
-            expect(count).toBe(3);
-            globalThis.h = 99;
-            expect(globalThis.h).toBe(1);
-            expect(blueSetValue).toBe(99);
-            expect(count).toBe(6);
-
-            ve.lazyRemap(globalThis, Object.keys(getFilteredEndowmentDescriptors(endowments)));
-
-            expect(count).toBe(6);
-
-            globalThis.h = 999;
-            expect(globalThis.h).toBe(1);
-            expect(blueSetValue).toBe(999);
-            expect(count).toBe(9);
-        });
-
         it('respects enumerable symbol properties on target', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             expect.assertions(2);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = redRealmGlobal.eval(initSourceTextInStrictMode);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -528,7 +339,6 @@ describe('VirtualEnvironment', () => {
                 enumerable: true,
             });
 
-            // @ts-ignore
             ve.redCallableInstallLazyDescriptors = (...args) => {
                 expect(args[1]).toBe(symbol);
                 expect(args[2]).toBe(true);
@@ -538,12 +348,10 @@ describe('VirtualEnvironment', () => {
         });
 
         it('respects non-enumerable symbol properties on target', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             expect.assertions(2);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = redRealmGlobal.eval(initSourceTextInStrictMode);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -558,7 +366,6 @@ describe('VirtualEnvironment', () => {
                 enumerable: false,
             });
 
-            // @ts-ignore
             ve.redCallableInstallLazyDescriptors = (...args) => {
                 expect(args[1]).toBe(symbol);
                 expect(args[2]).toBe(false);
@@ -569,12 +376,10 @@ describe('VirtualEnvironment', () => {
     });
     describe('VirtualEnvironment.prototype.remapProto', () => {
         it('calls blueGetTransferableValue with both args', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             expect.assertions(2);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = redRealmGlobal.eval(initSourceTextInStrictMode);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -585,14 +390,12 @@ describe('VirtualEnvironment', () => {
             const a = {};
             const b = {};
 
-            const calledWith: any[] = [];
+            const calledWith = [];
 
-            // @ts-ignore
             ve.blueGetTransferableValue = (value) => {
                 calledWith.push(value);
                 return value;
             };
-            // @ts-ignore
             ve.redCallableSetPrototypeOf = (a, b) => {
                 expect(a).toBe(calledWith[0]);
                 expect(b).toBe(calledWith[1]);
