@@ -117,6 +117,7 @@ const ReflectiveIntrinsicObjectNames = [
     'SyntaxError',
     'TypeError',
     'URIError',
+    'eval',
 ];
 
 export function linkIntrinsics(env: VirtualEnvironment, blueGlobalThis: typeof globalThis) {
