@@ -10,7 +10,7 @@ describe('getFilteredGlobalObjectShapeDescriptors()', () => {
         });
         expect(filteredEndowmentDescriptors.Math).toBe(undefined);
     });
-    it('includes remapped ES built-ins', () => {
+    it('includes remapped ES intrinsics', () => {
         // Ignoring "Property 'assertions' does not exist on type '{...}'."
         // @ts-ignore
         expect.assertions(1);
