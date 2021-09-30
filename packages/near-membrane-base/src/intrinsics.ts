@@ -168,5 +168,5 @@ export function getResolvedShapeDescriptors(
     const globalObjectShapeDescriptors = getFilteredGlobalObjectShapeDescriptors(globalObjectShape);
     const endowmentsDescriptors = getFilteredGlobalObjectShapeDescriptors(endowments);
     // eslint-disable-next-line prefer-object-spread
-    return ObjectAssign({}, globalObjectShapeDescriptors, endowmentsDescriptors);
+    return ObjectAssign({ __proto__: null }, globalObjectShapeDescriptors, endowmentsDescriptors);
 }
