@@ -1,7 +1,7 @@
 import { getFilteredGlobalObjectShapeDescriptors } from '../index';
 
 describe('getFilteredGlobalObjectShapeDescriptors()', () => {
-    it('ignores ES built-ins', () => {
+    it('ignores non-remapped ES intrinsics', () => {
         // Ignoring "Property 'assertions' does not exist on type '{...}'."
         // @ts-ignore
         expect.assertions(1);
