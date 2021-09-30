@@ -1,5 +1,7 @@
 import { VirtualEnvironment } from './environment';
 
+const { includes: ArrayProtoIncludes } = Array.prototype;
+const { assign: ObjectAssign } = Object;
 const { has: SetProtoHas } = Set.prototype;
 const {
     apply: ReflectApply,
@@ -125,6 +127,9 @@ function isIntrinsicGlobalName(key: PropertyKey): boolean {
     return ReflectApply(SetProtoHas, ESGlobalKeys, [key]);
 }
 
+function isReflectiveGlobalName(key: PropertyKey): boolean {
+    return ReflectApply(ArrayProtoIncludes, ReflectiveIntrinsicObjectNames, [key]);
+}
 export function linkIntrinsics(env: VirtualEnvironment, blueGlobalThis: typeof globalThis) {
     // remapping intrinsics that are realm's agnostic
     for (let i = 0, len = ReflectiveIntrinsicObjectNames.length; i < len; i += 1) {
@@ -140,9 +145,10 @@ export function linkIntrinsics(env: VirtualEnvironment, blueGlobalThis: typeof g
     }
 }
 
-export function getFilteredEndowmentDescriptors(endowments: object): PropertyDescriptorMap {
+function getFilteredGlobalObjectShapeDescriptors(endowments: object): PropertyDescriptorMap {
     const to: PropertyDescriptorMap = { __proto__: null } as any;
     const globalKeys = ReflectOwnKeys(endowments);
+
     for (let i = 0, len = globalKeys.length; i < len; i += 1) {
         // forcing to string here because of TypeScript's PropertyDescriptorMap
         // definition, which doesn't support symbols as entries.
@@ -152,9 +158,21 @@ export function getFilteredEndowmentDescriptors(endowments: object): PropertyDes
         // will be ignored if present in the endowments object.
         // TODO: what if the intent is to polyfill one of those
         // intrinsics?
-        if (!isIntrinsicGlobalName(key)) {
+        if (!isIntrinsicGlobalName(key) && !isReflectiveGlobalName(key)) {
             to[key] = ReflectGetOwnPropertyDescriptor(endowments, key)!;
         }
     }
     return to;
+}
+
+export function getResolvedShapeDescriptors(
+    globalObjectShape: object,
+    endowments?: object
+): PropertyDescriptorMap {
+    const globalObjectShapeDescriptors = getFilteredGlobalObjectShapeDescriptors(globalObjectShape);
+    const endowmentsDescriptors = getFilteredGlobalObjectShapeDescriptors(
+        endowments || { __proto__: null }
+    );
+    // eslint-disable-next-line prefer-object-spread
+    return ObjectAssign({ __proto__: null }, globalObjectShapeDescriptors, endowmentsDescriptors);
 }

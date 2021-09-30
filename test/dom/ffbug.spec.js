@@ -2,9 +2,9 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('FF BugFix 543435', () => {
     it('should preserve the document reference in the next turn', (done) => {
-        // expect.assertions(3);
-        const evalScript = createVirtualEnvironment({
-            endowments: Object.assign({}, window, {
+        expect.assertions(3);
+        const evalScript = createVirtualEnvironment(window, {
+            endowments: {
                 validateSyncDocumentReference(redDoc) {
                     expect(redDoc).toBe(document);
                 },
@@ -15,7 +15,7 @@ describe('FF BugFix 543435', () => {
                     expect(redDoc).toBe(document);
                     done();
                 },
-            }),
+            },
             keepAlive: true,
         });
         evalScript(`

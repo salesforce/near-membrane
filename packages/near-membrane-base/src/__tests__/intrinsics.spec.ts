@@ -1,9 +1,13 @@
-import { getFilteredEndowmentDescriptors, isIntrinsicGlobalName } from '../index';
+import { getResolvedShapeDescriptors } from '../index';
 
-const intrinsicNames = [
+const ESGlobalKeys = [
+    // *** 19.1 Value Properties of the Global Object
+    'globalThis',
     'Infinity',
     'NaN',
     'undefined',
+
+    // *** 19.2 Function Properties of the Global Object
     'eval', // dangerous
     'isFinite',
     'isNaN',
@@ -13,6 +17,8 @@ const intrinsicNames = [
     'decodeURIComponent',
     'encodeURI',
     'encodeURIComponent',
+
+    // *** 19.3 Constructor Properties of the Global Object
     'AggregateError',
     'Array',
     'ArrayBuffer',
@@ -21,6 +27,7 @@ const intrinsicNames = [
     'BigUint64Array',
     'Boolean',
     'DataView',
+    // 'Date', // Unstable & Remapped
     'Error', // Unstable
     'EvalError',
     'FinalizationRegistry',
@@ -30,12 +37,17 @@ const intrinsicNames = [
     'Int8Array',
     'Int16Array',
     'Int32Array',
+    // 'Map', // Remapped
     'Number',
     'Object',
+    // Allow Blue `Promise` constructor to overwrite the Red one so that promises
+    // created by the `Promise` constructor or APIs like `fetch` will work.
+    // 'Promise', // Remapped
     'Proxy', // Unstable
     'RangeError',
     'ReferenceError',
     'RegExp', // Unstable
+    // 'Set', // Remapped
     'SharedArrayBuffer',
     'String',
     'Symbol',
@@ -46,58 +58,108 @@ const intrinsicNames = [
     'Uint16Array',
     'Uint32Array',
     'URIError',
+    // 'WeakMap', // Remapped
+    // 'WeakSet', // Remapped
+
     'WeakRef',
+
+    // *** 18.4 Other Properties of the Global Object
     'Atomics',
     'JSON',
     'Math',
     'Reflect',
+
+    // *** Annex B
     'escape',
     'unescape',
-];
-const remappedIntrinsicNames = [
-    'Date', // Unstable & Remapped
-    'Map', // Remapped
-    'Promise', // Remapped
-    'Set', // Remapped
-    'WeakMap', // Remapped
-    'WeakSet', // Remapped
-    'Intl', // Unstable & Remapped
+
+    // *** ECMA-402
+    // 'Intl',  // Unstable & Remapped
 ];
 
-describe('isIntrinsicGlobalName()', () => {
-    it('should return false foe ES global names that are remapped', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
-        expect.assertions(remappedIntrinsicNames.length);
-        remappedIntrinsicNames.forEach((remappedIntrinsicName) => {
-            expect(isIntrinsicGlobalName(remappedIntrinsicName)).toBe(false);
-        });
-    });
-    it('should return true for all non-remapped ES global names', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
-        expect.assertions(intrinsicNames.length);
-        intrinsicNames.forEach((intrinsicName) => {
-            expect(isIntrinsicGlobalName(intrinsicName)).toBe(true);
-        });
-    });
-});
+const ReflectiveIntrinsicObjectNames = [
+    'AggregateError',
+    'Array',
+    'Error',
+    'EvalError',
+    'Function',
+    'Object',
+    'Proxy',
+    'RangeError',
+    'ReferenceError',
+    'SyntaxError',
+    'TypeError',
+    'URIError',
+    'eval',
+];
 
-describe('getFilteredEndowmentDescriptors()', () => {
-    it('ignores ES built-ins', () => {
+const RemappedIntrinsicObjectNames = [
+    'Date',
+    'Map',
+    'Promise',
+    'Set',
+    'WeakMap',
+    'WeakSet',
+    'Intl',
+];
+
+describe('getResolvedShapeDescriptors()', () => {
+    it('ignores non-remapped ES intrinsics', () => {
         // Ignoring "Property 'assertions' does not exist on type '{...}'."
         // @ts-ignore
-        expect.assertions(1);
-        const filteredEndowmentDescriptors = getFilteredEndowmentDescriptors({
-            Math,
-        });
-        expect(filteredEndowmentDescriptors.Math).toBe(undefined);
+        expect.assertions(ESGlobalKeys.length);
+
+        const shape = ESGlobalKeys.reduce((accum, key) => {
+            accum[key] = globalThis[key];
+            return accum;
+        }, {});
+
+        const filteredEndowmentDescriptors = getResolvedShapeDescriptors(shape);
+
+        for (let i = 0; i < ESGlobalKeys.length; i += 1) {
+            const key = ESGlobalKeys[i];
+            expect(filteredEndowmentDescriptors[key]).toBe(undefined);
+        }
+    });
+    it('ignores Reflective ES intrinsics', () => {
+        // Ignoring "Property 'assertions' does not exist on type '{...}'."
+        // @ts-ignore
+        expect.assertions(ReflectiveIntrinsicObjectNames.length);
+
+        const shape = ReflectiveIntrinsicObjectNames.reduce((accum, key) => {
+            accum[key] = globalThis[key];
+            return accum;
+        }, {});
+
+        const filteredEndowmentDescriptors = getResolvedShapeDescriptors(shape);
+
+        for (let i = 0; i < ReflectiveIntrinsicObjectNames.length; i += 1) {
+            const key = ReflectiveIntrinsicObjectNames[i];
+            expect(filteredEndowmentDescriptors[key]).toBe(undefined);
+        }
+    });
+    it('includes Remapped ES intrinsics', () => {
+        // Ignoring "Property 'assertions' does not exist on type '{...}'."
+        // @ts-ignore
+        expect.assertions(RemappedIntrinsicObjectNames.length);
+
+        const shape = RemappedIntrinsicObjectNames.reduce((accum, key) => {
+            accum[key] = globalThis[key];
+            return accum;
+        }, {});
+
+        const filteredEndowmentDescriptors = getResolvedShapeDescriptors(shape);
+
+        for (let i = 0; i < RemappedIntrinsicObjectNames.length; i += 1) {
+            const key = RemappedIntrinsicObjectNames[i];
+            expect(filteredEndowmentDescriptors[key]).not.toBe(undefined);
+        }
     });
     it('should create a descriptor for non-ES built-ins', () => {
         // Ignoring "Property 'assertions' does not exist on type '{...}'."
         // @ts-ignore
         expect.assertions(1);
-        const filteredEndowmentDescriptors = getFilteredEndowmentDescriptors({
+        const filteredEndowmentDescriptors = getResolvedShapeDescriptors({
             Foo: 1,
         });
         // Ignoring

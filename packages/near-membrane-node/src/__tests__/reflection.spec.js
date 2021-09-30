@@ -1,14 +1,14 @@
 import createVirtualEnvironment from '../node-realm';
 
-globalThis.foo = {
-    b() {},
-    e: new Error(),
-};
-
 describe('Reflective Intrinsic Objects', () => {
+    const foo = {
+        b() {},
+        e: new Error(),
+    };
+
     it('should preserve identity of Object thru membrane', () => {
         expect.assertions(2);
-        const evalScript = createVirtualEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment(globalThis, { endowments: { expect, foo } });
         evalScript(`
             const o = {};
             expect(foo instanceof Object).toBe(true);
@@ -17,7 +17,7 @@ describe('Reflective Intrinsic Objects', () => {
     });
     it('should preserve identity of Function thru membrane', () => {
         expect.assertions(2);
-        const evalScript = createVirtualEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment(globalThis, { endowments: { expect, foo } });
         evalScript(`
             function x() {}
             expect(foo.b instanceof Function).toBe(true);
@@ -26,7 +26,7 @@ describe('Reflective Intrinsic Objects', () => {
     });
     it('should preserve identity of Error thru membrane', () => {
         expect.assertions(2);
-        const evalScript = createVirtualEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment(globalThis, { endowments: { expect, foo } });
         evalScript(`
             const e = new Error();
             expect(foo.e instanceof Error).toBe(true);

@@ -1,5 +1,5 @@
 import {
-    getFilteredEndowmentDescriptors,
+    getResolvedShapeDescriptors,
     init,
     initSourceTextInStrictMode,
     linkIntrinsics,
@@ -18,6 +18,7 @@ interface NodeEnvironmentOptions {
 }
 
 export default function createVirtualEnvironment(
+    globalObjectShape: object,
     providedOptions: NodeEnvironmentOptions
 ): (sourceText: string) => void {
     const options = {
@@ -29,7 +30,6 @@ export default function createVirtualEnvironment(
     const redGlobalThis: typeof globalThis = runInNewContext('globalThis');
     const blueConnector = init;
     const redConnector = redGlobalThis.eval(initSourceTextInStrictMode);
-    const endowmentsDescriptors = getFilteredEndowmentDescriptors(endowments);
     const env = new VirtualEnvironment({
         blueConnector,
         distortionCallback,
@@ -39,6 +39,6 @@ export default function createVirtualEnvironment(
     env.link('globalThis');
     linkIntrinsics(env, blueGlobalThis);
     // remapping globals
-    env.remap(blueGlobalThis, endowmentsDescriptors);
+    env.remap(blueGlobalThis, getResolvedShapeDescriptors(globalObjectShape, endowments));
     return (sourceText: string): void => env.evaluate(sourceText);
 }

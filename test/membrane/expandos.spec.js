@@ -5,7 +5,7 @@ window.expandable = { x: 1 };
 describe('The membrane', () => {
     it('should allow global inside the sandbox', () => {
         expect.assertions(4);
-        const evalScript = createVirtualEnvironment({ endowments: window });
+        const evalScript = createVirtualEnvironment(window);
         evalScript(`
             expandable.y = 2;
             expect(expandable.y).toBe(2);

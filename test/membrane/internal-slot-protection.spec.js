@@ -20,7 +20,7 @@ describe('membrane', () => {
         function distortionCallback(v) {
             return distortionMap.get(v) || v;
         }
-        const evalScript = createVirtualEnvironment({ distortionCallback, endowments: window });
+        const evalScript = createVirtualEnvironment(window, { distortionCallback });
         evalScript(`
             'use strict';
 

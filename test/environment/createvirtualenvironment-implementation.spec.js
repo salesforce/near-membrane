@@ -1,5 +1,5 @@
 import {
-    getFilteredEndowmentDescriptors,
+    getResolvedShapeDescriptors,
     init,
     initSourceTextInStrictMode,
     VirtualEnvironment,
@@ -17,7 +17,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
         iframe.id = 'red-realm';
         document.body.appendChild(iframe);
 
-        redRealmGlobal = iframe.contentWindow;
+        redRealmGlobal = iframe.contentWindow.window;
     });
 
     afterEach(() => {
@@ -145,7 +145,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
                 0: 'foo',
             };
 
-            ve.remap(redValue, getFilteredEndowmentDescriptors(endowments));
+            ve.remap(redValue, getResolvedShapeDescriptors(endowments));
 
             expect(Object.getOwnPropertyNames(redValue).length).toBe(0);
         });
@@ -170,7 +170,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
                 a: 1,
             };
 
-            ve.remap(redValue, getFilteredEndowmentDescriptors(endowments));
+            ve.remap(redValue, getResolvedShapeDescriptors(endowments));
 
             expect(redValue.a).toBe(0);
         });
@@ -194,7 +194,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
                 0: 'foo',
             };
 
-            ve.lazyRemap(redValue, Object.keys(getFilteredEndowmentDescriptors(endowments)));
+            ve.lazyRemap(redValue, Object.keys(getResolvedShapeDescriptors(endowments)));
             expect(Object.getOwnPropertyNames(redValue).length).toBe(0);
         });
 
@@ -215,10 +215,10 @@ describe('Implementing an environment with VirtualEnvironment', () => {
                 0: 'foo',
             };
 
-            ve.remap(redValue, getFilteredEndowmentDescriptors(endowments));
+            ve.remap(redValue, getResolvedShapeDescriptors(endowments));
             expect(Object.getOwnPropertyNames(redValue).length).toBe(0);
 
-            ve.lazyRemap(redValue, Object.keys(getFilteredEndowmentDescriptors(endowments)));
+            ve.lazyRemap(redValue, Object.keys(getResolvedShapeDescriptors(endowments)));
             expect(Object.getOwnPropertyNames(redValue).length).toBe(0);
         });
 
@@ -243,10 +243,10 @@ describe('Implementing an environment with VirtualEnvironment', () => {
                 d: 1,
             };
 
-            ve.remap(redValue, getFilteredEndowmentDescriptors(endowments));
+            ve.remap(redValue, getResolvedShapeDescriptors(endowments));
             expect(redValue.d).toBe(0);
 
-            ve.lazyRemap(redValue, Object.keys(getFilteredEndowmentDescriptors(endowments)));
+            ve.lazyRemap(redValue, Object.keys(getResolvedShapeDescriptors(endowments)));
             expect(redValue.d).toBe(0);
         });
 
@@ -275,7 +275,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
                 configurable: true,
             });
 
-            ve.lazyRemap(globalThis, Object.keys(getFilteredEndowmentDescriptors(endowments)));
+            ve.lazyRemap(globalThis, Object.keys(getResolvedShapeDescriptors(endowments)));
 
             expect(globalThis.e).toBe(undefined);
             expect(count).toBe(0);
@@ -310,7 +310,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
                 },
             });
 
-            ve.lazyRemap(globalThis, Object.keys(getFilteredEndowmentDescriptors(endowments)));
+            ve.lazyRemap(globalThis, Object.keys(getResolvedShapeDescriptors(endowments)));
 
             expect(count).toBe(0);
 
