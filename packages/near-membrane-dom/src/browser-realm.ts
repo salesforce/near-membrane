@@ -1,5 +1,5 @@
 import {
-    getFilteredEndowmentDescriptors,
+    getResolvedShapeDescriptors,
     init,
     initSourceTextInStrictMode,
     linkIntrinsics,
@@ -148,6 +148,7 @@ interface BrowserEnvironmentOptions {
 }
 
 export default function createVirtualEnvironment(
+    globalObjectShape: WindowProxy & typeof globalThis,
     providedOptions?: BrowserEnvironmentOptions
 ): (sourceText: string) => void {
     // eslint-disable-next-line prefer-object-spread
@@ -170,7 +171,6 @@ export default function createVirtualEnvironment(
     const iframe = createDetachableIframe();
     const redWindow = HTMLIFrameElementContentWindowGetter(iframe)!.window;
     const { document: redDocument } = redWindow;
-    const endowmentsDescriptors = getFilteredEndowmentDescriptors(endowments);
     const blueConnector = init;
     const redConnector = redWindow.eval(initSourceTextInStrictMode);
     // extract the global references and descriptors before any interference
@@ -185,7 +185,7 @@ export default function createVirtualEnvironment(
     env.link('window');
     linkIntrinsics(env, blueWindow);
     linkUnforgeables(env, blueWindow);
-    tameDOM(env, blueRefs, endowmentsDescriptors);
+    tameDOM(env, blueRefs, getResolvedShapeDescriptors(globalObjectShape, endowments));
     // once we get the iframe info ready, and all mapped, we can proceed
     // to detach the iframe only if the keepAlive option isn't true
     if (keepAlive !== true) {

@@ -2,7 +2,7 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 it('[red] non-error objects thrown in red functions', () => {
-    const evalScript = createVirtualEnvironment({ endowments: { expect } });
+    const evalScript = createVirtualEnvironment(window);
     evalScript(`
         const errorObj = { foo: 'bar' }
         function foo() {
@@ -20,7 +20,7 @@ it('[red] non-error objects thrown in red functions', () => {
 });
 
 it('[red] non-error objects thrown in red constructors', () => {
-    const evalScript = createVirtualEnvironment({ endowments: { expect } });
+    const evalScript = createVirtualEnvironment(window);
     evalScript(`
         const errorObj = { foo: 'bar' }
         
@@ -41,7 +41,7 @@ it('[red] non-error objects thrown in red constructors', () => {
 });
 
 it('[red] non-error objects thrown in Promise', (done) => {
-    const evalScript = createVirtualEnvironment({ endowments: { done, expect } });
+    const evalScript = createVirtualEnvironment(window, { endowments: { done } });
     evalScript(`
         const error = { foo: 'bar' }
         const p = new Promise(() => {
@@ -57,9 +57,7 @@ it('[red] non-error objects thrown in Promise', (done) => {
 });
 
 it('[red] unhandled promise rejections with non-error objects and red listener', (done) => {
-    const evalScript = createVirtualEnvironment({
-        endowments: Object.assign({}, window, { done, expect }),
-    });
+    const evalScript = createVirtualEnvironment(window, { endowments: { done } });
     evalScript(`
         const errorObj = { foo: 'bar' }
 
@@ -80,7 +78,7 @@ it('[red] unhandled promise rejections with non-error objects and red listener',
 });
 
 it('[red] Promise.reject non-error objects', (done) => {
-    const evalScript = createVirtualEnvironment({ endowments: { done, expect } });
+    const evalScript = createVirtualEnvironment(window, { endowments: { done } });
     evalScript(`
         const errorObj = { foo: 'bar' }
 
@@ -95,9 +93,7 @@ it('[red] Promise.reject non-error objects', (done) => {
 });
 
 it('[red] unhandled promise rejections and Promise.reject with non-error objects and red listener', (done) => {
-    const evalScript = createVirtualEnvironment({
-        endowments: Object.assign({}, window, { done, expect }),
-    });
+    const evalScript = createVirtualEnvironment(window, { endowments: { done } });
     evalScript(`
         const errorObj = { foo: 'bar' }
 
@@ -121,7 +117,7 @@ it('[red] non-error objects thrown in blue functions', () => {
         throw { foo: 'bar' };
     }
 
-    const evalScript = createVirtualEnvironment({ endowments: { foo, expect } });
+    const evalScript = createVirtualEnvironment(window, { endowments: { ...window, foo } });
     evalScript(`
         try {
             foo()
@@ -139,7 +135,7 @@ it('[red] non-error objects thrown in blue constructors', () => {
         }
     }
 
-    const evalScript = createVirtualEnvironment({ endowments: { Foo, expect } });
+    const evalScript = createVirtualEnvironment(window, { endowments: { ...window, Foo } });
     evalScript(`
         try {
             new Foo()
@@ -168,7 +164,7 @@ it('[red] blue extended error objects', () => {
         }
     }
 
-    const evalScript = createVirtualEnvironment({ endowments: { Foo, expect } });
+    const evalScript = createVirtualEnvironment(window, { endowments: { ...window, Foo } });
     evalScript(`
         try {
             new Foo()
@@ -185,7 +181,9 @@ it('[red] .catch on blue promise', (done) => {
         throw { foo: 'bar' };
     });
 
-    const evalScript = createVirtualEnvironment({ endowments: { promise, expect, done } });
+    const evalScript = createVirtualEnvironment(window, {
+        endowments: { ...window, promise, expect, done },
+    });
     evalScript(`
         promise.catch(e => {
             expect(e.foo).toBe('bar')
@@ -196,7 +194,7 @@ it('[red] .catch on blue promise', (done) => {
 });
 
 it('[red] non-error object with null proto', () => {
-    const evalScript = createVirtualEnvironment({ endowments: { expect } });
+    const evalScript = createVirtualEnvironment(window);
     evalScript(`
         const errorObj = Object.create(null, {foo: {value: 'bar'}})
         try {
@@ -214,7 +212,7 @@ it('[red] non-error object with null proto from blue', () => {
     function foo() {
         throw Object.create(null, { foo: { value: 'bar' } });
     }
-    const evalScript = createVirtualEnvironment({ endowments: { foo, expect } });
+    const evalScript = createVirtualEnvironment(window, { endowments: { ...window, foo } });
     evalScript(`
         try {
             foo()
@@ -227,7 +225,7 @@ it('[red] non-error object with null proto from blue', () => {
 });
 
 it('[red] instanceof Error', () => {
-    const evalScript = createVirtualEnvironment({ endowments: { expect } });
+    const evalScript = createVirtualEnvironment(window);
     evalScript(`
         try {
             throw new Error('foo')
@@ -239,7 +237,7 @@ it('[red] instanceof Error', () => {
 });
 
 it('[red] instanceof extended Error objects', () => {
-    const evalScript = createVirtualEnvironment({ endowments: { expect } });
+    const evalScript = createVirtualEnvironment(window);
     evalScript(`
         class CustomError extends Error {}
         try {
@@ -252,7 +250,7 @@ it('[red] instanceof extended Error objects', () => {
 });
 
 it('[red] .catch instanceof Error', (done) => {
-    const evalScript = createVirtualEnvironment({ endowments: { done, expect } });
+    const evalScript = createVirtualEnvironment(window, { endowments: { ...window, done } });
     evalScript(`
         new Promise((resolve, reject) => {
             reject(new Error('foo'))
@@ -268,7 +266,7 @@ it('[red] instanceof blue Error objects', () => {
     function foo() {
         throw new Error('foo');
     }
-    const evalScript = createVirtualEnvironment({ endowments: { foo, expect } });
+    const evalScript = createVirtualEnvironment(window, { endowments: { foo } });
     evalScript(`
         try {
             foo()
@@ -284,7 +282,7 @@ it('[red] .catch instanceof blue Error objects', (done) => {
         reject(new Error('foo'));
     });
 
-    const evalScript = createVirtualEnvironment({ endowments: { promise, expect, done } });
+    const evalScript = createVirtualEnvironment(window, { endowments: { promise, expect, done } });
     evalScript(`
         promise.catch(e => {
             expect(e instanceof Error).toBe(true)
@@ -301,7 +299,7 @@ it('[blue] .catch on red promise', (done) => {
         promise = arg;
     }
 
-    const evalScript = createVirtualEnvironment({ endowments: { save } });
+    const evalScript = createVirtualEnvironment(window, { endowments: { ...window, save } });
     evalScript(`
         const error = { foo: 'bar' }
         const p = new Promise(() => {
@@ -328,7 +326,7 @@ it('[blue] unhandled promise rejections listener with red non-error objects', (d
 
     window.addEventListener('unhandledrejection', handler);
 
-    const evalScript = createVirtualEnvironment({ endowments: window });
+    const evalScript = createVirtualEnvironment(window, { endowments: window });
     evalScript(`
         const errorObj = { foo: 'bar' }    
         new Promise((resolve, reject) => {
@@ -343,7 +341,7 @@ it('[blue] non-error objects thrown in red functions', () => {
         fn = arg;
     }
 
-    const evalScript = createVirtualEnvironment({ endowments: { save } });
+    const evalScript = createVirtualEnvironment(window, { endowments: { ...window, save } });
     evalScript(`
         function foo() {
             throw { foo: 'bar' }
@@ -365,7 +363,7 @@ it('[blue] non-error objects thrown in red consturctors', () => {
         ctor = arg;
     }
 
-    const evalScript = createVirtualEnvironment({ endowments: { save } });
+    const evalScript = createVirtualEnvironment(window, { endowments: { ...window, save } });
     evalScript(`
         class Foo {
             constructor() {
@@ -390,7 +388,7 @@ it('[blue] red extended error objects', () => {
         ctor = arg;
     }
 
-    const evalScript = createVirtualEnvironment({ endowments: { save } });
+    const evalScript = createVirtualEnvironment(window, { endowments: { ...window, save } });
     evalScript(`    
         class CustomError extends Error {
             constructor(message) {
@@ -428,7 +426,7 @@ it('[blue] non-error objects with null proto from red', () => {
         fn = arg;
     }
 
-    const evalScript = createVirtualEnvironment({ endowments: { save } });
+    const evalScript = createVirtualEnvironment(window, { endowments: { ...window, save } });
     evalScript(`
         function foo() {
             const errorObj = Object.create(null, {foo: {value: 'bar'}})
@@ -453,7 +451,7 @@ it('[blue] instanceof red error', () => {
         fn = arg;
     }
 
-    const evalScript = createVirtualEnvironment({ endowments: { save } });
+    const evalScript = createVirtualEnvironment(window, { endowments: { ...window, save } });
     evalScript(`
         function foo() {            
             throw new Error('foo')
@@ -476,7 +474,7 @@ it('[blue] .catch instanceof red error', (done) => {
         promise = arg;
     }
 
-    const evalScript = createVirtualEnvironment({ endowments: { save } });
+    const evalScript = createVirtualEnvironment(window, { endowments: { ...window, save } });
     evalScript(`
         const promise = new Promise((resolve, reject) => {
             reject(new Error('foo'))

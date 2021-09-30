@@ -1,5 +1,6 @@
 import { VirtualEnvironment } from './environment';
 
+const { assign: ObjectAssign } = Object;
 const { has: SetProtoHas } = Set.prototype;
 const {
     apply: ReflectApply,
@@ -140,9 +141,10 @@ export function linkIntrinsics(env: VirtualEnvironment, blueGlobalThis: typeof g
     }
 }
 
-export function getFilteredEndowmentDescriptors(endowments: object): PropertyDescriptorMap {
+export function getFilteredGlobalObjectShapeDescriptors(endowments: object): PropertyDescriptorMap {
     const to: PropertyDescriptorMap = { __proto__: null } as any;
     const globalKeys = ReflectOwnKeys(endowments);
+
     for (let i = 0, len = globalKeys.length; i < len; i += 1) {
         // forcing to string here because of TypeScript's PropertyDescriptorMap
         // definition, which doesn't support symbols as entries.
@@ -157,4 +159,14 @@ export function getFilteredEndowmentDescriptors(endowments: object): PropertyDes
         }
     }
     return to;
+}
+
+export function getResolvedShapeDescriptors(
+    globalObjectShape: typeof globalThis,
+    endowments: object
+): PropertyDescriptorMap {
+    const globalObjectShapeDescriptors = getFilteredGlobalObjectShapeDescriptors(globalObjectShape);
+    const endowmentsDescriptors = getFilteredGlobalObjectShapeDescriptors(endowments);
+    // eslint-disable-next-line prefer-object-spread
+    return ObjectAssign({}, globalObjectShapeDescriptors, endowmentsDescriptors);
 }
