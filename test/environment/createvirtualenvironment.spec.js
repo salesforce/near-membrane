@@ -11,12 +11,12 @@ describe('createVirtualEnvironment', () => {
     });
     it('keepAlive: true', () => {
         const count = window.frames.length;
-        const evalScript = createVirtualEnvironment({ keepAlive: true });
+        const evalScript = createVirtualEnvironment({ endowments: window, keepAlive: true });
         expect(window.frames.length).toBe(count + 1);
         expect(() => evalScript('')).not.toThrow();
     });
     it('keepAlive: false', () => {
-        const evalScript = createVirtualEnvironment({ keepAlive: false });
+        const evalScript = createVirtualEnvironment({ endowments: globalThis, keepAlive: false });
         expect(() => evalScript('')).not.toThrow();
     });
 });

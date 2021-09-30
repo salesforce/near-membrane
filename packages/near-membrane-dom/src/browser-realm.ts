@@ -160,7 +160,13 @@ export default function createVirtualEnvironment(
         providedOptions
     );
     // eslint-disable-next-line prefer-object-spread
-    const { distortionCallback, endowments, globalThis: blueWindow, keepAlive, support } = options;
+    const {
+        distortionCallback,
+        endowments = {},
+        globalThis: blueWindow,
+        keepAlive,
+        support,
+    } = options;
     const iframe = createDetachableIframe();
     const redWindow = HTMLIFrameElementContentWindowGetter(iframe)!.window;
     const { document: redDocument } = redWindow;

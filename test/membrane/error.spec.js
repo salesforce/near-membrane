@@ -57,7 +57,9 @@ it('[red] non-error objects thrown in Promise', (done) => {
 });
 
 it('[red] unhandled promise rejections with non-error objects and red listener', (done) => {
-    const evalScript = createVirtualEnvironment({ endowments: { done, expect } });
+    const evalScript = createVirtualEnvironment({
+        endowments: Object.assign({}, window, { done, expect }),
+    });
     evalScript(`
         const errorObj = { foo: 'bar' }
 
@@ -93,7 +95,9 @@ it('[red] Promise.reject non-error objects', (done) => {
 });
 
 it('[red] unhandled promise rejections and Promise.reject with non-error objects and red listener', (done) => {
-    const evalScript = createVirtualEnvironment({ endowments: { done, expect } });
+    const evalScript = createVirtualEnvironment({
+        endowments: Object.assign({}, window, { done, expect }),
+    });
     evalScript(`
         const errorObj = { foo: 'bar' }
 
@@ -324,7 +328,7 @@ it('[blue] unhandled promise rejections listener with red non-error objects', (d
 
     window.addEventListener('unhandledrejection', handler);
 
-    const evalScript = createVirtualEnvironment();
+    const evalScript = createVirtualEnvironment({ endowments: window });
     evalScript(`
         const errorObj = { foo: 'bar' }    
         new Promise((resolve, reject) => {

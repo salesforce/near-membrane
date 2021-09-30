@@ -12,7 +12,7 @@ import { runInNewContext } from 'vm';
 
 interface NodeEnvironmentOptions {
     distortionCallback?: DistortionCallback;
-    endowments: object;
+    endowments?: object;
     globalThis?: typeof globalThis;
     support?: SupportFlagsObject;
 }
@@ -25,7 +25,7 @@ export default function createVirtualEnvironment(
         globalThis,
         ...providedOptions,
     };
-    const { distortionCallback, endowments, globalThis: blueGlobalThis, support } = options;
+    const { distortionCallback, endowments = {}, globalThis: blueGlobalThis, support } = options;
     const redGlobalThis: typeof globalThis = runInNewContext('globalThis');
     const blueConnector = init;
     const redConnector = redGlobalThis.eval(initSourceTextInStrictMode);
