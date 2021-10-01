@@ -1,6 +1,6 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-const evalScript = createVirtualEnvironment({ endowments: window });
+const evalScript = createVirtualEnvironment(window);
 
 describe('@@lockerLiveValue', () => {
     it('applies to HTMLElement.prototype.style', () => {

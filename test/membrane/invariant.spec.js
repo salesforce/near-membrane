@@ -9,7 +9,7 @@ function saveFoo(arg) {
     FooClazz = arg;
 }
 
-const evalScript = createVirtualEnvironment({ endowments: { Base, saveFoo } });
+const evalScript = createVirtualEnvironment(window, { endowments: { Base, saveFoo } });
 evalScript(`
     class Foo extends Base {};
     saveFoo(Foo);

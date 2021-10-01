@@ -1,12 +1,8 @@
-import { isIntrinsicGlobalName, VirtualEnvironment } from '@locker/near-membrane-base';
+import { VirtualEnvironment } from '@locker/near-membrane-base';
 
 const { assign: ObjectAssign, getOwnPropertyDescriptors: ObjectGetOwnPropertyDescriptors } = Object;
 
-const {
-    getPrototypeOf: ReflectGetPrototypeOf,
-    ownKeys: ReflectOwnKeys,
-    apply: ReflectApply,
-} = Reflect;
+const { getPrototypeOf: ReflectGetPrototypeOf, apply: ReflectApply } = Reflect;
 
 const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMap.prototype;
 
@@ -39,19 +35,9 @@ interface BaseReferencesRecord extends Object {
  * - Descriptor maps for those unforgeable references
  */
 interface CachedBlueReferencesRecord extends BaseReferencesRecord {
-    windowDescriptors: PropertyDescriptorMap;
     EventTargetProtoDescriptors: PropertyDescriptorMap;
     WindowPropertiesProtoDescriptors: PropertyDescriptorMap;
     WindowProtoDescriptors: PropertyDescriptorMap;
-}
-
-/**
- * - Unforgeable red object and prototype references
- * - Own keys for those unforgeable references
- */
-interface RedReferencesRecord extends BaseReferencesRecord {
-    windowOwnKeys: PropertyKey[];
-    WindowPropertiesProtoOwnKeys: PropertyKey[];
 }
 
 const cachedBlueGlobalMap: WeakMap<typeof globalThis, CachedBlueReferencesRecord> = new WeakMap();
@@ -80,8 +66,6 @@ export function getCachedBlueReferences(
     record = getBaseReferences(window) as CachedBlueReferencesRecord;
     // caching the record
     WeakMapSet(cachedBlueGlobalMap, window, record);
-    // caching descriptors
-    record.windowDescriptors = ObjectGetOwnPropertyDescriptors(record.window);
     // intentionally avoiding remapping any Window.prototype descriptor,
     // there is nothing in this prototype that needs to be remapped.
     record.WindowProtoDescriptors = { __proto__: null } as any;
@@ -91,19 +75,6 @@ export function getCachedBlueReferences(
     // remapped. Additionally, constructor is not relevant, and can't be used for anything.
     record.WindowPropertiesProtoDescriptors = { __proto__: null } as any;
     record.EventTargetProtoDescriptors = ObjectGetOwnPropertyDescriptors(record.EventTargetProto);
-
-    return record;
-}
-
-export function getRedReferences(window: Window & typeof globalThis): RedReferencesRecord {
-    const record = getBaseReferences(window) as RedReferencesRecord;
-    // caching descriptors
-    record.windowOwnKeys = ReflectOwnKeys(record.window);
-    // intentionally avoiding remapping any WindowProperties.prototype descriptor
-    // because this object contains magical properties for HTMLObjectElement instances
-    // and co, based on their id attribute. These cannot, and should not, be
-    // remapped. Additionally, constructor is not relevant, and can't be used for anything.
-    record.WindowPropertiesProtoOwnKeys = [];
 
     return record;
 }
@@ -143,19 +114,10 @@ getCachedBlueReferences(window);
  * that will be installed (via the membrane) as global descriptors in
  * the red realm.
  */
-function aggregateWindowDescriptors(
-    redOwnKeys: PropertyKey[],
-    blueDescriptors: PropertyDescriptorMap,
+function filterWindowDescriptors(
     endowmentsDescriptors: PropertyDescriptorMap | undefined
 ): PropertyDescriptorMap {
     const to: PropertyDescriptorMap = { __proto__: null } as any;
-
-    for (let i = 0, len = redOwnKeys.length; i < len; i += 1) {
-        const key = redOwnKeys[i] as string;
-        if (!isIntrinsicGlobalName(key)) {
-            to[key] = blueDescriptors[key];
-        }
-    }
 
     // endowments descriptors will overrule any default descriptor inferred
     // from the detached iframe. note that they are already filtered, not need
@@ -178,65 +140,38 @@ function aggregateWindowDescriptors(
     return to;
 }
 
-/**
- * WindowProperties.prototype is magical, it provide access to any
- * object that "clobbers" the WindowProxy instance for easy access. E.g.:
- *
- *     var object = document.createElement('object');
- *     object.id = 'foo';
- *     document.body.appendChild(object);
- *
- * The result of this code is that `window.foo` points to the HTMLObjectElement
- * instance, and in some browsers, those are not even reported as descriptors
- * installed on WindowProperties.prototype, but they are instead magically
- * resolved when accessing `foo` from `window`.
- *
- * This forces us to avoid using the descriptors from the blue window directly,
- * and instead, we need to shadow only the descriptors installed in the brand
- * new iframe, that way any magical entry from the blue window will not be
- * installed on the iframe.
- */
-function aggregateWindowPropertiesDescriptors(
-    redOwnKeys: PropertyKey[],
-    blueDescriptors: PropertyDescriptorMap
-): PropertyDescriptorMap {
-    const to: PropertyDescriptorMap = { __proto__: null } as any;
-    // The following can be ignored because for now, redOwnKeys is
-    // intentionally empty. In getRedReferences, see the following:
-    //
-    //      record.WindowPropertiesProtoOwnKeys = [];
-    //
-    // istanbul ignore next
-    for (let i = 0, len = redOwnKeys.length; i < len; i += 1) {
-        const key = redOwnKeys[i] as string;
-        to[key] = blueDescriptors[key];
-    }
-    return to;
-}
-
 export function tameDOM(
     env: VirtualEnvironment,
     blueRefs: CachedBlueReferencesRecord,
-    redRefs: RedReferencesRecord,
     endowmentsDescriptors: PropertyDescriptorMap
 ) {
     // adjusting proto chain of window.document
     env.remapProto(blueRefs.document, blueRefs.DocumentProto);
-    const globalDescriptors = aggregateWindowDescriptors(
-        redRefs.windowOwnKeys,
-        blueRefs.windowDescriptors,
-        endowmentsDescriptors
-    );
-    const WindowPropertiesDescriptors = aggregateWindowPropertiesDescriptors(
-        redRefs.WindowPropertiesProtoOwnKeys,
-        blueRefs.WindowPropertiesProtoDescriptors
-    );
+    const globalDescriptors = filterWindowDescriptors(endowmentsDescriptors);
     // remapping globals
     env.remap(blueRefs.window, globalDescriptors);
     // remapping unforgeable objects
     env.remap(blueRefs.EventTargetProto, blueRefs.EventTargetProtoDescriptors);
-    env.remap(blueRefs.WindowPropertiesProto, WindowPropertiesDescriptors);
     env.remap(blueRefs.WindowProto, blueRefs.WindowProtoDescriptors);
+    /**
+     * WindowProperties.prototype is magical, it provide access to any
+     * object that "clobbers" the WindowProxy instance for easy access. E.g.:
+     *
+     *     var object = document.createElement('object');
+     *     object.id = 'foo';
+     *     document.body.appendChild(object);
+     *
+     * The result of this code is that `window.foo` points to the HTMLObjectElement
+     * instance, and in some browsers, those are not even reported as descriptors
+     * installed on WindowProperties.prototype, but they are instead magically
+     * resolved when accessing `foo` from `window`.
+     *
+     * This forces us to avoid using the descriptors from the blue window directly,
+     * and instead, we might only need to shadow the descriptors installed in the brand
+     * new iframe, that way any magical entry from the blue window will not be
+     * installed on the iframe. That turns out to be also empty, therefore we
+     * don't need to remap `blueRefs.WindowPropertiesProto` descriptors at all.
+     */
 }
 
 export function linkUnforgeables(

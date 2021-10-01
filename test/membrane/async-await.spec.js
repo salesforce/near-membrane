@@ -8,7 +8,7 @@ const skipTests = isFirefox || isSafari;
 if (!skipTests) {
     describe('async/await', () => {
         it('basic wrapping', (done) => {
-            const evalScript = createVirtualEnvironment({ endowments: { done, expect } });
+            const evalScript = createVirtualEnvironment(window, { endowments: { done, expect } });
             evalScript(`
                 async function hello() {
                     return await "Hello";

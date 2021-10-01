@@ -6,14 +6,14 @@ function exportData(arg) {
 }
 
 it('super should behave as expected in sandbox', () => {
-    const secureEvalOne = createVirtualEnvironment({ endowments: { exportData } });
+    const secureEvalOne = createVirtualEnvironment(window, { endowments: { exportData } });
     secureEvalOne(`
     exportData(class Foo {
       constructor() {
         this.value = 'base';
       }
     });`);
-    const secureEvalTwo = createVirtualEnvironment({
+    const secureEvalTwo = createVirtualEnvironment(window, {
         endowments: { expect, Foo: exported },
     });
     secureEvalTwo(`

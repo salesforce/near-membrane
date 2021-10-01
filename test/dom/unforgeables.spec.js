@@ -1,6 +1,6 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-const evalScript = createVirtualEnvironment({ endowments: window });
+const evalScript = createVirtualEnvironment(window);
 
 describe('EventTarget unforgeable', () => {
     it('should be accessible from window', () => {

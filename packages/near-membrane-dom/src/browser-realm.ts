@@ -1,5 +1,5 @@
 import {
-    getFilteredEndowmentDescriptors,
+    getResolvedShapeDescriptors,
     init,
     initSourceTextInStrictMode,
     linkIntrinsics,
@@ -8,7 +8,7 @@ import {
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
 
-import { getCachedBlueReferences, getRedReferences, linkUnforgeables, tameDOM } from './window';
+import { getCachedBlueReferences, linkUnforgeables, tameDOM } from './window';
 
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 
@@ -142,12 +142,13 @@ function removeIframe(iframe: HTMLIFrameElement) {
 interface BrowserEnvironmentOptions {
     distortionCallback?: DistortionCallback;
     endowments?: object;
-    globalThis: WindowProxy & typeof globalThis;
+    globalThis?: WindowProxy & typeof globalThis;
     keepAlive?: boolean;
     support?: SupportFlagsObject;
 }
 
 export default function createVirtualEnvironment(
+    globalObjectShape: object,
     providedOptions?: BrowserEnvironmentOptions
 ): (sourceText: string) => void {
     // eslint-disable-next-line prefer-object-spread
@@ -169,12 +170,11 @@ export default function createVirtualEnvironment(
     } = options;
     const iframe = createDetachableIframe();
     const redWindow = HTMLIFrameElementContentWindowGetter(iframe)!.window;
-    const endowmentsDescriptors = getFilteredEndowmentDescriptors(endowments);
+    const { document: redDocument } = redWindow;
     const blueConnector = init;
     const redConnector = redWindow.eval(initSourceTextInStrictMode);
     // extract the global references and descriptors before any interference
     const blueRefs = getCachedBlueReferences(blueWindow);
-    const redRefs = getRedReferences(redWindow);
     // creating a new environment
     const env = new VirtualEnvironment({
         blueConnector,
@@ -185,7 +185,7 @@ export default function createVirtualEnvironment(
     env.link('window');
     linkIntrinsics(env, blueWindow);
     linkUnforgeables(env, blueWindow);
-    tameDOM(env, blueRefs, redRefs, endowmentsDescriptors);
+    tameDOM(env, blueRefs, getResolvedShapeDescriptors(globalObjectShape, endowments));
     // once we get the iframe info ready, and all mapped, we can proceed
     // to detach the iframe only if the keepAlive option isn't true
     if (keepAlive !== true) {
@@ -193,8 +193,8 @@ export default function createVirtualEnvironment(
     } else {
         // TODO: temporary hack to preserve the document reference in FF
         // https://bugzilla.mozilla.org/show_bug.cgi?id=543435
-        DocumentOpen(redRefs.document);
-        DocumentClose(redRefs.document);
+        DocumentOpen(redDocument);
+        DocumentClose(redDocument);
     }
     // finally, we return the evaluator function
     return (sourceText: string): void => env.evaluate(sourceText);

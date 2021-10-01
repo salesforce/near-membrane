@@ -11,7 +11,7 @@ const endowments = {
     o,
     expect,
 };
-const evalScript = createVirtualEnvironment({ endowments });
+const evalScript = createVirtualEnvironment(window, { endowments });
 
 describe('A Live Red Proxy', () => {
     it('should surface new expandos from blue realm', () => {

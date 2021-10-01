@@ -11,7 +11,7 @@ class ExternalElement extends HTMLElement {
 customElements.define('x-external', ExternalElement);
 window.refToExternalElement = ExternalElement;
 
-const evalScript = createVirtualEnvironment({ endowments: window });
+const evalScript = createVirtualEnvironment(window);
 
 describe('Outer Realm Custom Element', () => {
     it('should be accessible within the sandbox', () => {
