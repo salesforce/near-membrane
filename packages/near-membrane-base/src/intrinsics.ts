@@ -166,10 +166,12 @@ function getFilteredGlobalObjectShapeDescriptors(endowments: object): PropertyDe
 }
 
 export function getResolvedShapeDescriptors(
-    globalObjectShape: object,
+    globalObjectShape?: object,
     endowments?: object
 ): PropertyDescriptorMap {
-    const globalObjectShapeDescriptors = getFilteredGlobalObjectShapeDescriptors(globalObjectShape);
+    const globalObjectShapeDescriptors = getFilteredGlobalObjectShapeDescriptors(
+        globalObjectShape || { __proto__: null }
+    );
     const endowmentsDescriptors = getFilteredGlobalObjectShapeDescriptors(
         endowments || { __proto__: null }
     );
