@@ -1,6 +1,6 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-const evalScript = createVirtualEnvironment();
+const evalScript = createVirtualEnvironment(window);
 evalScript(`
     debugger;
 

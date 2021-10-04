@@ -5,16 +5,22 @@ const { get: ShadowRootHostGetter } = Object.getOwnPropertyDescriptor(ShadowRoot
 const { assignedNodes, assignedElements } = HTMLSlotElement.prototype;
 
 const distortionMap = new Map();
-distortionMap.set(ShadowRootHostGetter, _ => { throw new Error(`Forbidden`); });
-distortionMap.set(assignedNodes, _ => { throw new Error(`Forbidden`); });
-distortionMap.set(assignedElements, _ => { throw new Error(`Forbidden`); });
+distortionMap.set(ShadowRootHostGetter, () => {
+    throw new Error(`Forbidden`);
+});
+distortionMap.set(assignedNodes, () => {
+    throw new Error(`Forbidden`);
+});
+distortionMap.set(assignedElements, () => {
+    throw new Error(`Forbidden`);
+});
 
 function evaluateInNewSandbox(sourceText) {
-    const evalScript = createVirtualEnvironment({ distortionMap });
+    const evalScript = createVirtualEnvironment(window, { distortionMap });
     evalScript(sourceText);
 }
 
-document.querySelector('button').addEventListener('click', function (e) {
+document.querySelector('button').addEventListener('click', function () {
     const sourceText = document.querySelector('textarea').value;
     evaluateInNewSandbox(sourceText);
 });

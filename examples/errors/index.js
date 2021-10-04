@@ -1,18 +1,22 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 const distortionMap = new Map([
-    [alert, () => {
-        console.error('forbidden');
-    }],
+    [
+        alert,
+        () => {
+            console.error('forbidden');
+        },
+    ],
 ]);
 
-globalThis.bar = { a: 1, b: 2 };
-Object.freeze(globalThis.bar)
+function distortionCallback(v) {
+    return distortionMap.get(v) || v;
+}
 
-const evalScript = createVirtualEnvironment({
-    distortionMap,
-    endowments: window
-});
+globalThis.bar = { a: 1, b: 2 };
+Object.freeze(globalThis.bar);
+
+const evalScript = createVirtualEnvironment(window, { distortionCallback });
 
 try {
     evalScript(`
@@ -20,7 +24,9 @@ try {
     `);
 } catch (e) {
     // testing syntax error when evaluating
-    e instanceof SyntaxError;
+    if (!(e instanceof SyntaxError)) {
+        console.error(e);
+    }
 }
 
 try {
@@ -29,7 +35,9 @@ try {
     `);
 } catch (e) {
     // testing initialization error when evaluating
-    e instanceof Error;
+    if (!(e instanceof Error)) {
+        console.error(e);
+    }
 }
 
 // verifying that in deep it is reflected as frozen
@@ -42,7 +50,6 @@ evalScript(`
     }
     bar.c === undefined;
 `);
-
 
 evalScript(`
     'use strict';

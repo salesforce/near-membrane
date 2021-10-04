@@ -36,7 +36,7 @@ Since you can have multiple sandboxes associated to the Blue Realm, there is a p
 
 ### Implementation in Browsers
 
-In browsers, since we don't have a way to create a light-weight Realm that is synchronously accessible (that will be solved in part by the [stage 2 Realms Proposal](https://github.com/tc39/proposal-realms)), we are forced to use a same-domain iframe in order to isolate the code to be evaluated inside a sandbox for a particular window.
+In browsers, since we don't have a way to create a light-weight Realm that is synchronously accessible (that will be solved in part by the [stage 3 ShadowRealm Proposal](https://github.com/tc39/proposal-shadowrealm)), we are forced to use a same-domain iframe in order to isolate the code to be evaluated inside a sandbox for a particular window.
 
 #### Detached iframes
 
