@@ -48,6 +48,10 @@ function RegExpTest(regexp: RegExp, str: string): boolean {
 }
 
 export class VirtualEnvironment {
+    public blueConnector: ReturnType<typeof createMembraneMarshall>;
+
+    public redConnector: ReturnType<typeof createMembraneMarshall>;
+
     private blueGlobalThisPointer: Pointer;
 
     private blueGetTransferableValue: GetTransferableValue;
@@ -76,12 +80,9 @@ export class VirtualEnvironment {
         if (options === undefined) {
             throw new ErrorCtor(`Missing VirtualEnvironmentOptions options bag.`);
         }
-        const {
-            blueConnector: localInit,
-            redConnector: foreignInit,
-            distortionCallback,
-            support,
-        } = options;
+        const { blueConnector, redConnector, distortionCallback, support } = options;
+        this.blueConnector = blueConnector;
+        this.redConnector = redConnector;
 
         let blueHooks: Parameters<HooksCallback>;
         let redHooks: Parameters<HooksCallback>;
@@ -100,14 +101,14 @@ export class VirtualEnvironment {
         let supportFlags = SupportFlagsField.None;
         supportFlags |= (support?.magicMarker as any) && SupportFlagsField.MagicMarker;
 
-        const localConnect = localInit(
+        const localConnect = blueConnector(
             'blue',
             SHOULD_NOT_TRAP_MUTATION,
             supportFlags,
             blueExportsCallback,
             initLocalOptions
         );
-        const foreignConnect = foreignInit(
+        const foreignConnect = redConnector(
             'red',
             SHOULD_TRAP_MUTATION,
             supportFlags,
