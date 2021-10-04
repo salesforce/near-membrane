@@ -1,7 +1,7 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-const evalScript = createVirtualEnvironment();
-evalScript(`
+const env = createVirtualEnvironment();
+env.evaluate(`
     debugger;
 
     const elm = document.createElement('p');

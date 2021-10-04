@@ -24,35 +24,35 @@ const foo = {
 describe('The Error Boundary', () => {
     it('should preserve identity of errors after a membrane roundtrip', () => {
         expect.assertions(3);
-        const evalScript = createVirtualEnvironment(globalThis, { endowments: { foo } });
-        evalScript(`foo.expose(() => { foo.a })`);
+        const env = createVirtualEnvironment(globalThis, { endowments: { foo } });
+        env.evaluate(`foo.expose(() => { foo.a })`);
         expect(() => {
             sandboxedValue();
         }).toThrowError(Error);
-        evalScript(`foo.expose(() => { foo.a = 1; })`);
+        env.evaluate(`foo.expose(() => { foo.a = 1; })`);
         expect(() => {
             sandboxedValue();
         }).toThrowError(Error);
-        evalScript(`foo.expose(() => { foo.b(2); })`);
+        env.evaluate(`foo.expose(() => { foo.b(2); })`);
         expect(() => {
             sandboxedValue();
         }).toThrowError(RangeError);
     });
     it('should remap the Blue Realm Error instance to the sandbox errors', () => {
         expect.assertions(3);
-        const evalScript = createVirtualEnvironment(globalThis, { endowments: { foo, expect } });
+        const env = createVirtualEnvironment(globalThis, { endowments: { foo, expect } });
 
-        evalScript(`
+        env.evaluate(`
             expect(() => {
                 foo.a;
             }).toThrowError(Error);
         `);
-        evalScript(`
+        env.evaluate(`
             expect(() => {
                 foo.a = 1;
             }).toThrowError(Error);
         `);
-        evalScript(`
+        env.evaluate(`
             expect(() => {
                 foo.b(2);
             }).toThrowError(RangeError);
@@ -60,8 +60,8 @@ describe('The Error Boundary', () => {
     });
     it('should capture throwing from user proxy', () => {
         expect.assertions(3);
-        const evalScript = createVirtualEnvironment(globalThis, { endowments: { foo } });
-        evalScript(`
+        const env = createVirtualEnvironment(globalThis, { endowments: { foo } });
+        env.evaluate(`
             const revocable = Proxy.revocable(() => undefined, {});
             revocable.revoke();
             foo.expose(revocable.proxy);
@@ -78,19 +78,19 @@ describe('The Error Boundary', () => {
         }).toThrowError(Error);
     });
     it('should protect from leaking sandbox errors during evaluation', () => {
-        const evalScript = createVirtualEnvironment(globalThis, { endowments: { foo } });
+        const env = createVirtualEnvironment(globalThis, { endowments: { foo } });
 
         expect(() => {
-            evalScript(`
+            env.evaluate(`
                 throw new TypeError('from sandbox');
             `);
         }).toThrowError(TypeError);
     });
     it('should protect from leaking sandbox errors during parsing', () => {
-        const evalScript = createVirtualEnvironment(globalThis, { endowments: { foo } });
+        const env = createVirtualEnvironment(globalThis, { endowments: { foo } });
 
         expect(() => {
-            evalScript(`
+            env.evaluate(`
                 return; // illegal return statement
             `);
         }).toThrowError(SyntaxError);

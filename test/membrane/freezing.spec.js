@@ -7,19 +7,19 @@ describe('Freezing', () => {
             // expect.assertions(10);
             window.bar = { a: 1, b: 2 };
             Object.freeze(window.bar);
-            const evalScript = createVirtualEnvironment(window);
+            const env = createVirtualEnvironment(window);
             // checking the state of bar in the blue realm
             expect(Object.isExtensible(window.bar)).toBe(false);
             expect(Object.isSealed(window.bar)).toBe(true);
             expect(Object.isFrozen(window.bar)).toBe(true);
             // checking the state of bar in the sandbox
-            evalScript(`
+            env.evaluate(`
                 expect(Object.isExtensible(window.bar)).toBe(false);
                 expect(Object.isSealed(window.bar)).toBe(true);
                 expect(Object.isFrozen(window.bar)).toBe(true);
             `);
             // verifying that in deep it is reflected as frozen
-            evalScript(`
+            env.evaluate(`
                 'use strict';
                 let isTypeError = false;
                 try {
@@ -31,7 +31,7 @@ describe('Freezing', () => {
                 expect(bar.c).toBe(undefined);
             `);
             // // verifying that when observed from outside, it is still reflected
-            evalScript(`
+            env.evaluate(`
                 'use strict';
                 let error = null;
                 try {
@@ -50,9 +50,9 @@ describe('Freezing', () => {
         it('should not be observed from within the sandbox after a mutation', () => {
             expect.assertions(9);
             window.baz = { a: 1, b: 2 };
-            const evalScript = createVirtualEnvironment(window);
+            const env = createVirtualEnvironment(window);
             // checking the state of bar in the sandbox
-            evalScript(`
+            env.evaluate(`
                 expect(Object.isExtensible(window.baz)).toBe(true);
                 expect(Object.isSealed(window.baz)).toBe(false);
                 expect(Object.isFrozen(window.baz)).toBe(false);
@@ -64,7 +64,7 @@ describe('Freezing', () => {
             expect(Object.isSealed(window.baz)).toBe(true);
             expect(Object.isFrozen(window.baz)).toBe(true);
             // verifying the state of the obj from within the sandbox
-            evalScript(`
+            env.evaluate(`
                 'use strict';
                 expect(() => {
                     baz.c = 3;
@@ -89,8 +89,8 @@ describe('Freezing', () => {
                     o.z = 3;
                 }).toThrowError();
             };
-            const evalScript = createVirtualEnvironment(window);
-            evalScript(`
+            const env = createVirtualEnvironment(window);
+            env.evaluate(`
                 'use strict';
                 const o = { x: 1 };
                 const f = function() {};

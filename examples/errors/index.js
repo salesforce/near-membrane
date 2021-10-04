@@ -9,13 +9,13 @@ const distortionMap = new Map([
 globalThis.bar = { a: 1, b: 2 };
 Object.freeze(globalThis.bar)
 
-const evalScript = createVirtualEnvironment({
+const env = createVirtualEnvironment({
     distortionMap,
     endowments: window
 });
 
 try {
-    evalScript(`
+    env.evaluate(`
         return; // illegal return statement
     `);
 } catch (e) {
@@ -24,7 +24,7 @@ try {
 }
 
 try {
-    evalScript(`
+    env.evaluate(`
         throw new Error('test');
     `);
 } catch (e) {
@@ -33,7 +33,7 @@ try {
 }
 
 // verifying that in deep it is reflected as frozen
-evalScript(`
+env.evaluate(`
     'use strict';
     try {
         bar.c = 3; // because it is frozen
@@ -44,7 +44,7 @@ evalScript(`
 `);
 
 
-evalScript(`
+env.evaluate(`
     'use strict';
     function getLimit (depth = 1) {
         try {
@@ -70,7 +70,7 @@ evalScript(`
         }
     }
 
-    
+
     // exhausting the engine by calling a function from the sandbox
     exhaust(limit - 1, function () {})
 

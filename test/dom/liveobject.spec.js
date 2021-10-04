@@ -1,6 +1,6 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-const evalScript = createVirtualEnvironment(window);
+const env = createVirtualEnvironment(window);
 
 describe('@@lockerLiveValue', () => {
     it('applies to HTMLElement.prototype.style', () => {
@@ -18,7 +18,7 @@ describe('@@lockerLiveValue', () => {
             writable: false,
         });
 
-        evalScript(`
+        env.evaluate(`
         const div = document.querySelector('#${id}');
         div.style.color = 'red';
         expect(div.style.color).toBe('red');

@@ -1,6 +1,8 @@
 import { SupportFlagsField } from '../../types';
 import { getResolvedShapeDescriptors, VirtualEnvironment } from '../index';
-import { HooksCallback, init, initSourceTextInStrictMode } from '../membrane';
+import { createMembraneMarshall, HooksCallback, marshallSourceTextInStrictMode } from '../membrane';
+
+const init = createMembraneMarshall();
 
 describe('VirtualEnvironment', () => {
     afterEach(() => {
@@ -51,7 +53,7 @@ describe('VirtualEnvironment', () => {
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = globalThis.eval(marshallSourceTextInStrictMode)();
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -74,7 +76,7 @@ describe('VirtualEnvironment', () => {
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = globalThis.eval(marshallSourceTextInStrictMode)();
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -93,7 +95,7 @@ describe('VirtualEnvironment', () => {
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = globalThis.eval(marshallSourceTextInStrictMode)();
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -122,7 +124,7 @@ describe('VirtualEnvironment', () => {
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = globalThis.eval(marshallSourceTextInStrictMode)();
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -146,7 +148,7 @@ describe('VirtualEnvironment', () => {
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = globalThis.eval(marshallSourceTextInStrictMode)();
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -177,7 +179,7 @@ describe('VirtualEnvironment', () => {
 
             // istanbul ignore next
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = globalThis.eval(marshallSourceTextInStrictMode)();
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -219,7 +221,7 @@ describe('VirtualEnvironment', () => {
             let blueSetValue = null;
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = globalThis.eval(marshallSourceTextInStrictMode)();
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -261,7 +263,7 @@ describe('VirtualEnvironment', () => {
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = globalThis.eval(marshallSourceTextInStrictMode)();
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -284,7 +286,7 @@ describe('VirtualEnvironment', () => {
             expect.assertions(2);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = globalThis.eval(marshallSourceTextInStrictMode)();
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -310,7 +312,7 @@ describe('VirtualEnvironment', () => {
             expect.assertions(2);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = globalThis.eval(marshallSourceTextInStrictMode)();
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -343,7 +345,7 @@ describe('VirtualEnvironment', () => {
 
             // istanbul ignore next
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = globalThis.eval(marshallSourceTextInStrictMode)();
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -376,7 +378,7 @@ describe('VirtualEnvironment', () => {
 
             // istanbul ignore next
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = globalThis.eval(marshallSourceTextInStrictMode)();
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -422,7 +424,7 @@ describe('VirtualEnvironment', () => {
             let blueSetValue = null;
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = globalThis.eval(marshallSourceTextInStrictMode)();
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -464,7 +466,7 @@ describe('VirtualEnvironment', () => {
             let blueSetValue = null;
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = globalThis.eval(marshallSourceTextInStrictMode)();
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -514,7 +516,7 @@ describe('VirtualEnvironment', () => {
             expect.assertions(2);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = globalThis.eval(marshallSourceTextInStrictMode)();
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -544,7 +546,7 @@ describe('VirtualEnvironment', () => {
             expect.assertions(2);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = globalThis.eval(marshallSourceTextInStrictMode)();
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -575,7 +577,7 @@ describe('VirtualEnvironment', () => {
             expect.assertions(2);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = globalThis.eval(marshallSourceTextInStrictMode)();
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,

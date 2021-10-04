@@ -11,28 +11,28 @@ class ExternalElement extends HTMLElement {
 customElements.define('x-external', ExternalElement);
 window.refToExternalElement = ExternalElement;
 
-const evalScript = createVirtualEnvironment(window);
+const env = createVirtualEnvironment(window);
 
 describe('Outer Realm Custom Element', () => {
     it('should be accessible within the sandbox', () => {
         expect.assertions(3);
-        evalScript(`
+        env.evaluate(`
             const elm = document.createElement('x-external');
             expect(elm.identity()).toBe('ExternalElement');
         `);
-        evalScript(`
+        env.evaluate(`
             document.body.innerHTML = '<x-external></x-external>';
             const elm = document.body.firstChild;
             expect(elm.identity()).toBe('ExternalElement');
         `);
-        evalScript(`
+        env.evaluate(`
             const elm = new (customElements.get('x-external'))();
             expect(elm.identity()).toBe('ExternalElement');
         `);
     });
     it('should be extensible within the sandbox', () => {
         expect.assertions(3);
-        evalScript(`
+        env.evaluate(`
             const ExtenalElement = customElements.get('x-external');
             class Foo extends ExtenalElement {}
             customElements.define('x-foo', Foo);
@@ -44,7 +44,7 @@ describe('Outer Realm Custom Element', () => {
     });
     it('should be extensible and can be new from within the sandbox', () => {
         expect.assertions(3);
-        evalScript(`
+        env.evaluate(`
             const ExtenalElement = customElements.get('x-external');
             class Baz extends ExtenalElement {}
             customElements.define('x-baz', Baz);
@@ -56,7 +56,7 @@ describe('Outer Realm Custom Element', () => {
     });
     it('should get access to external registered elements', () => {
         expect.assertions(1);
-        evalScript(`
+        env.evaluate(`
             const E = customElements.get('x-external');
             expect(E).toBe(refToExternalElement);
         `);
@@ -75,12 +75,12 @@ describe('Outer Realm Custom Element', () => {
 });
 
 describe('Sandboxed Custom Element', () => {
-    evalScript(`
+    env.evaluate(`
         class Bar extends HTMLElement {}
         customElements.define('x-bar', Bar);
     `);
     it('should preserve the invariants of classes from within the sandbox', () => {
-        evalScript(`
+        env.evaluate(`
             expect(HTMLElement.__proto__ === Element).toBeTrue();
             expect(HTMLElement.prototype.__proto__ === Element.prototype).toBeTrue();
             expect(HTMLElement.prototype.constructor === HTMLElement).toBeTrue();

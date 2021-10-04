@@ -10,8 +10,8 @@ distortionMap.set(assignedNodes, _ => { throw new Error(`Forbidden`); });
 distortionMap.set(assignedElements, _ => { throw new Error(`Forbidden`); });
 
 function evaluateInNewSandbox(sourceText) {
-    const evalScript = createVirtualEnvironment({ distortionMap });
-    evalScript(sourceText);
+    const env = createVirtualEnvironment({ distortionMap });
+    env.evaluate(sourceText);
 }
 
 document.querySelector('button').addEventListener('click', function (e) {

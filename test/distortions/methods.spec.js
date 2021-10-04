@@ -17,12 +17,12 @@ function distortionCallback(v) {
     return distortionMap.get(v) || v;
 }
 
-const evalScript = createVirtualEnvironment(window, { distortionCallback });
+const env = createVirtualEnvironment(window, { distortionCallback });
 
 describe('Method Distortion', () => {
     it('should be invoked when invoked directly', () => {
         expect.assertions(1);
-        evalScript(`
+        env.evaluate(`
             expect(() => {
                 fetch('./invalid-network-request.json');
             }).toThrow();
@@ -30,7 +30,7 @@ describe('Method Distortion', () => {
     });
     it('should be invoked when invoked indirectly', () => {
         expect.assertions(1);
-        evalScript(`
+        env.evaluate(`
             expect(() => {
                 originalFetch('./invalid-fetch.html');
             }).toThrow();
@@ -38,7 +38,7 @@ describe('Method Distortion', () => {
     });
     it('should bypass the restriction because fetch ref never goes throw the membrane', () => {
         expect.assertions(1);
-        evalScript(`
+        env.evaluate(`
             expect(() => {
                 wrappedFetch('./invalid-fetch.html');
             }).not.toThrow();

@@ -1,8 +1,8 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-const evalScript = createVirtualEnvironment();
+const env = createVirtualEnvironment();
 
-evalScript(`
+env.evaluate(`
     'use strict';
     debugger;
 
@@ -21,7 +21,7 @@ evalScript(`
 
     const elm = document.createElement('p');
     document.body.appendChild(elm);
-    
+
     console.log('before x: ', elm.x);
     try {
         elm.x = 100;

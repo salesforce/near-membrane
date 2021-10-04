@@ -3,8 +3,8 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 describe('The object graph', () => {
     it('should be shadowed by a sandbox', () => {
         expect.assertions(17);
-        const evalScript = createVirtualEnvironment(window);
-        evalScript(`
+        const env = createVirtualEnvironment(window);
+        env.evaluate(`
             'use strict';
 
             const originalProto = HTMLParagraphElement.prototype.__proto__;

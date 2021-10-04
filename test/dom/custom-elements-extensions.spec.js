@@ -5,11 +5,11 @@ class Base extends HTMLElement {}
 customElements.define('x-base', Base);
 
 describe('Extending Custom Element', () => {
-    const evalScript = createVirtualEnvironment(window);
+    const env = createVirtualEnvironment(window);
 
     it('should be allowed from blue to red', () => {
         expect.assertions(1);
-        evalScript(`
+        env.evaluate(`
             const Base = customElements.get('x-base');
             customElements.define('x-red-base', class extends Base {});
             const elm = document.createElement('x-red-base');
@@ -18,7 +18,7 @@ describe('Extending Custom Element', () => {
     });
     it('should be allowed in red', () => {
         expect.assertions(1);
-        evalScript(`
+        env.evaluate(`
             class Red extends HTMLElement {}
             customElements.define('x-red', Red);
             const elm = document.createElement('x-red');
@@ -27,7 +27,7 @@ describe('Extending Custom Element', () => {
     });
     it('should support multiple extensions in the same namespace', () => {
         expect.assertions(2);
-        evalScript(`
+        env.evaluate(`
             class Foo extends HTMLElement {}
             class Bar extends Foo {}
             customElements.define('x-foo-bar', Bar);
@@ -38,7 +38,7 @@ describe('Extending Custom Element', () => {
     });
     it('should support multiple extensions from blue in the same namespace', () => {
         expect.assertions(3);
-        evalScript(`
+        env.evaluate(`
             const Base = customElements.get('x-base');
             class Foo extends Base {}
             class Bar extends Foo {}
@@ -52,17 +52,17 @@ describe('Extending Custom Element', () => {
 });
 
 describe('NS-to-NS custom element extension', () => {
-    const evalScriptNS1 = createVirtualEnvironment(window);
-    const evalScriptNS2 = createVirtualEnvironment(window);
+    const envNS1 = createVirtualEnvironment(window);
+    const envNS2 = createVirtualEnvironment(window);
 
     it('should work when using multiple namespaces in proto-chain', () => {
         expect.assertions(3);
-        evalScriptNS1(`
+        envNS1.evaluate(`
             const Base = customElements.get('x-base');
             class Foo extends Base {}
             customElements.define('x-ns1-foo', Foo);
         `);
-        evalScriptNS2(`
+        envNS2.evaluate(`
             const Base = customElements.get('x-base');
             const Foo = customElements.get('x-ns1-foo');
             class Bar extends Foo {}

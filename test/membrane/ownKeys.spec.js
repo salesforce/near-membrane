@@ -6,17 +6,17 @@ function exportData(arg) {
 }
 
 it('does not throw ownKeys trap invariant for classes or strict mode functions', () => {
-    const secureEvalOne = createVirtualEnvironment(window, { endowments: { exportData } });
-    secureEvalOne(`
+    const envOne = createVirtualEnvironment(window, { endowments: { exportData } });
+    envOne.evaluate(`
     exportData([
       class Foo {},
       function() {'use strict'}
     ]);
     `);
-    const secureEvalTwo = createVirtualEnvironment(window, {
+    const envTwo = createVirtualEnvironment(window, {
         endowments: { exportData, imported: exported },
     });
-    secureEvalTwo(`
+    envTwo.evaluate(`
     exportData(imported.map(Reflect.ownKeys));
     `);
     const matcher = jasmine.arrayWithExactContents(['length', 'name', 'prototype']);

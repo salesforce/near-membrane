@@ -9,8 +9,8 @@ function saveFoo(arg) {
     FooClazz = arg;
 }
 
-const evalScript = createVirtualEnvironment(window, { endowments: { Base, saveFoo } });
-evalScript(`
+const env = createVirtualEnvironment(window, { endowments: { Base, saveFoo } });
+env.evaluate(`
     class Foo extends Base {};
     saveFoo(Foo);
 `);
