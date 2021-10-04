@@ -2,40 +2,21 @@ import createVirtualEnvironment from '../node-realm';
 
 describe('VirtualEnvironment', () => {
     describe('default settings', () => {
-        it('no shape', () => {
-            let evalScript;
-            expect(() => {
-                evalScript = createVirtualEnvironment();
-            }).not.toThrow();
+        it('no options provided', () => {
+            const evalScript = createVirtualEnvironment(globalThis /* no options */);
             expect(() => evalScript('')).not.toThrow();
         });
-        it('no options', () => {
-            let evalScript;
-            expect(() => {
-                evalScript = createVirtualEnvironment(globalThis);
-            }).not.toThrow();
-            expect(() => evalScript('')).not.toThrow();
-        });
-        it('empty options', () => {
-            let evalScript;
-            expect(() => {
-                evalScript = createVirtualEnvironment(globalThis, {});
-            }).not.toThrow();
+        it('empty object provided', () => {
+            const evalScript = createVirtualEnvironment(globalThis, {});
             expect(() => evalScript('')).not.toThrow();
         });
         it('object has endowments, but is undefined', () => {
             let endowments;
-            let evalScript;
-            expect(() => {
-                evalScript = createVirtualEnvironment(globalThis, { endowments });
-            }).not.toThrow();
+            const evalScript = createVirtualEnvironment(globalThis, { endowments });
             expect(() => evalScript('')).not.toThrow();
         });
         it('object has endowments, but is empty', () => {
-            let evalScript;
-            expect(() => {
-                evalScript = createVirtualEnvironment(globalThis, { endowments: {} });
-            }).not.toThrow();
+            const evalScript = createVirtualEnvironment(globalThis, { endowments: {} });
             expect(() => evalScript('')).not.toThrow();
         });
     });

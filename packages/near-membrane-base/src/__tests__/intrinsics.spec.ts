@@ -104,25 +104,6 @@ const RemappedIntrinsicObjectNames = [
 ];
 
 describe('getResolvedShapeDescriptors()', () => {
-    it('can execute without a globalObjectShape parameter', () => {
-        let resolvedShapeDescriptors;
-        expect(() => {
-            resolvedShapeDescriptors = getResolvedShapeDescriptors();
-        }).not.toThrow();
-        expect(resolvedShapeDescriptors).toMatchObject({});
-        expect(Object.getPrototypeOf(resolvedShapeDescriptors)).toBe(null);
-    });
-
-    it('can execute without an endowments parameter', () => {
-        let resolvedShapeDescriptors;
-        expect(() => {
-            // @ts-ignore
-            resolvedShapeDescriptors = getResolvedShapeDescriptors({});
-        }).not.toThrow();
-        expect(resolvedShapeDescriptors).toMatchObject({});
-        expect(Object.getPrototypeOf(resolvedShapeDescriptors)).toBe(null);
-    });
-
     it('ignores non-remapped ES intrinsics', () => {
         // Ignoring "Property 'assertions' does not exist on type '{...}'."
         // @ts-ignore
