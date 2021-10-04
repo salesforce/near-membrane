@@ -1,7 +1,7 @@
 import {
     getResolvedShapeDescriptors,
-    init,
-    initSourceTextInStrictMode,
+    createMembraneMarshall,
+    marshallSourceTextInStrictMode,
     linkIntrinsics,
     DistortionCallback,
     SupportFlagsObject,
@@ -17,10 +17,12 @@ interface NodeEnvironmentOptions {
     support?: SupportFlagsObject;
 }
 
+const init = createMembraneMarshall();
+
 export default function createVirtualEnvironment(
     globalObjectShape: object,
     providedOptions: NodeEnvironmentOptions
-): (sourceText: string) => void {
+): VirtualEnvironment {
     const options = {
         __proto__: null,
         globalThis,
@@ -29,7 +31,7 @@ export default function createVirtualEnvironment(
     const { distortionCallback, endowments = {}, globalThis: blueGlobalThis, support } = options;
     const redGlobalThis: typeof globalThis = runInNewContext('globalThis');
     const blueConnector = init;
-    const redConnector = redGlobalThis.eval(initSourceTextInStrictMode);
+    const redConnector = redGlobalThis.eval(marshallSourceTextInStrictMode)();
     const env = new VirtualEnvironment({
         blueConnector,
         distortionCallback,
@@ -40,5 +42,5 @@ export default function createVirtualEnvironment(
     linkIntrinsics(env, blueGlobalThis);
     // remapping globals
     env.remap(blueGlobalThis, getResolvedShapeDescriptors(globalObjectShape, endowments));
-    return (sourceText: string): void => env.evaluate(sourceText);
+    return env;
 }

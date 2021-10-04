@@ -1,5 +1,5 @@
 import {
-    init,
+    createMembraneMarshall,
     CallableDefineProperty,
     CallableEvaluate,
     CallableGetPropertyValuePointer,
@@ -21,11 +21,11 @@ export interface SupportFlagsObject {
 
 interface VirtualEnvironmentOptions {
     // Blue connector factory
-    blueConnector: typeof init;
+    blueConnector: ReturnType<typeof createMembraneMarshall>;
     // Optional distortion callback to tame functionalities observed through the membrane
     distortionCallback?: DistortionCallback;
     // Red connector factory
-    redConnector: typeof init;
+    redConnector: ReturnType<typeof createMembraneMarshall>;
     // Environment support object
     support?: SupportFlagsObject;
 }
