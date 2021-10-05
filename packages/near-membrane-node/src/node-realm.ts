@@ -5,7 +5,7 @@ import {
     linkIntrinsics,
     DistortionCallback,
     SupportFlagsObject,
-    validateRequiredObjects,
+    validateRequiredGlobalShapeAndVirtualizationObjects,
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
 
@@ -24,7 +24,10 @@ export default function createVirtualEnvironment(
     globalObjectVirtualizationTarget: WindowProxy & typeof globalThis,
     providedOptions: NodeEnvironmentOptions
 ): VirtualEnvironment {
-    validateRequiredObjects(globalObjectShape, globalObjectVirtualizationTarget);
+    validateRequiredGlobalShapeAndVirtualizationObjects(
+        globalObjectShape,
+        globalObjectVirtualizationTarget
+    );
     const options = {
         __proto__: null,
         ...providedOptions,

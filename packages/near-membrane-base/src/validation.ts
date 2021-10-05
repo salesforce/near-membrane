@@ -1,14 +1,14 @@
-const ErrorCtor = Error;
+const TypeErrorCtor = TypeError;
 
-export function validateRequiredObjects(
+export function validateRequiredGlobalShapeAndVirtualizationObjects(
     globalObjectShape: object,
     globalObjectVirtualizationTarget: typeof globalThis
 ): undefined | never {
     if (!globalObjectShape) {
-        throw new ErrorCtor(`Missing global object shape.`);
+        throw new TypeErrorCtor(`Missing global object shape.`);
     }
     if (!globalObjectVirtualizationTarget) {
-        throw new ErrorCtor(`Missing global object virtualization target.`);
+        throw new TypeErrorCtor(`Missing global object virtualization target.`);
     }
     return undefined;
 }

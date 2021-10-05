@@ -1,13 +1,13 @@
-import { validateRequiredObjects } from '../index';
+import { validateRequiredGlobalShapeAndVirtualizationObjects } from '../index';
 
-describe('validateRequiredObjects()', () => {
+describe('validateRequiredGlobalShapeAndVirtualizationObjects()', () => {
     it('throws when globalObjectShape is missing', () => {
         // Ignoring "Property 'assertions' does not exist on type '{...}'."
         // @ts-ignore
         expect.assertions(1);
 
         // @ts-ignore
-        expect(() => validateRequiredObjects()).toThrow();
+        expect(() => validateRequiredGlobalShapeAndVirtualizationObjects()).toThrow();
     });
     it('throws when globalObjectVirtualizationTarget is missing', () => {
         // Ignoring "Property 'assertions' does not exist on type '{...}'."
@@ -15,13 +15,13 @@ describe('validateRequiredObjects()', () => {
         expect.assertions(1);
 
         // @ts-ignore
-        expect(() => validateRequiredObjects({})).toThrow();
+        expect(() => validateRequiredGlobalShapeAndVirtualizationObjects({})).toThrow();
     });
     it('is silent and returns undefined when both objects are present', () => {
         // Ignoring "Property 'assertions' does not exist on type '{...}'."
         // @ts-ignore
         expect.assertions(1);
         // @ts-ignore
-        expect(validateRequiredObjects({}, {})).toBe(undefined);
+        expect(validateRequiredGlobalShapeAndVirtualizationObjects({}, {})).toBe(undefined);
     });
 });

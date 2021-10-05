@@ -5,7 +5,7 @@ import {
     linkIntrinsics,
     DistortionCallback,
     SupportFlagsObject,
-    validateRequiredObjects,
+    validateRequiredGlobalShapeAndVirtualizationObjects,
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
 
@@ -154,7 +154,10 @@ export default function createVirtualEnvironment(
     globalObjectVirtualizationTarget: WindowProxy & typeof globalThis,
     providedOptions?: BrowserEnvironmentOptions
 ): VirtualEnvironment {
-    validateRequiredObjects(globalObjectShape, globalObjectVirtualizationTarget);
+    validateRequiredGlobalShapeAndVirtualizationObjects(
+        globalObjectShape,
+        globalObjectVirtualizationTarget
+    );
     // eslint-disable-next-line prefer-object-spread
     const options = ObjectAssign(
         {
