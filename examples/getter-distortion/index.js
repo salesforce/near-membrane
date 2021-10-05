@@ -4,13 +4,17 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 const { get } = Object.getOwnPropertyDescriptor(ShadowRoot.prototype, 'host');
 
 const distortionMap = new Map([
-    [get, () => {
-        console.error('forbidden');
-        return null;
-    }],
+    [
+        get,
+        () => {
+            console.error('forbidden');
+            return null;
+        },
+    ],
 ]);
 
-const env = createVirtualEnvironment({ distortionMap });
+const distortionCallback = (v) => distortionMap.get(v) || v;
+const env = createVirtualEnvironment(window, window, { distortionCallback });
 
 env.evaluate(`
     debugger;

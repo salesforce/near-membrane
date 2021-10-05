@@ -2,16 +2,21 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 // patching the outer realm before extracting the descriptors
 window.originalFetch = fetch;
-window.wrappedFetch = (...args) => fetch(...args);
+const wrappedFetch = (...args) => fetch(...args);
 
 const distortionMap = new Map([
-    [fetch, () => {
-        console.error('forbidden');
-    }],
+    [
+        fetch,
+        () => {
+            console.error('forbidden');
+        },
+    ],
 ]);
-const env = createVirtualEnvironment({
-    distortionMap,
-    endowments: window
+
+const distortionCallback = (v) => distortionMap.get(v) || v;
+const env = createVirtualEnvironment(window, window, {
+    distortionCallback,
+    endowments: { wrappedFetch },
 });
 
 env.evaluate(`
