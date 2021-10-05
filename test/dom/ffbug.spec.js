@@ -3,7 +3,7 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 describe('FF BugFix 543435', () => {
     it('should preserve the document reference in the next turn', (done) => {
         expect.assertions(3);
-        const env = createVirtualEnvironment(window, {
+        const env = createVirtualEnvironment(window, window, {
             endowments: {
                 validateSyncDocumentReference(redDoc) {
                     expect(redDoc).toBe(document);

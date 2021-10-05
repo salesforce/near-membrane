@@ -17,7 +17,7 @@ function distortionCallback(v) {
     return distortionMap.get(v) || v;
 }
 
-const env = createVirtualEnvironment(window, { distortionCallback });
+const env = createVirtualEnvironment(window, window, { distortionCallback });
 
 describe('Method Distortion', () => {
     it('should be invoked when invoked directly', () => {

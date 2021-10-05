@@ -11,7 +11,7 @@ function saveFoo(f) {
     Foo = f;
 }
 
-const env = createVirtualEnvironment(window, { endowments: { Base, saveFoo } });
+const env = createVirtualEnvironment(window, window, { endowments: { Base, saveFoo } });
 env.evaluate(`
     class Foo extends Base {
         foo() {
@@ -29,7 +29,7 @@ const endowments = {
 describe('The membrane', () => {
     it('should allow expandos on endowments inside the sandbox', () => {
         expect.assertions(4);
-        const env = createVirtualEnvironment(window, { endowments });
+        const env = createVirtualEnvironment(window, window, { endowments });
         env.evaluate(`
             'use strict';
             expect(Foo.prototype.base()).toBe('from base');

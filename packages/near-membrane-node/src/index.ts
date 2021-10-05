@@ -1,2 +1,2 @@
 export { default } from './node-realm';
-export { VirtualEnvironment, marshallSourceTextInStrictMode } from '@locker/near-membrane-base';
+export { createConnectorForGlobalObject, VirtualEnvironment } from '@locker/near-membrane-base';

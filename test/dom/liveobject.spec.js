@@ -1,6 +1,6 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-const env = createVirtualEnvironment(window);
+const env = createVirtualEnvironment(window, window);
 
 describe('@@lockerLiveValue', () => {
     it('applies to HTMLElement.prototype.style', () => {

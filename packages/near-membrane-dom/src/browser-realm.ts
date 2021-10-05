@@ -1,10 +1,11 @@
 import {
     getResolvedShapeDescriptors,
+    createConnectorForGlobalObject,
     createMembraneMarshall,
-    marshallSourceTextInStrictMode,
     linkIntrinsics,
     DistortionCallback,
     SupportFlagsObject,
+    validateRequiredObjects,
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
 
@@ -142,7 +143,6 @@ function removeIframe(iframe: HTMLIFrameElement) {
 interface BrowserEnvironmentOptions {
     distortionCallback?: DistortionCallback;
     endowments?: object;
-    globalThis?: WindowProxy & typeof globalThis;
     keepAlive?: boolean;
     support?: SupportFlagsObject;
 }
@@ -151,8 +151,10 @@ const createHooksCallback = createMembraneMarshall();
 
 export default function createVirtualEnvironment(
     globalObjectShape: object,
+    globalObjectVirtualizationTarget: WindowProxy & typeof globalThis,
     providedOptions?: BrowserEnvironmentOptions
 ): VirtualEnvironment {
+    validateRequiredObjects(globalObjectShape, globalObjectVirtualizationTarget);
     // eslint-disable-next-line prefer-object-spread
     const options = ObjectAssign(
         {
@@ -163,20 +165,14 @@ export default function createVirtualEnvironment(
         providedOptions
     );
     // eslint-disable-next-line prefer-object-spread
-    const {
-        distortionCallback,
-        endowments = {},
-        globalThis: blueWindow,
-        keepAlive,
-        support,
-    } = options;
+    const { distortionCallback, endowments = {}, keepAlive, support } = options;
     const iframe = createDetachableIframe();
     const redWindow = HTMLIFrameElementContentWindowGetter(iframe)!.window;
     const { document: redDocument } = redWindow;
     const blueConnector = createHooksCallback;
-    const redConnector = redWindow.eval(marshallSourceTextInStrictMode)();
+    const redConnector = createConnectorForGlobalObject(redWindow);
     // extract the global references and descriptors before any interference
-    const blueRefs = getCachedBlueReferences(blueWindow);
+    const blueRefs = getCachedBlueReferences(globalObjectVirtualizationTarget);
     // creating a new environment
     const env = new VirtualEnvironment({
         blueConnector,
@@ -185,8 +181,8 @@ export default function createVirtualEnvironment(
         support,
     });
     env.link('window');
-    linkIntrinsics(env, blueWindow);
-    linkUnforgeables(env, blueWindow);
+    linkIntrinsics(env, globalObjectVirtualizationTarget);
+    linkUnforgeables(env, globalObjectVirtualizationTarget);
     tameDOM(env, blueRefs, getResolvedShapeDescriptors(globalObjectShape, endowments));
     // once we get the iframe info ready, and all mapped, we can proceed
     // to detach the iframe only if the keepAlive option isn't true

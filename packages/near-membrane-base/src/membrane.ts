@@ -1644,4 +1644,17 @@ export function createMembraneMarshall() {
     };
 }
 
-export const marshallSourceTextInStrictMode = `(function(){'use strict';return (${createMembraneMarshall.toString()})})()`;
+const ErrorCtor = Error;
+const marshallSourceTextInStrictMode = `(function(){'use strict';return (${createMembraneMarshall.toString()})})()`;
+export function createConnectorForGlobalObject(globalObject: typeof globalThis) {
+    if (!globalObject) {
+        throw new ErrorCtor('Missing global object');
+    }
+    if (typeof globalObject.eval === 'undefined') {
+        throw new ErrorCtor('Missing global object eval');
+    }
+    // The result of this eval will be a function that returns a function.
+    // The hooks connector is the last returned function, so we invoke the
+    // result of the eval operation and return that result.
+    return globalObject.eval(marshallSourceTextInStrictMode)();
+}

@@ -1,23 +1,33 @@
 import createVirtualEnvironment from '../node-realm';
 
-describe('VirtualEnvironment', () => {
-    describe('default settings', () => {
-        it('no options provided', () => {
-            const env = createVirtualEnvironment(globalThis /* no options */);
-            expect(() => env.evaluate('')).not.toThrow();
+describe('createVirtualEnvironment', () => {
+    describe('with default settings', () => {
+        describe('throws when', () => {
+            it('globalObjectShape is missing', () => {
+                expect(() => createVirtualEnvironment()).toThrow();
+            });
+            it('globalObjectVirtualizationTarget is missing', () => {
+                expect(() => createVirtualEnvironment({})).toThrow();
+            });
         });
-        it('empty object provided', () => {
-            const env = createVirtualEnvironment(globalThis, {});
-            expect(() => env.evaluate('')).not.toThrow();
-        });
-        it('object has endowments, but is undefined', () => {
-            let endowments;
-            const env = createVirtualEnvironment(globalThis, { endowments });
-            expect(() => env.evaluate('')).not.toThrow();
-        });
-        it('object has endowments, but is empty', () => {
-            const env = createVirtualEnvironment(globalThis, { endowments: {} });
-            expect(() => env.evaluate('')).not.toThrow();
+        describe('creates an environment when', () => {
+            it('no options are provided', () => {
+                const env = createVirtualEnvironment(globalThis, globalThis /* no options */);
+                expect(() => env.evaluate('')).not.toThrow();
+            });
+            it('an empty options object is provided', () => {
+                const env = createVirtualEnvironment(globalThis, globalThis, {});
+                expect(() => env.evaluate('')).not.toThrow();
+            });
+            it('object has endowments, but is undefined', () => {
+                let endowments;
+                const env = createVirtualEnvironment(globalThis, globalThis, { endowments });
+                expect(() => env.evaluate('')).not.toThrow();
+            });
+            it('object has endowments, but is empty', () => {
+                const env = createVirtualEnvironment(globalThis, globalThis, { endowments: {} });
+                expect(() => env.evaluate('')).not.toThrow();
+            });
         });
     });
     describe('reverse proxies', () => {
@@ -31,7 +41,7 @@ describe('VirtualEnvironment', () => {
                 expect(a2 instanceof Array).toBe(true);
                 expect(a2).toStrictEqual([3, 4]);
             };
-            const env = createVirtualEnvironment(globalThis, {
+            const env = createVirtualEnvironment(globalThis, globalThis, {
                 endowments: { blueArrayFactory },
             });
             env.evaluate(`blueArrayFactory([1, 2], new Array(3, 4))`);
@@ -46,7 +56,7 @@ describe('VirtualEnvironment', () => {
                 expect(b2 instanceof Object).toBe(true);
                 expect(b2.x).toBe(2);
             };
-            const env = createVirtualEnvironment(globalThis, {
+            const env = createVirtualEnvironment(globalThis, globalThis, {
                 endowments: { blueObjectFactory },
             });
             env.evaluate(`blueObjectFactory({ x: 1 }, Object.create({}, { x: { value: 2 } }))`);
@@ -59,7 +69,7 @@ describe('VirtualEnvironment', () => {
                     expect(value).toStrictEqual({ blueFn });
                 }
             };
-            const env = createVirtualEnvironment(globalThis, {
+            const env = createVirtualEnvironment(globalThis, globalThis, {
                 endowments: { o },
             });
             env.evaluate(`let {blueFn} = o; o.blueFn({ blueFn })`);
@@ -74,7 +84,7 @@ describe('VirtualEnvironment', () => {
                 b1: { x: 1 },
                 b2: Object.create({}, { x: { value: 2 } }),
             };
-            const env = createVirtualEnvironment(globalThis, {
+            const env = createVirtualEnvironment(globalThis, globalThis, {
                 endowments: { expect, foo },
             });
             env.evaluate(`
@@ -95,7 +105,7 @@ describe('VirtualEnvironment', () => {
                 b1: { x: 1 },
                 b2: Object.create({}, { x: { value: 2 } }),
             };
-            const env = createVirtualEnvironment(globalThis, {
+            const env = createVirtualEnvironment(globalThis, globalThis, {
                 endowments: { expect, foo },
             });
             env.evaluate(`
@@ -118,7 +128,7 @@ describe('VirtualEnvironment', () => {
                 }
             };
             expect.assertions(2);
-            const env = createVirtualEnvironment(globalThis, {
+            const env = createVirtualEnvironment(globalThis, globalThis, {
                 endowments: { count, Constructible, expect },
             });
             count = 1;

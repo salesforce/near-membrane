@@ -1,6 +1,6 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-const env = createVirtualEnvironment(window);
+const env = createVirtualEnvironment(window, window);
 
 describe('EventTarget unforgeable', () => {
     it('should be accessible from window', () => {

@@ -2,7 +2,7 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('Promise', () => {
     it('can be constructed', (done) => {
-        const env = createVirtualEnvironment(window, { endowments: { done, expect } });
+        const env = createVirtualEnvironment(window, window, { endowments: { done, expect } });
         env.evaluate(`
             const p = new Promise(resolve => {
                 resolve(1);
@@ -14,7 +14,7 @@ describe('Promise', () => {
         `);
     });
     it('.resolve() should be supported', (done) => {
-        const env = createVirtualEnvironment(window, { endowments: { done, expect } });
+        const env = createVirtualEnvironment(window, window, { endowments: { done, expect } });
         env.evaluate(`
             const p = Promise.resolve(1);
             p.then((value) => {
@@ -24,7 +24,7 @@ describe('Promise', () => {
         `);
     });
     it('.reject() should be supported', (done) => {
-        const env = createVirtualEnvironment(window, { endowments: { done, expect } });
+        const env = createVirtualEnvironment(window, window, { endowments: { done, expect } });
         env.evaluate(`
             const p = Promise.reject(new Error('foo'));
             p.catch((e) => {
@@ -34,7 +34,7 @@ describe('Promise', () => {
         `);
     });
     it('throw should be supported with errors', (done) => {
-        const env = createVirtualEnvironment(window, { endowments: { done, expect } });
+        const env = createVirtualEnvironment(window, window, { endowments: { done, expect } });
         env.evaluate(`
             const p = new Promise(() => {
                 throw new Error('foo');
@@ -46,7 +46,7 @@ describe('Promise', () => {
         `);
     });
     it('throw should be supported with non-errors', (done) => {
-        const env = createVirtualEnvironment(window, { endowments: { done, expect } });
+        const env = createVirtualEnvironment(window, window, { endowments: { done, expect } });
         env.evaluate(`
             const p = new Promise(() => {
                 throw { foo: 'bar' };

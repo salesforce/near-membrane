@@ -1,10 +1,11 @@
 import {
-    getResolvedShapeDescriptors,
+    createConnectorForGlobalObject,
     createMembraneMarshall,
-    marshallSourceTextInStrictMode,
+    getResolvedShapeDescriptors,
     linkIntrinsics,
     DistortionCallback,
     SupportFlagsObject,
+    validateRequiredObjects,
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
 
@@ -13,7 +14,6 @@ import { runInNewContext } from 'vm';
 interface NodeEnvironmentOptions {
     distortionCallback?: DistortionCallback;
     endowments?: object;
-    globalThis?: typeof globalThis;
     support?: SupportFlagsObject;
 }
 
@@ -21,17 +21,18 @@ const createHooksCallback = createMembraneMarshall();
 
 export default function createVirtualEnvironment(
     globalObjectShape: object,
+    globalObjectVirtualizationTarget: WindowProxy & typeof globalThis,
     providedOptions: NodeEnvironmentOptions
 ): VirtualEnvironment {
+    validateRequiredObjects(globalObjectShape, globalObjectVirtualizationTarget);
     const options = {
         __proto__: null,
-        globalThis,
         ...providedOptions,
     };
-    const { distortionCallback, endowments = {}, globalThis: blueGlobalThis, support } = options;
+    const { distortionCallback, endowments = {}, support } = options;
     const redGlobalThis: typeof globalThis = runInNewContext('globalThis');
     const blueConnector = createHooksCallback;
-    const redConnector = redGlobalThis.eval(marshallSourceTextInStrictMode)();
+    const redConnector = createConnectorForGlobalObject(redGlobalThis);
     const env = new VirtualEnvironment({
         blueConnector,
         distortionCallback,
@@ -39,8 +40,11 @@ export default function createVirtualEnvironment(
         support,
     });
     env.link('globalThis');
-    linkIntrinsics(env, blueGlobalThis);
+    linkIntrinsics(env, globalObjectVirtualizationTarget);
     // remapping globals
-    env.remap(blueGlobalThis, getResolvedShapeDescriptors(globalObjectShape, endowments));
+    env.remap(
+        globalObjectVirtualizationTarget,
+        getResolvedShapeDescriptors(globalObjectShape, endowments)
+    );
     return env;
 }
