@@ -11,14 +11,14 @@ const endowments = {
     o,
     expect,
 };
-const evalScript = createVirtualEnvironment(window, { endowments });
+const env = createVirtualEnvironment(window, { endowments });
 
 describe('A Live Red Proxy', () => {
     it('should surface new expandos from blue realm', () => {
         expect.assertions(2);
         o.x = 'uno';
         o.y = 'dos';
-        evalScript(`
+        env.evaluate(`
             expect(o.x).toBe('uno');
             expect(o.y).toBe('dos');
         `);
@@ -27,7 +27,7 @@ describe('A Live Red Proxy', () => {
         expect.assertions(4);
         o.x = 'tres';
         o.y = 'cuatro';
-        evalScript(`
+        env.evaluate(`
             expect(o.x).toBe('tres');
             expect(o.y).toBe('cuatro');
         `);
@@ -36,7 +36,7 @@ describe('A Live Red Proxy', () => {
     });
     it('should allow mutation from within the sandbox', () => {
         expect.assertions(4);
-        evalScript(`
+        env.evaluate(`
             o.x = 'cinco';
             o.y = 'six';
             expect(o.x).toBe('cinco');
@@ -47,7 +47,7 @@ describe('A Live Red Proxy', () => {
     });
     it('should allow expandos added form within the sandbox', () => {
         expect.assertions(2);
-        evalScript(`
+        env.evaluate(`
             o.z = 'seven';
             expect(o.z).toBe('seven');
         `);
@@ -56,7 +56,7 @@ describe('A Live Red Proxy', () => {
     it('should only have effect on own properties', () => {
         expect.assertions(3);
         o.w = { a: 1 };
-        evalScript(`
+        env.evaluate(`
             o.z = 'seven';
             expect(o.w.a).toBe(1);
             o.w.a = 2;

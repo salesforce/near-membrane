@@ -20,8 +20,8 @@ describe('membrane', () => {
         function distortionCallback(v) {
             return distortionMap.get(v) || v;
         }
-        const evalScript = createVirtualEnvironment(window, { distortionCallback });
-        evalScript(`
+        const env = createVirtualEnvironment(window, { distortionCallback });
+        env.evaluate(`
             'use strict';
 
             const originalProto = HTMLLinkElement.prototype;

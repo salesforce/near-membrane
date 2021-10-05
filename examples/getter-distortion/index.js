@@ -10,9 +10,9 @@ const distortionMap = new Map([
     }],
 ]);
 
-const evalScript = createVirtualEnvironment({ distortionMap });
+const env = createVirtualEnvironment({ distortionMap });
 
-evalScript(`
+env.evaluate(`
     debugger;
 
     // the distortion of ShadowRoot.prototype.host returns null

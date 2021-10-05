@@ -13,12 +13,12 @@ function distortionCallback(v) {
     return distortionMap.get(v) || v;
 }
 
-const evalScript = createVirtualEnvironment(window, { distortionCallback });
+const env = createVirtualEnvironment(window, { distortionCallback });
 
 describe('Getter Function Distortion', () => {
     it('should be invoked when invoked directly', () => {
         expect.assertions(1);
-        evalScript(`
+        env.evaluate(`
             const elm = document.createElement('div');
             elm.attachShadow({ mode: 'open' });
             expect(elm.shadowRoot.host).toBe(null);    
@@ -26,7 +26,7 @@ describe('Getter Function Distortion', () => {
     });
     it('should be invoked when invoked indirectly', () => {
         expect.assertions(1);
-        evalScript(`
+        env.evaluate(`
             const elm = document.createElement('div');
             elm.attachShadow({ mode: 'open' });
             const hostGetter = Object.getOwnPropertyDescriptor(ShadowRoot.prototype, 'host').get;
@@ -35,7 +35,7 @@ describe('Getter Function Distortion', () => {
     });
     it('should work for global property accessors (issue #64)', () => {
         expect.assertions(1);
-        evalScript(`
+        env.evaluate(`
             expect(localStorage).toBe('distorted localStorage');
         `);
     });

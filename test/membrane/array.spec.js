@@ -9,10 +9,10 @@ function saveFoo(arg) {
 
 describe('arrays', () => {
     it('should preserve the length behavior across the membrane', () => {
-        const evalScript = createVirtualEnvironment(window, {
+        const env = createVirtualEnvironment(window, {
             endowments: { blue, expect, saveFoo },
         });
-        evalScript(`
+        env.evaluate(`
             saveFoo(['a', 'b', 'c']);
             expect(blue.length).toBe(3);
             expect(blue[2]).toBe(3);

@@ -9,26 +9,26 @@ const distortionMap = new Map([
         console.error('forbidden');
     }],
 ]);
-const evalScript = createVirtualEnvironment({
+const env = createVirtualEnvironment({
     distortionMap,
     endowments: window
 });
 
-evalScript(`
+env.evaluate(`
     debugger;
 
     // the distortion of fetch does nothing
     window.fetch('./invalid-network-request.json');
 `);
 
-evalScript(`
+env.evaluate(`
     debugger;
 
     // it will also throw because distortion it is based on identity
     window.originalFetch('./invalid-fetch.html');
 `);
 
-evalScript(`
+env.evaluate(`
     debugger;
 
     // it will bypass the restriction because fetch ref never goes throw the membrane

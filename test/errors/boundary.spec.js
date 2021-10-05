@@ -24,35 +24,35 @@ globalThis.boundaryHooks = {
 describe('The Error Boundary', () => {
     it('should preserve identity of errors after a membrane roundtrip', () => {
         expect.assertions(3);
-        const evalScript = createVirtualEnvironment(window);
-        evalScript(`boundaryHooks.expose(() => { boundaryHooks.a })`);
+        const env = createVirtualEnvironment(window);
+        env.evaluate(`boundaryHooks.expose(() => { boundaryHooks.a })`);
         expect(() => {
             sandboxedValue();
         }).toThrowError(Error);
-        evalScript(`boundaryHooks.expose(() => { boundaryHooks.a = 1; })`);
+        env.evaluate(`boundaryHooks.expose(() => { boundaryHooks.a = 1; })`);
         expect(() => {
             sandboxedValue();
         }).toThrowError(Error);
-        evalScript(`boundaryHooks.expose(() => { boundaryHooks.b(2); })`);
+        env.evaluate(`boundaryHooks.expose(() => { boundaryHooks.b(2); })`);
         expect(() => {
             sandboxedValue();
         }).toThrowError(RangeError);
     });
     it('should remap the Outer Realm Error instance to the sandbox errors', () => {
         expect.assertions(3);
-        const evalScript = createVirtualEnvironment(window);
+        const env = createVirtualEnvironment(window);
 
-        evalScript(`
+        env.evaluate(`
             expect(() => {
                 boundaryHooks.a;
             }).toThrowError(Error);
         `);
-        evalScript(`
+        env.evaluate(`
             expect(() => {
                 boundaryHooks.a = 1;
             }).toThrowError(Error);
         `);
-        evalScript(`
+        env.evaluate(`
             expect(() => {
                 boundaryHooks.b(2);
             }).toThrowError(RangeError);
@@ -60,8 +60,8 @@ describe('The Error Boundary', () => {
     });
     it('should capture throwing from user proxy', () => {
         expect.assertions(3);
-        const evalScript = createVirtualEnvironment(window);
-        evalScript(`
+        const env = createVirtualEnvironment(window);
+        env.evaluate(`
             const revocable = Proxy.revocable(() => undefined, {});
             revocable.revoke();
             boundaryHooks.expose(revocable.proxy);
@@ -78,19 +78,19 @@ describe('The Error Boundary', () => {
         }).toThrowError(Error);
     });
     it('should protect from leaking sandbox errors during evaluation', () => {
-        const evalScript = createVirtualEnvironment(window);
+        const env = createVirtualEnvironment(window);
 
         expect(() => {
-            evalScript(`
+            env.evaluate(`
                 throw new TypeError('from sandbox');
             `);
         }).toThrowError(TypeError);
     });
     it('should protect from leaking sandbox errors during parsing', () => {
-        const evalScript = createVirtualEnvironment(window);
+        const env = createVirtualEnvironment(window);
 
         expect(() => {
-            evalScript(`
+            env.evaluate(`
                 return; // illegal return statement
             `);
         }).toThrowError(SyntaxError);
