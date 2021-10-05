@@ -1,7 +1,7 @@
 import {
     getResolvedShapeDescriptors,
-    init,
-    initSourceTextInStrictMode,
+    createMembraneMarshall,
+    marshallSourceTextInStrictMode,
     linkIntrinsics,
     DistortionCallback,
     SupportFlagsObject,
@@ -147,10 +147,12 @@ interface BrowserEnvironmentOptions {
     support?: SupportFlagsObject;
 }
 
+const createHooksCallback = createMembraneMarshall();
+
 export default function createVirtualEnvironment(
     globalObjectShape: object,
     providedOptions?: BrowserEnvironmentOptions
-): (sourceText: string) => void {
+): VirtualEnvironment {
     // eslint-disable-next-line prefer-object-spread
     const options = ObjectAssign(
         {
@@ -171,8 +173,8 @@ export default function createVirtualEnvironment(
     const iframe = createDetachableIframe();
     const redWindow = HTMLIFrameElementContentWindowGetter(iframe)!.window;
     const { document: redDocument } = redWindow;
-    const blueConnector = init;
-    const redConnector = redWindow.eval(initSourceTextInStrictMode);
+    const blueConnector = createHooksCallback;
+    const redConnector = redWindow.eval(marshallSourceTextInStrictMode)();
     // extract the global references and descriptors before any interference
     const blueRefs = getCachedBlueReferences(blueWindow);
     // creating a new environment
@@ -196,6 +198,5 @@ export default function createVirtualEnvironment(
         DocumentOpen(redDocument);
         DocumentClose(redDocument);
     }
-    // finally, we return the evaluator function
-    return (sourceText: string): void => env.evaluate(sourceText);
+    return env;
 }
