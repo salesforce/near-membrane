@@ -1,2 +1,2 @@
 export { default } from './node-realm';
-export { createConnectorForGlobalObject, VirtualEnvironment } from '@locker/near-membrane-base';
+export { createConnector, VirtualEnvironment } from '@locker/near-membrane-base';

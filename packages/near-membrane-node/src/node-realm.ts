@@ -1,5 +1,5 @@
 import {
-    createConnectorForGlobalObject,
+    createConnector,
     createMembraneMarshall,
     getResolvedShapeDescriptors,
     linkIntrinsics,
@@ -35,7 +35,7 @@ export default function createVirtualEnvironment(
     const { distortionCallback, endowments = {}, support } = options;
     const redGlobalThis: typeof globalThis = runInNewContext('globalThis');
     const blueConnector = createHooksCallback;
-    const redConnector = createConnectorForGlobalObject(redGlobalThis);
+    const redConnector = createConnector(redGlobalThis.eval);
     const env = new VirtualEnvironment({
         blueConnector,
         distortionCallback,

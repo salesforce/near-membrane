@@ -1,6 +1,6 @@
 import {
     getResolvedShapeDescriptors,
-    createConnectorForGlobalObject,
+    createConnector,
     createMembraneMarshall,
     linkIntrinsics,
     DistortionCallback,
@@ -173,7 +173,7 @@ export default function createVirtualEnvironment(
     const redWindow = HTMLIFrameElementContentWindowGetter(iframe)!.window;
     const { document: redDocument } = redWindow;
     const blueConnector = createHooksCallback;
-    const redConnector = createConnectorForGlobalObject(redWindow);
+    const redConnector = createConnector(redWindow.eval);
     // extract the global references and descriptors before any interference
     const blueRefs = getCachedBlueReferences(globalObjectVirtualizationTarget);
     // creating a new environment

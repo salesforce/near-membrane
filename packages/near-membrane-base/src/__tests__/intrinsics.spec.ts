@@ -1,5 +1,5 @@
 import {
-    createConnectorForGlobalObject,
+    createConnector,
     linkIntrinsics,
     getResolvedShapeDescriptors,
     VirtualEnvironment,
@@ -188,7 +188,7 @@ describe('linkIntrinsics()', () => {
 
         const init = createMembraneMarshall();
         // eslint-disable-next-line no-eval
-        const redConnector = createConnectorForGlobalObject(globalThis);
+        const redConnector = createConnector(globalThis.eval);
 
         const ve = new VirtualEnvironment({
             blueConnector: init,

@@ -1,27 +1,19 @@
-import { createConnectorForGlobalObject } from '@locker/near-membrane-dom';
+import { createConnector } from '@locker/near-membrane-dom';
 
-describe('createConnectorForGlobalObject()', () => {
-    it('throws when globalObject is missing', () => {
+describe('createConnector()', () => {
+    it('throws when evaluator is missing', () => {
         // Ignoring "Property 'assertions' does not exist on type '{...}'."
         // @ts-ignore
         expect.assertions(1);
 
         // @ts-ignore
-        expect(() => createConnectorForGlobalObject()).toThrow();
+        expect(() => createConnector()).toThrow();
     });
-    it('throws when globalObject.eval is missing', () => {
+    it('returns connector function when evaluator is present', () => {
         // Ignoring "Property 'assertions' does not exist on type '{...}'."
         // @ts-ignore
         expect.assertions(1);
-
-        // @ts-ignore
-        expect(() => createConnectorForGlobalObject({})).toThrow();
-    });
-    it('returns connector function window', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
-        expect.assertions(1);
-        const connector = createConnectorForGlobalObject(window);
+        const connector = createConnector(window.eval);
         expect(typeof connector).toBe('function');
     });
     it('returns connector function for iframe.contentWindow', () => {
@@ -31,7 +23,7 @@ describe('createConnectorForGlobalObject()', () => {
         const iframe = document.createElement('iframe');
         iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
         document.body.appendChild(iframe);
-        const connector = createConnectorForGlobalObject(iframe.contentWindow);
+        const connector = createConnector(iframe.contentWindow.eval);
         iframe.remove();
         expect(typeof connector).toBe('function');
     });
@@ -42,7 +34,7 @@ describe('createConnectorForGlobalObject()', () => {
         const iframe = document.createElement('iframe');
         iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
         document.body.appendChild(iframe);
-        const connector = createConnectorForGlobalObject(iframe.contentWindow.window);
+        const connector = createConnector(iframe.contentWindow.window.eval);
         iframe.remove();
         expect(typeof connector).toBe('function');
     });
@@ -53,7 +45,7 @@ describe('createConnectorForGlobalObject()', () => {
         const iframe = document.createElement('iframe');
         iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
         document.body.appendChild(iframe);
-        const connector = createConnectorForGlobalObject(iframe.contentWindow.globalThis);
+        const connector = createConnector(iframe.contentWindow.globalThis.eval);
         iframe.remove();
         expect(typeof connector).toBe('function');
     });
@@ -65,7 +57,7 @@ describe('createConnectorForGlobalObject()', () => {
         iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
         document.body.appendChild(iframe);
         const { eval: otherEval } = iframe.contentWindow;
-        const connector = createConnectorForGlobalObject({ eval: otherEval });
+        const connector = createConnector(otherEval);
         iframe.remove();
         expect(typeof connector).toBe('function');
     });
