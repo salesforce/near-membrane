@@ -1,17 +1,20 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 const distortionMap = new Map([
-    [alert, () => {
-        console.error('forbidden');
-    }],
+    [
+        alert,
+        () => {
+            console.error('forbidden');
+        },
+    ],
 ]);
 
 globalThis.bar = { a: 1, b: 2 };
-Object.freeze(globalThis.bar)
+Object.freeze(globalThis.bar);
 
-const env = createVirtualEnvironment({
-    distortionMap,
-    endowments: window
+const distortionCallback = (v) => distortionMap.get(v) || v;
+const env = createVirtualEnvironment(window, window, {
+    distortionCallback,
 });
 
 try {
@@ -42,7 +45,6 @@ env.evaluate(`
     }
     bar.c === undefined;
 `);
-
 
 env.evaluate(`
     'use strict';

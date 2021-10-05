@@ -1,6 +1,6 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-const env = createVirtualEnvironment();
+const env = createVirtualEnvironment(window, window);
 
 env.evaluate(`
     'use strict';
