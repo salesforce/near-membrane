@@ -17,7 +17,7 @@ interface NodeEnvironmentOptions {
     support?: SupportFlagsObject;
 }
 
-const init = createMembraneMarshall();
+const createHooksCallback = createMembraneMarshall();
 
 export default function createVirtualEnvironment(
     globalObjectShape: object,
@@ -30,7 +30,7 @@ export default function createVirtualEnvironment(
     };
     const { distortionCallback, endowments = {}, globalThis: blueGlobalThis, support } = options;
     const redGlobalThis: typeof globalThis = runInNewContext('globalThis');
-    const blueConnector = init;
+    const blueConnector = createHooksCallback;
     const redConnector = redGlobalThis.eval(marshallSourceTextInStrictMode)();
     const env = new VirtualEnvironment({
         blueConnector,

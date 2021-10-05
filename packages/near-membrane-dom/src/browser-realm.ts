@@ -147,7 +147,7 @@ interface BrowserEnvironmentOptions {
     support?: SupportFlagsObject;
 }
 
-const init = createMembraneMarshall();
+const createHooksCallback = createMembraneMarshall();
 
 export default function createVirtualEnvironment(
     globalObjectShape: object,
@@ -173,7 +173,7 @@ export default function createVirtualEnvironment(
     const iframe = createDetachableIframe();
     const redWindow = HTMLIFrameElementContentWindowGetter(iframe)!.window;
     const { document: redDocument } = redWindow;
-    const blueConnector = init;
+    const blueConnector = createHooksCallback;
     const redConnector = redWindow.eval(marshallSourceTextInStrictMode)();
     // extract the global references and descriptors before any interference
     const blueRefs = getCachedBlueReferences(blueWindow);

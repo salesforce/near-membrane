@@ -123,16 +123,8 @@ export interface InitLocalOptions {
     instrumentation?: InstrumentationHooks;
 }
 
-export type Init = (
-    color: string,
-    trapMutations: boolean,
-    supportFlags: number,
-    foreignCallableHooksCallback: HooksCallback,
-    options?: InitLocalOptions
-) => HooksCallback;
-
 // istanbul ignore next
-export function createMembraneMarshall(): Init {
+export function createMembraneMarshall() {
     // eslint-disable-next-line no-shadow
     enum SourceFlags {
         None = 0,
@@ -193,7 +185,7 @@ export function createMembraneMarshall(): Init {
     const LOCKER_MAGIC_MARKER_SYMBOL = Symbol.for('@@lockerMagicValue');
     const UNDEFINED_SYMBOL = Symbol.for('@@membraneUndefinedValue');
 
-    return function init(
+    return function createHooksCallback(
         color: string,
         trapMutations: boolean,
         supportFlags: SupportFlagsField = SupportFlagsField.None,
