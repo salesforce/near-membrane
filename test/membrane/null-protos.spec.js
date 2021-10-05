@@ -12,7 +12,7 @@ function saveFoo(arg) {
 describe('null __proto__', () => {
     it('should work for get trap', () => {
         expect.assertions(4);
-        const env = createVirtualEnvironment(window, {
+        const env = createVirtualEnvironment(window, window, {
             endowments: { bar, saveFoo, expect },
         });
         env.evaluate(`
@@ -28,7 +28,7 @@ describe('null __proto__', () => {
     });
     it('should work for set trap', () => {
         expect.assertions(6);
-        const env = createVirtualEnvironment(window, {
+        const env = createVirtualEnvironment(window, window, {
             endowments: { bar, saveFoo, expect },
         });
         env.evaluate(`
@@ -47,7 +47,7 @@ describe('null __proto__', () => {
     });
     it('should work for has trap', () => {
         expect.assertions(4);
-        const env = createVirtualEnvironment(window, {
+        const env = createVirtualEnvironment(window, window, {
             endowments: { bar, saveFoo, expect },
         });
         env.evaluate(`

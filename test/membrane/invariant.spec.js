@@ -9,7 +9,7 @@ function saveFoo(arg) {
     FooClazz = arg;
 }
 
-const env = createVirtualEnvironment(window, { endowments: { Base, saveFoo } });
+const env = createVirtualEnvironment(window, window, { endowments: { Base, saveFoo } });
 env.evaluate(`
     class Foo extends Base {};
     saveFoo(Foo);

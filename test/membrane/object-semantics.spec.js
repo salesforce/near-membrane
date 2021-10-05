@@ -15,7 +15,7 @@ describe('Blue Proxies', () => {
         'use strict';
 
         expect.assertions(9);
-        const env = createVirtualEnvironment(window, { endowments });
+        const env = createVirtualEnvironment(window, window, { endowments });
         env.evaluate(`
             'use strict';
             const obj = {

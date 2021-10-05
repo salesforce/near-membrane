@@ -1643,5 +1643,3 @@ export function createMembraneMarshall() {
         };
     };
 }
-
-export const marshallSourceTextInStrictMode = `(function(){'use strict';return (${createMembraneMarshall.toString()})})()`;

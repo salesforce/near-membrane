@@ -1,7 +1,7 @@
 import {
+    createConnector,
     createMembraneMarshall,
     getResolvedShapeDescriptors,
-    marshallSourceTextInStrictMode,
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
 
@@ -64,7 +64,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
-            const redConnector = redRealmGlobal.eval(marshallSourceTextInStrictMode)();
+            const redConnector = createConnector(redRealmGlobal.eval);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -84,7 +84,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
-            const redConnector = redRealmGlobal.eval(marshallSourceTextInStrictMode)();
+            const redConnector = createConnector(redRealmGlobal.eval);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -108,7 +108,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
-            const redConnector = redRealmGlobal.eval(marshallSourceTextInStrictMode)();
+            const redConnector = createConnector(redRealmGlobal.eval);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -134,7 +134,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
-            const redConnector = redRealmGlobal.eval(marshallSourceTextInStrictMode)();
+            const redConnector = createConnector(redRealmGlobal.eval);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -155,7 +155,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
-            const redConnector = redRealmGlobal.eval(marshallSourceTextInStrictMode)();
+            const redConnector = createConnector(redRealmGlobal.eval);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -183,7 +183,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
-            const redConnector = redRealmGlobal.eval(marshallSourceTextInStrictMode)();
+            const redConnector = createConnector(redRealmGlobal.eval);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -204,7 +204,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
             expect.assertions(2);
 
             // eslint-disable-next-line no-eval
-            const redConnector = redRealmGlobal.eval(marshallSourceTextInStrictMode)();
+            const redConnector = createConnector(redRealmGlobal.eval);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -228,7 +228,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
             expect.assertions(2);
 
             // eslint-disable-next-line no-eval
-            const redConnector = redRealmGlobal.eval(marshallSourceTextInStrictMode)();
+            const redConnector = createConnector(redRealmGlobal.eval);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -259,7 +259,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
 
             // istanbul ignore next
             // eslint-disable-next-line no-eval
-            const redConnector = redRealmGlobal.eval(marshallSourceTextInStrictMode)();
+            const redConnector = createConnector(redRealmGlobal.eval);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -290,7 +290,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
             let blueSetValue = null;
 
             // eslint-disable-next-line no-eval
-            const redConnector = redRealmGlobal.eval(marshallSourceTextInStrictMode)();
+            const redConnector = createConnector(redRealmGlobal.eval);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -326,7 +326,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
             expect.assertions(2);
 
             // eslint-disable-next-line no-eval
-            const redConnector = redRealmGlobal.eval(marshallSourceTextInStrictMode)();
+            const redConnector = createConnector(redRealmGlobal.eval);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -353,7 +353,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
             expect.assertions(2);
 
             // eslint-disable-next-line no-eval
-            const redConnector = redRealmGlobal.eval(marshallSourceTextInStrictMode)();
+            const redConnector = createConnector(redRealmGlobal.eval);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
@@ -381,7 +381,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
             expect.assertions(2);
 
             // eslint-disable-next-line no-eval
-            const redConnector = redRealmGlobal.eval(marshallSourceTextInStrictMode)();
+            const redConnector = createConnector(redRealmGlobal.eval);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,

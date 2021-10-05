@@ -6,14 +6,14 @@ function exportData(arg) {
 }
 
 it('does not throw ownKeys trap invariant for classes or strict mode functions', () => {
-    const envOne = createVirtualEnvironment(window, { endowments: { exportData } });
+    const envOne = createVirtualEnvironment(window, window, { endowments: { exportData } });
     envOne.evaluate(`
     exportData([
       class Foo {},
       function() {'use strict'}
     ]);
     `);
-    const envTwo = createVirtualEnvironment(window, {
+    const envTwo = createVirtualEnvironment(window, window, {
         endowments: { exportData, imported: exported },
     });
     envTwo.evaluate(`

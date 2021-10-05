@@ -130,11 +130,14 @@ function isIntrinsicGlobalName(key: PropertyKey): boolean {
 function isReflectiveGlobalName(key: PropertyKey): boolean {
     return ReflectApply(ArrayProtoIncludes, ReflectiveIntrinsicObjectNames, [key]);
 }
-export function linkIntrinsics(env: VirtualEnvironment, blueGlobalThis: typeof globalThis) {
+export function linkIntrinsics(
+    env: VirtualEnvironment,
+    globalObjectVirtualizationTarget: typeof globalThis
+) {
     // remapping intrinsics that are realm's agnostic
     for (let i = 0, len = ReflectiveIntrinsicObjectNames.length; i < len; i += 1) {
         const globalName = ReflectiveIntrinsicObjectNames[i];
-        const reflectiveValue = blueGlobalThis[globalName];
+        const reflectiveValue = globalObjectVirtualizationTarget[globalName];
         if (reflectiveValue) {
             env.link(globalName);
             // Proxy.prototype is undefined, being the only weird thing here

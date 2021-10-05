@@ -13,7 +13,7 @@ function saveFoo(arg) {
 describe('The blue expandos', () => {
     it('should never be subject to red side mutations', () => {
         expect.assertions(1);
-        const env = createVirtualEnvironment(window, { endowments: { Base, saveFoo } });
+        const env = createVirtualEnvironment(window, window, { endowments: { Base, saveFoo } });
         env.evaluate(`
             function mixin(Clazz) {
                 return class extends Clazz {}

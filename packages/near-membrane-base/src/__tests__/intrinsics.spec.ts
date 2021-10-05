@@ -1,4 +1,10 @@
-import { getResolvedShapeDescriptors } from '../index';
+import {
+    createConnector,
+    linkIntrinsics,
+    getResolvedShapeDescriptors,
+    VirtualEnvironment,
+    createMembraneMarshall,
+} from '../index';
 
 const ESGlobalKeys = [
     // *** 19.1 Value Properties of the Global Object
@@ -171,5 +177,35 @@ describe('getResolvedShapeDescriptors()', () => {
             value: 1,
             writable: true,
         });
+    });
+});
+
+describe('linkIntrinsics()', () => {
+    it('skips reflective intrinsics that do not exist on the global object virtualization target', () => {
+        // Ignoring "Property 'assertions' does not exist on type '{...}'."
+        // @ts-ignore
+        expect.assertions(1);
+
+        const init = createMembraneMarshall();
+        // eslint-disable-next-line no-eval
+        const redConnector = createConnector(globalThis.eval);
+
+        const ve = new VirtualEnvironment({
+            blueConnector: init,
+            redConnector,
+        });
+        ve.link('globalThis');
+
+        let count = 0;
+        // Now overwrite it so we can ensure that it does not get called.
+        ve.link = () => {
+            count += 1;
+        };
+
+        // Since there are no intrinsics at all, ve.link should never get called.
+        // @ts-ignore
+        linkIntrinsics(ve, {});
+
+        expect(count).toBe(0);
     });
 });

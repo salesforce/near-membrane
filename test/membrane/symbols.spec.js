@@ -8,7 +8,7 @@ globalThis.symbolWithKey = Symbol.for('symbol-with-key');
 describe('Secure Membrane', () => {
     it('should support symbols', () => {
         expect.assertions(6);
-        const env = createVirtualEnvironment(window);
+        const env = createVirtualEnvironment(window, window);
         env.evaluate(`
             expect(typeof Symbol() === 'symbol').toBeTrue();
             expect(typeof Symbol.for('x') === 'symbol').toBeTrue();
@@ -20,7 +20,7 @@ describe('Secure Membrane', () => {
     });
     it('should allow access to symbols defined in outer realm', () => {
         expect.assertions(3);
-        const env = createVirtualEnvironment(window);
+        const env = createVirtualEnvironment(window, window);
         env.evaluate(`
             expect(typeof globalThis.regularSymbol).toBe('symbol');
             expect(typeof globalThis.symbolWithDescription).toBe('symbol');
@@ -29,7 +29,7 @@ describe('Secure Membrane', () => {
     });
     it('should not leak outer realm global reference via symbols', () => {
         expect.assertions(2);
-        const env = createVirtualEnvironment(window);
+        const env = createVirtualEnvironment(window, window);
         env.evaluate(`
             expect(globalThis.regularSymbol.constructor).toBe(Symbol);
             expect(globalThis.regularSymbol.constructor.__proto__.constructor('return this')() === globalThis).toBeTrue();
@@ -37,7 +37,7 @@ describe('Secure Membrane', () => {
     });
     it('should not leak outer realm global reference via Symbol.for()', () => {
         expect.assertions(3);
-        const env = createVirtualEnvironment(window);
+        const env = createVirtualEnvironment(window, window);
         env.evaluate(`
             expect(typeof Symbol.for('symbol-with-key')).toBe('symbol');
             expect(Symbol.for('symbol-with-key')).toBe(Symbol.for('symbol-with-key'));
@@ -57,7 +57,7 @@ describe('Secure Membrane', () => {
             }
         }
 
-        const env = createVirtualEnvironment(window, { endowments: { Base, symbol } });
+        const env = createVirtualEnvironment(window, window, { endowments: { Base, symbol } });
         env.evaluate(`
             class Bar extends Base {
                 constructor() {

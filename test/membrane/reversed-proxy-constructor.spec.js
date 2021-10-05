@@ -2,7 +2,7 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('Reversed Proxy constructor', () => {
     it('can be constructed', () => {
-        const env = createVirtualEnvironment(window, {
+        const env = createVirtualEnvironment(window, window, {
             endowments: {
                 test({ Proxy }) {
                     const p = new Proxy(
@@ -20,7 +20,7 @@ describe('Reversed Proxy constructor', () => {
         env.evaluate(`test({ Proxy });`);
     });
     it('.revocable() should be supported', () => {
-        const env = createVirtualEnvironment(window, {
+        const env = createVirtualEnvironment(window, window, {
             endowments: {
                 test({ Proxy }) {
                     const { proxy, revoke } = Proxy.revocable(

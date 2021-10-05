@@ -7,7 +7,7 @@ describe('Freezing', () => {
             // expect.assertions(10);
             window.bar = { a: 1, b: 2 };
             Object.freeze(window.bar);
-            const env = createVirtualEnvironment(window);
+            const env = createVirtualEnvironment(window, window);
             // checking the state of bar in the blue realm
             expect(Object.isExtensible(window.bar)).toBe(false);
             expect(Object.isSealed(window.bar)).toBe(true);
@@ -50,7 +50,7 @@ describe('Freezing', () => {
         it('should not be observed from within the sandbox after a mutation', () => {
             expect.assertions(9);
             window.baz = { a: 1, b: 2 };
-            const env = createVirtualEnvironment(window);
+            const env = createVirtualEnvironment(window, window);
             // checking the state of bar in the sandbox
             env.evaluate(`
                 expect(Object.isExtensible(window.baz)).toBe(true);
@@ -89,7 +89,7 @@ describe('Freezing', () => {
                     o.z = 3;
                 }).toThrowError();
             };
-            const env = createVirtualEnvironment(window);
+            const env = createVirtualEnvironment(window, window);
             env.evaluate(`
                 'use strict';
                 const o = { x: 1 };

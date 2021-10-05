@@ -5,7 +5,7 @@ class Base extends HTMLElement {}
 customElements.define('x-base', Base);
 
 describe('Extending Custom Element', () => {
-    const env = createVirtualEnvironment(window);
+    const env = createVirtualEnvironment(window, window);
 
     it('should be allowed from blue to red', () => {
         expect.assertions(1);
@@ -52,8 +52,8 @@ describe('Extending Custom Element', () => {
 });
 
 describe('NS-to-NS custom element extension', () => {
-    const envNS1 = createVirtualEnvironment(window);
-    const envNS2 = createVirtualEnvironment(window);
+    const envNS1 = createVirtualEnvironment(window, window);
+    const envNS2 = createVirtualEnvironment(window, window);
 
     it('should work when using multiple namespaces in proto-chain', () => {
         expect.assertions(3);
