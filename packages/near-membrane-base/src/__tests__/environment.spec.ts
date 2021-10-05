@@ -1,7 +1,12 @@
 // @ts-nocheck
 import { SupportFlagsField } from '../../types';
-import { getResolvedShapeDescriptors, VirtualEnvironment } from '../index';
-import { createConnector, createMembraneMarshall, HooksCallback } from '../membrane';
+import {
+    createConnector,
+    createMembraneMarshall,
+    getResolvedShapeDescriptors,
+    HooksCallback,
+    VirtualEnvironment,
+} from '../index';
 
 const init = createMembraneMarshall();
 

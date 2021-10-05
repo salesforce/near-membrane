@@ -1,3 +1,4 @@
+export * from './connector';
 export * from './environment';
 export * from './instrumentation';
 export * from './intrinsics';
