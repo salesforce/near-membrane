@@ -85,7 +85,7 @@ export type CallableInstallLazyDescriptors = (
     ...keyAndEnumTuple: PropertyKey[]
 ) => void;
 export type CallableGetPropertyValuePointer = (targetPointer: Pointer, key: PropertyKey) => Pointer;
-export type CallableEvaluate = (sourceText: string) => void;
+export type CallableEvaluate = (sourceText: string) => PrimitiveOrPointer;
 export type GetTransferableValue = (value: any) => PrimitiveOrPointer;
 export type GetSelectedTarget = () => any;
 export type HooksCallback = (
@@ -1221,10 +1221,9 @@ export function createMembraneMarshall() {
                 return createPointer(value);
             },
             // callableEvaluate
-            (sourceText: string): void => {
-                // no need to return the result of the eval
+            (sourceText: string): PrimitiveOrPointer => {
                 try {
-                    return cachedLocalEval(sourceText);
+                    return getTransferableValue(cachedLocalEval(sourceText));
                 } catch (e: any) {
                     throw pushErrorAcrossBoundary(e);
                 }
