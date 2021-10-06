@@ -1,7 +1,6 @@
 import { VirtualEnvironment } from './environment';
 
 const { includes: ArrayProtoIncludes } = Array.prototype;
-const { assign: ObjectAssign } = Object;
 const { has: SetProtoHas } = Set.prototype;
 const {
     apply: ReflectApply,
@@ -123,6 +122,27 @@ const ReflectiveIntrinsicObjectNames = [
     'eval',
 ];
 
+function assignFilteredGlobalObjectShapeDescriptors<T extends PropertyDescriptorMap>(
+    descriptorMap: T,
+    source: object
+): T {
+    const keys = ReflectOwnKeys(source);
+    for (let i = 0, len = keys.length; i < len; i += 1) {
+        // forcing to string here because of TypeScript's PropertyDescriptorMap
+        // definition, which doesn't support symbols as entries.
+        const key = keys[i];
+        // avoid overriding ECMAScript global names that correspond
+        // to global intrinsics. This guarantee that those entries
+        // will be ignored if present in the endowments object.
+        // TODO: what if the intent is to polyfill one of those
+        // intrinsics?
+        if (!isIntrinsicGlobalName(key) && !isReflectiveGlobalName(key)) {
+            (descriptorMap as any)[key] = ReflectGetOwnPropertyDescriptor(source, key)!;
+        }
+    }
+    return descriptorMap;
+}
+
 function isIntrinsicGlobalName(key: PropertyKey): boolean {
     return ReflectApply(SetProtoHas, ESGlobalKeys, [key]);
 }
@@ -148,34 +168,13 @@ export function linkIntrinsics(
     }
 }
 
-function getFilteredGlobalObjectShapeDescriptors(endowments: object): PropertyDescriptorMap {
-    const to: PropertyDescriptorMap = { __proto__: null } as any;
-    const globalKeys = ReflectOwnKeys(endowments);
-
-    for (let i = 0, len = globalKeys.length; i < len; i += 1) {
-        // forcing to string here because of TypeScript's PropertyDescriptorMap
-        // definition, which doesn't support symbols as entries.
-        const key = globalKeys[i] as string;
-        // avoid overriding ECMAScript global names that correspond
-        // to global intrinsics. This guarantee that those entries
-        // will be ignored if present in the endowments object.
-        // TODO: what if the intent is to polyfill one of those
-        // intrinsics?
-        if (!isIntrinsicGlobalName(key) && !isReflectiveGlobalName(key)) {
-            to[key] = ReflectGetOwnPropertyDescriptor(endowments, key)!;
+export function getResolvedShapeDescriptors(...sources: any[]): PropertyDescriptorMap {
+    const descriptors: PropertyDescriptorMap = { __proto__: null } as any;
+    for (let i = 0, len = sources.length; i < len; i += 1) {
+        const source = sources[i];
+        if (source) {
+            assignFilteredGlobalObjectShapeDescriptors(descriptors, source);
         }
     }
-    return to;
-}
-
-export function getResolvedShapeDescriptors(
-    globalObjectShape: object,
-    endowments?: object
-): PropertyDescriptorMap {
-    const globalObjectShapeDescriptors = getFilteredGlobalObjectShapeDescriptors(globalObjectShape);
-    const endowmentsDescriptors = getFilteredGlobalObjectShapeDescriptors(
-        endowments || { __proto__: null }
-    );
-    // eslint-disable-next-line prefer-object-spread
-    return ObjectAssign({ __proto__: null }, globalObjectShapeDescriptors, endowmentsDescriptors);
+    return descriptors;
 }
