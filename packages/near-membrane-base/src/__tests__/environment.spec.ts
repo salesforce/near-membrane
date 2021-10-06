@@ -135,7 +135,7 @@ describe('VirtualEnvironment', () => {
             expect.assertions(8);
 
             // eslint-disable-next-line no-eval
-            const redConnector = globalThis.eval(initSourceTextInStrictMode);
+            const redConnector = createConnector(globalThis.eval);
 
             const ve = new VirtualEnvironment({
                 blueConnector: init,
