@@ -132,7 +132,7 @@ describe('VirtualEnvironment', () => {
         it('returns result of evaluated expression', () => {
             // Ignoring "Property 'assertions' does not exist on type '{...}'."
             // @ts-ignore
-            expect.assertions(8);
+            expect.assertions(12);
 
             // eslint-disable-next-line no-eval
             const redConnector = createConnector(globalThis.eval);
@@ -143,7 +143,7 @@ describe('VirtualEnvironment', () => {
             });
             ve.link('globalThis');
 
-            // expect(ve.evaluate('["a"]')).toEqual(['a']);
+            expect(ve.evaluate('["a"]')).toEqual(['a']);
             expect(ve.evaluate('true')).toBe(true);
             expect(ve.evaluate('false')).toBe(false);
             expect(getToStringTag(ve.evaluate('(function a(){})'))).toBe('Function');
@@ -152,10 +152,10 @@ describe('VirtualEnvironment', () => {
             expect(getToStringTag(ve.evaluate('(async function * (){})'))).toBe(
                 'AsyncGeneratorFunction'
             );
-            // expect(getToStringTag(ve.evaluate('new Date()'))).toBe('Date');
-            // expect(ve.evaluate('({ a: 1 })')).toEqual({ a: 1 });
+            expect(getToStringTag(ve.evaluate('new Date()'))).toBe('Date');
+            expect(ve.evaluate('({ a: 1 })')).toEqual({ a: 1 });
             expect(ve.evaluate('1 + 2')).toBe(3);
-            // expect(getToStringTag(ve.evaluate('/a/'))).toBe('RegExp');
+            expect(getToStringTag(ve.evaluate('/a/'))).toBe('RegExp');
             expect(ve.evaluate('"Hello!"')).toBe('Hello!');
         });
     });

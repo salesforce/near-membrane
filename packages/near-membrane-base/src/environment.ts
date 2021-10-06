@@ -116,7 +116,7 @@ export class VirtualEnvironment {
             blueGetTransferableValue,
             blueCallableGetPropertyValuePointer,
             // eslint-disable-next-line comma-style
-            ,
+            , // blueCallableEvaluate
             blueCallableLinkPointers
         ] = blueHooks!;
         this.blueGlobalThisPointer = blueGlobalThisPointer;

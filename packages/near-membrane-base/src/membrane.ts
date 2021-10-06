@@ -79,6 +79,7 @@ export type CallableSetPrototypeOf = (
 ) => boolean;
 type CallableGetTargetIntegrityTraits = (targetPointer: Pointer) => number;
 type CallableHasOwnProperty = (targetPointer: Pointer, key: PropertyKey) => boolean;
+type CallableObjectProtoToString = (targetPointer: Pointer) => string;
 export type CallableLinkPointers = (targetPointer: Pointer, foreignTargetPointer: Pointer) => void;
 export type CallableInstallLazyDescriptors = (
     targetPointer: Pointer,
@@ -109,7 +110,8 @@ export type HooksCallback = (
     callablePreventExtensions: CallablePreventExtensions,
     callableSetPrototypeOf: CallableSetPrototypeOf,
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
-    callableHasOwnProperty: CallableHasOwnProperty
+    callableHasOwnProperty: CallableHasOwnProperty,
+    callableObjectProtoToString: CallableObjectProtoToString
 ) => void;
 // eslint-disable-next-line no-shadow
 export enum SupportFlagsField {
@@ -161,7 +163,10 @@ export function createMembraneMarshall() {
         isSealed: ObjectIsSealed,
         seal: ObjectSeal,
     } = Object;
-    const { hasOwnProperty: ObjectProtoHasOwnProperty } = Object.prototype;
+    const {
+        hasOwnProperty: ObjectProtoHasOwnProperty,
+        toString: ObjectProtoToString,
+    } = Object.prototype;
     const { revocable: ProxyRevocable } = Proxy;
     const {
         defineProperty: ReflectDefineProperty,
@@ -178,11 +183,13 @@ export function createMembraneMarshall() {
         ownKeys: ReflectOwnKeys,
         preventExtensions: ReflectPreventExtensions,
     } = Reflect;
+    const { slice: StringProtoSlice } = String.prototype;
     const TypeErrorCtor = TypeError;
     const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMap.prototype;
 
     const LOCKER_LIVE_MARKER_SYMBOL = Symbol.for('@@lockerLiveValue');
     const LOCKER_MAGIC_MARKER_SYMBOL = Symbol.for('@@lockerMagicValue');
+    const { toStringTag: TO_STRING_TAG_SYMBOL } = Symbol;
     const UNDEFINED_SYMBOL = Symbol.for('@@membraneUndefinedValue');
 
     return function createHooksCallback(
@@ -218,6 +225,7 @@ export function createMembraneMarshall() {
         let foreignCallableSetPrototypeOf: CallableSetPrototypeOf;
         let foreignCallableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits;
         let foreignCallableHasOwnProperty: CallableHasOwnProperty;
+        let foreignCallableObjectProtoToString: CallableObjectProtoToString;
 
         if (
             ReflectApply(ObjectProtoHasOwnProperty, Error, ['stackTraceLimit']) &&
@@ -414,6 +422,20 @@ export function createMembraneMarshall() {
             return distortedTarget;
         }
 
+        function getUnbrandedTag(
+            targetPointer: Pointer,
+            targetTraits: TargetTraits
+        ): string | undefined {
+            if (targetTraits & TargetTraits.IsObject) {
+                // Section 19.1.3.6: Object.prototype.toString()
+                // Step 16: If `Type(tag)` is not `String`, let `tag` be `builtinTag`.
+                // https://tc39.github.io/ecma262/#sec-object.prototype.tostring
+                const toStringValue = foreignCallableObjectProtoToString(targetPointer);
+                return ReflectApply(StringProtoSlice, toStringValue, [8, -1]);
+            }
+            return undefined;
+        }
+
         function isMarked(targetPointer: Pointer, marker: symbol): boolean {
             try {
                 return foreignCallableHas(targetPointer, marker);
@@ -596,6 +618,9 @@ export function createMembraneMarshall() {
             // callback to prepare the foreign realm before any operation
             private readonly targetPointer: Pointer;
 
+            // enum of target value traits (e.g. IsArray, IsArrowFunction, etc.)
+            private readonly targetTraits: TargetTraits;
+
             // apply trap is generic, and should never change independently of the type of membrane
             readonly apply = function applyTrap(
                 this: BoundaryProxyHandler,
@@ -646,28 +671,24 @@ export function createMembraneMarshall() {
                 targetFunctionName: string | undefined
             ) {
                 this.targetPointer = targetPointer;
+                this.targetTraits = targetTraits;
                 const shadowTarget = createShadowTarget(targetTraits, targetFunctionName);
                 const { proxy, revoke } = ProxyRevocable(shadowTarget, this);
                 this.proxy = proxy;
                 this.revoke = revoke;
                 // inserting default traps
-                this.ownKeys = BoundaryProxyHandler.defaultOwnKeysTrap;
+                this.defineProperty = BoundaryProxyHandler.defaultDefinePropertyTrap;
+                this.deleteProperty = BoundaryProxyHandler.defaultDeletePropertyTrap;
                 this.isExtensible = BoundaryProxyHandler.defaultIsExtensibleTrap;
                 this.getOwnPropertyDescriptor =
                     BoundaryProxyHandler.defaultGetOwnPropertyDescriptorTrap;
                 this.getPrototypeOf = BoundaryProxyHandler.defaultGetPrototypeOfTrap;
                 this.get = BoundaryProxyHandler.defaultGetTrap;
                 this.has = BoundaryProxyHandler.defaultHasTrap;
-                // @ts-ignore
-                this.setPrototypeOf = BoundaryProxyHandler.defaultSetPrototypeOfTrap;
-                // @ts-ignore
-                this.set = BoundaryProxyHandler.defaultSetTrap;
-                // @ts-ignore
-                this.deleteProperty = BoundaryProxyHandler.defaultDeletePropertyTrap;
-                // @ts-ignore
+                this.ownKeys = BoundaryProxyHandler.defaultOwnKeysTrap;
                 this.preventExtensions = BoundaryProxyHandler.defaultPreventExtensionsTrap;
-                // @ts-ignore
-                this.defineProperty = BoundaryProxyHandler.defaultDefinePropertyTrap;
+                this.setPrototypeOf = BoundaryProxyHandler.defaultSetPrototypeOfTrap;
+                this.set = BoundaryProxyHandler.defaultSetTrap;
                 if (targetTraits & TargetTraits.Revoked) {
                     revoke();
                 }
@@ -736,17 +757,18 @@ export function createMembraneMarshall() {
                 // resetting all traps except apply and construct for static proxies since the
                 // proxy target is the shadow target and all operations are going to be applied
                 // to it rather than the real target.
-                this.getOwnPropertyDescriptor = ReflectOwnPropertyDescriptor;
-                this.getPrototypeOf = ReflectGetPrototypeOf;
-                this.get = ReflectGet;
-                this.has = ReflectHas;
-                this.ownKeys = ReflectOwnKeys;
-                this.isExtensible = ReflectIsExtensible;
-                this.set = ReflectSet;
-                this.defineProperty = ReflectDefineProperty;
-                this.deleteProperty = ReflectDeleteProperty;
-                this.setPrototypeOf = ReflectSetPrototypeOf;
-                this.preventExtensions = ReflectPreventExtensions;
+                this.getOwnPropertyDescriptor =
+                    BoundaryProxyHandler.staticGetOwnPropertyDescriptorTrap;
+                this.getPrototypeOf = BoundaryProxyHandler.staticGetPrototypeOfTrap;
+                this.get = BoundaryProxyHandler.staticGetTrap;
+                this.has = BoundaryProxyHandler.staticHasTrap;
+                this.ownKeys = BoundaryProxyHandler.staticOwnKeysTrap;
+                this.isExtensible = BoundaryProxyHandler.staticIsExtensibleTrap;
+                this.set = BoundaryProxyHandler.staticSetTrap;
+                this.defineProperty = BoundaryProxyHandler.staticDefinePropertyTrap;
+                this.deleteProperty = BoundaryProxyHandler.staticDeletePropertyTrap;
+                this.setPrototypeOf = BoundaryProxyHandler.staticSetPrototypeOfTrap;
+                this.preventExtensions = BoundaryProxyHandler.staticPreventExtensionsTrap;
                 // future optimization: hoping that proxies with frozen handlers can be faster
                 ObjectFreeze(this);
             }
@@ -770,7 +792,7 @@ export function createMembraneMarshall() {
                 shadowTarget: ShadowTarget,
                 key: PropertyKey,
                 partialDesc: PropertyDescriptor
-            ): boolean | undefined {
+            ): boolean {
                 const { targetPointer } = this;
                 const descMeta = getPartialDescriptorMeta(partialDesc);
                 // Perf: Optimization to avoid hitting Symbol.iterator, which will
@@ -796,7 +818,7 @@ export function createMembraneMarshall() {
                 this: BoundaryProxyHandler,
                 _shadowTarget: ShadowTarget,
                 key: PropertyKey
-            ): boolean | undefined {
+            ): boolean {
                 const { targetPointer } = this;
                 return foreignCallableDeleteProperty(targetPointer, key);
             }
@@ -863,7 +885,7 @@ export function createMembraneMarshall() {
             private static dynamicPreventExtensionsTrap(
                 this: BoundaryProxyHandler,
                 shadowTarget: ShadowTarget
-            ): boolean | undefined {
+            ): boolean {
                 const { targetPointer } = this;
                 if (ReflectIsExtensible(shadowTarget)) {
                     if (!foreignCallablePreventExtensions(targetPointer)) {
@@ -884,7 +906,7 @@ export function createMembraneMarshall() {
                 this: BoundaryProxyHandler,
                 _shadowTarget: ShadowTarget,
                 prototype: object | null
-            ): boolean | undefined {
+            ): boolean {
                 const { targetPointer } = this;
                 const protoValueOrPointer = getTransferableValue(prototype);
                 return foreignCallableSetPrototypeOf(targetPointer, protoValueOrPointer);
@@ -984,6 +1006,9 @@ export function createMembraneMarshall() {
                     }
                     O = ReflectGetPrototypeOf(O);
                 }
+                if (key === TO_STRING_TAG_SYMBOL) {
+                    return getUnbrandedTag(this.targetPointer, this.targetTraits);
+                }
                 return undefined;
             }
 
@@ -1006,7 +1031,7 @@ export function createMembraneMarshall() {
                 key: string | symbol,
                 value: any,
                 receiver: any
-            ): boolean | undefined {
+            ): boolean {
                 // assert: trapMutations must be true
                 const { targetPointer } = this;
                 let O: object | null = this.proxy;
@@ -1055,14 +1080,44 @@ export function createMembraneMarshall() {
             }
 
             // pending traps
+            private static pendingDefinePropertyTrap(
+                this: BoundaryProxyHandler,
+                shadowTarget: ShadowTarget,
+                key: string | symbol,
+                partialDesc: PropertyDescriptor
+            ): boolean {
+                // assert: trapMutations must be true
+                this.makeProxyUnambiguous(shadowTarget);
+                return this.defineProperty!(shadowTarget, key, partialDesc);
+            }
+
+            private static pendingDeletePropertyTrap(
+                this: BoundaryProxyHandler,
+                shadowTarget: ShadowTarget,
+                key: string | symbol
+            ): boolean {
+                // assert: trapMutations must be true
+                this.makeProxyUnambiguous(shadowTarget);
+                return this.deleteProperty!(shadowTarget, key);
+            }
+
+            private static pendingPreventExtensionsTrap(
+                this: BoundaryProxyHandler,
+                shadowTarget: ShadowTarget
+            ): boolean {
+                // assert: trapMutations must be true
+                this.makeProxyUnambiguous(shadowTarget);
+                return this.preventExtensions!(shadowTarget);
+            }
+
             private static pendingSetPrototypeOfTrap(
                 this: BoundaryProxyHandler,
                 shadowTarget: ShadowTarget,
                 prototype: object | null
-            ): boolean | undefined {
+            ): boolean {
                 // assert: trapMutations must be true
                 this.makeProxyUnambiguous(shadowTarget);
-                return this.setPrototypeOf?.(shadowTarget, prototype);
+                return this.setPrototypeOf!(shadowTarget, prototype);
             }
 
             private static pendingSetTrap(
@@ -1071,48 +1126,51 @@ export function createMembraneMarshall() {
                 key: string | symbol,
                 value: any,
                 receiver: any
-            ): boolean | undefined {
+            ): boolean {
                 // assert: trapMutations must be true
                 this.makeProxyUnambiguous(shadowTarget);
-                return this.set?.(shadowTarget, key, value, receiver);
+                return this.set!(shadowTarget, key, value, receiver);
             }
 
-            private static pendingDeletePropertyTrap(
+            private static staticDefinePropertyTrap = ReflectDefineProperty;
+
+            private static staticDeletePropertyTrap = ReflectDeleteProperty;
+
+            private static staticGetOwnPropertyDescriptorTrap = ReflectOwnPropertyDescriptor;
+
+            private static staticGetPrototypeOfTrap = ReflectGetPrototypeOf;
+
+            /**
+             * This trap is just `ReflectGet` plus handling of object branding
+             * for proxies.
+             *
+             */
+            private static staticGetTrap(
                 this: BoundaryProxyHandler,
                 shadowTarget: ShadowTarget,
-                key: string | symbol
-            ): boolean | undefined {
-                // assert: trapMutations must be true
-                this.makeProxyUnambiguous(shadowTarget);
-                return this.deleteProperty?.(shadowTarget, key);
+                key: PropertyKey,
+                receiver: any
+            ): any {
+                if (key === TO_STRING_TAG_SYMBOL) {
+                    return getUnbrandedTag(this.targetPointer, this.targetTraits);
+                }
+                return ReflectGet(shadowTarget, key, receiver);
             }
 
-            private static pendingPreventExtensionsTrap(
-                this: BoundaryProxyHandler,
-                shadowTarget: ShadowTarget
-            ): boolean | undefined {
-                // assert: trapMutations must be true
-                this.makeProxyUnambiguous(shadowTarget);
-                return this.preventExtensions?.(shadowTarget);
-            }
+            private static staticHasTrap = ReflectHas;
 
-            private static pendingDefinePropertyTrap(
-                this: BoundaryProxyHandler,
-                shadowTarget: ShadowTarget,
-                key: string | symbol,
-                partialDesc: PropertyDescriptor
-            ): boolean | undefined {
-                // assert: trapMutations must be true
-                this.makeProxyUnambiguous(shadowTarget);
-                return this.defineProperty?.(shadowTarget, key, partialDesc);
-            }
+            private static staticIsExtensibleTrap = ReflectIsExtensible;
+
+            private static staticOwnKeysTrap = ReflectOwnKeys;
+
+            private static staticPreventExtensionsTrap = ReflectPreventExtensions;
+
+            private static staticSetPrototypeOfTrap = ReflectSetPrototypeOf;
+
+            private static staticSetTrap = ReflectSet;
 
             // static default traps (optimization to avoid computations of the proper
             // trap in constructor)
-            private static defaultOwnKeysTrap = BoundaryProxyHandler.dynamicOwnKeysTrap;
-
-            private static defaultIsExtensibleTrap = BoundaryProxyHandler.dynamicIsExtensibleTrap;
-
             private static defaultGetOwnPropertyDescriptorTrap =
                 BoundaryProxyHandler.dynamicGetOwnPropertyDescriptorTrap;
 
@@ -1123,17 +1181,17 @@ export function createMembraneMarshall() {
 
             private static defaultHasTrap = BoundaryProxyHandler.dynamicHasTrap;
 
+            private static defaultIsExtensibleTrap = BoundaryProxyHandler.dynamicIsExtensibleTrap;
+
+            private static defaultOwnKeysTrap = BoundaryProxyHandler.dynamicOwnKeysTrap;
+
             // pending traps are only really needed if this membrane
             // traps mutations to avoid mutations operations on the
             // side of the membrane.
             // TODO: find a way to optimize the declaration rather than instantiation
-            private static defaultSetPrototypeOfTrap = trapMutations
-                ? BoundaryProxyHandler.pendingSetPrototypeOfTrap
-                : BoundaryProxyHandler.dynamicSetPrototypeOfTrap;
-
-            private static defaultSetTrap = trapMutations
-                ? BoundaryProxyHandler.pendingSetTrap
-                : BoundaryProxyHandler.dynamicSetTrap;
+            private static defaultDefinePropertyTrap = trapMutations
+                ? BoundaryProxyHandler.pendingDefinePropertyTrap
+                : BoundaryProxyHandler.dynamicDefinePropertyTrap;
 
             private static defaultDeletePropertyTrap = trapMutations
                 ? BoundaryProxyHandler.pendingDeletePropertyTrap
@@ -1143,9 +1201,13 @@ export function createMembraneMarshall() {
                 ? BoundaryProxyHandler.pendingPreventExtensionsTrap
                 : BoundaryProxyHandler.dynamicPreventExtensionsTrap;
 
-            private static defaultDefinePropertyTrap = trapMutations
-                ? BoundaryProxyHandler.pendingDefinePropertyTrap
-                : BoundaryProxyHandler.dynamicDefinePropertyTrap;
+            private static defaultSetPrototypeOfTrap = trapMutations
+                ? BoundaryProxyHandler.pendingSetPrototypeOfTrap
+                : BoundaryProxyHandler.dynamicSetPrototypeOfTrap;
+
+            private static defaultSetTrap = trapMutations
+                ? BoundaryProxyHandler.pendingSetTrap
+                : BoundaryProxyHandler.dynamicSetTrap;
         }
         ReflectSetPrototypeOf(BoundaryProxyHandler.prototype, null);
 
@@ -1292,7 +1354,7 @@ export function createMembraneMarshall() {
                     let value;
                     try {
                         value = ReflectApply(fn, thisArg, args);
-                    } catch (e) {
+                    } catch (e: any) {
                         throw pushErrorAcrossBoundary(e);
                     }
                     return getTransferableValue(value);
@@ -1318,7 +1380,7 @@ export function createMembraneMarshall() {
                     let value;
                     try {
                         value = ReflectConstruct(constructor, args, newTarget);
-                    } catch (e) {
+                    } catch (e: any) {
                         throw pushErrorAcrossBoundary(e);
                     }
                     return getTransferableValue(value);
@@ -1338,7 +1400,7 @@ export function createMembraneMarshall() {
                     const desc = ReflectApply(createDescriptorFromMeta, undefined, descMeta);
                     try {
                         return ReflectDefineProperty(target, key, desc);
-                    } catch (e) {
+                    } catch (e: any) {
                         throw pushErrorAcrossBoundary(e);
                     }
                 },
@@ -1352,7 +1414,7 @@ export function createMembraneMarshall() {
                     const target = getSelectedTarget();
                     try {
                         return ReflectDeleteProperty(target, key);
-                    } catch (e) {
+                    } catch (e: any) {
                         throw pushErrorAcrossBoundary(e);
                     }
                 },
@@ -1371,7 +1433,7 @@ export function createMembraneMarshall() {
                     let desc;
                     try {
                         desc = ReflectOwnPropertyDescriptor(target, key);
-                    } catch (e) {
+                    } catch (e: any) {
                         throw pushErrorAcrossBoundary(e);
                     }
                     if (!desc) {
@@ -1391,7 +1453,7 @@ export function createMembraneMarshall() {
                     let proto;
                     try {
                         proto = ReflectGetPrototypeOf(target);
-                    } catch (e) {
+                    } catch (e: any) {
                         throw pushErrorAcrossBoundary(e);
                     }
                     return getTransferableValue(proto);
@@ -1406,7 +1468,7 @@ export function createMembraneMarshall() {
                     const target = getSelectedTarget();
                     try {
                         return ReflectHas(target, key);
-                    } catch (e) {
+                    } catch (e: any) {
                         throw pushErrorAcrossBoundary(e);
                     }
                 },
@@ -1420,7 +1482,7 @@ export function createMembraneMarshall() {
                     const target = getSelectedTarget();
                     try {
                         return ReflectIsExtensible(target);
-                    } catch (e) {
+                    } catch (e: any) {
                         throw pushErrorAcrossBoundary(e);
                     }
                 },
@@ -1438,7 +1500,7 @@ export function createMembraneMarshall() {
                     let keys;
                     try {
                         keys = ReflectOwnKeys(target) as (string | symbol)[];
-                    } catch (e) {
+                    } catch (e: any) {
                         throw pushErrorAcrossBoundary(e);
                     }
                     ReflectApply(foreignCallableKeysCallback, undefined, keys);
@@ -1453,7 +1515,7 @@ export function createMembraneMarshall() {
                     const target = getSelectedTarget();
                     try {
                         return ReflectPreventExtensions(target);
-                    } catch (e) {
+                    } catch (e: any) {
                         throw pushErrorAcrossBoundary(e);
                     }
                 },
@@ -1468,7 +1530,7 @@ export function createMembraneMarshall() {
                     const proto = getLocalValue(protoValueOrPointer);
                     try {
                         return ReflectSetPrototypeOf(target, proto);
-                    } catch (e) {
+                    } catch (e: any) {
                         throw pushErrorAcrossBoundary(e);
                     }
                 },
@@ -1517,17 +1579,39 @@ export function createMembraneMarshall() {
                     const target = getSelectedTarget();
                     try {
                         return ReflectApply(ObjectProtoHasOwnProperty, target, [key]);
-                    } catch (e) {
+                    } catch (e: any) {
                         throw pushErrorAcrossBoundary(e);
                     }
                 },
                 'callableHasOwnProperty',
                 INBOUND_INSTRUMENTATION_LABEL
+            ),
+            // callableObjectProtoToString
+            instrumentCallableWrapper(
+                (targetPointer: Pointer): string => {
+                    targetPointer();
+                    const target = getSelectedTarget();
+                    try {
+                        return ReflectApply(ObjectProtoToString, target, []);
+                    } catch (e: any) {
+                        throw pushErrorAcrossBoundary(e);
+                    }
+                },
+                'callableObjectProtoToString',
+                INBOUND_INSTRUMENTATION_LABEL
             )
         );
         return (...hooks: Parameters<HooksCallback>) => {
             // prettier-ignore
-            const [,,,,,,,
+            const [
+                , // globalThisPointer
+                , // getSelectedTarget
+                , // getTransferableValue
+                , // callableGetPropertyValuePointer
+                , // callableEvaluate
+                , // callableLinkPointers,
+                // eslint-disable-next-line comma-style
+                , // callableInstallLazyDescriptors
                 callablePushTarget,
                 callableApply,
                 callableConstruct,
@@ -1542,6 +1626,7 @@ export function createMembraneMarshall() {
                 callableSetPrototypeOf,
                 callableGetTargetIntegrityTraits,
                 callableHasOwnProperty,
+                callableObjectProtoToString,
             ] = hooks;
             foreignCallablePushTarget = callablePushTarget;
             // traps utilities
@@ -1588,7 +1673,6 @@ export function createMembraneMarshall() {
                     OUTBOUND_INSTRUMENTATION_LABEL
                 )
             );
-            // prettier-ignore
             foreignCallableHas = foreignErrorControl(
                 instrumentCallableWrapper(
                     callableHas,
@@ -1603,7 +1687,6 @@ export function createMembraneMarshall() {
                     OUTBOUND_INSTRUMENTATION_LABEL
                 )
             );
-            // prettier-ignore
             foreignCallableOwnKeys = foreignErrorControl(
                 instrumentCallableWrapper(
                     callableOwnKeys,
@@ -1636,6 +1719,13 @@ export function createMembraneMarshall() {
                 instrumentCallableWrapper(
                     callableHasOwnProperty,
                     'callableHasOwnProperty',
+                    OUTBOUND_INSTRUMENTATION_LABEL
+                )
+            );
+            foreignCallableObjectProtoToString = foreignErrorControl(
+                instrumentCallableWrapper(
+                    callableObjectProtoToString,
+                    'callableObjectProtoToString',
                     OUTBOUND_INSTRUMENTATION_LABEL
                 )
             );
