@@ -94,14 +94,13 @@ describe('Implementing an environment with VirtualEnvironment', () => {
 
             expect(() => {
                 ve.evaluate('a_very_specific_string');
-            }).toThrowMatching((thrown) => {
-                // Since this is tested against two different browsers, which both have different error message
-                // strings, the test here is to vaguely assess that error is "probably" correct.
-                return (
+            }).toThrowMatching(
+                (thrown) =>
+                    // Since this is tested against two different browsers, which both have different error message
+                    // strings, the test here is to vaguely assess that error is "probably" correct.
                     String(thrown).includes('ReferenceError') &&
                     String(thrown).includes('a_very_specific_string')
-                );
-            });
+            );
         });
 
         it('rethrows if blue target does not have pushed error', () => {
