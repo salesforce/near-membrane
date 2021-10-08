@@ -77,6 +77,12 @@ export type CallableSetPrototypeOf = (
     targetPointer: Pointer,
     protoValueOrPointer: PrimitiveOrPointer
 ) => boolean;
+type CallableSet = (
+    targetPointer: Pointer,
+    propertyKey: PropertyKey,
+    value: any,
+    receiver?: any
+) => boolean;
 type CallableGetTargetIntegrityTraits = (targetPointer: Pointer) => number;
 type CallableHasOwnProperty = (targetPointer: Pointer, key: PropertyKey) => boolean;
 type CallableObjectProtoToString = (targetPointer: Pointer) => string;
@@ -109,6 +115,7 @@ export type HooksCallback = (
     callableOwnKeys: CallableOwnKeys,
     callablePreventExtensions: CallablePreventExtensions,
     callableSetPrototypeOf: CallableSetPrototypeOf,
+    callableSet: CallableSet,
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableHasOwnProperty: CallableHasOwnProperty,
     callableObjectProtoToString: CallableObjectProtoToString
@@ -223,6 +230,7 @@ export function createMembraneMarshall() {
         let foreignCallableOwnKeys: CallableOwnKeys;
         let foreignCallablePreventExtensions: CallablePreventExtensions;
         let foreignCallableSetPrototypeOf: CallableSetPrototypeOf;
+        let foreignCallableSet: CallableSet;
         let foreignCallableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits;
         let foreignCallableHasOwnProperty: CallableHasOwnProperty;
         let foreignCallableObjectProtoToString: CallableObjectProtoToString;
@@ -297,6 +305,7 @@ export function createMembraneMarshall() {
             };
             // In case debugging is needed, the following line can help greatly:
             pointer['[[OriginalTarget]]'] = originalTarget;
+            pointer['[[Color]]'] = color;
             return pointer;
         }
 
@@ -446,24 +455,6 @@ export function createMembraneMarshall() {
             return false;
         }
 
-        function isPointer(
-            primitiveValueOrForeignCallable: PrimitiveOrPointer
-        ): primitiveValueOrForeignCallable is CallableFunction {
-            return typeof primitiveValueOrForeignCallable === 'function';
-        }
-
-        // TODO: this needs optimization
-        function isPrimitiveValue(
-            primitiveValueOrForeignCallable: PrimitiveOrPointer
-        ): primitiveValueOrForeignCallable is PrimitiveValue {
-            // TODO: what other ways to optimize this method?
-            return (
-                primitiveValueOrForeignCallable === null ||
-                (typeof primitiveValueOrForeignCallable !== 'function' &&
-                    typeof primitiveValueOrForeignCallable !== 'object')
-            );
-        }
-
         function getTransferablePointer(originalTarget: ProxyTarget): Pointer {
             let pointer = ReflectApply(WeakMapProtoGet, proxyTargetToPointerMap, [originalTarget]);
             if (pointer) {
@@ -527,7 +518,7 @@ export function createMembraneMarshall() {
         }
 
         function getLocalValue(primitiveValueOrForeignPointer: PrimitiveOrPointer): any {
-            if (isPointer(primitiveValueOrForeignPointer)) {
+            if (typeof primitiveValueOrForeignPointer === 'function') {
                 primitiveValueOrForeignPointer();
                 return getSelectedTarget();
             }
@@ -540,7 +531,11 @@ export function createMembraneMarshall() {
             if (typeof value === 'undefined') {
                 return undefined;
             }
-            return isPrimitiveValue(value) ? value : getTransferablePointer(value);
+            // TODO: what other ways to optimize this method?
+            if (value === null || (typeof value !== 'function' && typeof value !== 'object')) {
+                return value;
+            }
+            return getTransferablePointer(value);
         }
 
         function getPartialDescriptorMeta(
@@ -1034,48 +1029,96 @@ export function createMembraneMarshall() {
             ): boolean {
                 // assert: trapMutations must be true
                 const { targetPointer } = this;
-                let O: object | null = this.proxy;
+                const transferableValuePointer = getTransferableValue(value);
+                const transferableReceiverPointer = getTransferableValue(receiver);
+                let O: Pointer | null = targetPointer;
                 while (O !== null) {
-                    if (ReflectApply(ObjectProtoHasOwnProperty, O, [key])) {
+                    if (foreignCallableHasOwnProperty(O, key)) {
                         // we know this is a single stop lookup because it has own property
-                        const { get: getter, set: setter } = ReflectOwnPropertyDescriptor(O, key)!;
-                        if (setter) {
+                        let localGetterPointer: PrimitiveOrPointer;
+                        let localSetterPointer: PrimitiveOrPointer;
+                        foreignCallableGetOwnPropertyDescriptor(
+                            O,
+                            key,
+                            (
+                                _configurable,
+                                _enumerable,
+                                _writable,
+                                _valuePointer,
+                                getPointer,
+                                setPointer
+                            ) => {
+                                localGetterPointer = getPointer;
+                                localSetterPointer = setPointer;
+                            }
+                        );
+                        if (typeof localSetterPointer === 'function') {
                             // even though the setter function exists, we can't use Reflect.set
                             // because there might be a distortion for that setter function, in
                             // which case we must resolve the local setter and call it instead.
-                            ReflectApply(setter, receiver, [value]);
+                            const transferableSetterPointer = getTransferablePointer(
+                                getLocalValue(localSetterPointer)
+                            );
+                            foreignCallableApply(
+                                transferableSetterPointer,
+                                transferableReceiverPointer,
+                                transferableValuePointer
+                            );
                             // if there is a setter, it either throw or we can assume the
                             // value was set
                             return true;
                         }
-                        if (getter) {
+                        if (typeof localGetterPointer === 'function') {
                             // accessor descriptor exists without a setter
                             return false;
                         }
-                        return this.targetMarkedAsMagic
-                            ? // workaround for Safari <= 14 bug on CSSStyleDeclaration
-                              // objects which lose their magic setters if set with
-                              // defineProperty
-                              ReflectSet(O, key, value, O)
-                            : // setting the descriptor with only a value entry should
-                              // not affect existing descriptor traits
-                              ReflectDefineProperty(O, key, { value });
+                        // guard for Safari <= 14 bug on CSSStyleDeclaration
+                        // objects which lose their magic setters if set with
+                        // defineProperty
+                        if (!this.targetMarkedAsMagic) {
+                            // setting the descriptor with only a value entry should
+                            // not affect existing descriptor traits
+                            foreignCallableDefineProperty(
+                                O,
+                                key,
+                                UNDEFINED_SYMBOL, // configurable
+                                UNDEFINED_SYMBOL, // enumerable
+                                UNDEFINED_SYMBOL, // writable
+                                transferableValuePointer, // value
+                                UNDEFINED_SYMBOL, // get
+                                UNDEFINED_SYMBOL // set
+                            );
+                        }
+                        return foreignCallableSet(
+                            O,
+                            key,
+                            transferableValuePointer,
+                            transferableReceiverPointer
+                        );
                     }
-                    O = ReflectGetPrototypeOf(O);
+                    O = getTransferableValue(
+                        getLocalValue(foreignCallableGetPrototypeOf(O))
+                    ) as Pointer | null;
                 }
-                // if it is not an accessor property, is either a getter only accessor
-                // or a data property, in which case we use Reflect.set to set the value,
-                // and no receiver is needed since it will simply set the data property or nothing
-                const valuePointer = getTransferableValue(value);
-                return foreignCallableDefineProperty(
+                // if it is not an accessor property, is either a getter only
+                // accessor or a data property, in which case we use Reflect.set
+                // to set the value, and no receiver is needed since it will
+                // simply set the data property or nothing
+                foreignCallableDefineProperty(
                     targetPointer,
                     key,
                     true,
                     true,
                     true,
-                    valuePointer,
+                    transferableValuePointer,
                     UNDEFINED_SYMBOL,
                     UNDEFINED_SYMBOL
+                );
+                return foreignCallableSet(
+                    targetPointer,
+                    key,
+                    transferableValuePointer,
+                    transferableReceiverPointer
                 );
             }
 
@@ -1239,7 +1282,7 @@ export function createMembraneMarshall() {
                         key,
                         callbackWithDescriptor
                     );
-                    if (desc! === undefined) {
+                    if (desc === undefined) {
                         delete unforgeable[key];
                     } else {
                         ReflectDefineProperty(unforgeable, key, desc);
@@ -1252,7 +1295,7 @@ export function createMembraneMarshall() {
                         key,
                         callbackWithDescriptor
                     );
-                    if (desc! === undefined) {
+                    if (desc === undefined) {
                         delete unforgeable[key];
                     } else {
                         ReflectDefineProperty(unforgeable, key, desc);
@@ -1537,6 +1580,30 @@ export function createMembraneMarshall() {
                 'callableSetPrototypeOf',
                 INBOUND_INSTRUMENTATION_LABEL
             ),
+            // callableSet
+            instrumentCallableWrapper(
+                (
+                    targetPointer: Pointer,
+                    propertyKey: PropertyKey,
+                    valuePointer: Pointer,
+                    receiverPointer?: Pointer
+                ): boolean => {
+                    targetPointer();
+                    const target = getSelectedTarget();
+                    try {
+                        return ReflectSet(
+                            target,
+                            propertyKey,
+                            getLocalValue(valuePointer),
+                            getLocalValue(receiverPointer)
+                        );
+                    } catch (e: any) {
+                        throw pushErrorAcrossBoundary(e);
+                    }
+                },
+                'callableSet',
+                INBOUND_INSTRUMENTATION_LABEL
+            ),
             // callableGetTargetIntegrityTraits
             instrumentCallableWrapper(
                 (targetPointer: Pointer): TargetIntegrityTraits => {
@@ -1624,6 +1691,7 @@ export function createMembraneMarshall() {
                 callableOwnKeys,
                 callablePreventExtensions,
                 callableSetPrototypeOf,
+                callableSet,
                 callableGetTargetIntegrityTraits,
                 callableHasOwnProperty,
                 callableObjectProtoToString,
@@ -1705,6 +1773,13 @@ export function createMembraneMarshall() {
                 instrumentCallableWrapper(
                     callableSetPrototypeOf,
                     'callableSetPrototypeOf',
+                    OUTBOUND_INSTRUMENTATION_LABEL
+                )
+            );
+            foreignCallableSet = foreignErrorControl(
+                instrumentCallableWrapper(
+                    callableSet,
+                    'callableSet',
                     OUTBOUND_INSTRUMENTATION_LABEL
                 )
             );
