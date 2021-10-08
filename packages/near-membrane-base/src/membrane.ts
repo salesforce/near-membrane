@@ -77,6 +77,12 @@ export type CallableSetPrototypeOf = (
     targetPointer: Pointer,
     protoValueOrPointer: PrimitiveOrPointer
 ) => boolean;
+type CallableSet = (
+    targetPointer: Pointer,
+    propertyKey: PropertyKey,
+    value: any,
+    receiver?: any
+) => boolean;
 type CallableGetTargetIntegrityTraits = (targetPointer: Pointer) => number;
 type CallableHasOwnProperty = (targetPointer: Pointer, key: PropertyKey) => boolean;
 type CallableObjectProtoToString = (targetPointer: Pointer) => string;
@@ -109,6 +115,7 @@ export type HooksCallback = (
     callableOwnKeys: CallableOwnKeys,
     callablePreventExtensions: CallablePreventExtensions,
     callableSetPrototypeOf: CallableSetPrototypeOf,
+    callableSet: CallableSet,
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableHasOwnProperty: CallableHasOwnProperty,
     callableObjectProtoToString: CallableObjectProtoToString
@@ -223,6 +230,7 @@ export function createMembraneMarshall() {
         let foreignCallableOwnKeys: CallableOwnKeys;
         let foreignCallablePreventExtensions: CallablePreventExtensions;
         let foreignCallableSetPrototypeOf: CallableSetPrototypeOf;
+        let foreignCallableSet: CallableSet;
         let foreignCallableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits;
         let foreignCallableHasOwnProperty: CallableHasOwnProperty;
         let foreignCallableObjectProtoToString: CallableObjectProtoToString;
@@ -297,6 +305,7 @@ export function createMembraneMarshall() {
             };
             // In case debugging is needed, the following line can help greatly:
             pointer['[[OriginalTarget]]'] = originalTarget;
+            pointer['[[Color]]'] = color;
             return pointer;
         }
 
@@ -1034,6 +1043,8 @@ export function createMembraneMarshall() {
             ): boolean {
                 // assert: trapMutations must be true
                 const { targetPointer } = this;
+                const transferableValuePointer = getTransferableValue(value);
+                const transferableReceiverPointer = getTransferableValue(receiver);
                 let O: object | null = this.proxy;
                 while (O !== null) {
                     if (ReflectApply(ObjectProtoHasOwnProperty, O, [key])) {
@@ -1066,16 +1077,22 @@ export function createMembraneMarshall() {
                 // if it is not an accessor property, is either a getter only accessor
                 // or a data property, in which case we use Reflect.set to set the value,
                 // and no receiver is needed since it will simply set the data property or nothing
-                const valuePointer = getTransferableValue(value);
-                return foreignCallableDefineProperty(
+                foreignCallableDefineProperty(
                     targetPointer,
                     key,
                     true,
                     true,
                     true,
-                    valuePointer,
+                    transferableValuePointer,
                     UNDEFINED_SYMBOL,
                     UNDEFINED_SYMBOL
+                );
+
+                return foreignCallableSet(
+                    targetPointer,
+                    key,
+                    transferableValuePointer,
+                    transferableReceiverPointer
                 );
             }
 
@@ -1537,6 +1554,30 @@ export function createMembraneMarshall() {
                 'callableSetPrototypeOf',
                 INBOUND_INSTRUMENTATION_LABEL
             ),
+            // callableSet
+            instrumentCallableWrapper(
+                (
+                    targetPointer: Pointer,
+                    propertyKey: PropertyKey,
+                    valuePointer: Pointer,
+                    receiverPointer?: Pointer
+                ): boolean => {
+                    targetPointer();
+                    const target = getSelectedTarget();
+                    try {
+                        return ReflectSet(
+                            target,
+                            propertyKey,
+                            getLocalValue(valuePointer),
+                            getLocalValue(receiverPointer)
+                        );
+                    } catch (e: any) {
+                        throw pushErrorAcrossBoundary(e);
+                    }
+                },
+                'callableSet',
+                INBOUND_INSTRUMENTATION_LABEL
+            ),
             // callableGetTargetIntegrityTraits
             instrumentCallableWrapper(
                 (targetPointer: Pointer): TargetIntegrityTraits => {
@@ -1624,6 +1665,7 @@ export function createMembraneMarshall() {
                 callableOwnKeys,
                 callablePreventExtensions,
                 callableSetPrototypeOf,
+                callableSet,
                 callableGetTargetIntegrityTraits,
                 callableHasOwnProperty,
                 callableObjectProtoToString,
@@ -1705,6 +1747,13 @@ export function createMembraneMarshall() {
                 instrumentCallableWrapper(
                     callableSetPrototypeOf,
                     'callableSetPrototypeOf',
+                    OUTBOUND_INSTRUMENTATION_LABEL
+                )
+            );
+            foreignCallableSet = foreignErrorControl(
+                instrumentCallableWrapper(
+                    callableSet,
+                    'callableSet',
                     OUTBOUND_INSTRUMENTATION_LABEL
                 )
             );
