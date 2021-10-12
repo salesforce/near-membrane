@@ -162,7 +162,6 @@ export default function createVirtualEnvironment(
     const options = ObjectAssign(
         {
             __proto__: null,
-            globalThis: window,
             keepAlive: false,
         },
         providedOptions
