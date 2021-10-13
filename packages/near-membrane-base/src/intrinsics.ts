@@ -137,7 +137,20 @@ function assignFilteredGlobalObjectShapeDescriptors<T extends PropertyDescriptor
         // TODO: what if the intent is to polyfill one of those
         // intrinsics?
         if (!isIntrinsicGlobalName(key) && !isReflectiveGlobalName(key)) {
-            (descriptorMap as any)[key] = ReflectGetOwnPropertyDescriptor(source, key)!;
+            const descriptor = ReflectGetOwnPropertyDescriptor(source, key)!;
+            // Safari 14.0.x (macOS) and 14.2 (iOS) have a bug where 'showModalDialog'
+            // is returned in the list of own keys produces by ReflectOwnKeys(iframeWindow),
+            // however 'showModalDialog' is not an own property and produces
+            // undefined at ReflectGetOwnPropertyDescriptor(window, key);
+            //
+            // In all other browsers, 'showModalDialog' is not an own property
+            // and does not appear in the list produces by ReflectOwnKeys(iframeWindow).
+            //
+            // So, as a general rule: if there is not an own descriptor,
+            // ignore the entry and continue.
+            if (descriptor) {
+                (descriptorMap as any)[key] = descriptor;
+            }
         }
     }
     return descriptorMap;
