@@ -89,7 +89,7 @@ type CallableObjectProtoToString = (targetPointer: Pointer) => string;
 export type CallableLinkPointers = (targetPointer: Pointer, foreignTargetPointer: Pointer) => void;
 export type CallableInstallLazyDescriptors = (
     targetPointer: Pointer,
-    ...keyAndEnumTuple: PropertyKey[]
+    ...keyAndEnumTuple: (boolean | string | symbol)[]
 ) => void;
 export type CallableGetPropertyValuePointer = (targetPointer: Pointer, key: PropertyKey) => Pointer;
 export type CallableEvaluate = (sourceText: string) => PrimitiveOrPointer;
@@ -121,7 +121,7 @@ export type HooksCallback = (
     callableObjectProtoToString: CallableObjectProtoToString
 ) => void;
 // eslint-disable-next-line no-shadow
-export enum SupportFlagsField {
+export enum SupportFlagsEnum {
     None = 0,
     MagicMarker = 1 << 0,
 }
@@ -202,7 +202,7 @@ export function createMembraneMarshall() {
     return function createHooksCallback(
         color: string,
         trapMutations: boolean,
-        supportFlags: SupportFlagsField = SupportFlagsField.None,
+        supportFlags: SupportFlagsEnum = SupportFlagsEnum.None,
         foreignCallableHooksCallback: HooksCallback,
         options?: InitLocalOptions
     ): HooksCallback {
@@ -1323,11 +1323,11 @@ export function createMembraneMarshall() {
                 ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [target, newPointer]);
             },
             // callableInstallLazyDescriptors
-            (targetPointer: Pointer, ...keyAndEnumTuple: PropertyKey[]) => {
+            (targetPointer: Pointer, ...keyAndEnumTuple: (boolean | string | symbol)[]) => {
                 targetPointer();
                 const target = getSelectedTarget();
                 for (let i = 0, len = keyAndEnumTuple.length; i < len; i += 2) {
-                    const key = keyAndEnumTuple[i];
+                    const key = keyAndEnumTuple[i] as string | symbol;
                     const isEnumerable = !!keyAndEnumTuple[i + 1];
                     const descriptor = createLazyDescriptor(target, key, isEnumerable);
                     try {

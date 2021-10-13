@@ -1,22 +1,8 @@
 import { VirtualEnvironment } from '@locker/near-membrane-base';
 
 const { assign: ObjectAssign, getOwnPropertyDescriptors: ObjectGetOwnPropertyDescriptors } = Object;
-
 const { getPrototypeOf: ReflectGetPrototypeOf, apply: ReflectApply } = Reflect;
-
 const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMap.prototype;
-
-function WeakMapGet(map: WeakMap<object, object>, key: object): object | undefined {
-    return ReflectApply(WeakMapProtoGet, map, [key]);
-}
-
-function WeakMapSet(
-    map: WeakMap<object, object>,
-    key: object,
-    value: object
-): WeakMap<object, object> {
-    return ReflectApply(WeakMapProtoSet, map, [key, value]);
-}
 
 /**
  * - Unforgeable object and prototype references
@@ -59,21 +45,23 @@ export function getBaseReferences(window: Window & typeof globalThis): BaseRefer
 export function getCachedBlueReferences(
     window: Window & typeof globalThis
 ): CachedBlueReferencesRecord {
-    let record = WeakMapGet(cachedBlueGlobalMap, window) as CachedBlueReferencesRecord | undefined;
-    if (record !== undefined) {
+    let record = ReflectApply(WeakMapProtoGet, cachedBlueGlobalMap, [window]) as
+        | CachedBlueReferencesRecord
+        | undefined;
+    if (record) {
         return record;
     }
     record = getBaseReferences(window) as CachedBlueReferencesRecord;
     // caching the record
-    WeakMapSet(cachedBlueGlobalMap, window, record);
+    ReflectApply(WeakMapProtoSet, cachedBlueGlobalMap, [window, record]);
     // intentionally avoiding remapping any Window.prototype descriptor,
     // there is nothing in this prototype that needs to be remapped.
-    record.WindowProtoDescriptors = { __proto__: null } as any;
+    record.WindowProtoDescriptors = {};
     // intentionally avoiding remapping any WindowProperties.prototype descriptor
     // because this object contains magical properties for HTMLObjectElement instances
     // and co, based on their id attribute. These cannot, and should not, be
     // remapped. Additionally, constructor is not relevant, and can't be used for anything.
-    record.WindowPropertiesProtoDescriptors = { __proto__: null } as any;
+    record.WindowPropertiesProtoDescriptors = {};
     record.EventTargetProtoDescriptors = ObjectGetOwnPropertyDescriptors(record.EventTargetProto);
 
     return record;
@@ -117,7 +105,7 @@ getCachedBlueReferences(window);
 function filterWindowDescriptors(
     endowmentsDescriptors: PropertyDescriptorMap | undefined
 ): PropertyDescriptorMap {
-    const to: PropertyDescriptorMap = { __proto__: null } as any;
+    const to: PropertyDescriptorMap = {};
 
     // endowments descriptors will overrule any default descriptor inferred
     // from the detached iframe. note that they are already filtered, not need
