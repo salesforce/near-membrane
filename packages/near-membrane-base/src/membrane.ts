@@ -212,6 +212,9 @@ export function createMembraneMarshall() {
 
         const proxyTargetToPointerMap = new WeakMap();
 
+        // @rollup/plugin-replace replaces `DEV_MODE` references.
+        const DEV_MODE = true;
+
         const INBOUND_INSTRUMENTATION_LABEL = `to:${color}`;
         const OUTBOUND_INSTRUMENTATION_LABEL = `from:${color}`;
 
@@ -303,9 +306,11 @@ export function createMembraneMarshall() {
                 // assert: selectedTarget is undefined
                 selectedTarget = originalTarget;
             };
-            // In case debugging is needed, the following line can help greatly:
-            pointer['[[OriginalTarget]]'] = originalTarget;
-            pointer['[[Color]]'] = color;
+            if (DEV_MODE) {
+                // In case debugging is needed, the following lines can help:
+                pointer['[[OriginalTarget]]'] = originalTarget;
+                pointer['[[Color]]'] = color;
+            }
             return pointer;
         }
 
@@ -330,11 +335,14 @@ export function createMembraneMarshall() {
                 // eslint-disable-next-line func-names
                 shadowTarget =
                     targetTraits & TargetTraits.IsArrowFunction ? () => {} : function () {};
-                // This is only really needed for debugging, it helps to identify the proxy by name
-                ReflectDefineProperty(shadowTarget, 'name', {
-                    value: targetFunctionName,
-                    configurable: true,
-                });
+                if (DEV_MODE) {
+                    // This is only really needed for debugging,
+                    // it helps to identify the proxy by name
+                    ReflectDefineProperty(shadowTarget, 'name', {
+                        value: targetFunctionName,
+                        configurable: true,
+                    });
+                }
             } else {
                 // target is array or object
                 shadowTarget = targetTraits & TargetTraits.IsArray ? [] : {};

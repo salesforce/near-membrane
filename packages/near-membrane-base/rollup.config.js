@@ -1,3 +1,5 @@
-import { rollupConfig } from '../../rollup.config';
+'use strict';
 
-export default rollupConfig();
+const { rollupConfig } = require('../../rollup.config.js');
+
+module.exports = rollupConfig();
