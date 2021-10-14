@@ -4,6 +4,7 @@ import {
     getResolvedShapeDescriptors,
     linkIntrinsics,
     DistortionCallback,
+    InstrumentationHooks,
     SupportFlagsObject,
     validateRequiredGlobalShapeAndVirtualizationObjects,
     VirtualEnvironment,
@@ -15,6 +16,7 @@ interface NodeEnvironmentOptions {
     distortionCallback?: DistortionCallback;
     endowments?: object;
     support?: SupportFlagsObject;
+    instrumentation?: InstrumentationHooks;
 }
 
 const createHooksCallback = createMembraneMarshall();
@@ -32,7 +34,7 @@ export default function createVirtualEnvironment(
         __proto__: null,
         ...providedOptions,
     };
-    const { distortionCallback, endowments = {}, support } = options;
+    const { distortionCallback, endowments = {}, support, instrumentation } = options;
     const redGlobalThis: typeof globalThis = runInNewContext('globalThis');
     const blueConnector = createHooksCallback;
     const redConnector = createConnector(redGlobalThis.eval);
@@ -41,6 +43,7 @@ export default function createVirtualEnvironment(
         distortionCallback,
         redConnector,
         support,
+        instrumentation,
     });
     env.link('globalThis');
     linkIntrinsics(env, globalObjectVirtualizationTarget);
