@@ -1,3 +1,4 @@
+import { InstrumentationHooks } from './instrumentation';
 import {
     createMembraneMarshall,
     CallableDefineProperty,
@@ -28,6 +29,8 @@ interface VirtualEnvironmentOptions {
     redConnector: ReturnType<typeof createMembraneMarshall>;
     // Environment support object
     support?: SupportFlagsObject;
+    // Instrumentation libray object
+    instrumentation?: InstrumentationHooks;
 }
 
 const SHOULD_TRAP_MUTATION = true;
@@ -73,7 +76,13 @@ export class VirtualEnvironment {
         if (options === undefined) {
             throw new ErrorCtor(`Missing VirtualEnvironmentOptions options bag.`);
         }
-        const { blueConnector, redConnector, distortionCallback, support } = options;
+        const {
+            blueConnector,
+            redConnector,
+            distortionCallback,
+            support,
+            instrumentation,
+        } = options;
         this.blueConnector = blueConnector;
         this.redConnector = redConnector;
 
@@ -89,6 +98,7 @@ export class VirtualEnvironment {
 
         const initLocalOptions = {
             distortionCallback,
+            instrumentation,
         };
 
         let supportFlags = SupportFlagsField.None;

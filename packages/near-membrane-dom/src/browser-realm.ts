@@ -2,6 +2,7 @@ import {
     getResolvedShapeDescriptors,
     createConnector,
     createMembraneMarshall,
+    InstrumentationHooks,
     linkIntrinsics,
     DistortionCallback,
     SupportFlagsObject,
@@ -145,6 +146,7 @@ interface BrowserEnvironmentOptions {
     endowments?: object;
     keepAlive?: boolean;
     support?: SupportFlagsObject;
+    instrumentation?: InstrumentationHooks;
 }
 
 const createHooksCallback = createMembraneMarshall();
@@ -167,7 +169,7 @@ export default function createVirtualEnvironment(
         providedOptions
     );
     // eslint-disable-next-line prefer-object-spread
-    const { distortionCallback, endowments = {}, keepAlive, support } = options;
+    const { distortionCallback, endowments = {}, keepAlive, support, instrumentation } = options;
     const iframe = createDetachableIframe();
     const redWindow = HTMLIFrameElementContentWindowGetter(iframe)!.window;
     const { document: redDocument } = redWindow;
@@ -181,6 +183,7 @@ export default function createVirtualEnvironment(
         distortionCallback,
         redConnector,
         support,
+        instrumentation,
     });
     env.link('window');
     linkIntrinsics(env, globalObjectVirtualizationTarget);
