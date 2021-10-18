@@ -4,7 +4,6 @@ import {
     CallableDefineProperty,
     CallableEvaluate,
     CallableGetPropertyValuePointer,
-    CallableInstallLazyDescriptors,
     CallableLinkPointers,
     CallableSetPrototypeOf,
     DistortionCallback,
@@ -37,14 +36,9 @@ const SHOULD_TRAP_MUTATION = true;
 const SHOULD_NOT_TRAP_MUTATION = false;
 const UNDEFINED_SYMBOL = Symbol.for('@@membraneUndefinedValue');
 
-const ArrayCtor = Array;
-const { includes: ArrayProtoIncludes } = Array.prototype;
 const ErrorCtor = Error;
 const { assign: ObjectAssign, keys: ObjectKeys } = Object;
-const {
-    hasOwnProperty: ObjectProtoHasOwnProperty,
-    propertyIsEnumerable: ObjectProtoPropertyIsEnumerable,
-} = Object.prototype;
+const { hasOwnProperty: ObjectProtoHasOwnProperty } = Object.prototype;
 const { apply: ReflectApply, ownKeys: ReflectOwnKeys } = Reflect;
 const { slice: StringProtoSlice, toUpperCase: StringProtoToUpperCase } = String.prototype;
 
@@ -77,8 +71,6 @@ export class VirtualEnvironment {
     private redCallableSetPrototypeOf: CallableSetPrototypeOf;
 
     private redCallableEvaluate: CallableEvaluate;
-
-    private redCallableInstallLazyDescriptors: CallableInstallLazyDescriptors;
 
     private redCallableDefineProperty: CallableDefineProperty;
 
@@ -163,7 +155,6 @@ export class VirtualEnvironment {
             redCallableGetPropertyValuePointer,
             redCallableEvaluate,
             redCallableLinkPointers,
-            redCallableInstallLazyDescriptors,
             , // redCallablePushTarget
             , // redCallableApply
             // eslint-disable-next-line comma-style
@@ -172,7 +163,6 @@ export class VirtualEnvironment {
             , // redCallableDeleteProperty
             , // redCallableGetOwnPropertyDescriptor
             , // redCallableGetPrototypeOf
-            , // redCallableHas
             , // redCallableIsExtensible
             , // redCallableOwnKeys
             // eslint-disable-next-line comma-style
@@ -181,7 +171,6 @@ export class VirtualEnvironment {
         ] = redHooks!;
         this.redGlobalThisPointer = redGlobalThisPointer;
         this.redCallableEvaluate = redCallableEvaluate;
-        this.redCallableInstallLazyDescriptors = redCallableInstallLazyDescriptors;
         this.redCallableSetPrototypeOf = redCallableSetPrototypeOf;
         this.redCallableDefineProperty = redCallableDefineProperty;
         this.redCallableGetPropertyValuePointer = redCallableGetPropertyValuePointer;
@@ -251,30 +240,6 @@ export class VirtualEnvironment {
                     : UNDEFINED_SYMBOL
             );
         }
-    }
-
-    lazyRemap(target: ProxyTarget, keys: (string | symbol)[]) {
-        const { length: keysLen } = keys;
-        const keyAndEnumTupleLen = keysLen * 2;
-        // Expand args to length of the oPointer plus key and enumerable tuple.
-        const args = new ArrayCtor(
-            1 + keyAndEnumTupleLen
-        ) as Parameters<CallableInstallLazyDescriptors>;
-        const enumerableKeys = ObjectKeys(target); // except symbols
-        const targetPointer = this.blueGetTransferableValue(target) as Pointer;
-        args[0] = targetPointer;
-        let argsIndex = 0;
-        for (let i = 0; i < keysLen; i += 1) {
-            const key = keys[i];
-            const isEnumerable: boolean =
-                typeof key === 'symbol'
-                    ? ReflectApply(ObjectProtoPropertyIsEnumerable, target, [key])
-                    : ReflectApply(ArrayProtoIncludes, enumerableKeys, [key]);
-            // Add to key and enumerable tuple.
-            args[(argsIndex += 1)] = key;
-            args[(argsIndex += 1)] = isEnumerable;
-        }
-        ReflectApply(this.redCallableInstallLazyDescriptors, undefined, args);
     }
 
     remapProto(target: ProxyTarget, proto: object | null) {
