@@ -13,7 +13,7 @@ import {
     HooksCallback,
     Pointer,
     ProxyTarget,
-    SupportFlagsField,
+    SupportFlagsEnum,
 } from './membrane';
 
 export interface SupportFlagsObject {
@@ -37,11 +37,25 @@ const SHOULD_TRAP_MUTATION = true;
 const SHOULD_NOT_TRAP_MUTATION = false;
 const UNDEFINED_SYMBOL = Symbol.for('@@membraneUndefinedValue');
 
-const { includes: ArrayProtoIncludes, push: ArrayProtoPush } = Array.prototype;
+const ArrayCtor = Array;
+const { includes: ArrayProtoIncludes } = Array.prototype;
 const ErrorCtor = Error;
 const { assign: ObjectAssign, keys: ObjectKeys } = Object;
-const { propertyIsEnumerable: ObjectProtoPropertyIsEnumerable } = Object.prototype;
+const {
+    hasOwnProperty: ObjectProtoHasOwnProperty,
+    propertyIsEnumerable: ObjectProtoPropertyIsEnumerable,
+} = Object.prototype;
 const { apply: ReflectApply, ownKeys: ReflectOwnKeys } = Reflect;
+const { slice: StringProtoSlice, toUpperCase: StringProtoToUpperCase } = String.prototype;
+
+function capitalizeFirstChar(string: string): string {
+    const { length } = string;
+    if (!length) {
+        return string;
+    }
+    const upper = ReflectApply(StringProtoToUpperCase, string[0], []);
+    return length === 1 ? upper : upper + ReflectApply(StringProtoSlice, string, [1]);
+}
 
 export class VirtualEnvironment {
     public blueConnector: ReturnType<typeof createMembraneMarshall>;
@@ -86,6 +100,15 @@ export class VirtualEnvironment {
         this.blueConnector = blueConnector;
         this.redConnector = redConnector;
 
+        let supportFlags = SupportFlagsEnum.None;
+        const supportProps = support ? ObjectKeys(support) : [];
+        for (let i = 0, len = supportProps.length; i < len; i += 1) {
+            const key = capitalizeFirstChar(supportProps[i]);
+            if (ReflectApply(ObjectProtoHasOwnProperty, SupportFlagsEnum, [key])) {
+                supportFlags |= SupportFlagsEnum[key];
+            }
+        }
+
         let blueHooks: Parameters<HooksCallback>;
         let redHooks: Parameters<HooksCallback>;
 
@@ -100,9 +123,6 @@ export class VirtualEnvironment {
             distortionCallback,
             instrumentation,
         };
-
-        let supportFlags = SupportFlagsField.None;
-        supportFlags |= (support?.magicMarker as any) && SupportFlagsField.MagicMarker;
 
         const localConnect = blueConnector(
             'blue',
@@ -185,76 +205,81 @@ export class VirtualEnvironment {
         }
     }
 
-    link(...keys: PropertyKey[]) {
+    link(...keys: (string | symbol)[]) {
         let bluePointer = this.blueGlobalThisPointer;
         let redPointer = this.redGlobalThisPointer;
         for (let i = 0, len = keys.length; i < len; i += 1) {
-            bluePointer = this.blueCallableGetPropertyValuePointer(bluePointer, keys[i]);
-            redPointer = this.redCallableGetPropertyValuePointer(redPointer, keys[i]);
+            const key = keys[i];
+            bluePointer = this.blueCallableGetPropertyValuePointer(bluePointer, key);
+            redPointer = this.redCallableGetPropertyValuePointer(redPointer, key);
         }
         this.redCallableLinkPointers(redPointer, bluePointer);
         this.blueCallableLinkPointers(bluePointer, redPointer);
     }
 
-    remap(o: ProxyTarget, blueDescriptors: PropertyDescriptorMap) {
-        const keys = ReflectOwnKeys(blueDescriptors);
-        const oPointer = this.blueGetTransferableValue(o) as Pointer;
+    remap(target: ProxyTarget, blueDescriptors: PropertyDescriptorMap) {
+        const keys = ReflectOwnKeys(blueDescriptors) as (string | symbol)[];
+        const targetPointer = this.blueGetTransferableValue(target) as Pointer;
+        // prettier-ignore
         for (let i = 0, len = keys.length; i < len; i += 1) {
             const key = keys[i];
+            const unsafeBlueDesc = (blueDescriptors as any)[key];
             // Avoid poisoning by only installing own properties from blueDescriptors
             // eslint-disable-next-line prefer-object-spread
-            const blueDescriptor = ObjectAssign({ __proto__: null }, (blueDescriptors as any)[key]);
-            const configurable =
-                'configurable' in blueDescriptor ? !!blueDescriptor.configurable : UNDEFINED_SYMBOL;
-            const enumerable =
-                'enumerable' in blueDescriptor ? !!blueDescriptor.enumerable : UNDEFINED_SYMBOL;
-            const writable =
-                'writable' in blueDescriptor ? !!blueDescriptor.writable : UNDEFINED_SYMBOL;
-            const valuePointer =
-                'value' in blueDescriptor
-                    ? this.blueGetTransferableValue(blueDescriptor.value)
-                    : UNDEFINED_SYMBOL;
-            const getPointer =
-                'get' in blueDescriptor
-                    ? this.blueGetTransferableValue(blueDescriptor.get)
-                    : UNDEFINED_SYMBOL;
-            const setPointer =
-                'set' in blueDescriptor
-                    ? this.blueGetTransferableValue(blueDescriptor.set)
-                    : UNDEFINED_SYMBOL;
-            // installing descriptor into the red side
+            const safeBlueDesc = ObjectAssign({ __proto__: null }, unsafeBlueDesc);
+            // Install descriptor into the red side.
             this.redCallableDefineProperty(
-                oPointer,
+                targetPointer,
                 key,
-                configurable,
-                enumerable,
-                writable,
-                valuePointer,
-                getPointer,
-                setPointer
+                'configurable' in safeBlueDesc
+                    ? !!safeBlueDesc.configurable
+                    : UNDEFINED_SYMBOL,
+                'enumerable' in safeBlueDesc
+                    ? !!safeBlueDesc.enumerable
+                    : UNDEFINED_SYMBOL,
+                'writable' in safeBlueDesc
+                    ? !!safeBlueDesc.writable
+                    : UNDEFINED_SYMBOL,
+                'value' in safeBlueDesc
+                    ? this.blueGetTransferableValue(safeBlueDesc.value)
+                    : UNDEFINED_SYMBOL,
+                'get' in safeBlueDesc
+                    ? this.blueGetTransferableValue(safeBlueDesc.get) as Pointer
+                    : UNDEFINED_SYMBOL,
+                'set' in safeBlueDesc
+                    ? this.blueGetTransferableValue(safeBlueDesc.set) as Pointer
+                    : UNDEFINED_SYMBOL
             );
         }
     }
 
-    lazyRemap(o: ProxyTarget, keys: PropertyKey[]) {
-        const enumerablePropertyKeys = ObjectKeys(o); // except symbols
-        const oPointer = this.blueGetTransferableValue(o) as Pointer;
-        const args: Parameters<CallableInstallLazyDescriptors> = [oPointer];
-        for (let i = 0, len = keys.length; i < len; i += 1) {
+    lazyRemap(target: ProxyTarget, keys: (string | symbol)[]) {
+        const { length: keysLen } = keys;
+        const keyAndEnumTupleLen = keysLen * 2;
+        // Expand args to length of the oPointer plus key and enumerable tuple.
+        const args = new ArrayCtor(
+            1 + keyAndEnumTupleLen
+        ) as Parameters<CallableInstallLazyDescriptors>;
+        const enumerableKeys = ObjectKeys(target); // except symbols
+        const targetPointer = this.blueGetTransferableValue(target) as Pointer;
+        args[0] = targetPointer;
+        let argsIndex = 0;
+        for (let i = 0; i < keysLen; i += 1) {
             const key = keys[i];
-            const isEnumerable =
+            const isEnumerable: boolean =
                 typeof key === 'symbol'
-                    ? ReflectApply(ObjectProtoPropertyIsEnumerable, o, [key])
-                    : ReflectApply(ArrayProtoIncludes, enumerablePropertyKeys, [key]);
-
-            ReflectApply(ArrayProtoPush, args, [key, isEnumerable]);
+                    ? ReflectApply(ObjectProtoPropertyIsEnumerable, target, [key])
+                    : ReflectApply(ArrayProtoIncludes, enumerableKeys, [key]);
+            // Add to key and enumerable tuple.
+            args[(argsIndex += 1)] = key;
+            args[(argsIndex += 1)] = isEnumerable;
         }
         ReflectApply(this.redCallableInstallLazyDescriptors, undefined, args);
     }
 
-    remapProto(o: ProxyTarget, proto: object) {
-        const oPointer = this.blueGetTransferableValue(o) as Pointer;
-        const protoValueOrPointer = this.blueGetTransferableValue(proto);
-        this.redCallableSetPrototypeOf(oPointer, protoValueOrPointer);
+    remapProto(target: ProxyTarget, proto: object | null) {
+        const targetPointer = this.blueGetTransferableValue(target) as Pointer;
+        const pointerOrNull = this.blueGetTransferableValue(proto) as Pointer | null;
+        this.redCallableSetPrototypeOf(targetPointer, pointerOrNull);
     }
 }

@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { SupportFlagsField } from '../../types';
+import { SupportFlagsEnum } from '../../types';
 import {
     createConnector,
     createMembraneMarshall,
@@ -31,6 +31,7 @@ describe('VirtualEnvironment', () => {
             new VirtualEnvironment();
         }).toThrow(/Missing VirtualEnvironmentOptions options bag/);
     });
+
     it('forwards support { ... } as bit fields to init functions', () => {
         // Ignoring "Property 'assertions' does not exist on type '{...}'."
         // @ts-ignore
@@ -40,7 +41,7 @@ describe('VirtualEnvironment', () => {
         const interceptor: typeof init = (
             _name: string,
             _shouldOrNotTrapMutation: boolean,
-            supportFlags: SupportFlagsField,
+            supportFlags: SupportFlagsEnum,
             exportsCallback: HooksCallback
         ) => {
             expect(supportFlags).toBe(0b1 /* 1 */);

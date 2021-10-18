@@ -126,7 +126,7 @@ function assignFilteredGlobalObjectShapeDescriptors<T extends PropertyDescriptor
     descriptorMap: T,
     source: object
 ): T {
-    const keys = ReflectOwnKeys(source);
+    const keys = ReflectOwnKeys(source) as (string | symbol)[];
     for (let i = 0, len = keys.length; i < len; i += 1) {
         // forcing to string here because of TypeScript's PropertyDescriptorMap
         // definition, which doesn't support symbols as entries.
@@ -137,7 +137,7 @@ function assignFilteredGlobalObjectShapeDescriptors<T extends PropertyDescriptor
         // TODO: what if the intent is to polyfill one of those
         // intrinsics?
         if (!isIntrinsicGlobalName(key) && !isReflectiveGlobalName(key)) {
-            const descriptor = ReflectGetOwnPropertyDescriptor(source, key)!;
+            const unsafeDesc = ReflectGetOwnPropertyDescriptor(source, key)!;
             // Safari 14.0.x (macOS) and 14.2 (iOS) have a bug where 'showModalDialog'
             // is returned in the list of own keys produces by ReflectOwnKeys(iframeWindow),
             // however 'showModalDialog' is not an own property and produces
@@ -148,21 +148,22 @@ function assignFilteredGlobalObjectShapeDescriptors<T extends PropertyDescriptor
             //
             // So, as a general rule: if there is not an own descriptor,
             // ignore the entry and continue.
-            if (descriptor) {
-                (descriptorMap as any)[key] = descriptor;
+            if (unsafeDesc) {
+                (descriptorMap as any)[key] = unsafeDesc;
             }
         }
     }
     return descriptorMap;
 }
 
-function isIntrinsicGlobalName(key: PropertyKey): boolean {
+function isIntrinsicGlobalName(key: string | symbol): boolean {
     return ReflectApply(SetProtoHas, ESGlobalKeys, [key]);
 }
 
-function isReflectiveGlobalName(key: PropertyKey): boolean {
+function isReflectiveGlobalName(key: string | symbol): boolean {
     return ReflectApply(ArrayProtoIncludes, ReflectiveIntrinsicObjectNames, [key]);
 }
+
 export function linkIntrinsics(
     env: VirtualEnvironment,
     globalObjectVirtualizationTarget: typeof globalThis
@@ -182,7 +183,7 @@ export function linkIntrinsics(
 }
 
 export function getResolvedShapeDescriptors(...sources: any[]): PropertyDescriptorMap {
-    const descriptors: PropertyDescriptorMap = { __proto__: null } as any;
+    const descriptors: PropertyDescriptorMap = {};
     for (let i = 0, len = sources.length; i < len; i += 1) {
         const source = sources[i];
         if (source) {

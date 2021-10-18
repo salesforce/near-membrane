@@ -31,8 +31,9 @@ const {
 const { apply: ReflectApply } = Reflect;
 
 function ObjectLookupOwnGetter(obj: object, key: PropertyKey): Function | undefined {
-    // Since this function is only used internally, and would not otherwise be reachable
-    // by user code, istanbul can ignore test coverage for the following condition.
+    // Since this function is only used internally, and would not otherwise be
+    // reachable by user code, istanbul can ignore test coverage for the
+    // following condition.
     // istanbul ignore next
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     if (obj === null || obj === undefined || !ReflectApply(ObjectProtoHasOwnProperty, obj, [key])) {
@@ -175,9 +176,9 @@ export default function createVirtualEnvironment(
     const { document: redDocument } = redWindow;
     const blueConnector = createHooksCallback;
     const redConnector = createConnector(redWindow.eval);
-    // extract the global references and descriptors before any interference
+    // Extract the global references and descriptors before any interference.
     const blueRefs = getCachedBlueReferences(globalObjectVirtualizationTarget);
-    // creating a new environment
+    // Create a new environment.
     const env = new VirtualEnvironment({
         blueConnector,
         distortionCallback,
@@ -189,12 +190,12 @@ export default function createVirtualEnvironment(
     linkIntrinsics(env, globalObjectVirtualizationTarget);
     linkUnforgeables(env, globalObjectVirtualizationTarget);
     tameDOM(env, blueRefs, getResolvedShapeDescriptors(globalObjectShape, endowments));
-    // once we get the iframe info ready, and all mapped, we can proceed
-    // to detach the iframe only if the keepAlive option isn't true
+    // Once we get the iframe info ready, and all mapped, we can proceed
+    // to detach the iframe only if the keepAlive option isn't true.
     if (keepAlive !== true) {
         removeIframe(iframe);
     } else {
-        // TODO: temporary hack to preserve the document reference in FF
+        // TODO: Temporary hack to preserve the document reference in Firefox.
         // https://bugzilla.mozilla.org/show_bug.cgi?id=543435
         DocumentOpen(redDocument);
         DocumentClose(redDocument);
