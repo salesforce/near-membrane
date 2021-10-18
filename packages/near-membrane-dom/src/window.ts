@@ -22,7 +22,6 @@ interface BaseReferencesRecord extends Object {
  */
 interface CachedBlueReferencesRecord extends BaseReferencesRecord {
     EventTargetProtoDescriptors: PropertyDescriptorMap;
-    WindowPropertiesProtoDescriptors: PropertyDescriptorMap;
     WindowProtoDescriptors: PropertyDescriptorMap;
 }
 
@@ -57,11 +56,6 @@ export function getCachedBlueReferences(
     // intentionally avoiding remapping any Window.prototype descriptor,
     // there is nothing in this prototype that needs to be remapped.
     record.WindowProtoDescriptors = {};
-    // intentionally avoiding remapping any WindowProperties.prototype descriptor
-    // because this object contains magical properties for HTMLObjectElement instances
-    // and co, based on their id attribute. These cannot, and should not, be
-    // remapped. Additionally, constructor is not relevant, and can't be used for anything.
-    record.WindowPropertiesProtoDescriptors = {};
     record.EventTargetProtoDescriptors = ObjectGetOwnPropertyDescriptors(record.EventTargetProto);
 
     return record;
