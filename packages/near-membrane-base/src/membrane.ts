@@ -72,6 +72,12 @@ type CallableOwnKeys = (
     foreignCallableKeysCallback: (...args: ReturnType<typeof Reflect.ownKeys>) => void
 ) => void;
 type CallablePreventExtensions = (targetPointer: Pointer) => boolean;
+type CallableSet = (
+    targetPointer: Pointer,
+    propertyKey: PropertyKey,
+    value: any,
+    receiver?: any
+) => boolean;
 export type CallableSetPrototypeOf = (
     targetPointer: Pointer,
     protoPointerOrNull: Pointer | null
@@ -104,6 +110,7 @@ export type HooksCallback = (
     callableIsExtensible: CallableIsExtensible,
     callableOwnKeys: CallableOwnKeys,
     callablePreventExtensions: CallablePreventExtensions,
+    callableSet: CallableSet,
     callableSetPrototypeOf: CallableSetPrototypeOf,
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableGetUnbrandedTag: CallableGetUnbrandedTag,
@@ -215,6 +222,7 @@ export function createMembraneMarshall() {
         let foreignCallableIsExtensible: CallableIsExtensible;
         let foreignCallableOwnKeys: CallableOwnKeys;
         let foreignCallablePreventExtensions: CallablePreventExtensions;
+        let foreignCallableSet: CallableSet;
         let foreignCallableSetPrototypeOf: CallableSetPrototypeOf;
         let foreignCallableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits;
         let foreignCallableGetUnbrandedTag: CallableGetUnbrandedTag;
@@ -835,12 +843,6 @@ export function createMembraneMarshall() {
                     return false;
                 }
             }
-            if (isMarkedMagic(receiver)) {
-                // Workaround for Safari <= 14 bug on CSSStyleDeclaration
-                // objects which lose their magic setters if set with
-                // defineProperty.
-                return ReflectSet(receiver, key, value);
-            }
             const unsafeReceiverDesc = ReflectGetOwnPropertyDescriptor(receiver, key);
             if (unsafeReceiverDesc) {
                 const safeReceiverDesc = toSafeDescriptor(unsafeReceiverDesc);
@@ -853,9 +855,21 @@ export function createMembraneMarshall() {
                 ) {
                     return false;
                 }
-                // Setting the descriptor with only a value entry should not
-                // affect existing descriptor traits.
-                ReflectDefineProperty(receiver, key, toSafeDescriptor({ value }));
+                if (isMarkedMagic(receiver)) {
+                    // Workaround for Safari <= 14 bug on CSSStyleDeclaration
+                    // objects which lose their magic setters if set with
+                    // defineProperty.
+                    foreignCallableSet(
+                        foreignTargetPointer,
+                        key,
+                        getTransferableValue(value),
+                        getTransferablePointer(receiver)
+                    );
+                } else {
+                    // Setting the descriptor with only a value entry should not
+                    // affect existing descriptor traits.
+                    ReflectDefineProperty(receiver, key, toSafeDescriptor({ value }));
+                }
             } else {
                 ReflectDefineProperty(
                     receiver,
@@ -1635,6 +1649,30 @@ export function createMembraneMarshall() {
                 'callablePreventExtensions',
                 INBOUND_INSTRUMENTATION_LABEL
             ),
+            // callableSet
+            instrumentCallableWrapper(
+                (
+                    targetPointer: Pointer,
+                    propertyKey: PropertyKey,
+                    valuePointer: Pointer,
+                    receiverPointer?: Pointer
+                ): boolean => {
+                    targetPointer();
+                    const target = getSelectedTarget();
+                    try {
+                        return ReflectSet(
+                            target,
+                            propertyKey,
+                            getLocalValue(valuePointer),
+                            getLocalValue(receiverPointer)
+                        );
+                    } catch (e: any) {
+                        throw pushErrorAcrossBoundary(e);
+                    }
+                },
+                'callableSet',
+                INBOUND_INSTRUMENTATION_LABEL
+            ),
             // callableSetPrototypeOf
             instrumentCallableWrapper(
                 (targetPointer: Pointer, protoPointerOrNull: Pointer | null): boolean => {
@@ -1717,10 +1755,11 @@ export function createMembraneMarshall() {
                 13: callableIsExtensible,
                 14: callableOwnKeys,
                 15: callablePreventExtensions,
-                16: callableSetPrototypeOf,
-                17: callableGetTargetIntegrityTraits,
-                18: callableGetUnbrandedTag,
-                19: callableHasOwnProperty,
+                16: callableSet,
+                17: callableSetPrototypeOf,
+                18: callableGetTargetIntegrityTraits,
+                19: callableGetUnbrandedTag,
+                20: callableHasOwnProperty,
             } = hooks;
             foreignCallablePushTarget = callablePushTarget;
             // traps utilities
@@ -1784,6 +1823,13 @@ export function createMembraneMarshall() {
                 instrumentCallableWrapper(
                     callablePreventExtensions,
                     'callablePreventExtensions',
+                    OUTBOUND_INSTRUMENTATION_LABEL
+                )
+            );
+            foreignCallableSet = foreignErrorControl(
+                instrumentCallableWrapper(
+                    callableSet,
+                    'callableSet',
                     OUTBOUND_INSTRUMENTATION_LABEL
                 )
             );
