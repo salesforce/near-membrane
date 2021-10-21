@@ -342,16 +342,14 @@ export function createMembraneMarshall() {
                 if (DEV_MODE) {
                     // This is only really needed for debugging,
                     // it helps to identify the proxy by name
-                    ReflectDefineProperty(
-                        shadowTarget,
-                        'name',
-                        toSafeDescriptor({
-                            configurable: true,
-                            enumerable: false,
-                            value: targetFunctionName,
-                            writable: false,
-                        })
-                    );
+                    ReflectDefineProperty(shadowTarget, 'name', {
+                        // @ts-ignore: TS doesn't like __proto__ on property descriptors.
+                        __proto__: null,
+                        configurable: true,
+                        enumerable: false,
+                        value: targetFunctionName,
+                        writable: false,
+                    });
                 }
             } else {
                 // target is array or object
@@ -404,6 +402,23 @@ export function createMembraneMarshall() {
                     throw new TypeErrorCtor(`Invalid distortion ${target}.`);
                 }
             }
+        }
+
+        function getInheritedPropertyDescriptor(
+            foreignTargetPointer: Pointer,
+            key: string | symbol
+        ): PropertyDescriptor | undefined {
+            // Avoiding calling the has trap for any proto chain operation,
+            // instead we implement the regular logic here in this trap.
+            let currentObject = liveGetPrototypeOf(foreignTargetPointer);
+            while (currentObject) {
+                const unsafeParentDesc = ReflectGetOwnPropertyDescriptor(currentObject, key);
+                if (unsafeParentDesc) {
+                    return toSafeDescriptor(unsafeParentDesc);
+                }
+                currentObject = ReflectGetPrototypeOf(currentObject);
+            }
+            return undefined;
         }
 
         function getLocalValue(pointerOrPrimitive: PointerOrPrimitive): any {
@@ -663,7 +678,10 @@ export function createMembraneMarshall() {
             key: string | symbol,
             receiver: any
         ): any {
-            const safeDesc = liveGetPropertyDescriptor(foreignTargetPointer, shadowTarget, key);
+            const safeDesc =
+                liveGetOwnPropertyDescriptor(foreignTargetPointer, shadowTarget, key) ||
+                getInheritedPropertyDescriptor(foreignTargetPointer, key);
+
             if (safeDesc) {
                 const { get: getter, value: localValue } = safeDesc;
                 if (getter) {
@@ -706,28 +724,6 @@ export function createMembraneMarshall() {
                 }
             );
             return safeDesc;
-        }
-
-        function liveGetPropertyDescriptor(
-            foreignTargetPointer: Pointer,
-            shadowTarget: ShadowTarget,
-            key: string | symbol
-        ): PropertyDescriptor | undefined {
-            const safeDesc = liveGetOwnPropertyDescriptor(foreignTargetPointer, shadowTarget, key);
-            if (safeDesc) {
-                return safeDesc;
-            }
-            // Avoiding calling the has trap for any proto chain operation,
-            // instead we implement the regular logic here in this trap.
-            let currentObject = liveGetPrototypeOf(foreignTargetPointer);
-            while (currentObject) {
-                const unsafeParentDesc = ReflectGetOwnPropertyDescriptor(currentObject, key);
-                if (unsafeParentDesc) {
-                    return toSafeDescriptor(unsafeParentDesc);
-                }
-                currentObject = ReflectGetPrototypeOf(currentObject);
-            }
-            return undefined;
         }
 
         function liveGetPrototypeOf(
@@ -802,19 +798,22 @@ export function createMembraneMarshall() {
             shadowTarget: ShadowTarget,
             key: string | symbol,
             value: any,
-            receiver: any
+            receiver: any,
+            useFastPath: boolean
         ): boolean {
             // Following the specification steps for
             // OrdinarySetWithOwnDescriptor ( O, P, V, Receiver, ownDesc ).
             // https://tc39.es/ecma262/#sec-ordinarysetwithowndescriptor
-            const foundSafeDesc = liveGetPropertyDescriptor(
+            const safeOwnDesc = liveGetOwnPropertyDescriptor(
                 foreignTargetPointer,
                 shadowTarget,
                 key
             );
-            if (foundSafeDesc) {
-                if ('get' in foundSafeDesc || 'set' in foundSafeDesc) {
-                    const { set: setter } = foundSafeDesc;
+            const safeDesc =
+                safeOwnDesc || getInheritedPropertyDescriptor(foreignTargetPointer, key);
+            if (safeDesc) {
+                if ('get' in safeDesc || 'set' in safeDesc) {
+                    const { set: setter } = safeDesc;
                     if (setter) {
                         // Even though the setter function exists, we can't use
                         // `ReflectSet` because there might be a distortion for
@@ -827,25 +826,28 @@ export function createMembraneMarshall() {
                     }
                     return false;
                 }
-                if (foundSafeDesc.writable === false) {
+                if (safeDesc.writable === false) {
                     return false;
                 }
             }
-            // Exit early if receiver is not object like.
-            if (
-                receiver === null ||
-                (typeof receiver !== 'function' && typeof receiver !== 'object')
-            ) {
-                return false;
-            }
-            if (!foundSafeDesc) {
-                if (!ReflectIsExtensible(receiver)) {
+            let safeReceiverDesc: PropertyDescriptor | undefined;
+            if (useFastPath) {
+                // In the fast path we know the receiver is the proxy.
+                safeReceiverDesc = safeOwnDesc;
+            } else {
+                // Exit early if receiver is not object like.
+                if (
+                    receiver === null ||
+                    (typeof receiver !== 'function' && typeof receiver !== 'object')
+                ) {
                     return false;
                 }
+                const unsafeReceiverDesc = ReflectGetOwnPropertyDescriptor(receiver, key);
+                if (unsafeReceiverDesc) {
+                    safeReceiverDesc = toSafeDescriptor(unsafeReceiverDesc);
+                }
             }
-            const unsafeReceiverDesc = ReflectGetOwnPropertyDescriptor(receiver, key);
-            if (unsafeReceiverDesc) {
-                const safeReceiverDesc = toSafeDescriptor(unsafeReceiverDesc);
+            if (safeReceiverDesc) {
                 // Exit early for accessor descriptors or non-writable data
                 // descriptors.
                 if (
@@ -868,21 +870,25 @@ export function createMembraneMarshall() {
                 } else {
                     // Setting the descriptor with only a value entry should not
                     // affect existing descriptor traits.
-                    ReflectDefineProperty(receiver, key, toSafeDescriptor({ value }));
-                }
-            } else {
-                ReflectDefineProperty(
-                    receiver,
-                    key,
-                    toSafeDescriptor({
-                        configurable: true,
-                        enumerable: true,
+                    ReflectDefineProperty(receiver, key, {
+                        // @ts-ignore: TS doesn't like __proto__ on property descriptors.
+                        __proto__: null,
                         value,
-                        writable: true,
-                    })
-                );
+                    });
+                }
+                return true;
             }
-            return true;
+            // `ReflectDefineProperty` and `ReflectSet` both are expected to
+            // return `false` when attempting to add a new property if the
+            // receiver is not extensible.
+            return ReflectDefineProperty(receiver, key, {
+                // @ts-ignore: TS doesn't like __proto__ on property descriptors.
+                __proto__: null,
+                configurable: true,
+                enumerable: true,
+                value,
+                writable: true,
+            });
         }
 
         function liveSetPrototypeOf(
@@ -1260,7 +1266,15 @@ export function createMembraneMarshall() {
                 receiver: any
             ): boolean {
                 // assert: trapMutations must be true
-                return liveSet(this.foreignTargetPointer, shadowTarget, key, value, receiver);
+                const useFastPath = this.proxy === receiver;
+                return liveSet(
+                    this.foreignTargetPointer,
+                    shadowTarget,
+                    key,
+                    value,
+                    receiver,
+                    useFastPath
+                );
             }
 
             // pending traps
