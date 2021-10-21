@@ -47,7 +47,11 @@ module.exports = function (config) {
                 format: 'es',
                 sourcemap: 'inline',
             },
-            plugins: [nodeResolve()],
+            plugins: [
+                nodeResolve({
+                    preferBuiltins: true,
+                }),
+            ],
         },
     };
 

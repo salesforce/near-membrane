@@ -1,6 +1,16 @@
 /* eslint-disable no-throw-literal, no-new, class-methods-use-this */
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
+globalThis.onerror = (function (originalOnError) {
+    return function onerror(...args) {
+        const { 0: message } = args;
+        // Suppress Jasmine's built-in unhandled promise rejection handling.
+        if (!String(message).startsWith('Unhandled promise rejection:')) {
+            Reflect.apply(originalOnError, globalThis, args);
+        }
+    };
+})(globalThis.onerror);
+
 it('[red] non-error objects thrown in red functions', () => {
     const env = createVirtualEnvironment(window, window);
     env.evaluate(`
@@ -62,14 +72,15 @@ it('[red] unhandled promise rejections with non-error objects and red listener',
         const errorObj = { foo: 'bar' }
 
         function handler(event) {
+            window.removeEventListener('unhandledrejection', handler)
+            event.preventDefault()
             expect(event.reason).toBe(errorObj)
             expect(event.reason.foo).toBe('bar')
             expect(event.reason.message).toBe(undefined)
-            window.removeEventListener('unhandledrejection', handler)
             done()
         }
 
-        window.addEventListener("unhandledrejection", handler)
+        window.addEventListener('unhandledrejection', handler)
 
         new Promise((resolve, reject) => {
             throw errorObj
@@ -98,14 +109,15 @@ it('[red] unhandled promise rejections and Promise.reject with non-error objects
         const errorObj = { foo: 'bar' }
 
         function handler(event) {
+            window.removeEventListener('unhandledrejection', handler)
+            event.preventDefault()
             expect(event.reason).toBe(errorObj)
             expect(event.reason.foo).toBe('bar')
             expect(event.reason.message).toBe(undefined)
-            window.removeEventListener('unhandledrejection', handler)
             done()
         }
 
-        window.addEventListener("unhandledrejection", handler)
+        window.addEventListener('unhandledrejection', handler)
         new Promise((resolve, reject) => {
             reject(errorObj)
         })
@@ -318,9 +330,10 @@ it('[blue] .catch on red promise', (done) => {
 
 it('[blue] unhandled promise rejections listener with red non-error objects', (done) => {
     function handler(event) {
+        window.removeEventListener('unhandledrejection', handler);
+        event.preventDefault();
         expect(event.reason.foo).toBe('bar');
         expect(event.reason.message).toBe(undefined);
-        window.removeEventListener('unhandledrejection', handler);
         done();
     }
 

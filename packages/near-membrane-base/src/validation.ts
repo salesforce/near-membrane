@@ -5,10 +5,10 @@ export function validateRequiredGlobalShapeAndVirtualizationObjects(
     globalObjectVirtualizationTarget: typeof globalThis
 ): undefined | never {
     if (!globalObjectShape) {
-        throw new TypeErrorCtor(`Missing global object shape.`);
+        throw new TypeErrorCtor('Missing global object shape.');
     }
     if (!globalObjectVirtualizationTarget) {
-        throw new TypeErrorCtor(`Missing global object virtualization target.`);
+        throw new TypeErrorCtor('Missing global object virtualization target.');
     }
     return undefined;
 }
