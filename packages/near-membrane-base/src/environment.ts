@@ -156,7 +156,8 @@ export class VirtualEnvironment {
             // 13: redCallableIsExtensible,
             // 14: redCallableOwnKeys,
             // 15: redCallablePreventExtensions,
-            16: redCallableSetPrototypeOf,
+            // 16: redCallableSet,
+            17: redCallableSetPrototypeOf,
         } = redHooks!;
         this.redGlobalThisPointer = redGlobalThisPointer;
         this.redCallableEvaluate = redCallableEvaluate;
