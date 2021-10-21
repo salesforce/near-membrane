@@ -28,7 +28,7 @@ interface CachedBlueReferencesRecord extends BaseReferencesRecord {
 const cachedBlueGlobalMap: WeakMap<typeof globalThis, CachedBlueReferencesRecord> = new WeakMap();
 
 export function getBaseReferences(window: Window & typeof globalThis): BaseReferencesRecord {
-    const record = ({ __proto__: null } as any) as BaseReferencesRecord;
+    const record = { __proto__: null } as any as BaseReferencesRecord;
     // caching references to object values that can't be replaced
     // window -> Window -> WindowProperties -> EventTarget
     record.window = window.window;

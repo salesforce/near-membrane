@@ -82,13 +82,8 @@ export class VirtualEnvironment {
         if (options === undefined) {
             throw new ErrorCtor(`Missing VirtualEnvironmentOptions options bag.`);
         }
-        const {
-            blueConnector,
-            redConnector,
-            distortionCallback,
-            support,
-            instrumentation,
-        } = options;
+        const { blueConnector, redConnector, distortionCallback, support, instrumentation } =
+            options;
         this.blueConnector = blueConnector;
         this.redConnector = redConnector;
 
@@ -131,44 +126,38 @@ export class VirtualEnvironment {
         );
         ReflectApply(localConnect, undefined, redHooks!);
         ReflectApply(foreignConnect, undefined, blueHooks!);
-        // prettier-ignore
-        const [
-            blueGlobalThisPointer,
-            blueGetSelectedTarget,
-            blueGetTransferableValue,
-            blueCallableGetPropertyValuePointer,
-            // eslint-disable-next-line comma-style
-            , // blueCallableEvaluate
-            blueCallableLinkPointers
-        ] = blueHooks!;
+        const {
+            0: blueGlobalThisPointer,
+            1: blueGetSelectedTarget,
+            2: blueGetTransferableValue,
+            3: blueCallableGetPropertyValuePointer,
+            // 4: blueCallableEvaluate,
+            5: blueCallableLinkPointers,
+        } = blueHooks!;
         this.blueGlobalThisPointer = blueGlobalThisPointer;
         this.blueGetSelectedTarget = blueGetSelectedTarget;
         this.blueGetTransferableValue = blueGetTransferableValue;
         this.blueCallableGetPropertyValuePointer = blueCallableGetPropertyValuePointer;
         this.blueCallableLinkPointers = blueCallableLinkPointers;
-        // prettier-ignore
-        const [
-            redGlobalThisPointer,
-            , // redGetSelectedTarget
-            // eslint-disable-next-line comma-style
-            , // redGetTransferableValue
-            redCallableGetPropertyValuePointer,
-            redCallableEvaluate,
-            redCallableLinkPointers,
-            , // redCallablePushTarget
-            , // redCallableApply
-            // eslint-disable-next-line comma-style
-            , // redCallableConstruct
-            redCallableDefineProperty,
-            , // redCallableDeleteProperty
-            , // redCallableGetOwnPropertyDescriptor
-            , // redCallableGetPrototypeOf
-            , // redCallableIsExtensible
-            , // redCallableOwnKeys
-            // eslint-disable-next-line comma-style
-            , // redCallablePreventExtensions
-            redCallableSetPrototypeOf,
-        ] = redHooks!;
+        const {
+            0: redGlobalThisPointer,
+            // 1: redGetSelectedTarget,
+            // 2: redGetTransferableValue,
+            3: redCallableGetPropertyValuePointer,
+            4: redCallableEvaluate,
+            5: redCallableLinkPointers,
+            // 6: redCallablePushTarget,
+            // 7: redCallableApply,
+            // 8: redCallableConstruct,
+            9: redCallableDefineProperty,
+            // 10: redCallableDeleteProperty,
+            // 11: redCallableGetOwnPropertyDescriptor,
+            // 12: redCallableGetPrototypeOf,
+            // 13: redCallableIsExtensible,
+            // 14: redCallableOwnKeys,
+            // 15: redCallablePreventExtensions,
+            16: redCallableSetPrototypeOf,
+        } = redHooks!;
         this.redGlobalThisPointer = redGlobalThisPointer;
         this.redCallableEvaluate = redCallableEvaluate;
         this.redCallableSetPrototypeOf = redCallableSetPrototypeOf;

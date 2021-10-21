@@ -62,7 +62,7 @@
       },
       "extends": [
         "airbnb-typescript/base",
-        "prettier/@typescript-eslint"
+        "prettier"
       ],
       "plugins": ["@typescript-eslint"],
       "rules": {

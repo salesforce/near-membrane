@@ -158,10 +158,8 @@ export function createMembraneMarshall() {
         isSealed: ObjectIsSealed,
         seal: ObjectSeal,
     } = Object;
-    const {
-        hasOwnProperty: ObjectProtoHasOwnProperty,
-        toString: ObjectProtoToString,
-    } = Object.prototype;
+    const { hasOwnProperty: ObjectProtoHasOwnProperty, toString: ObjectProtoToString } =
+        Object.prototype;
     const { revocable: ProxyRevocable } = Proxy;
     const {
         defineProperty: ReflectDefineProperty,
@@ -1036,9 +1034,8 @@ export function createMembraneMarshall() {
             private makeProxyStatic(shadowTarget: ShadowTarget) {
                 // assert: trapMutations must be true
                 const { foreignTargetPointer } = this;
-                const targetIntegrityTraits = foreignCallableGetTargetIntegrityTraits(
-                    foreignTargetPointer
-                );
+                const targetIntegrityTraits =
+                    foreignCallableGetTargetIntegrityTraits(foreignTargetPointer);
                 if (targetIntegrityTraits & TargetIntegrityTraits.Revoked) {
                     // the target is a revoked proxy, in which case we revoke
                     // this proxy as well.
@@ -1703,30 +1700,28 @@ export function createMembraneMarshall() {
             )
         );
         return (...hooks: Parameters<HooksCallback>) => {
-            // prettier-ignore
-            const [
-                , // globalThisPointer
-                , // getSelectedTarget
-                , // getTransferableValue
-                , // callableGetPropertyValuePointer
-                , // callableEvaluate
-                // eslint-disable-next-line comma-style
-                , // callableLinkPointers
-                callablePushTarget,
-                callableApply,
-                callableConstruct,
-                callableDefineProperty,
-                callableDeleteProperty,
-                callableGetOwnPropertyDescriptor,
-                callableGetPrototypeOf,
-                callableIsExtensible,
-                callableOwnKeys,
-                callablePreventExtensions,
-                callableSetPrototypeOf,
-                callableGetTargetIntegrityTraits,
-                callableGetUnbrandedTag,
-                callableHasOwnProperty,
-            ] = hooks;
+            const {
+                // 0: globalThisPointer,
+                // 1: getSelectedTarget,
+                // 2: getTransferableValue,
+                // 3: callableGetPropertyValuePointer,
+                // 4: callableEvaluate,
+                // 5: callableLinkPointers,
+                6: callablePushTarget,
+                7: callableApply,
+                8: callableConstruct,
+                9: callableDefineProperty,
+                10: callableDeleteProperty,
+                11: callableGetOwnPropertyDescriptor,
+                12: callableGetPrototypeOf,
+                13: callableIsExtensible,
+                14: callableOwnKeys,
+                15: callablePreventExtensions,
+                16: callableSetPrototypeOf,
+                17: callableGetTargetIntegrityTraits,
+                18: callableGetUnbrandedTag,
+                19: callableHasOwnProperty,
+            } = hooks;
             foreignCallablePushTarget = callablePushTarget;
             // traps utilities
             foreignCallableApply = foreignErrorControl(
