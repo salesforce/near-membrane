@@ -12,7 +12,7 @@ describe('Ensure instrumentation object usage in near-membrane', () => {
         log: () => {},
         error: () => {},
     };
-    const code = `const foo = {foo: 'bar', fn: function(v) {}};
+    const code = `setter({foo: 'bar', fn: function(v) {}});`
 setter(foo);`;
 
     it('Instrumentation object is passed to and used in near-membrane', () => {
