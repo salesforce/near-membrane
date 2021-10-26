@@ -21,9 +21,11 @@
 
 import { InstrumentationHooks } from './instrumentation';
 
+const { setPrototypeOf: ReflectSetPrototypeOf } = Reflect;
+
 export type Pointer = CallableFunction;
-type PrimitiveValue = bigint | boolean | null | number | string | symbol | undefined;
-type PointerOrPrimitive = Pointer | PrimitiveValue;
+type Primitive = bigint | boolean | null | number | string | symbol | undefined;
+type PointerOrPrimitive = Pointer | Primitive;
 export type ProxyTarget = CallableFunction | any[] | object;
 type ShadowTarget = CallableFunction | any[] | object;
 type CallablePushTarget = (
@@ -116,45 +118,20 @@ export type HooksCallback = (
     callableGetUnbrandedTag: CallableGetUnbrandedTag,
     callableHasOwnProperty: CallableHasOwnProperty
 ) => void;
-// eslint-disable-next-line no-shadow
-export enum SupportFlagsEnum {
-    None = 0,
-    MagicMarker = 1 << 0,
-}
-
 export type DistortionCallback = (target: ProxyTarget) => ProxyTarget;
 export interface InitLocalOptions {
     distortionCallback?: DistortionCallback;
     instrumentation?: InstrumentationHooks;
 }
+// eslint-disable-next-line no-shadow
+export enum SupportFlagsEnum {
+    None = 0,
+    MagicMarker = 1 << 0,
+}
+ReflectSetPrototypeOf(SupportFlagsEnum, null);
 
 // istanbul ignore next
 export function createMembraneMarshall() {
-    // eslint-disable-next-line no-shadow
-    enum MarshallSupportFlagsField {
-        None = 0,
-        MagicMarker = 1 << 0,
-    }
-
-    // eslint-disable-next-line no-shadow
-    enum TargetIntegrityTraits {
-        None = 0,
-        IsNotExtensible = 1 << 0,
-        IsSealed = 1 << 1,
-        IsFrozen = 1 << 2,
-        Revoked = 1 << 4,
-    }
-
-    // eslint-disable-next-line no-shadow
-    enum TargetTraits {
-        None = 0,
-        IsArray = 1 << 0,
-        IsFunction = 1 << 1,
-        IsObject = 1 << 2,
-        IsArrowFunction = 1 << 3,
-        Revoked = 1 << 4,
-    }
-
     const { eval: cachedLocalEval } = globalThis;
     const ArrayCtor = Array;
     const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
@@ -169,28 +146,57 @@ export function createMembraneMarshall() {
         Object.prototype;
     const { revocable: ProxyRevocable } = Proxy;
     const {
-        defineProperty: ReflectDefineProperty,
-        getOwnPropertyDescriptor: ReflectGetOwnPropertyDescriptor,
-        setPrototypeOf: ReflectSetPrototypeOf,
         apply: ReflectApply,
         construct: ReflectConstruct,
+        defineProperty: ReflectDefineProperty,
         deleteProperty: ReflectDeleteProperty,
         get: ReflectGet,
-        set: ReflectSet,
-        has: ReflectHas,
+        getOwnPropertyDescriptor: ReflectGetOwnPropertyDescriptor,
         getPrototypeOf: ReflectGetPrototypeOf,
+        has: ReflectHas,
         isExtensible: ReflectIsExtensible,
         ownKeys: ReflectOwnKeys,
         preventExtensions: ReflectPreventExtensions,
+        set: ReflectSet,
+        // eslint-disable-next-line @typescript-eslint/no-shadow, no-shadow
+        setPrototypeOf: ReflectSetPrototypeOf,
     } = Reflect;
     const { slice: StringProtoSlice } = String.prototype;
     const TypeErrorCtor = TypeError;
     const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMap.prototype;
 
+    // @rollup/plugin-replace replaces `DEV_MODE` references.
+    const DEV_MODE = true;
     const LOCKER_LIVE_MARKER_SYMBOL = Symbol.for('@@lockerLiveValue');
     const LOCKER_MAGIC_MARKER_SYMBOL = Symbol.for('@@lockerMagicValue');
     const { toStringTag: TO_STRING_TAG_SYMBOL } = Symbol;
     const UNDEFINED_SYMBOL = Symbol.for('@@membraneUndefinedValue');
+
+    // eslint-disable-next-line no-shadow
+    enum MarshallSupportFlagsField {
+        None = 0,
+        MagicMarker = 1 << 0,
+    }
+    ReflectSetPrototypeOf(MarshallSupportFlagsField, null);
+    // eslint-disable-next-line no-shadow
+    enum TargetIntegrityTraits {
+        None = 0,
+        IsNotExtensible = 1 << 0,
+        IsSealed = 1 << 1,
+        IsFrozen = 1 << 2,
+        Revoked = 1 << 4,
+    }
+    ReflectSetPrototypeOf(TargetIntegrityTraits, null);
+    // eslint-disable-next-line no-shadow
+    enum TargetTraits {
+        None = 0,
+        IsArray = 1 << 0,
+        IsFunction = 1 << 1,
+        IsObject = 1 << 2,
+        IsArrowFunction = 1 << 3,
+        Revoked = 1 << 4,
+    }
+    ReflectSetPrototypeOf(TargetTraits, null);
 
     return function createHooksCallback(
         color: string,
@@ -205,12 +211,9 @@ export function createMembraneMarshall() {
 
         const proxyTargetToPointerMap = new WeakMap();
 
-        // @rollup/plugin-replace replaces `DEV_MODE` references.
-        const DEV_MODE = true;
-        const SUPPORT_MAGIC_MARKER = !!(supportFlags & MarshallSupportFlagsField.MagicMarker);
-
         const INBOUND_INSTRUMENTATION_LABEL = `to:${color}`;
         const OUTBOUND_INSTRUMENTATION_LABEL = `from:${color}`;
+        const SUPPORT_MAGIC_MARKER = !!(supportFlags & MarshallSupportFlagsField.MagicMarker);
 
         let foreignCallablePushTarget: CallablePushTarget;
         let foreignCallableApply: CallableApply;
@@ -228,15 +231,6 @@ export function createMembraneMarshall() {
         let foreignCallableGetUnbrandedTag: CallableGetUnbrandedTag;
         let foreignCallableHasOwnProperty: CallableHasOwnProperty;
         let selectedTarget: undefined | ProxyTarget;
-
-        if (
-            ReflectApply(ObjectProtoHasOwnProperty, Error, ['stackTraceLimit']) &&
-            typeof Error.stackTraceLimit === 'number'
-        ) {
-            // The default stack trace limit is 10.
-            // Increasing to 20 as a baby step.
-            Error.stackTraceLimit *= 2;
-        }
 
         function copyForeignDescriptorsIntoShadowTarget(
             shadowTarget: ShadowTarget,
@@ -272,7 +266,9 @@ export function createMembraneMarshall() {
                     key,
                     callbackWithDescriptor
                 );
-                (descriptors as any)[key] = safeDesc!;
+                if (safeDesc!) {
+                    (descriptors as any)[key] = safeDesc;
+                }
             }
             // Use `ObjectDefineProperties` instead of individual
             // `ReflectDefineProperty` calls for better performance.
@@ -313,7 +309,7 @@ export function createMembraneMarshall() {
 
         function createPointer(originalTarget: ProxyTarget): () => void {
             // assert: originalTarget is a ProxyTarget
-            const pointer = () => {
+            const pointer = (): void => {
                 // assert: selectedTarget is undefined
                 selectedTarget = originalTarget;
             };
@@ -431,9 +427,9 @@ export function createMembraneMarshall() {
 
         function getSelectedTarget(): any {
             // assert: selectedTarget is a ProxyTarget
-            const r = selectedTarget;
+            const result = selectedTarget;
             selectedTarget = undefined;
-            return r;
+            return result;
         }
 
         function getTargetTraits(target: object): TargetTraits {
@@ -545,12 +541,12 @@ export function createMembraneMarshall() {
         }
 
         function getTransferableValue(value: any): PointerOrPrimitive {
-            // internationally ignoring the case of (typeof document.all === 'undefined') because
-            // in the reserve membrane, you never get one of those exotic objects
+            // Internationally ignoring the case of (typeof document.all === 'undefined')
+            // because in the reserve membrane, you never get one of those exotic objects.
             if (typeof value === 'undefined') {
                 return undefined;
             }
-            // TODO: what other ways to optimize this method?
+            // TODO: What other ways to optimize this method?
             if (value === null || (typeof value !== 'function' && typeof value !== 'object')) {
                 return value;
             }
@@ -739,7 +735,7 @@ export function createMembraneMarshall() {
             if (foreignCallableHasOwnProperty(foreignTargetPointer, key)) {
                 return true;
             }
-            // avoiding calling the has trap for any proto chain operation,
+            // Avoiding calling the has trap for any proto chain operation,
             // instead we implement the regular logic here in this trap.
             let currentObject = liveGetPrototypeOf(foreignTargetPointer);
             while (currentObject) {
@@ -1007,7 +1003,19 @@ export function createMembraneMarshall() {
                 const { length: combinedOffset } = combinedArgs;
                 combinedArgs.length += argsLen;
                 for (let i = 0, len = argsLen; i < len; i += 1) {
-                    combinedArgs[i + combinedOffset] = getTransferableValue(args[i]);
+                    const arg = args[i];
+                    const combinedIndex = i + combinedOffset;
+                    // Inlining `getTransferableValue`.
+                    if (typeof arg === 'undefined') {
+                        combinedArgs[combinedIndex] = undefined;
+                    } else if (
+                        arg === null ||
+                        (typeof arg !== 'function' && typeof arg !== 'object')
+                    ) {
+                        combinedArgs[combinedIndex] = arg;
+                    } else {
+                        combinedArgs[combinedIndex] = getTransferablePointer(arg);
+                    }
                 }
                 return getLocalValue(ReflectApply(foreignCallableApply, undefined, combinedArgs));
             };
@@ -1030,7 +1038,19 @@ export function createMembraneMarshall() {
                 const { length: combinedOffset } = combinedArgs;
                 combinedArgs.length += argsLen;
                 for (let i = 0, len = argsLen; i < len; i += 1) {
-                    combinedArgs[i + combinedOffset] = getTransferableValue(args[i]);
+                    const arg = args[i];
+                    const combinedIndex = i + combinedOffset;
+                    // Inline `getTransferableValue`.
+                    if (typeof arg === 'undefined') {
+                        combinedArgs[combinedIndex] = undefined;
+                    } else if (
+                        arg === null ||
+                        (typeof arg !== 'function' && typeof arg !== 'object')
+                    ) {
+                        combinedArgs[combinedIndex] = arg;
+                    } else {
+                        combinedArgs[combinedIndex] = getTransferablePointer(arg);
+                    }
                 }
                 return getLocalValue(
                     ReflectApply(foreignCallableConstruct, undefined, combinedArgs)

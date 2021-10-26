@@ -38,7 +38,6 @@ const UNDEFINED_SYMBOL = Symbol.for('@@membraneUndefinedValue');
 
 const ErrorCtor = Error;
 const { assign: ObjectAssign, keys: ObjectKeys } = Object;
-const { hasOwnProperty: ObjectProtoHasOwnProperty } = Object.prototype;
 const { apply: ReflectApply, ownKeys: ReflectOwnKeys } = Reflect;
 const { slice: StringProtoSlice, toUpperCase: StringProtoToUpperCase } = String.prototype;
 
@@ -88,12 +87,10 @@ export class VirtualEnvironment {
         this.redConnector = redConnector;
 
         let supportFlags = SupportFlagsEnum.None;
-        const supportProps = support ? ObjectKeys(support) : [];
-        for (let i = 0, len = supportProps.length; i < len; i += 1) {
-            const key = capitalizeFirstChar(supportProps[i]);
-            if (ReflectApply(ObjectProtoHasOwnProperty, SupportFlagsEnum, [key])) {
-                supportFlags |= SupportFlagsEnum[key];
-            }
+        const supportKeys = support ? ObjectKeys(support) : [];
+        for (let i = 0, len = supportKeys.length; i < len; i += 1) {
+            const enumKey = capitalizeFirstChar(supportKeys[i]);
+            supportFlags |= SupportFlagsEnum[enumKey];
         }
 
         let blueHooks: Parameters<HooksCallback>;
