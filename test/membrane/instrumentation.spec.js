@@ -26,6 +26,7 @@ setter(foo);`;
 
         ve.evaluate(code);
 
+        // eslint-disable-next-line no-unused-expressions
         redProxy.foo;
         expect(startActivitySpy).toHaveBeenCalledTimes(2);
         expect(logSpy).not.toHaveBeenCalled();
