@@ -12,8 +12,7 @@ describe('Ensure instrumentation object usage in near-membrane', () => {
         log: () => {},
         error: () => {},
     };
-    const code = `setter({foo: 'bar', fn: function(v) {}});`
-setter(foo);`;
+    const code = `setter({foo: 'bar', fn: function(v) {}});`;
 
     it('Instrumentation object is passed to and used in near-membrane', () => {
         const startActivitySpy = spyOn(mockInstrumentation, 'startActivity').and.callThrough();
