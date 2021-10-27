@@ -22,7 +22,6 @@ interface BaseReferencesRecord extends Object {
  */
 interface CachedBlueReferencesRecord extends BaseReferencesRecord {
     EventTargetProtoDescriptors: PropertyDescriptorMap;
-    WindowProtoDescriptors: PropertyDescriptorMap;
 }
 
 const cachedBlueGlobalMap: WeakMap<typeof globalThis, CachedBlueReferencesRecord> = new WeakMap();
@@ -55,7 +54,6 @@ export function getCachedBlueReferences(
     ReflectApply(WeakMapProtoSet, cachedBlueGlobalMap, [window, record]);
     // intentionally avoiding remapping any Window.prototype descriptor,
     // there is nothing in this prototype that needs to be remapped.
-    record.WindowProtoDescriptors = {};
     record.EventTargetProtoDescriptors = ObjectGetOwnPropertyDescriptors(record.EventTargetProto);
 
     return record;
@@ -107,10 +105,10 @@ function filterWindowDescriptors(
     ObjectAssign(to, endowmentsDescriptors);
 
     // removing unforgeable descriptors that cannot be installed
-    delete to.location;
     delete to.document;
-    delete to.window;
+    delete to.location;
     delete to.top;
+    delete to.window;
     // Some DOM APIs do brand checks for TypeArrays and others objects,
     // in this case, if the API is not dangerous, and works in a detached
     // iframe, we can let the sandbox to use the iframe's api directly,
@@ -134,7 +132,6 @@ export function tameDOM(
     env.remap(blueRefs.window, globalDescriptors);
     // remapping unforgeable objects
     env.remap(blueRefs.EventTargetProto, blueRefs.EventTargetProtoDescriptors);
-    env.remap(blueRefs.WindowProto, blueRefs.WindowProtoDescriptors);
     /**
      * WindowProperties.prototype is magical, it provide access to any
      * object that "clobbers" the WindowProxy instance for easy access. E.g.:
