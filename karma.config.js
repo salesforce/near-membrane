@@ -1,4 +1,7 @@
 /* eslint-disable import/no-extraneous-dependencies */
+
+'use strict';
+
 const globby = require('globby');
 const istanbul = require('rollup-plugin-istanbul');
 const { nodeResolve } = require('@rollup/plugin-node-resolve');
