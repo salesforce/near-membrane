@@ -3,6 +3,7 @@
 const replacePlugin = require('@rollup/plugin-replace');
 const { terser } = require('rollup-plugin-terser');
 const typescriptPlugin = require('@rollup/plugin-typescript');
+const { getBabelOutputPlugin } = require('../plugins/babel-output.cjs');
 
 function createConfig({
     input = 'src/index.ts',
@@ -11,13 +12,20 @@ function createConfig({
     prod = false,
 } = {}) {
     const DEV_MODE = !prod;
+    const format = 'es';
     return {
         input,
         output: {
             file: `lib/${filePrefix}${prod ? '.min' : ''}.js`,
-            format: 'es',
+            format,
             sourcemap: true,
-            plugins: [prod ? terser() : undefined],
+            // prettier-ignore
+            plugins: [
+                getBabelOutputPlugin({
+                    format,
+                }),
+                prod ? terser() : undefined,
+            ],
         },
         plugins: [
             typescriptPlugin(),

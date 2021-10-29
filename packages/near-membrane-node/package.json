@@ -10,7 +10,7 @@
     "types": "types/index.d.ts",
     "scripts": {
         "clean": "rimraf lib types",
-        "build": "tsc --project tsconfig.types.json && rollup -c"
+        "build": "tsc --project tsconfig.types.json && rollup --config .rolluprc.cjs"
     },
     "files": [
         "lib/",
