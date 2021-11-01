@@ -14,18 +14,15 @@ function createConfig({
     process.env.NODE_ENV = prod ? 'production' : 'development';
 
     const DEV_MODE = !prod;
-    const format = 'es';
     return {
         input,
         output: {
             file: `dist/${filePrefix}${prod ? '.min' : ''}.js`,
-            format,
+            format: 'es',
             sourcemap: true,
             // prettier-ignore
             plugins: [
-                getBabelOutputPlugin({
-                    format,
-                }),
+                getBabelOutputPlugin(),
                 prod ? terser() : undefined,
             ],
         },
