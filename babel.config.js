@@ -1,13 +1,7 @@
 'use strict';
 
-const { BABEL_PRESET_ENV_MODULES } = process.env;
+const DEV_MODE = process.env.NODE_ENV === 'development';
 
-let modules = 'auto';
-if (BABEL_PRESET_ENV_MODULES === false || BABEL_PRESET_ENV_MODULES === 'false') {
-    modules = false;
-} else if (BABEL_PRESET_ENV_MODULES) {
-    modules = BABEL_PRESET_ENV_MODULES;
-}
 module.exports = {
     compact: false,
     plugins: ['@babel/plugin-syntax-dynamic-import'],
@@ -16,13 +10,15 @@ module.exports = {
         [
             '@babel/preset-env',
             {
+                bugfixes: true,
+                debug: DEV_MODE,
                 exclude: [
                     '@babel/plugin-proposal-class-properties',
                     '@babel/plugin-proposal-dynamic-import',
                     '@babel/plugin-proposal-private-methods',
                     '@babel/plugin-transform-regenerator',
                 ],
-                modules,
+                loose: true,
                 targets: {
                     // Visual representation of the Browserslist query at
                     // https://browserslist.dev/?q=Y2hyb21lIDY5LCBlZGdlIDE1LCBsYXN0IDIgZmlyZWZveCB2ZXJzaW9ucywgbm9kZSAxNCwgc2FmYXJpIDEz

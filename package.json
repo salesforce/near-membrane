@@ -7,11 +7,12 @@
     "scripts"
   ],
   "description": "JavaScript Near Membrane Library to create a sandboxed environment",
-  "module": "lib/index.js",
+  "module": "dist/index.js",
   "types": "types/index.js",
   "scripts": {
     "clean": "lerna run clean --stream",
     "build": "lerna run build --stream",
+    "build:dev": "lerna run build:dev --stream",
     "lint": "eslint packages test",
     "prepare": "husky install && yarn build",
     "start": "http-server ./examples",
@@ -36,7 +37,7 @@
     "debug": "karma start karma.config.js --browsers Chrome"
   },
   "files": [
-    "lib/",
+    "dist/",
     "types/"
   ],
   "author": "Caridy Patiño <caridy@gmail.com>",
@@ -57,12 +58,14 @@
     "@typescript-eslint/parser": "5.1.0",
     "bundlesize": "0.18.1",
     "chokidar": "3.5.2",
+    "cross-env": "7.0.3",
     "eslint": "8.0.1",
     "eslint-config-airbnb-base": "14.2.1",
     "eslint-config-airbnb-typescript": "14.0.1",
     "eslint-config-prettier": "8.3.0",
     "eslint-plugin-import": "2.25.2",
     "eslint-plugin-prettier": "4.0.0",
+    "fs-extra": "10.0.0",
     "globby": "11.0.4",
     "http-server": "14.0.0",
     "husky": "7.0.2",
@@ -80,6 +83,7 @@
     "karma-safari-launcher": "1.0.0",
     "lerna": "4.0.0",
     "lint-staged": "11.2.3",
+    "merge-options": "3.0.4",
     "prettier": "2.4.1",
     "puppeteer": "10.4.0",
     "rimraf": "3.0.2",
@@ -95,17 +99,17 @@
   "engineStrict": true,
   "bundlesize": [
     {
-      "path": "packages/near-membrane-base/lib/index.min.js",
+      "path": "packages/near-membrane-base/dist/index.min.js",
       "maxSize": "13 kB",
       "compression": "none"
     },
     {
-      "path": "packages/near-membrane-dom/lib/index.min.js",
+      "path": "packages/near-membrane-dom/dist/index.min.js",
       "maxSize": "3 kB",
       "compression": "none"
     },
     {
-      "path": "packages/near-membrane-node/lib/index.min.js",
+      "path": "packages/near-membrane-node/dist/index.min.js",
       "maxSize": "1 kB",
       "compression": "none"
     }

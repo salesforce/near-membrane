@@ -11,12 +11,14 @@ function createConfig({
     external = [],
     prod = false,
 } = {}) {
+    process.env.NODE_ENV = prod ? 'production' : 'development';
+
     const DEV_MODE = !prod;
     const format = 'es';
     return {
         input,
         output: {
-            file: `lib/${filePrefix}${prod ? '.min' : ''}.js`,
+            file: `dist/${filePrefix}${prod ? '.min' : ''}.js`,
             format,
             sourcemap: true,
             // prettier-ignore

@@ -1,46 +1,68 @@
 'use strict';
 
+const fs = require('fs-extra');
 const globby = require('globby');
+const mergeOptions = require('merge-options');
 const Module = require('module');
 const path = require('path');
 
 const rootPath = path.resolve(__dirname, '../../../');
 
-const defaultPluginOptions = {
-    allowAllFormats: true,
-    configFile:
-        // File extension look up order defined by Babel:
-        // https://github.com/babel/babel/blob/v7.15.6/packages/babel-core/src/config/files/configuration.ts#L24
-        globby.sync([`${path.resolve('.babelrc')}{,.js,.cjs,.mjs,.json}`])[0] ||
-        globby.sync([`${path.resolve(rootPath, 'babel.config')}{.js,.cjs,.mjs,.json}`])[0],
-};
-
 module.exports = {
     getBabelOutputPlugin(providedOptions = {}) {
-        const options = {
-            ...defaultPluginOptions,
-            ...providedOptions,
-        };
-        const { banner, footer, format = 'auto' } = options;
+        const options = { ...providedOptions };
+        const { banner, footer } = options;
         delete options.banner;
         delete options.footer;
-        delete options.format;
         let babelOutputHooks;
         return {
-            renderStart(outputOptions) {
+            async renderStart(outputOptions) {
                 // Lazily initialize the getBabelOutputPlugin with a filename so that
                 // presets, like @babel/preset-typescript, will work.
                 if (!babelOutputHooks) {
                     // Clear CommonJS module cache.
                     // eslint-disable-next-line no-underscore-dangle
-                    Module._cache = Object.create(null);
-                    // Set environment variable BABEL_PRESET_ENV_MODULES so that it can be
-                    // picked up by .babelrc.cjs configs.
-                    process.env.BABEL_PRESET_ENV_MODULES = format === 'es' ? 'false' : format;
+                    Module._cache = { __proto__: null };
+                    // File extension look up order defined by Babel:
+                    // https://github.com/babel/babel/blob/v7.15.6/packages/babel-core/src/config/files/configuration.ts#L24
+                    // prettier-ignore
+                    const configPath =
+                        globby.sync([`${path.resolve('.babelrc')}{,.js,.cjs,.mjs,.json}`])[0] ||
+                        globby.sync([`${path.resolve(rootPath, 'babel.config')}{.js,.cjs,.mjs,.json}`])[0];
+
+                    const config = mergeOptions(
+                        {
+                            plugins: [],
+                            presets: [],
+                        },
+                        path.extname(configPath) === '.json'
+                            ? await fs.readJSON(configPath)
+                            : (await import(configPath)).default
+                    );
+
+                    const { plugins, presets } = config;
+                    for (let i = 0, len = plugins.length; i < len; i += 1) {
+                        const entry = plugins[i];
+                        const name = Array.isArray(entry) ? entry[0] : entry;
+                        if (name === '@babel/plugin-transform-modules-commonjs') {
+                            // Don't transform ESM to CommonJS.
+                            plugins.splice(i, 1);
+                        }
+                    }
+                    for (let i = 0, len = presets.length; i < len; i += 1) {
+                        const entry = presets[i];
+                        if (Array.isArray(entry) && entry[0] === '@babel/preset-env') {
+                            // Skip transforming module formats.
+                            entry[1].modules = false;
+                        }
+                    }
                     // eslint-disable-next-line global-require
                     const { getBabelOutputPlugin } = require('@rollup/plugin-babel');
                     babelOutputHooks = getBabelOutputPlugin({
-                        ...options,
+                        ...config,
+                        allowAllFormats: true,
+                        babelrc: false,
+                        configFile: false,
                         filename: outputOptions.file,
                     });
                 }

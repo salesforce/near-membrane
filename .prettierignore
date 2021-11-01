@@ -2,6 +2,5 @@ bugs/
 coverage/
 coverage-merged/
 dist/
-lib/
 node_modules/
 types/
