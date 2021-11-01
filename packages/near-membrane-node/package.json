@@ -4,16 +4,17 @@
     "license": "MIT",
     "author": "Caridy Patiño <caridy@gmail.com>",
     "description": "JavaScript Node Membrane Library to create a sandboxed environment in Node",
-    "main": "lib/index.js",
+    "main": "dist/index.js",
     "sideEffects": false,
     "type": "module",
     "types": "types/index.d.ts",
     "scripts": {
-        "clean": "rimraf lib types",
-        "build": "tsc --project tsconfig.types.json && rollup --config .rolluprc.cjs"
+        "clean": "rimraf dist types",
+        "build": "tsc --project tsconfig.types.json && rollup --config .rolluprc.cjs",
+        "build:dev": "cross-env NODE_ENV=development yarn build"
     },
     "files": [
-        "lib/",
+        "dist/",
         "types/"
     ],
     "publishConfig": {

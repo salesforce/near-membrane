@@ -9,7 +9,7 @@ const init = createMembraneMarshall();
 
 /*
     These tests are exercising the BUILT near-membrane-base,
-    ie. package/near-membrane-base/lib/index.js
+    ie. package/near-membrane-base/dist/index.js
 */
 describe('Implementing an environment with VirtualEnvironment', () => {
     let redRealmGlobal;

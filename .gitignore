@@ -1,11 +1,10 @@
-lib/
+dist/
 types/
 node_modules/
 */**/bundle.js
 *.log
 -local-*
 .DS_Store
-dist/*.js
 .idea/
 .project/
 coverage/
