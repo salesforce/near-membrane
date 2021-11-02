@@ -132,7 +132,6 @@ ReflectSetPrototypeOf(SupportFlagsEnum, null);
 
 // istanbul ignore next
 export function createMembraneMarshall() {
-    const { eval: cachedLocalEval } = globalThis;
     const ArrayCtor = Array;
     const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
     const {
@@ -164,6 +163,32 @@ export function createMembraneMarshall() {
     const { slice: StringProtoSlice } = String.prototype;
     const TypeErrorCtor = TypeError;
     const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMap.prototype;
+
+    if (typeof globalThis === 'undefined') {
+        // Polyfill globalThis for environments like Android emulators
+        // running Chrome 69. See https://mathiasbynens.be/notes/globalthis
+        // for more details.
+        ReflectDefineProperty(Object.prototype, 'globalThis', {
+            // @ts-ignore: TS doesn't like __proto__ on property descriptors.
+            __proto__: null,
+            configurable: true,
+            get() {
+                // Safari 12 on iOS 12.1 has a `this` of `undefined` so we
+                // fallback to `self`.
+                // eslint-disable-next-line no-restricted-globals
+                const result = this || self;
+                ReflectDeleteProperty(Object.prototype, 'globalThis');
+                ReflectDefineProperty(result, 'globalThis', {
+                    // @ts-ignore: TS doesn't like __proto__ on property descriptors.
+                    __proto__: null,
+                    configurable: true,
+                    value: result,
+                });
+                return result;
+            },
+        });
+    }
+    const { eval: cachedLocalEval } = globalThis;
 
     // @rollup/plugin-replace replaces `DEV_MODE` references.
     const DEV_MODE = true;
