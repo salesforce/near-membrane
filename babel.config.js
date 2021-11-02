@@ -23,8 +23,7 @@ module.exports = {
                     // Visual representation of the Browserslist query at
                     // https://browserslist.dev/?q=Y2hyb21lIDY5LCBlZGdlIDE1LCBsYXN0IDIgZmlyZWZveCB2ZXJzaW9ucywgbm9kZSAxNCwgc2FmYXJpIDEz
                     browsers: [
-                        // Support Android emulator with user agent:
-                        // Mozilla/5.0 (Linux; Android 9; Android SDK built for x86_64 Build/PSR1.180720.122; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/69.0.3497.100 Mobile Safari/537.36
+                        // Support Android emulators running Chrome 69.
                         'chrome 69',
                         'edge 15',
                         'last 2 firefox versions',
