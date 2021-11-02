@@ -10,7 +10,10 @@ const rootPath = path.resolve(__dirname, '../../../');
 
 module.exports = {
     getBabelOutputPlugin(providedOptions = {}) {
-        const options = { ...providedOptions };
+        const options = {
+            __proto__: null,
+            ...providedOptions,
+        };
         const { banner, footer } = options;
         delete options.banner;
         delete options.footer;
@@ -25,22 +28,30 @@ module.exports = {
                     Module._cache = { __proto__: null };
                     // File extension look up order defined by Babel:
                     // https://github.com/babel/babel/blob/v7.15.6/packages/babel-core/src/config/files/configuration.ts#L24
-                    // prettier-ignore
                     const configPath =
-                        globby.sync([`${path.resolve('.babelrc')}{,.js,.cjs,.mjs,.json}`])[0] ||
-                        globby.sync([`${path.resolve(rootPath, 'babel.config')}{.js,.cjs,.mjs,.json}`])[0];
-
-                    const config = mergeOptions(
+                        // prettier-ignore
+                        options.configFile ||
+                        (await globby([`${path.resolve('.babelrc')}{,.js,.cjs,.mjs,.json}`]))[0] ||
+                        (await globby([`${path.resolve(rootPath, 'babel.config')}{.js,.cjs,.mjs,.json}`]))[0];
+                    const config =
+                        path.extname(configPath) === '.json'
+                            ? await fs.readJSON(configPath)
+                            : (await import(configPath)).default;
+                    const mergedOptions = mergeOptions(
                         {
+                            allowAllFormats: true,
+                            babelrc: false,
+                            filename: outputOptions.file,
                             plugins: [],
                             presets: [],
                         },
-                        path.extname(configPath) === '.json'
-                            ? await fs.readJSON(configPath)
-                            : (await import(configPath)).default
+                        config,
+                        options,
+                        {
+                            configFile: false,
+                        }
                     );
-
-                    const { plugins, presets } = config;
+                    const { plugins, presets } = mergedOptions;
                     for (let i = 0, len = plugins.length; i < len; i += 1) {
                         const entry = plugins[i];
                         const name = Array.isArray(entry) ? entry[0] : entry;
@@ -56,15 +67,8 @@ module.exports = {
                             entry[1].modules = false;
                         }
                     }
-                    // eslint-disable-next-line global-require
-                    const { getBabelOutputPlugin } = require('@rollup/plugin-babel');
-                    babelOutputHooks = getBabelOutputPlugin({
-                        ...config,
-                        allowAllFormats: true,
-                        babelrc: false,
-                        configFile: false,
-                        filename: outputOptions.file,
-                    });
+                    const { getBabelOutputPlugin } = await import('@rollup/plugin-babel');
+                    babelOutputHooks = getBabelOutputPlugin(mergedOptions);
                 }
                 return babelOutputHooks.renderStart(outputOptions);
             },
