@@ -16,7 +16,7 @@ const marshallSourceTextInStrictMode = `
 })()`;
 // eslint-disable-next-line no-eval
 export function createConnector(evaluator: typeof eval) {
-    if (!evaluator) {
+    if (typeof evaluator !== 'function') {
         throw new TypeErrorCtor('Missing evaluator function.');
     }
     // The result of this eval will be a function that returns a function.
