@@ -164,31 +164,27 @@ export function createMembraneMarshall() {
     const TypeErrorCtor = TypeError;
     const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMap.prototype;
 
-    if (typeof globalThis === 'undefined') {
-        // Polyfill globalThis for environments like Android emulators
-        // running Chrome 69. See https://mathiasbynens.be/notes/globalthis
-        // for more details.
-        ReflectDefineProperty(Object.prototype, 'globalThis', {
+    const globalThisRef =
+        (typeof globalThis !== 'undefined' && globalThis) ||
+        // This is for environments like Android emulators running Chrome 69.
+        // eslint-disable-next-line no-restricted-globals
+        (typeof self !== 'undefined' && self) ||
+        // See https://mathiasbynens.be/notes/globalthis for more details.
+        (ReflectDefineProperty(Object.prototype, 'globalThis', {
             // @ts-ignore: TS doesn't like __proto__ on property descriptors.
             __proto__: null,
             configurable: true,
             get() {
+                ReflectDeleteProperty(Object.prototype, 'globalThis');
                 // Safari 12 on iOS 12.1 has a `this` of `undefined` so we
                 // fallback to `self`.
                 // eslint-disable-next-line no-restricted-globals
-                const result = this || self;
-                ReflectDeleteProperty(Object.prototype, 'globalThis');
-                ReflectDefineProperty(result, 'globalThis', {
-                    // @ts-ignore: TS doesn't like __proto__ on property descriptors.
-                    __proto__: null,
-                    configurable: true,
-                    value: result,
-                });
-                return result;
+                return this || self;
             },
-        });
-    }
-    const { eval: cachedLocalEval } = globalThis;
+        }),
+        globalThis);
+
+    const { eval: cachedLocalEval } = globalThisRef;
 
     // @rollup/plugin-replace replaces `DEV_MODE` references.
     const DEV_MODE = true;
@@ -1459,7 +1455,7 @@ export function createMembraneMarshall() {
         foreignCallableHooksCallback(
             // globalThisPointer
             // When crossing, should be mapped to the foreign globalThis
-            createPointer(globalThis),
+            createPointer(globalThisRef),
             // getSelectedTarget
             getSelectedTarget,
             // getTransferableValue
