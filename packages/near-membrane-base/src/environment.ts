@@ -166,12 +166,12 @@ export class VirtualEnvironment {
 
     evaluate(sourceText: string): any {
         try {
-            const pointerOrPrimitiveValue = this.redCallableEvaluate(sourceText);
-            if (typeof pointerOrPrimitiveValue === 'function') {
-                pointerOrPrimitiveValue();
+            const bluePointerOrPrimitiveValue = this.redCallableEvaluate(sourceText);
+            if (typeof bluePointerOrPrimitiveValue === 'function') {
+                bluePointerOrPrimitiveValue();
                 return this.blueGetSelectedTarget();
             }
-            return pointerOrPrimitiveValue;
+            return bluePointerOrPrimitiveValue;
         } catch (e: any) {
             const pushedError = this.blueGetSelectedTarget();
             if (pushedError) {

@@ -62,6 +62,9 @@ type CallableDescriptorCallback = (
     getPointer: PointerOrPrimitive,
     setPointer: PointerOrPrimitive
 ) => void;
+type CallableDescriptorsCallback = (
+    ...descriptorTuples: [string | symbol, ...Parameters<CallableDescriptorCallback>]
+) => void;
 type CallableGetOwnPropertyDescriptor = (
     targetPointer: Pointer,
     key: string | symbol,
@@ -84,9 +87,13 @@ export type CallableSetPrototypeOf = (
     targetPointer: Pointer,
     protoPointerOrNull: Pointer | null
 ) => boolean;
+type CallableGetOwnPropertyDescriptors = (
+    targetPointer: Pointer,
+    foreignCallableDescriptorsCallback: CallableDescriptorsCallback
+) => void;
 type CallableGetTargetIntegrityTraits = (targetPointer: Pointer) => number;
-type CallableHasOwnProperty = (targetPointer: Pointer, key: string | symbol) => boolean;
 type CallableGetUnbrandedTag = (targetPointer: Pointer) => string | undefined;
+type CallableHasOwnProperty = (targetPointer: Pointer, key: string | symbol) => boolean;
 export type CallableLinkPointers = (targetPointer: Pointer, foreignTargetPointer: Pointer) => void;
 export type CallableGetPropertyValuePointer = (
     targetPointer: Pointer,
@@ -114,6 +121,7 @@ export type HooksCallback = (
     callablePreventExtensions: CallablePreventExtensions,
     callableSet: CallableSet,
     callableSetPrototypeOf: CallableSetPrototypeOf,
+    callableGetOwnPropertyDescriptors: CallableGetOwnPropertyDescriptors,
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableGetUnbrandedTag: CallableGetUnbrandedTag,
     callableHasOwnProperty: CallableHasOwnProperty
@@ -137,6 +145,7 @@ export function createMembraneMarshall() {
     const {
         defineProperties: ObjectDefineProperties,
         freeze: ObjectFreeze,
+        getOwnPropertyDescriptors: ObjectGetOwnPropertyDescriptors,
         isFrozen: ObjectIsFrozen,
         isSealed: ObjectIsSealed,
         seal: ObjectSeal,
@@ -248,6 +257,7 @@ export function createMembraneMarshall() {
         let foreignCallablePreventExtensions: CallablePreventExtensions;
         let foreignCallableSet: CallableSet;
         let foreignCallableSetPrototypeOf: CallableSetPrototypeOf;
+        let foreignCallableGetOwnPropertyDescriptors: CallableGetOwnPropertyDescriptors;
         let foreignCallableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits;
         let foreignCallableGetUnbrandedTag: CallableGetUnbrandedTag;
         let foreignCallableHasOwnProperty: CallableHasOwnProperty;
@@ -257,43 +267,26 @@ export function createMembraneMarshall() {
             shadowTarget: ShadowTarget,
             foreignTargetPointer: Pointer
         ) {
-            let keys: ReturnType<typeof Reflect.ownKeys> = [];
-            foreignCallableOwnKeys(foreignTargetPointer, (...args) => {
-                keys = args;
-            });
-            const descriptors: PropertyDescriptorMap = {};
-            let safeDesc: PropertyDescriptor;
-            const callbackWithDescriptor: CallableDescriptorCallback = (
-                configurable,
-                enumerable,
-                writable,
-                valuePointer,
-                getPointer,
-                setPointer
-            ) => {
-                safeDesc = createDescriptorFromMeta(
-                    configurable,
-                    enumerable,
-                    writable,
-                    valuePointer,
-                    getPointer,
-                    setPointer
-                );
-            };
-            for (let i = 0, len = keys.length; i < len; i += 1) {
-                const key = keys[i] as string | symbol;
-                foreignCallableGetOwnPropertyDescriptor(
-                    foreignTargetPointer,
-                    key,
-                    callbackWithDescriptor
-                );
-                if (safeDesc!) {
-                    (descriptors as any)[key] = safeDesc;
+            foreignCallableGetOwnPropertyDescriptors(
+                foreignTargetPointer,
+                (...descriptorTuples) => {
+                    const descriptors: PropertyDescriptorMap = {};
+                    for (let i = 0, len = descriptorTuples.length; i < len; i += 7) {
+                        const key = descriptorTuples[i] as string | symbol;
+                        (descriptors as any)[key] = createDescriptorFromMeta(
+                            descriptorTuples[i + 1] as boolean | symbol, // configurable
+                            descriptorTuples[i + 2] as boolean | symbol, // enumerable
+                            descriptorTuples[i + 3] as boolean | symbol, // writable
+                            descriptorTuples[i + 4] as PointerOrPrimitive, // valuePointer
+                            descriptorTuples[i + 5] as PointerOrPrimitive, // getPointer
+                            descriptorTuples[i + 6] as PointerOrPrimitive // setPointer
+                        );
+                    }
+                    // Use `ObjectDefineProperties` instead of individual
+                    // `ReflectDefineProperty` calls for better performance.
+                    ObjectDefineProperties(shadowTarget, descriptors);
                 }
-            }
-            // Use `ObjectDefineProperties` instead of individual
-            // `ReflectDefineProperty` calls for better performance.
-            ObjectDefineProperties(shadowTarget, descriptors);
+            );
         }
 
         // metadata is the transferable descriptor definition
@@ -375,19 +368,19 @@ export function createMembraneMarshall() {
             return shadowTarget;
         }
 
-        // this is needed even when using ShadowRealm, because the errors are not going
-        // to cross the callable boundary in a try/catch, instead, they need to be ported
-        // via the membrane artifacts.
+        // This is needed even when using ShadowRealm, because the errors are
+        // not going to cross the callable boundary in a try/catch, instead,
+        // they need to be ported via the membrane artifacts.
         function foreignErrorControl<T extends (...args: any[]) => any>(foreignFn: T): T {
             return <T>function foreignErrorControlFn(this: any, ...args: any[]): any {
                 try {
                     return ReflectApply(foreignFn, this, args);
                 } catch (e: any) {
                     const pushedError = getSelectedTarget();
-                    if (pushedError) {
-                        throw pushedError;
+                    if (pushedError === undefined) {
+                        throw new TypeErrorCtor(e?.message);
                     }
-                    throw new TypeErrorCtor(e?.message);
+                    throw pushedError;
                 }
             };
         }
@@ -912,7 +905,7 @@ export function createMembraneMarshall() {
             foreignTargetPointer: Pointer,
             proto: object | null
         ): ReturnType<typeof Reflect.setPrototypeOf> {
-            const transferableProto = getTransferableValue(proto) as Pointer | null;
+            const transferableProto = proto ? getTransferablePointer(proto) : proto;
             return foreignCallableSetPrototypeOf(foreignTargetPointer, transferableProto);
         }
 
@@ -926,9 +919,9 @@ export function createMembraneMarshall() {
         }
 
         function pushErrorAcrossBoundary(e: any): any {
-            const transferableError = getTransferableValue(e);
-            if (typeof transferableError === 'function') {
-                transferableError();
+            const foreignErrorPointer = getTransferableValue(e);
+            if (typeof foreignErrorPointer === 'function') {
+                foreignErrorPointer();
             }
             return e;
         }
@@ -1650,7 +1643,7 @@ export function createMembraneMarshall() {
                     } catch (e: any) {
                         throw pushErrorAcrossBoundary(e);
                     }
-                    return getTransferableValue(proto);
+                    return proto ? getTransferablePointer(proto) : proto;
                 },
                 'callableGetPrototypeOf',
                 INBOUND_INSTRUMENTATION_LABEL
@@ -1743,6 +1736,52 @@ export function createMembraneMarshall() {
                 'callableSetPrototypeOf',
                 INBOUND_INSTRUMENTATION_LABEL
             ),
+            // callableGetOwnPropertyDescriptors
+            instrumentCallableWrapper(
+                (
+                    targetPointer: Pointer,
+                    foreignCallableDescriptorsCallback: CallableDescriptorsCallback
+                ): void => {
+                    targetPointer();
+                    const target = getSelectedTarget();
+                    let unsafeDescMap;
+                    try {
+                        unsafeDescMap = ObjectGetOwnPropertyDescriptors(target);
+                    } catch (e: any) {
+                        throw pushErrorAcrossBoundary(e);
+                    }
+                    const keys = ReflectOwnKeys(unsafeDescMap) as (string | symbol)[];
+                    const { length: keysLen } = keys;
+                    const descriptorTuples: any = new ArrayCtor(keysLen * 7);
+                    // prettier-ignore
+                    for (let i = 0, j = 0, len = keysLen; i < len; i += 1, j += 7) {
+                        const key = keys[i];
+                        const unsafeDesc = (unsafeDescMap as any)[key];
+                        const safeDesc = toSafeDescriptor(unsafeDesc);
+                        const { configurable, enumerable, writable, value, get, set } = safeDesc;
+                        descriptorTuples[j] = key;
+                        descriptorTuples[j + 1] =
+                            'configurable' in safeDesc ? configurable : UNDEFINED_SYMBOL;
+                        descriptorTuples[j + 2] =
+                            'enumerable' in safeDesc ? enumerable : UNDEFINED_SYMBOL;
+                        descriptorTuples[j + 3] =
+                            'writable' in safeDesc ? writable : UNDEFINED_SYMBOL;
+                        descriptorTuples[j + 4] =
+                            'value' in safeDesc ? getTransferableValue(value) : UNDEFINED_SYMBOL;
+                        descriptorTuples[j + 5] =
+                            'get' in safeDesc ? getTransferableValue(get) : UNDEFINED_SYMBOL;
+                        descriptorTuples[j + 6] =
+                            'set' in safeDesc ? getTransferableValue(set) : UNDEFINED_SYMBOL;
+                    }
+                    ReflectApply(
+                        foreignCallableDescriptorsCallback,
+                        undefined,
+                        descriptorTuples as Parameters<CallableDescriptorsCallback>
+                    );
+                },
+                'callableGetOwnPropertyDescriptors',
+                INBOUND_INSTRUMENTATION_LABEL
+            ),
             // callableGetTargetIntegrityTraits
             instrumentCallableWrapper(
                 (targetPointer: Pointer): TargetIntegrityTraits => {
@@ -1812,9 +1851,10 @@ export function createMembraneMarshall() {
                 15: callablePreventExtensions,
                 16: callableSet,
                 17: callableSetPrototypeOf,
-                18: callableGetTargetIntegrityTraits,
-                19: callableGetUnbrandedTag,
-                20: callableHasOwnProperty,
+                18: callableGetOwnPropertyDescriptors,
+                19: callableGetTargetIntegrityTraits,
+                20: callableGetUnbrandedTag,
+                21: callableHasOwnProperty,
             } = hooks;
             foreignCallablePushTarget = callablePushTarget;
             // traps utilities
@@ -1892,6 +1932,13 @@ export function createMembraneMarshall() {
                 instrumentCallableWrapper(
                     callableSetPrototypeOf,
                     'callableSetPrototypeOf',
+                    OUTBOUND_INSTRUMENTATION_LABEL
+                )
+            );
+            foreignCallableGetOwnPropertyDescriptors = foreignErrorControl(
+                instrumentCallableWrapper(
+                    callableGetOwnPropertyDescriptors,
+                    'callableGetOwnPropertyDescriptors',
                     OUTBOUND_INSTRUMENTATION_LABEL
                 )
             );
