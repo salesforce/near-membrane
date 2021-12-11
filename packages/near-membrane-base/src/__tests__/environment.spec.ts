@@ -1,10 +1,8 @@
 // @ts-nocheck
-import { SupportFlagsEnum } from '../../types';
 import {
     createConnector,
     createMembraneMarshall,
     getResolvedShapeDescriptors,
-    HooksCallback,
     VirtualEnvironment,
 } from '../index';
 
@@ -32,33 +30,6 @@ describe('VirtualEnvironment', () => {
         }).toThrow(/Missing VirtualEnvironmentOptions options bag/);
     });
 
-    it('forwards support { ... } as bit fields to init functions', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
-        expect.assertions(2);
-
-        // @ts-ignore
-        const interceptor: typeof init = (
-            _name: string,
-            _shouldOrNotTrapMutation: boolean,
-            supportFlags: SupportFlagsEnum,
-            exportsCallback: HooksCallback
-        ) => {
-            expect(supportFlags).toBe(0b1 /* 1 */);
-            // @ts-ignore
-            exportsCallback();
-            return () => {};
-        };
-
-        // eslint-disable-next-line no-new
-        new VirtualEnvironment({
-            blueConnector: interceptor,
-            redConnector: interceptor,
-            support: {
-                magicMarker: true,
-            },
-        });
-    });
     describe('VirtualEnvironment.prototype.evaluate', () => {
         it("calls through to the red realm's callable evaluation function", () => {
             // Ignoring "Property 'assertions' does not exist on type '{...}'."
@@ -82,7 +53,6 @@ describe('VirtualEnvironment', () => {
 
             ve.evaluate(sourceTextToEvaluate);
         });
-
         it('throws pushed error from blue target', () => {
             // Ignoring "Property 'assertions' does not exist on type '{...}'."
             // @ts-ignore
@@ -101,7 +71,6 @@ describe('VirtualEnvironment', () => {
                 ve.evaluate('foo');
             }).toThrow('foo is not defined');
         });
-
         it('rethrows if blue target does not have pushed error', () => {
             // Ignoring "Property 'assertions' does not exist on type '{...}'."
             // @ts-ignore
@@ -129,7 +98,6 @@ describe('VirtualEnvironment', () => {
                 ve.evaluate('foo');
             }).toThrow(error);
         });
-
         it('returns result of evaluated expression', () => {
             // Ignoring "Property 'assertions' does not exist on type '{...}'."
             // @ts-ignore
@@ -160,6 +128,7 @@ describe('VirtualEnvironment', () => {
             expect(ve.evaluate('"Hello!"')).toBe('Hello!');
         });
     });
+
     describe('VirtualEnvironment.prototype.remap', () => {
         it('Skips index-like properties', () => {
             // Ignoring "Property 'assertions' does not exist on type '{...}'."
@@ -212,7 +181,6 @@ describe('VirtualEnvironment', () => {
 
             expect(redValue.a).toBe(0);
         });
-
         it('calls a lazy endowment getter', () => {
             // Ignoring "Property 'assertions' does not exist on type '{...}'."
             // @ts-ignore
@@ -254,7 +222,6 @@ describe('VirtualEnvironment', () => {
             expect(globalThis.b).toBe(1);
             expect(count).toBe(3);
         });
-
         it('calls a lazy endowment setter', () => {
             // Ignoring "Property 'assertions' does not exist on type '{...}'."
             // @ts-ignore
@@ -299,6 +266,7 @@ describe('VirtualEnvironment', () => {
             expect(count).toBe(6);
         });
     });
+
     describe('VirtualEnvironment.prototype.remapProto', () => {
         it('calls blueGetTransferableValue with both args', () => {
             // Ignoring "Property 'assertions' does not exist on type '{...}'."

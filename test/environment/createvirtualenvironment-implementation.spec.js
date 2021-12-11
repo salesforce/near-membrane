@@ -35,30 +35,6 @@ describe('Implementing an environment with VirtualEnvironment', () => {
         }).toThrow();
     });
 
-    it('forwards support { ... } as bit fields to init functions', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
-        expect.assertions(2);
-
-        const interceptor = (_name, _shouldOrNotTrapMutation, supportFlags, exportsCallback) => {
-            expect(supportFlags).toBe(0b1 /* 1 */);
-            exportsCallback();
-            return () => {};
-        };
-
-        const distortionCallback = (v) => v;
-
-        // eslint-disable-next-line no-new
-        new VirtualEnvironment({
-            blueConnector: interceptor,
-            redConnector: interceptor,
-            distortionCallback,
-            support: {
-                magicMarker: true,
-            },
-        });
-    });
-
     describe('VirtualEnvironment.prototype.evaluate', () => {
         it("calls through to the red realm's callable evaluation function", () => {
             expect.assertions(1);
@@ -79,7 +55,6 @@ describe('Implementing an environment with VirtualEnvironment', () => {
 
             ve.evaluate(sourceTextToEvaluate);
         });
-
         it('throws pushed error from blue target', () => {
             expect.assertions(1);
 
@@ -102,7 +77,6 @@ describe('Implementing an environment with VirtualEnvironment', () => {
                     String(thrown).includes('a_very_specific_string')
             );
         });
-
         it('rethrows if blue target does not have pushed error', () => {
             expect.assertions(1);
 

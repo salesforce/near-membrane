@@ -28,7 +28,7 @@ describe('@@lockerLiveValue', () => {
         expect(styleAttributeValue).toBe('color: red;');
     });
     it('from system mode class', () => {
-        expect.assertions(10);
+        expect.assertions(16);
 
         const SYMBOL = Symbol.for('@@lockerLiveValue');
         class X {
@@ -37,12 +37,16 @@ describe('@@lockerLiveValue', () => {
                 this.foo = 0;
             }
 
-            incrementXFromOutside() {
-                this.foo++;
-            }
-
             getFooFromOutside() {
                 return this.foo;
+            }
+
+            hasFooFromOutside() {
+                return 'foo' in this;
+            }
+
+            incrementFooFromOutside() {
+                this.foo++;
             }
         }
 
@@ -62,14 +66,16 @@ describe('@@lockerLiveValue', () => {
                 constructor() {
                     super();
 
+                    expect('foo' in this).toBe(true);
+                    expect(this.foo).toBe(0);
+                    expect(this.hasFooFromOutside()).toBe(true);
                     expect(this.getFooFromOutside()).toBe(0);
-
                     this.foo = 9;
 
                     expect(this.foo).toBe(9);
                     expect(this.getFooFromOutside()).toBe(9);
 
-                    this.incrementXFromOutside();
+                    this.incrementFooFromOutside();
 
                     expect(this.foo).toBe(10);
                     expect(this.getFooFromOutside()).toBe(10);
@@ -81,18 +87,22 @@ describe('@@lockerLiveValue', () => {
     });
 
     it('missing from system mode class', () => {
-        expect.assertions(10);
+        expect.assertions(16);
         class A {
             constructor() {
                 this.foo = 0;
             }
 
-            incrementAFromOutside() {
-                this.foo++;
-            }
-
             getFooFromOutside() {
                 return this.foo;
+            }
+
+            hasFooFromOutside() {
+                return 'foo' in this;
+            }
+
+            incrementFooFromOutside() {
+                this.foo++;
             }
         }
 
@@ -112,14 +122,16 @@ describe('@@lockerLiveValue', () => {
                 constructor() {
                     super();
 
+                    expect('foo' in this).toBe(true);
+                    expect(this.foo).toBe(0);
+                    expect(this.hasFooFromOutside()).toBe(true);
                     expect(this.getFooFromOutside()).toBe(0);
-
                     this.foo = 9;
 
                     expect(this.foo).toBe(9);
                     expect(this.getFooFromOutside()).toBe(0);
 
-                    this.incrementAFromOutside();
+                    this.incrementFooFromOutside();
 
                     expect(this.foo).toBe(9);
                     expect(this.getFooFromOutside()).toBe(1);

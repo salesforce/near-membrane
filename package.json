@@ -25,6 +25,7 @@
     "test": "yarn test:jest; yarn test:karma",
     "test:jest": "jest --no-cache --runInBand --silent --config jest.config.js",
     "test:karma": "karma start karma.config.js --single-run --browsers ChromeHeadless,FirefoxHeadless",
+    "test:karma:debug": "karma start karma.config.js --browsers ChromeCanary",
     "version": "yarn build",
     "bump": "lerna version --exact --no-push --yes",
     "bump:patch": "lerna version patch --exact --no-push --yes",

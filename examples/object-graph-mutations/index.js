@@ -4,7 +4,6 @@ const env = createVirtualEnvironment(window, window);
 
 env.evaluate(`
     'use strict';
-    debugger;
 
     const originalProto = HTMLParagraphElement.prototype.__proto__;
     const newProto = {

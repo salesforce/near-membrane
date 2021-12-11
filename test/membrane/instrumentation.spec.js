@@ -32,12 +32,12 @@ describe('Ensure instrumentation object usage in near-membrane', () => {
         expect(errorSpy).not.toHaveBeenCalled();
 
         redProxy.foo = 1;
-        expect(startActivitySpy).toHaveBeenCalledTimes(4);
+        expect(startActivitySpy).toHaveBeenCalledTimes(3);
         expect(logSpy).not.toHaveBeenCalled();
         expect(errorSpy).not.toHaveBeenCalled();
 
         redProxy.fn();
-        expect(startActivitySpy).toHaveBeenCalledTimes(6);
+        expect(startActivitySpy).toHaveBeenCalledTimes(5);
         expect(logSpy).not.toHaveBeenCalled();
         expect(errorSpy).not.toHaveBeenCalled();
     });

@@ -95,36 +95,33 @@ getCachedBlueReferences(window);
  * the red realm.
  */
 function filterWindowDescriptors(
-    endowmentsDescriptors: PropertyDescriptorMap | undefined
+    unsafeEndowmentsDescMap: PropertyDescriptorMap | undefined
 ): PropertyDescriptorMap {
-    const to: PropertyDescriptorMap = {};
-
+    const unsafeDescMap: PropertyDescriptorMap = {};
     // Endowments descriptors will overrule any default descriptor inferred
     // from the detached iframe. note that they are already filtered, not need
     // to check against intrinsics again.
-    ObjectAssign(to, endowmentsDescriptors);
-
+    ObjectAssign(unsafeDescMap, unsafeEndowmentsDescMap);
     // Removing unforgeable descriptors that cannot be installed
-    delete to.document;
-    delete to.location;
-    delete to.top;
-    delete to.window;
-
+    delete unsafeDescMap.document;
+    delete unsafeDescMap.location;
+    delete unsafeDescMap.top;
+    delete unsafeDescMap.window;
     // Other browser specific undeniable globals
-    delete to.chrome;
-    return to;
+    delete unsafeDescMap.chrome;
+    return unsafeDescMap;
 }
 
 export function tameDOM(
     env: VirtualEnvironment,
     blueRefs: CachedBlueReferencesRecord,
-    endowmentsDescriptors: PropertyDescriptorMap
+    unsafeEndowmentsDescMap: PropertyDescriptorMap
 ) {
     // adjusting proto chain of window.document
     env.remapProto(blueRefs.document, blueRefs.DocumentProto);
-    const globalDescriptors = filterWindowDescriptors(endowmentsDescriptors);
+    const unsafeGlobalDescMap = filterWindowDescriptors(unsafeEndowmentsDescMap);
     // remapping globals
-    env.remap(blueRefs.window, globalDescriptors);
+    env.remap(blueRefs.window, unsafeGlobalDescMap);
     // remapping unforgeable objects
     env.remap(blueRefs.EventTargetProto, blueRefs.EventTargetProtoDescriptors);
     /**
