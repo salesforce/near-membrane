@@ -94,6 +94,7 @@ type CallableGetOwnPropertyDescriptors = (
 type CallableGetTargetIntegrityTraits = (targetPointer: Pointer) => number;
 type CallableGetUnbrandedTag = (targetPointer: Pointer) => string | undefined;
 type CallableHasOwnProperty = (targetPointer: Pointer, key: string | symbol) => boolean;
+type CallableWarn = (...args: Parameters<typeof console.warn>) => void;
 export type CallableLinkPointers = (targetPointer: Pointer, foreignTargetPointer: Pointer) => void;
 export type CallableGetPropertyValuePointer = (
     targetPointer: Pointer,
@@ -124,7 +125,8 @@ export type HooksCallback = (
     callableGetOwnPropertyDescriptors: CallableGetOwnPropertyDescriptors,
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableGetUnbrandedTag: CallableGetUnbrandedTag,
-    callableHasOwnProperty: CallableHasOwnProperty
+    callableHasOwnProperty: CallableHasOwnProperty,
+    callableWarn: CallableWarn
 ) => void;
 export type DistortionCallback = (target: ProxyTarget) => ProxyTarget;
 export interface InitLocalOptions {
@@ -172,7 +174,9 @@ export function createMembraneMarshall() {
     const { slice: StringProtoSlice } = String.prototype;
     const TypeErrorCtor = TypeError;
     const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMap.prototype;
-
+    const consoleRef = console;
+    const { warn: consoleWarn } = consoleRef;
+    const localEval = eval;
     const globalThisRef =
         (typeof globalThis !== 'undefined' && globalThis) ||
         // This is for environments like Android emulators running Chrome 69.
@@ -192,8 +196,6 @@ export function createMembraneMarshall() {
             },
         }),
         globalThis);
-
-    const { eval: cachedLocalEval } = globalThisRef;
 
     // @rollup/plugin-replace replaces `DEV_MODE` references.
     const DEV_MODE = true;
@@ -261,6 +263,7 @@ export function createMembraneMarshall() {
         let foreignCallableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits;
         let foreignCallableGetUnbrandedTag: CallableGetUnbrandedTag;
         let foreignCallableHasOwnProperty: CallableHasOwnProperty;
+        let foreignCallableWarn: CallableWarn;
         let selectedTarget: undefined | ProxyTarget;
 
         function copyForeignDescriptorsIntoShadowTarget(
@@ -1088,6 +1091,17 @@ export function createMembraneMarshall() {
             private makeProxyStatic(shadowTarget: ShadowTarget) {
                 // assert: trapMutations must be true
                 const { foreignTargetPointer } = this;
+                if (DEV_MODE) {
+                    try {
+                        foreignCallableWarn(
+                            'Mutations on the membrane of an object originating ' +
+                                'outside of the sandbox will not be reflected on ' +
+                                'the object itself:',
+                            foreignTargetPointer
+                        );
+                        // eslint-disable-next-line no-empty
+                    } catch {}
+                }
                 const targetIntegrityTraits =
                     foreignCallableGetTargetIntegrityTraits(foreignTargetPointer);
                 if (targetIntegrityTraits & TargetIntegrityTraits.Revoked) {
@@ -1467,7 +1481,7 @@ export function createMembraneMarshall() {
             // callableEvaluate
             (sourceText: string): PointerOrPrimitive => {
                 try {
-                    return getTransferableValue(cachedLocalEval(sourceText));
+                    return getTransferableValue(localEval(sourceText));
                 } catch (e: any) {
                     throw pushErrorAcrossBoundary(e);
                 }
@@ -1829,6 +1843,21 @@ export function createMembraneMarshall() {
                 },
                 'callableHasOwnProperty',
                 INBOUND_INSTRUMENTATION_LABEL
+            ),
+            // callableWarn
+            instrumentCallableWrapper(
+                (...args: Parameters<typeof console.warn>): void => {
+                    for (let i = 0, len = args.length; i < len; i += 1) {
+                        args[i] = getLocalValue(args[i]);
+                    }
+                    try {
+                        ReflectApply(consoleWarn, consoleRef, args);
+                    } catch (e: any) {
+                        throw pushErrorAcrossBoundary(e);
+                    }
+                },
+                'callableWarn',
+                INBOUND_INSTRUMENTATION_LABEL
             )
         );
         return (...hooks: Parameters<HooksCallback>) => {
@@ -1855,6 +1884,7 @@ export function createMembraneMarshall() {
                 19: callableGetTargetIntegrityTraits,
                 20: callableGetUnbrandedTag,
                 21: callableHasOwnProperty,
+                22: callableWarn,
             } = hooks;
             foreignCallablePushTarget = callablePushTarget;
             // traps utilities
@@ -1960,6 +1990,13 @@ export function createMembraneMarshall() {
                 instrumentCallableWrapper(
                     callableHasOwnProperty,
                     'callableHasOwnProperty',
+                    OUTBOUND_INSTRUMENTATION_LABEL
+                )
+            );
+            foreignCallableWarn = foreignErrorControl(
+                instrumentCallableWrapper(
+                    callableWarn,
+                    'callableWarn',
                     OUTBOUND_INSTRUMENTATION_LABEL
                 )
             );
