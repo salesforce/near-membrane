@@ -30,6 +30,7 @@ module.exports = function (config) {
     const bootstrapFilesPattern = 'test/__bootstrap__/**/*.js';
     const karmaConfig = {
         browsers: ['ChromeHeadless'],
+        browserConsoleLogOptions: { level: config.LOG_ERROR, format: '%m', terminal: true },
         files: [
             bootstrapFilesPattern,
             { pattern: testFilesPattern, watched: true, type: 'module' },

@@ -23,7 +23,7 @@
     "coverage:report": "yarn istanbul --include report coverage-merged.json --dir coverage-merged html",
     "test:bundlesize": "bundlesize",
     "test": "yarn test:jest; yarn test:karma",
-    "test:jest": "jest --runInBand --no-cache --config jest.config.js",
+    "test:jest": "jest --no-cache --runInBand --silent --config jest.config.js",
     "test:karma": "karma start karma.config.js --single-run --browsers ChromeHeadless,FirefoxHeadless",
     "version": "yarn build",
     "bump": "lerna version --exact --no-push --yes",
