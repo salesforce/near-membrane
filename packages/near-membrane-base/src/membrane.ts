@@ -233,6 +233,7 @@ export function createMembraneMarshall() {
     return function createHooksCallback(
         color: string,
         trapMutations: boolean,
+        // eslint-disable-next-line @typescript-eslint/default-param-last
         supportFlags: SupportFlagsEnum = SupportFlagsEnum.None,
         foreignCallableHooksCallback: HooksCallback,
         options?: InitLocalOptions
