@@ -47,23 +47,23 @@ const ESGlobalKeys = new Set([
 
     // *** 19.3 Constructor Properties of the Global Object
     'AggregateError',
-    'Array',
-    'ArrayBuffer',
+    // 'Array',
+    // 'ArrayBuffer',
     'BigInt',
-    'BigInt64Array',
-    'BigUint64Array',
+    // 'BigInt64Array',
+    // 'BigUint64Array',
     'Boolean',
-    'DataView',
+    // 'DataView',
     // 'Date', // Unstable & Remapped
     'Error', // Unstable
     'EvalError',
     'FinalizationRegistry',
-    'Float32Array',
-    'Float64Array',
+    // 'Float32Array',
+    // 'Float64Array',
     'Function', // dangerous
-    'Int8Array',
-    'Int16Array',
-    'Int32Array',
+    // 'Int8Array',
+    // 'Int16Array',
+    // 'Int32Array',
     // 'Map', // Remapped
     'Number',
     'Object',
@@ -75,15 +75,15 @@ const ESGlobalKeys = new Set([
     'ReferenceError',
     'RegExp', // Unstable
     // 'Set', // Remapped
-    'SharedArrayBuffer',
+    // 'SharedArrayBuffer',
     'String',
     'Symbol',
     'SyntaxError',
     'TypeError',
-    'Uint8Array',
-    'Uint8ClampedArray',
-    'Uint16Array',
-    'Uint32Array',
+    // 'Uint8Array',
+    // 'Uint8ClampedArray',
+    // 'Uint16Array',
+    // 'Uint32Array',
     'URIError',
     // 'WeakMap', // Remapped
     // 'WeakSet', // Remapped
@@ -91,7 +91,7 @@ const ESGlobalKeys = new Set([
     'WeakRef',
 
     // *** 18.4 Other Properties of the Global Object
-    'Atomics',
+    // 'Atomics',
     'JSON',
     'Math',
     'Reflect',

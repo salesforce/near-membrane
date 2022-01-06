@@ -114,7 +114,7 @@ function filterWindowDescriptors(
     // iframe, we can let the sandbox to use the iframe's api directly,
     // instead of remapping it to the blue realm.
     // TODO [issue #67]: review this list
-    delete to.crypto;
+    // delete to.crypto;
     // others browser specific undeniable globals
     delete to.chrome;
     return to;
