@@ -47,23 +47,23 @@ const ESGlobalKeys = new Set([
 
     // *** 19.3 Constructor Properties of the Global Object
     'AggregateError',
-    // 'Array',
-    // 'ArrayBuffer',
+    // 'Array', // Reflective
+    // 'ArrayBuffer', // Remapped
     'BigInt',
-    // 'BigInt64Array',
-    // 'BigUint64Array',
+    // 'BigInt64Array', // Remapped
+    // 'BigUint64Array', // Remapped
     'Boolean',
-    // 'DataView',
+    // 'DataView', // Remapped
     // 'Date', // Unstable & Remapped
     'Error', // Unstable
     'EvalError',
     'FinalizationRegistry',
-    // 'Float32Array',
-    // 'Float64Array',
+    // 'Float32Array', // Remapped
+    // 'Float64Array', // Remapped
     'Function', // dangerous
-    // 'Int8Array',
-    // 'Int16Array',
-    // 'Int32Array',
+    // 'Int8Array', // Remapped
+    // 'Int16Array', // Remapped
+    // 'Int32Array', // Remapped
     // 'Map', // Remapped
     'Number',
     'Object',
@@ -75,15 +75,15 @@ const ESGlobalKeys = new Set([
     'ReferenceError',
     'RegExp', // Unstable
     // 'Set', // Remapped
-    // 'SharedArrayBuffer',
+    // 'SharedArrayBuffer', // Remapped
     'String',
     'Symbol',
     'SyntaxError',
     'TypeError',
-    // 'Uint8Array',
-    // 'Uint8ClampedArray',
-    // 'Uint16Array',
-    // 'Uint32Array',
+    // 'Uint8Array', // Remapped
+    // 'Uint8ClampedArray', // Remapped
+    // 'Uint16Array', // Remapped
+    // 'Uint32Array', // Remapped
     'URIError',
     // 'WeakMap', // Remapped
     // 'WeakSet', // Remapped
@@ -91,7 +91,7 @@ const ESGlobalKeys = new Set([
     'WeakRef',
 
     // *** 18.4 Other Properties of the Global Object
-    // 'Atomics',
+    // 'Atomics', // Remapped
     'JSON',
     'Math',
     'Reflect',
