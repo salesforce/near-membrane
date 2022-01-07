@@ -142,6 +142,13 @@ ReflectSetPrototypeOf(SupportFlagsEnum, null);
 
 // istanbul ignore next
 export function createMembraneMarshall() {
+    // @rollup/plugin-replace replaces `DEV_MODE` references.
+    const DEV_MODE = true;
+    const LOCKER_LIVE_MARKER_SYMBOL = Symbol.for('@@lockerLiveValue');
+    const LOCKER_MAGIC_MARKER_SYMBOL = Symbol.for('@@lockerMagicValue');
+    const { toStringTag: TO_STRING_TAG_SYMBOL } = Symbol;
+    const UNDEFINED_SYMBOL = Symbol.for('@@membraneUndefinedValue');
+
     const ArrayCtor = Array;
     const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
     const {
@@ -196,14 +203,6 @@ export function createMembraneMarshall() {
             },
         }),
         globalThis);
-
-    // @rollup/plugin-replace replaces `DEV_MODE` references.
-    const DEV_MODE = true;
-    const LOCKER_LIVE_MARKER_SYMBOL = Symbol.for('@@lockerLiveValue');
-    const LOCKER_MAGIC_MARKER_SYMBOL = Symbol.for('@@lockerMagicValue');
-    const { toStringTag: TO_STRING_TAG_SYMBOL } = Symbol;
-    const UNDEFINED_SYMBOL = Symbol.for('@@membraneUndefinedValue');
-
     // eslint-disable-next-line no-shadow
     enum MarshallSupportFlagsField {
         None = 0,

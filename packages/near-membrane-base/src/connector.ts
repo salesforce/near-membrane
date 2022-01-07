@@ -6,10 +6,118 @@ const marshallSourceTextInStrictMode = `
 (function(){
     'use strict';
     (${function initializeShadowRealm() {
-        if (typeof Error.stackTraceLimit === 'number') {
-            // The default stack trace limit is 10.
-            // Increasing to 20 as a baby step.
-            Error.stackTraceLimit *= 2;
+        // Hook into V8 stack trace API
+        // https://v8.dev/docs/stack-trace-api
+        if (typeof Error.prepareStackTrace !== 'function') {
+            const CallSite = ((): Function | undefined => {
+                Error.prepareStackTrace = (_error: Error, callSites: NodeJS.CallSite[]) =>
+                    callSites;
+                const callSites = new Error().stack as string | NodeJS.CallSite[];
+                delete Error.prepareStackTrace;
+                return Array.isArray(callSites) && callSites.length > 0
+                    ? callSites[0]?.constructor
+                    : undefined;
+            })();
+            if (typeof CallSite === 'function') {
+                // @rollup/plugin-replace replaces `DEV_MODE` references.
+                const DEV_MODE = true;
+                const ZERO_WIDTH_JOINER = '\u200D';
+                const LOCKER_IDENTIFIER_MARKER = `$LWS${ZERO_WIDTH_JOINER}`;
+
+                const { toString: ErrorProtoToString } = Error.prototype;
+                const { apply: ReflectApply, defineProperty: ReflectDefineProperty } = Reflect;
+                const { endsWith: StringProtoEndsWith, includes: StringProtoIncludes } =
+                    String.prototype;
+                const {
+                    getEvalOrigin: CallSiteProtoGetEvalOrigin,
+                    getFunctionName: CallSiteProtoGetFunctionName,
+                    toString: CallSiteProtoToString,
+                } = CallSite.prototype;
+
+                const formatStackTrace = function formatStackTrace(
+                    error: Error,
+                    callSites: NodeJS.CallSite[]
+                ): string {
+                    // Based on V8's default stack trace formatting:
+                    // https://chromium.googlesource.com/v8/v8.git/+/refs/heads/main/src/execution/messages.cc#371
+                    let stackTrace = '';
+                    try {
+                        stackTrace = ReflectApply(ErrorProtoToString, error, []);
+                    } catch {
+                        stackTrace = '<error>';
+                    }
+                    let consecutive = false;
+                    for (let i = 0, { length } = callSites; i < length; i += 1) {
+                        const callSite = callSites[i];
+                        const funcName = ReflectApply(CallSiteProtoGetFunctionName, callSite, []);
+                        let isMarked = false;
+                        if (
+                            typeof funcName === 'string' &&
+                            funcName !== 'eval' &&
+                            ReflectApply(StringProtoEndsWith, funcName, [LOCKER_IDENTIFIER_MARKER])
+                        ) {
+                            isMarked = true;
+                        }
+                        if (!isMarked) {
+                            const evalOrigin = ReflectApply(
+                                CallSiteProtoGetEvalOrigin,
+                                callSite,
+                                []
+                            );
+                            if (
+                                typeof evalOrigin === 'string' &&
+                                ReflectApply(StringProtoIncludes, evalOrigin, [
+                                    LOCKER_IDENTIFIER_MARKER,
+                                ])
+                            ) {
+                                isMarked = true;
+                            }
+                        }
+                        // Only write a single LWS entry per consecutive LWS stacks.
+                        if (isMarked) {
+                            if (!consecutive) {
+                                consecutive = true;
+                                stackTrace += '\n    at LWS';
+                            }
+                            continue;
+                        } else {
+                            consecutive = false;
+                        }
+                        try {
+                            stackTrace += `\n    at ${ReflectApply(
+                                CallSiteProtoToString,
+                                callSite,
+                                []
+                            )}`;
+                            // eslint-disable-next-line no-empty
+                        } catch {}
+                    }
+                    return stackTrace;
+                };
+                // Make Error.prepareStackTrace non-configurable and non-writable.
+                ReflectDefineProperty(Error, 'prepareStackTrace', {
+                    // @ts-ignore: TS doesn't like __proto__ on property descriptors.
+                    __proto__: null,
+                    enumerable: true,
+                    // Error.prepareStackTrace cannot be a bound or proxy wrapped
+                    // function, so to obscure its source we wrap the call to
+                    // formatStackTrace().
+                    value: function prepareStackTrace(error: Error, callSites: NodeJS.CallSite[]) {
+                        return formatStackTrace(error, callSites);
+                    },
+                });
+                // Make Error.stackTraceLimit configurable and writable in DEV_MODE.
+                ReflectDefineProperty(Error, 'stackTraceLimit', {
+                    // @ts-ignore: TS doesn't like __proto__ on property descriptors.
+                    __proto__: null,
+                    configurable: DEV_MODE,
+                    enumerable: true,
+                    // The default stack trace limit is 10.
+                    // Increasing to 20 for wiggle room of filtered results.
+                    value: 20,
+                    writable: DEV_MODE,
+                });
+            }
         }
     }.toString()})();
     return (${createMembraneMarshall.toString()})
