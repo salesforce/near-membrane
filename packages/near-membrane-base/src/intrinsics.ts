@@ -121,9 +121,10 @@ const ReflectiveIntrinsicObjectNames = [
     'eval',
 ];
 
-const ESGlobalsAndReflectiveInstrinsicObjectNames = ESGlobalKeys.slice(0).concat(
-    ReflectiveIntrinsicObjectNames
-);
+const ESGlobalsAndReflectiveInstrinsicObjectNames = [
+    ...ESGlobalKeys,
+    ...ReflectiveIntrinsicObjectNames,
+];
 
 function assignFilteredGlobalObjectShapeDescriptors<T extends PropertyDescriptorMap>(
     descriptorMap: T,
