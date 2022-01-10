@@ -1,7 +1,6 @@
 import { VirtualEnvironment } from './environment';
 
 const { includes: ArrayProtoIncludes } = Array.prototype;
-const { has: SetProtoHas } = Set.prototype;
 const {
     apply: ReflectApply,
     getOwnPropertyDescriptor: ReflectGetOwnPropertyDescriptor,
@@ -27,7 +26,7 @@ const {
  * problematic, and requires a lot more work to guarantee that objects from both sides
  * can be considered equivalents (without identity discontinuity).
  */
-const ESGlobalKeys = new Set([
+const ESGlobalKeys = [
     // *** 19.1 Value Properties of the Global Object
     'globalThis',
     'Infinity',
@@ -35,7 +34,7 @@ const ESGlobalKeys = new Set([
     'undefined',
 
     // *** 19.2 Function Properties of the Global Object
-    'eval', // dangerous
+    // 'eval', // dangerous & Reflective
     'isFinite',
     'isNaN',
     'parseFloat',
@@ -46,52 +45,52 @@ const ESGlobalKeys = new Set([
     'encodeURIComponent',
 
     // *** 19.3 Constructor Properties of the Global Object
-    'AggregateError',
-    'Array',
-    'ArrayBuffer',
+    // 'AggregateError', // Reflective
+    // 'Array', // Reflective
+    // 'ArrayBuffer', // Remapped
     'BigInt',
-    'BigInt64Array',
-    'BigUint64Array',
+    // 'BigInt64Array', // Remapped
+    // 'BigUint64Array', // Remapped
     'Boolean',
-    'DataView',
+    // 'DataView', // Remapped
     // 'Date', // Unstable & Remapped
-    'Error', // Unstable
-    'EvalError',
+    // 'Error', // Unstable & Reflective
+    // 'EvalError', // Reflective
     'FinalizationRegistry',
-    'Float32Array',
-    'Float64Array',
-    'Function', // dangerous
-    'Int8Array',
-    'Int16Array',
-    'Int32Array',
+    // 'Float32Array', // Remapped
+    // 'Float64Array', // Remapped
+    // 'Function', // dangerous & Reflective
+    // 'Int8Array', // Remapped
+    // 'Int16Array', // Remapped
+    // 'Int32Array', // Remapped
     // 'Map', // Remapped
     'Number',
-    'Object',
+    // 'Object', // Reflective
     // Allow Blue `Promise` constructor to overwrite the Red one so that promises
     // created by the `Promise` constructor or APIs like `fetch` will work.
     // 'Promise', // Remapped
-    'Proxy', // Unstable
-    'RangeError',
-    'ReferenceError',
+    // 'Proxy', // Unstable & Reflective
+    // 'RangeError', // Reflective
+    // 'ReferenceError', // Reflective
     'RegExp', // Unstable
     // 'Set', // Remapped
-    'SharedArrayBuffer',
+    // 'SharedArrayBuffer', // Remapped
     'String',
     'Symbol',
-    'SyntaxError',
-    'TypeError',
-    'Uint8Array',
-    'Uint8ClampedArray',
-    'Uint16Array',
-    'Uint32Array',
-    'URIError',
+    // 'SyntaxError', // Reflective
+    // 'TypeError', // Reflective
+    // 'Uint8Array', // Remapped
+    // 'Uint8ClampedArray', // Remapped
+    // 'Uint16Array', // Remapped
+    // 'Uint32Array', // Remapped
+    // 'URIError', // Reflective
     // 'WeakMap', // Remapped
     // 'WeakSet', // Remapped
 
     'WeakRef',
 
     // *** 18.4 Other Properties of the Global Object
-    'Atomics',
+    // 'Atomics', // Remapped
     'JSON',
     'Math',
     'Reflect',
@@ -102,7 +101,7 @@ const ESGlobalKeys = new Set([
 
     // *** ECMA-402
     // 'Intl',  // Unstable & Remapped
-]);
+];
 
 // These are foundational things that should never be wrapped but are equivalent
 // TODO: revisit this list.
@@ -122,6 +121,11 @@ const ReflectiveIntrinsicObjectNames = [
     'eval',
 ];
 
+const ESGlobalsAndReflectiveInstrinsicObjectNames = [
+    ...ESGlobalKeys,
+    ...ReflectiveIntrinsicObjectNames,
+];
+
 function assignFilteredGlobalObjectShapeDescriptors<T extends PropertyDescriptorMap>(
     descriptorMap: T,
     source: object
@@ -136,10 +140,7 @@ function assignFilteredGlobalObjectShapeDescriptors<T extends PropertyDescriptor
         // will be ignored if present in the endowments object.
         // TODO: what if the intent is to polyfill one of those
         // intrinsics?
-        if (
-            !ReflectApply(SetProtoHas, ESGlobalKeys, [key]) &&
-            !ReflectApply(ArrayProtoIncludes, ReflectiveIntrinsicObjectNames, [key])
-        ) {
+        if (!ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveInstrinsicObjectNames, [key])) {
             const unsafeDesc = ReflectGetOwnPropertyDescriptor(source, key);
             // Safari 14.0.x (macOS) and 14.2 (iOS) have a bug where 'showModalDialog'
             // is returned in the list of own keys produces by ReflectOwnKeys(iframeWindow),

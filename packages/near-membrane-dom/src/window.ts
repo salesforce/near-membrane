@@ -99,23 +99,18 @@ function filterWindowDescriptors(
 ): PropertyDescriptorMap {
     const to: PropertyDescriptorMap = {};
 
-    // endowments descriptors will overrule any default descriptor inferred
+    // Endowments descriptors will overrule any default descriptor inferred
     // from the detached iframe. note that they are already filtered, not need
     // to check against intrinsics again.
     ObjectAssign(to, endowmentsDescriptors);
 
-    // removing unforgeable descriptors that cannot be installed
+    // Removing unforgeable descriptors that cannot be installed
     delete to.document;
     delete to.location;
     delete to.top;
     delete to.window;
-    // Some DOM APIs do brand checks for TypeArrays and others objects,
-    // in this case, if the API is not dangerous, and works in a detached
-    // iframe, we can let the sandbox to use the iframe's api directly,
-    // instead of remapping it to the blue realm.
-    // TODO [issue #67]: review this list
-    delete to.crypto;
-    // others browser specific undeniable globals
+
+    // Other browser specific undeniable globals
     delete to.chrome;
     return to;
 }

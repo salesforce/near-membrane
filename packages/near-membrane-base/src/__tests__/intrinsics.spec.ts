@@ -14,7 +14,7 @@ const ESGlobalKeys = [
     'undefined',
 
     // *** 19.2 Function Properties of the Global Object
-    'eval', // dangerous
+    // 'eval', // dangerous & Reflective
     'isFinite',
     'isNaN',
     'parseFloat',
@@ -25,52 +25,52 @@ const ESGlobalKeys = [
     'encodeURIComponent',
 
     // *** 19.3 Constructor Properties of the Global Object
-    'AggregateError',
-    'Array',
-    'ArrayBuffer',
+    // 'AggregateError', // Reflective
+    // 'Array', // Reflective
+    // 'ArrayBuffer', // Remapped
     'BigInt',
-    'BigInt64Array',
-    'BigUint64Array',
+    // 'BigInt64Array', // Remapped
+    // 'BigUint64Array', // Remapped
     'Boolean',
-    'DataView',
+    // 'DataView', // Remapped
     // 'Date', // Unstable & Remapped
-    'Error', // Unstable
-    'EvalError',
+    // 'Error', // Unstable & Reflective
+    // 'EvalError', // Reflective
     'FinalizationRegistry',
-    'Float32Array',
-    'Float64Array',
-    'Function', // dangerous
-    'Int8Array',
-    'Int16Array',
-    'Int32Array',
+    // 'Float32Array', // Remapped
+    // 'Float64Array', // Remapped
+    // 'Function', // dangerous & Reflective
+    // 'Int8Array', // Remapped
+    // 'Int16Array', // Remapped
+    // 'Int32Array', // Remapped
     // 'Map', // Remapped
     'Number',
-    'Object',
+    // 'Object', // Reflective
     // Allow Blue `Promise` constructor to overwrite the Red one so that promises
     // created by the `Promise` constructor or APIs like `fetch` will work.
     // 'Promise', // Remapped
-    'Proxy', // Unstable
-    'RangeError',
-    'ReferenceError',
+    // 'Proxy', // Unstable & Reflective
+    // 'RangeError', // Reflective
+    // 'ReferenceError', // Reflective
     'RegExp', // Unstable
     // 'Set', // Remapped
-    'SharedArrayBuffer',
+    // 'SharedArrayBuffer', // Remapped
     'String',
     'Symbol',
-    'SyntaxError',
-    'TypeError',
-    'Uint8Array',
-    'Uint8ClampedArray',
-    'Uint16Array',
-    'Uint32Array',
-    'URIError',
+    // 'SyntaxError', // Reflective
+    // 'TypeError', // Reflective
+    // 'Uint8Array', // Remapped
+    // 'Uint8ClampedArray', // Remapped
+    // 'Uint16Array', // Remapped
+    // 'Uint32Array', // Remapped
+    // 'URIError', // Reflective
     // 'WeakMap', // Remapped
     // 'WeakSet', // Remapped
 
     'WeakRef',
 
     // *** 18.4 Other Properties of the Global Object
-    'Atomics',
+    // 'Atomics', // Remapped
     'JSON',
     'Math',
     'Reflect',
@@ -87,6 +87,7 @@ const ReflectiveIntrinsicObjectNames = [
     'AggregateError',
     'Array',
     'Error',
+    'eval',
     'EvalError',
     'Function',
     'Object',
@@ -96,17 +97,31 @@ const ReflectiveIntrinsicObjectNames = [
     'SyntaxError',
     'TypeError',
     'URIError',
-    'eval',
 ];
 
 const RemappedIntrinsicObjectNames = [
+    'ArrayBuffer',
+    'Atomics',
+    'BigInt64Array',
+    'BigUint64Array',
+    'DataView',
     'Date',
+    'Float32Array',
+    'Float64Array',
+    'Int16Array',
+    'Int32Array',
+    'Int8Array',
+    'Intl',
     'Map',
     'Promise',
     'Set',
+    'SharedArrayBuffer',
+    'Uint16Array',
+    'Uint32Array',
+    'Uint8Array',
+    'Uint8ClampedArray',
     'WeakMap',
     'WeakSet',
-    'Intl',
 ];
 
 describe('getResolvedShapeDescriptors()', () => {
