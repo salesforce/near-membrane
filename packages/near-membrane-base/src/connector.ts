@@ -19,8 +19,12 @@ const marshallSourceTextInStrictMode = `
                     : undefined;
             })();
             if (typeof CallSite === 'function') {
-                // @rollup/plugin-replace replaces `DEV_MODE` references.
-                const DEV_MODE = true;
+                // This package is bundled by third-parties that have their own build time
+                // replacement logic. Instead of customizing each build system to be aware of
+                // this package we perform a small runtime check to determine whether our
+                // code is minified or in DEV_MODE.
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                const DEV_MODE = function DEV_MODE() {}.name === 'DEV_MODE';
                 const ZERO_WIDTH_JOINER = '\u200D';
                 const LOCKER_IDENTIFIER_MARKER = `$LWS${ZERO_WIDTH_JOINER}`;
 
