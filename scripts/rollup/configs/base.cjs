@@ -1,47 +1,44 @@
 'use strict';
 
-const replacePlugin = require('@rollup/plugin-replace');
-const { terser } = require('rollup-plugin-terser');
+const mergeOptions = require('merge-options');
 const typescriptPlugin = require('@rollup/plugin-typescript');
 const { getBabelOutputPlugin } = require('../plugins/babel-output.cjs');
 
 function createConfig({
+    // prettier-ignore
     input = 'src/index.ts',
-    filePrefix = 'index',
-    external = [],
-    prod = false,
+    format = 'cjs',
+    ...rollupOverrides
 } = {}) {
-    process.env.NODE_ENV = prod ? 'production' : 'development';
+    const isCJS = format === 'cjs';
 
-    const DEV_MODE = !prod;
-    return {
-        input,
-        output: {
-            file: `dist/${filePrefix}${prod ? '.min' : ''}.js`,
-            format: 'es',
-            sourcemap: true,
+    return mergeOptions.call(
+        { concatArrays: true },
+        {
+            input,
+            external: [],
+            output: {
+                file: `dist/index${isCJS ? '.cjs' : ''}.js`,
+                format,
+                // prettier-ignore
+                plugins: [
+                    getBabelOutputPlugin(),
+                ],
+            },
             // prettier-ignore
             plugins: [
-                getBabelOutputPlugin(),
-                prod ? terser() : undefined,
+                typescriptPlugin(),
             ],
         },
-        plugins: [
-            typescriptPlugin(),
-            replacePlugin({
-                preventAssignment: true,
-                DEV_MODE: JSON.stringify(DEV_MODE),
-            }),
-        ],
-        external,
-    };
+        rollupOverrides
+    );
 }
 
 module.exports = {
     rollupConfig(options = {}) {
         return [
-            createConfig({ ...options, prod: false }),
-            createConfig({ ...options, prod: true }),
+            createConfig({ ...options, format: 'es' }),
+            createConfig({ ...options, format: 'cjs' }),
         ];
     },
 };

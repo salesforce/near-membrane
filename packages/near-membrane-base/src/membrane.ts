@@ -142,8 +142,12 @@ ReflectSetPrototypeOf(SupportFlagsEnum, null);
 
 // istanbul ignore next
 export function createMembraneMarshall() {
-    // @rollup/plugin-replace replaces `DEV_MODE` references.
-    const DEV_MODE = true;
+    // This package is bundled by third-parties that have their own build time
+    // replacement logic. Instead of customizing each build system to be aware of
+    // this package we perform a small runtime check to determine whether our
+    // code is minified or in DEV_MODE.
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    const DEV_MODE = function DEV_MODE() {}.name === 'DEV_MODE';
     const LOCKER_LIVE_MARKER_SYMBOL = Symbol.for('@@lockerLiveValue');
     const LOCKER_MAGIC_MARKER_SYMBOL = Symbol.for('@@lockerMagicValue');
     const { toStringTag: TO_STRING_TAG_SYMBOL } = Symbol;
