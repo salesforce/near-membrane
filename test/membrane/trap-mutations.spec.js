@@ -1,6 +1,7 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 class Base {
+    // eslint-disable-next-line class-methods-use-this
     get x() {
         return 1;
     }
