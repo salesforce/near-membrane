@@ -36,7 +36,7 @@ module.exports = function (config) {
             { pattern: testFilesPattern, watched: true, type: 'module' },
         ],
         frameworks: ['jasmine'],
-        logLevel: config.LOG_INFO,
+        logLevel: config.LOG_ERROR,
         preprocessors: {
             [bootstrapFilesPattern]: ['rollup'],
             [testFilesPattern]: ['rollup'],

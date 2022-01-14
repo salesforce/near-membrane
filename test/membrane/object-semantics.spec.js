@@ -11,7 +11,7 @@ const endowments = {
 };
 
 describe('Blue Proxies', () => {
-    it('should be preserved the JS Object semantics by allowing writable objects to change', () => {
+    it('should allow writable objects to change', () => {
         'use strict';
 
         expect.assertions(9);

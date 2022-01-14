@@ -2,7 +2,7 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('The object graph', () => {
     it('should be shadowed by a sandbox', () => {
-        expect.assertions(17);
+        expect.assertions(21);
         const env = createVirtualEnvironment(window, window);
         env.evaluate(`
             'use strict';
@@ -51,9 +51,13 @@ describe('The object graph', () => {
 
         // Mutations on the object graph in the sandbox do not leak into the outer realm
         const elm = document.querySelector('p');
-        expect(elm.x).toBe(undefined);
-        expect(elm.y).toBe(undefined);
-        expect(elm.z).toBe(undefined);
+        expect('w' in elm).toBe(false);
         expect(elm.w).toBe(undefined);
+        expect('x' in elm).toBe(false);
+        expect(elm.x).toBe(undefined);
+        expect('y' in elm).toBe(false);
+        expect(elm.y).toBe(undefined);
+        expect('z' in elm).toBe(false);
+        expect(elm.z).toBe(undefined);
     });
 });

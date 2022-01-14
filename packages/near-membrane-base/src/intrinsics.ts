@@ -160,6 +160,17 @@ function assignFilteredGlobalObjectShapeDescriptors<T extends PropertyDescriptor
     return descriptorMap;
 }
 
+export function getResolvedShapeDescriptors(...sources: any[]): PropertyDescriptorMap {
+    const unsafeDescMap: PropertyDescriptorMap = {};
+    for (let i = 0, len = sources.length; i < len; i += 1) {
+        const source = sources[i];
+        if (source) {
+            assignFilteredGlobalObjectShapeDescriptors(unsafeDescMap, source);
+        }
+    }
+    return unsafeDescMap;
+}
+
 export function linkIntrinsics(
     env: VirtualEnvironment,
     globalObjectVirtualizationTarget: typeof globalThis
@@ -176,15 +187,4 @@ export function linkIntrinsics(
             }
         }
     }
-}
-
-export function getResolvedShapeDescriptors(...sources: any[]): PropertyDescriptorMap {
-    const descriptors: PropertyDescriptorMap = {};
-    for (let i = 0, len = sources.length; i < len; i += 1) {
-        const source = sources[i];
-        if (source) {
-            assignFilteredGlobalObjectShapeDescriptors(descriptors, source);
-        }
-    }
-    return descriptors;
 }

@@ -21,7 +21,7 @@ describe('Getter Function Distortion', () => {
         env.evaluate(`
             const elm = document.createElement('div');
             elm.attachShadow({ mode: 'open' });
-            expect(elm.shadowRoot.host).toBe(null);    
+            expect(elm.shadowRoot.host).toBe(null);
         `);
     });
     it('should be invoked when invoked indirectly', () => {

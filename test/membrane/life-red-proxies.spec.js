@@ -5,7 +5,8 @@ const LockerLiveValueMarkerSymbol = Symbol.for('@@lockerLiveValue');
 const o = {
     x: 'uno',
 };
-Object.defineProperty(o, LockerLiveValueMarkerSymbol, {});
+
+Reflect.defineProperty(o, LockerLiveValueMarkerSymbol, {});
 
 const endowments = {
     o,
@@ -13,7 +14,7 @@ const endowments = {
 };
 const env = createVirtualEnvironment(window, window, { endowments });
 
-describe('A Live Red Proxy', () => {
+describe('a live Red proxy', () => {
     it('should surface new expandos from blue realm', () => {
         expect.assertions(2);
         o.x = 'uno';

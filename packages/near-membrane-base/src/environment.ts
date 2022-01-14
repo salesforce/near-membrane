@@ -15,9 +15,7 @@ import {
     SupportFlagsEnum,
 } from './membrane';
 
-export interface SupportFlagsObject {
-    magicMarker?: boolean;
-}
+export interface SupportFlagsObject {}
 
 interface VirtualEnvironmentOptions {
     // Blue connector factory
@@ -79,7 +77,7 @@ export class VirtualEnvironment {
 
     constructor(options: VirtualEnvironmentOptions) {
         if (options === undefined) {
-            throw new ErrorCtor(`Missing VirtualEnvironmentOptions options bag.`);
+            throw new ErrorCtor('Missing VirtualEnvironmentOptions options bag.');
         }
         const { blueConnector, redConnector, distortionCallback, support, instrumentation } =
             options;
@@ -148,13 +146,15 @@ export class VirtualEnvironment {
             // 8: redCallableConstruct,
             9: redCallableDefineProperty,
             // 10: redCallableDeleteProperty,
-            // 11: redCallableGetOwnPropertyDescriptor,
-            // 12: redCallableGetPrototypeOf,
-            // 13: redCallableIsExtensible,
-            // 14: redCallableOwnKeys,
-            // 15: redCallablePreventExtensions,
-            // 16: redCallableSet,
-            17: redCallableSetPrototypeOf,
+            // 11: redCallableGet,
+            // 12: redCallableGetOwnPropertyDescriptor,
+            // 13: redCallableGetPrototypeOf,
+            // 14: redCallableHas,
+            // 15: redCallableIsExtensible,
+            // 16: redCallableOwnKeys,
+            // 17: redCallablePreventExtensions,
+            // 18: redCallableSet,
+            19: redCallableSetPrototypeOf,
         } = redHooks!;
         this.redGlobalThisPointer = redGlobalThisPointer;
         this.redCallableEvaluate = redCallableEvaluate;
@@ -193,14 +193,16 @@ export class VirtualEnvironment {
         this.blueCallableLinkPointers(bluePointer, redPointer);
     }
 
-    remap(target: ProxyTarget, blueDescriptors: PropertyDescriptorMap) {
-        const keys = ReflectOwnKeys(blueDescriptors) as (string | symbol)[];
+    remap(target: ProxyTarget, unsafeBlueDescMap: PropertyDescriptorMap) {
+        const keys = ReflectOwnKeys(unsafeBlueDescMap) as (string | symbol)[];
         const targetPointer = this.blueGetTransferableValue(target) as Pointer;
         // prettier-ignore
         for (let i = 0, len = keys.length; i < len; i += 1) {
             const key = keys[i];
-            const unsafeBlueDesc = (blueDescriptors as any)[key];
-            // Avoid poisoning by only installing own properties from blueDescriptors
+            const unsafeBlueDesc = (unsafeBlueDescMap as any)[key];
+            // Avoid poisoning by only installing own properties from unsafeBlueDescMap.
+            // We don't use a toSafeDescriptor() style helper since that mutates
+            // the unsafeBlueDesc.
             // eslint-disable-next-line prefer-object-spread
             const safeBlueDesc = ObjectAssign({ __proto__: null }, unsafeBlueDesc);
             // Install descriptor into the red side.
@@ -230,8 +232,8 @@ export class VirtualEnvironment {
     }
 
     remapProto(target: ProxyTarget, proto: object | null) {
-        const targetPointer = this.blueGetTransferableValue(target) as Pointer;
-        const pointerOrNull = this.blueGetTransferableValue(proto) as Pointer | null;
-        this.redCallableSetPrototypeOf(targetPointer, pointerOrNull);
+        const foreignTargetPointer = this.blueGetTransferableValue(target) as Pointer;
+        const transferableProto = proto ? (this.blueGetTransferableValue(proto) as Pointer) : proto;
+        this.redCallableSetPrototypeOf(foreignTargetPointer, transferableProto);
     }
 }
