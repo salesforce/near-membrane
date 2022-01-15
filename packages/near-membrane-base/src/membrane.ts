@@ -152,9 +152,10 @@ export function createMembraneMarshall() {
     // This package is bundled by third-parties that have their own build time
     // replacement logic. Instead of customizing each build system to be aware of
     // this package we perform a small runtime check to determine whether our
-    // code is minified or in DEV_MODE.
+    // code is minified or in DEBUG_MODE.
+    // https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.debug_mode_enable
     // eslint-disable-next-line @typescript-eslint/naming-convention
-    const DEV_MODE = function DEV_MODE() {}.name === 'DEV_MODE';
+    const DEBUG_MODE = function DEBUG_MODE() {}.name === 'DEBUG_MODE';
     const LOCKER_LIVE_MARKER_SYMBOL = Symbol.for('@@lockerLiveValue');
     const { toStringTag: TO_STRING_TAG_SYMBOL } = Symbol;
     const UNDEFINED_SYMBOL = Symbol.for('@@membraneUndefinedValue');
@@ -333,7 +334,7 @@ export function createMembraneMarshall() {
                 // assert: selectedTarget is undefined
                 selectedTarget = originalTarget;
             };
-            if (DEV_MODE) {
+            if (DEBUG_MODE) {
                 // In case debugging is needed, the following lines can help:
                 pointer['[[OriginalTarget]]'] = originalTarget;
                 pointer['[[Color]]'] = color;
@@ -355,7 +356,7 @@ export function createMembraneMarshall() {
                 shadowTarget =
                     // eslint-disable-next-line func-names
                     targetTraits & TargetTraits.IsArrowFunction ? () => {} : function () {};
-                if (DEV_MODE) {
+                if (DEBUG_MODE) {
                     // This is only really needed for debugging,
                     // it helps to identify the proxy by name
                     ReflectDefineProperty(shadowTarget, 'name', {
@@ -818,7 +819,7 @@ export function createMembraneMarshall() {
 
             private makeProxyStatic(shadowTarget: ShadowTarget) {
                 const { foreignTargetPointer } = this;
-                if (DEV_MODE) {
+                if (DEBUG_MODE) {
                     try {
                         foreignCallableWarn(
                             'Mutations on the membrane of an object originating ' +
