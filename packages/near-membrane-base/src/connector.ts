@@ -19,12 +19,14 @@ const marshallSourceTextInStrictMode = `
                     : undefined;
             })();
             if (typeof CallSite === 'function') {
-                // This package is bundled by third-parties that have their own build time
-                // replacement logic. Instead of customizing each build system to be aware of
-                // this package we perform a small runtime check to determine whether our
-                // code is minified or in DEV_MODE.
+                // This package is bundled by third-parties that have their own
+                // build time replacement logic. Instead of customizing each
+                // build system to be aware of this package we perform a small
+                // runtime check to determine whether our code is minified or in
+                // DEBUG_MODE.
+                // https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.debug_mode_enable
                 // eslint-disable-next-line @typescript-eslint/naming-convention
-                const DEV_MODE = function DEV_MODE() {}.name === 'DEV_MODE';
+                const DEBUG_MODE = function DEBUG_MODE() {}.name === 'DEBUG_MODE';
                 const ZERO_WIDTH_JOINER = '\u200D';
                 const LOCKER_IDENTIFIER_MARKER = `$LWS${ZERO_WIDTH_JOINER}`;
 
@@ -110,16 +112,16 @@ const marshallSourceTextInStrictMode = `
                         return formatStackTrace(error, callSites);
                     },
                 });
-                // Make Error.stackTraceLimit configurable and writable in DEV_MODE.
+                // Make Error.stackTraceLimit configurable and writable in DEBUG_MODE.
                 ReflectDefineProperty(Error, 'stackTraceLimit', {
                     // @ts-ignore: TS doesn't like __proto__ on property descriptors.
                     __proto__: null,
-                    configurable: DEV_MODE,
+                    configurable: DEBUG_MODE,
                     enumerable: true,
                     // The default stack trace limit is 10.
                     // Increasing to 20 for wiggle room of filtered results.
                     value: 20,
-                    writable: DEV_MODE,
+                    writable: DEBUG_MODE,
                 });
             }
         }
