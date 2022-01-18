@@ -14,7 +14,6 @@ import { getCachedBlueReferences, linkUnforgeables, tameDOM } from './window';
 
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 
-const emptyArray: [] = [];
 const {
     close: DocumentProtoClose,
     createElement: DocumentProtoCreateElement,
@@ -53,11 +52,11 @@ const NodeProtoIsConnectedGetter = ObjectLookupOwnGetter(Node.prototype, 'isConn
 const NodeProtoLastChildGetter = ObjectLookupOwnGetter(Node.prototype, 'lastChild')!;
 
 function DocumentBody(doc: Document): typeof Document.prototype.body {
-    return ReflectApply(DocumentProtoBodyGetter, doc, emptyArray);
+    return ReflectApply(DocumentProtoBodyGetter, doc, []);
 }
 
 function DocumentClose(doc: Document): ReturnType<typeof Document.prototype.close> {
-    return ReflectApply(DocumentProtoClose, doc, emptyArray);
+    return ReflectApply(DocumentProtoClose, doc, []);
 }
 
 function DocumentCreateElement(
@@ -68,7 +67,7 @@ function DocumentCreateElement(
 }
 
 function DocumentOpen(doc: Document): ReturnType<typeof Document.prototype.open> {
-    return ReflectApply(DocumentProtoOpen, doc, emptyArray);
+    return ReflectApply(DocumentProtoOpen, doc, []);
 }
 
 function ElementSetAttribute(
@@ -80,17 +79,17 @@ function ElementSetAttribute(
 }
 
 function ElementRemove(element: Element): Element {
-    return ReflectApply(ElementProtoRemove, element, emptyArray);
+    return ReflectApply(ElementProtoRemove, element, []);
 }
 
 function HTMLElementStyleGetter(el: HTMLElement): typeof HTMLElement.prototype.style {
-    return ReflectApply(HTMLElementProtoStyleGetter, el, emptyArray);
+    return ReflectApply(HTMLElementProtoStyleGetter, el, []);
 }
 
 function HTMLIFrameElementContentWindowGetter(
     iframe: HTMLIFrameElement
 ): typeof HTMLIFrameElement.prototype.contentWindow {
-    return ReflectApply(HTMLIFrameElementProtoContentWindowGetter, iframe, emptyArray);
+    return ReflectApply(HTMLIFrameElementProtoContentWindowGetter, iframe, []);
 }
 
 function NodeAppendChild(parent: Node, child: ChildNode): ChildNode {
@@ -103,11 +102,11 @@ function NodeAppendChild(parent: Node, child: ChildNode): ChildNode {
 // avoid a penalty.
 // istanbul ignore next
 function NodeLastChild(node: Node): typeof Node.prototype.lastChild {
-    return ReflectApply(NodeProtoLastChildGetter, node, emptyArray);
+    return ReflectApply(NodeProtoLastChildGetter, node, []);
 }
 
 function NodeIsConnected(node: Node): boolean {
-    return ReflectApply(NodeProtoIsConnectedGetter, node, emptyArray);
+    return ReflectApply(NodeProtoIsConnectedGetter, node, []);
 }
 
 function createDetachableIframe(): HTMLIFrameElement {
