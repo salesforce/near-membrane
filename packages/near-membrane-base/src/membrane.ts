@@ -708,8 +708,8 @@ export function createMembraneMarshall() {
             // callback to prepare the foreign realm before any operation
             private readonly foreignTargetPointer: Pointer;
 
-            // traits used by other checks
-            private readonly isArray: boolean = false;
+            // traits used by other runtime checks
+            private readonly targetTraits: TargetTraits;
 
             constructor(
                 foreignTargetPointer: Pointer,
@@ -720,7 +720,7 @@ export function createMembraneMarshall() {
                     foreignTargetTraits,
                     foreignTargetFunctionName
                 );
-                this.isArray = !!(foreignTargetTraits & TargetTraits.IsArray);
+                this.targetTraits = foreignTargetTraits;
                 const { proxy, revoke } = ProxyRevocable(shadowTarget, this);
                 this.foreignTargetPointer = foreignTargetPointer;
                 this.proxy = proxy;
@@ -895,7 +895,10 @@ export function createMembraneMarshall() {
             }
 
             private makeProxyUnambiguous(shadowTarget: ShadowTarget) {
-                if (this.isArray || isPlainObjectOrEquivalent(this.foreignTargetPointer)) {
+                if (
+                    this.targetTraits & TargetTraits.IsArray ||
+                    isPlainObjectOrEquivalent(this.foreignTargetPointer)
+                ) {
                     this.makeProxyLive();
                 } else {
                     this.makeProxyStatic(shadowTarget);
