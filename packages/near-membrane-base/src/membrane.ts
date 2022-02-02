@@ -168,10 +168,11 @@ export function createMembraneMarshall() {
         getOwnPropertyDescriptors: ObjectGetOwnPropertyDescriptors,
         isFrozen: ObjectIsFrozen,
         isSealed: ObjectIsSealed,
+        prototype: ObjectPrototype,
         seal: ObjectSeal,
     } = Object;
     const { hasOwnProperty: ObjectProtoHasOwnProperty, toString: ObjectProtoToString } =
-        Object.prototype;
+        ObjectPrototype;
     const { revocable: ProxyRevocable } = Proxy;
     const {
         apply: ReflectApply,
@@ -226,10 +227,11 @@ export function createMembraneMarshall() {
     const enum TargetTraits {
         None = 0,
         IsArray = 1 << 0,
-        IsFunction = 1 << 1,
-        IsObject = 1 << 2,
-        IsArrowFunction = 1 << 3,
-        Revoked = 1 << 4,
+        IsArrowFunction = 1 << 1,
+        IsFunction = 1 << 2,
+        IsObject = 1 << 3,
+        IsPlainObject = 1 << 4,
+        Revoked = 1 << 5,
     }
 
     return function createHooksCallback(
@@ -479,6 +481,14 @@ export function createMembraneMarshall() {
                 targetTraits |= TargetTraits.IsArray;
             } else if (!targetIsFunction) {
                 targetTraits |= TargetTraits.IsObject;
+                const targetProto = ReflectGetPrototypeOf(target);
+                if (
+                    targetProto === ObjectPrototype ||
+                    targetProto === null ||
+                    ReflectGetPrototypeOf(targetProto) === null
+                ) {
+                    targetTraits |= TargetTraits.IsPlainObject;
+                }
             }
             return targetTraits;
         }
@@ -696,6 +706,9 @@ export function createMembraneMarshall() {
             // callback to prepare the foreign realm before any operation
             private readonly foreignTargetPointer: Pointer;
 
+            // object's detected traits
+            private readonly foreignTargetTraits: TargetTraits;
+
             constructor(
                 foreignTargetPointer: Pointer,
                 foreignTargetTraits: TargetTraits,
@@ -707,6 +720,7 @@ export function createMembraneMarshall() {
                 );
                 const { proxy, revoke } = ProxyRevocable(shadowTarget, this);
                 this.foreignTargetPointer = foreignTargetPointer;
+                this.foreignTargetTraits = foreignTargetTraits;
                 this.proxy = proxy;
                 this.revoke = revoke;
                 // inserting default traps
@@ -880,6 +894,8 @@ export function createMembraneMarshall() {
 
             private makeProxyUnambiguous(shadowTarget: ShadowTarget) {
                 if (
+                    this.foreignTargetTraits & TargetTraits.IsPlainObject ||
+                    this.foreignTargetTraits & TargetTraits.IsArray ||
                     foreignCallableHasOwnProperty(
                         this.foreignTargetPointer,
                         LOCKER_LIVE_MARKER_SYMBOL
