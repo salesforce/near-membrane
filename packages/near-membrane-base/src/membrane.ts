@@ -160,6 +160,7 @@ export function createMembraneMarshall() {
     const { toStringTag: TO_STRING_TAG_SYMBOL } = Symbol;
     const UNDEFINED_SYMBOL = Symbol.for('@@membraneUndefinedValue');
 
+    const ObjectPrototype = Object.prototype;
     const ArrayCtor = Array;
     const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
     const {
@@ -661,6 +662,17 @@ export function createMembraneMarshall() {
             return desc;
         }
 
+        function isPlainObjectOrEquivalent(targetPointer: Pointer): boolean {
+            const proto = getLocalValue(foreignCallableGetPrototypeOf(targetPointer));
+            return (
+                // POJOs or objects without __proto__
+                proto === ObjectPrototype ||
+                proto === null ||
+                // objects with a live marker
+                foreignCallableHasOwnProperty(targetPointer, LOCKER_LIVE_MARKER_SYMBOL)
+            );
+        }
+
         class BoundaryProxyHandler implements ProxyHandler<ShadowTarget> {
             // public fields
             defineProperty: ProxyHandler<ShadowTarget>['defineProperty'];
@@ -696,6 +708,9 @@ export function createMembraneMarshall() {
             // callback to prepare the foreign realm before any operation
             private readonly foreignTargetPointer: Pointer;
 
+            // traits used by other checks
+            private readonly isArray: boolean = false;
+
             constructor(
                 foreignTargetPointer: Pointer,
                 foreignTargetTraits: TargetTraits,
@@ -705,6 +720,7 @@ export function createMembraneMarshall() {
                     foreignTargetTraits,
                     foreignTargetFunctionName
                 );
+                this.isArray = !!(foreignTargetTraits & TargetTraits.IsArray);
                 const { proxy, revoke } = ProxyRevocable(shadowTarget, this);
                 this.foreignTargetPointer = foreignTargetPointer;
                 this.proxy = proxy;
@@ -879,12 +895,7 @@ export function createMembraneMarshall() {
             }
 
             private makeProxyUnambiguous(shadowTarget: ShadowTarget) {
-                if (
-                    foreignCallableHasOwnProperty(
-                        this.foreignTargetPointer,
-                        LOCKER_LIVE_MARKER_SYMBOL
-                    )
-                ) {
+                if (this.isArray || isPlainObjectOrEquivalent(this.foreignTargetPointer)) {
                     this.makeProxyLive();
                 } else {
                     this.makeProxyStatic(shadowTarget);
