@@ -81,10 +81,11 @@ type CallableGetOwnPropertyDescriptors = (
 type CallableGetTargetIntegrityTraits = (targetPointer: Pointer) => number;
 type CallableGetUnbrandedTag = (targetPointer: Pointer) => string | undefined;
 type CallableHasOwnProperty = (targetPointer: Pointer, key: string | symbol) => boolean;
+type CallableIsLiveTarget = (targetPointer: Pointer) => boolean;
 type CallableWarn = (...args: Parameters<typeof console.warn>) => void;
 type Primitive = bigint | boolean | null | number | string | symbol | undefined;
 type PointerOrPrimitive = Pointer | Primitive;
-type ShadowTarget = CallableFunction | any[] | object;
+type ShadowTarget = ProxyTarget;
 export type CallableDefineProperty = (
     targetPointer: Pointer,
     key: string | symbol,
@@ -133,6 +134,7 @@ export type HooksCallback = (
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableGetUnbrandedTag: CallableGetUnbrandedTag,
     callableHasOwnProperty: CallableHasOwnProperty,
+    callableIsLiveTarget: CallableIsLiveTarget,
     callableWarn: CallableWarn
 ) => void;
 export interface InitLocalOptions {
@@ -155,22 +157,25 @@ export function createMembraneMarshall() {
     // code is minified or in DEBUG_MODE.
     // https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.debug_mode_enable
     const DEBUG_MODE = `${() => /**/ 1}`.includes('*');
-    const LOCKER_LIVE_MARKER_SYMBOL = Symbol.for('@@lockerLiveValue');
+    const LOCKER_LIVE_VALUE_MARKER_SYMBOL = Symbol.for('@@lockerLiveValue');
     const { toStringTag: TO_STRING_TAG_SYMBOL } = Symbol;
     const UNDEFINED_SYMBOL = Symbol.for('@@membraneUndefinedValue');
 
     const ArrayCtor = Array;
     const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
+    const { isView: ArrayBufferIsView } = ArrayBuffer;
+    const ObjectCtor = Object;
     const {
         defineProperties: ObjectDefineProperties,
         freeze: ObjectFreeze,
         getOwnPropertyDescriptors: ObjectGetOwnPropertyDescriptors,
         isFrozen: ObjectIsFrozen,
         isSealed: ObjectIsSealed,
+        prototype: ObjectProto,
         seal: ObjectSeal,
-    } = Object;
+    } = ObjectCtor;
     const { hasOwnProperty: ObjectProtoHasOwnProperty, toString: ObjectProtoToString } =
-        Object.prototype;
+        ObjectProto;
     const { revocable: ProxyRevocable } = Proxy;
     const {
         apply: ReflectApply,
@@ -226,8 +231,8 @@ export function createMembraneMarshall() {
         None = 0,
         IsArray = 1 << 0,
         IsFunction = 1 << 1,
-        IsObject = 1 << 2,
-        IsArrowFunction = 1 << 3,
+        IsArrowFunction = 1 << 2,
+        IsObject = 1 << 3,
         Revoked = 1 << 4,
     }
 
@@ -266,6 +271,7 @@ export function createMembraneMarshall() {
         let foreignCallableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits;
         let foreignCallableGetUnbrandedTag: CallableGetUnbrandedTag;
         let foreignCallableHasOwnProperty: CallableHasOwnProperty;
+        let foreignCallableIsLiveTarget: CallableIsLiveTarget;
         let foreignCallableWarn: CallableWarn;
         let selectedTarget: undefined | ProxyTarget;
 
@@ -583,6 +589,33 @@ export function createMembraneMarshall() {
             return undefined;
         }
 
+        function getOwnForeignDescriptor(
+            foreignTargetPointer: Pointer,
+            shadowTarget: ShadowTarget,
+            key: string | symbol
+        ): ReturnType<typeof Reflect.getOwnPropertyDescriptor> {
+            let safeDesc: PropertyDescriptor | undefined;
+            foreignCallableGetOwnPropertyDescriptor(
+                foreignTargetPointer,
+                key,
+                (configurable, enumerable, writable, valuePointer, getPointer, setPointer) => {
+                    safeDesc = createDescriptorFromMeta(
+                        configurable,
+                        enumerable,
+                        writable,
+                        valuePointer,
+                        getPointer,
+                        setPointer
+                    );
+                    if (safeDesc.configurable === false) {
+                        // Update the descriptor to non-configurable on the shadow.
+                        ReflectDefineProperty(shadowTarget, key, safeDesc);
+                    }
+                }
+            );
+            return safeDesc;
+        }
+
         // This wrapping mechanism provides the means to add instrumentation
         // to the callable functions used to coordinate work between the sides
         // of the membrane.
@@ -610,6 +643,34 @@ export function createMembraneMarshall() {
             return fn;
         }
 
+        function isLiveTarget(target: ProxyTarget): boolean {
+            if (target === ObjectProto) {
+                return false;
+            }
+            if (typeof target === 'object') {
+                if (
+                    // We only check for typed arrays here since arrays are
+                    // marked as live in the BoundaryProxyHandler constructor.
+                    ArrayBufferIsView(target)
+                ) {
+                    return true;
+                }
+                const { constructor } = target;
+                if (constructor === ObjectCtor) {
+                    // If the constructor, own or inherited, points to `Object`
+                    // then `value` is not likely a prototype object.
+                    return true;
+                }
+                if (ReflectGetPrototypeOf(target) === null) {
+                    // Ensure `value` is not an `Object.prototype` from an iframe.
+                    return typeof constructor !== 'function' || constructor.prototype !== target;
+                }
+            }
+            return ReflectApply(ObjectProtoHasOwnProperty, target, [
+                LOCKER_LIVE_VALUE_MARKER_SYMBOL,
+            ]);
+        }
+
         function lockShadowTarget(shadowTarget: ShadowTarget, foreignTargetPointer: Pointer) {
             // set prototype after to avoid
             copyForeignDescriptorsToShadowTarget(foreignTargetPointer, shadowTarget);
@@ -618,33 +679,6 @@ export function createMembraneMarshall() {
             ReflectSetPrototypeOf(shadowTarget, proto);
             // locking down the extensibility of shadowTarget
             ReflectPreventExtensions(shadowTarget);
-        }
-
-        function getOwnForeignDescriptor(
-            foreignTargetPointer: Pointer,
-            shadowTarget: ShadowTarget,
-            key: string | symbol
-        ): ReturnType<typeof Reflect.getOwnPropertyDescriptor> {
-            let safeDesc: PropertyDescriptor | undefined;
-            foreignCallableGetOwnPropertyDescriptor(
-                foreignTargetPointer,
-                key,
-                (configurable, enumerable, writable, valuePointer, getPointer, setPointer) => {
-                    safeDesc = createDescriptorFromMeta(
-                        configurable,
-                        enumerable,
-                        writable,
-                        valuePointer,
-                        getPointer,
-                        setPointer
-                    );
-                    if (safeDesc.configurable === false) {
-                        // Update the descriptor to non-configurable on the shadow.
-                        ReflectDefineProperty(shadowTarget, key, safeDesc);
-                    }
-                }
-            );
-            return safeDesc;
         }
 
         function pushErrorAcrossBoundary(e: any): any {
@@ -692,7 +726,6 @@ export function createMembraneMarshall() {
             // what side of the membrane they are debugging.
             readonly color = color;
 
-            // callback to prepare the foreign realm before any operation
             private readonly foreignTargetPointer: Pointer;
 
             constructor(
@@ -725,11 +758,13 @@ export function createMembraneMarshall() {
                     revoke();
                 }
                 if (!trapMutations) {
-                    // Future optimization: Hoping proxies with frozen handlers can be faster.
-                    // If local mutations are not trapped, then freezing the
-                    // handler is ok because it is not expecting to change in
-                    // the future.
+                    // Future optimization: Hoping proxies with frozen handlers
+                    // can be faster. If local mutations are not trapped, then
+                    // freezing the handler is ok because it is not expecting to
+                    // change in the future.
                     ObjectFreeze(this);
+                } else if (foreignTargetTraits & TargetTraits.IsArray) {
+                    this.makeProxyLive();
                 }
             }
 
@@ -805,8 +840,8 @@ export function createMembraneMarshall() {
             private makeProxyLive() {
                 // Replace pending traps with live traps that can work with the
                 // target without taking snapshots.
-                this.deleteProperty = BoundaryProxyHandler.passthruDeletePropertyTrap;
                 this.defineProperty = BoundaryProxyHandler.passthruDefinePropertyTrap;
+                this.deleteProperty = BoundaryProxyHandler.passthruDeletePropertyTrap;
                 this.get = BoundaryProxyHandler.hybridGetTrap;
                 this.has = BoundaryProxyHandler.hybridHasTrap;
                 this.preventExtensions = BoundaryProxyHandler.passthruPreventExtensionsTrap;
@@ -878,12 +913,7 @@ export function createMembraneMarshall() {
             }
 
             private makeProxyUnambiguous(shadowTarget: ShadowTarget) {
-                if (
-                    foreignCallableHasOwnProperty(
-                        this.foreignTargetPointer,
-                        LOCKER_LIVE_MARKER_SYMBOL
-                    )
-                ) {
+                if (foreignCallableIsLiveTarget(this.foreignTargetPointer)) {
                     this.makeProxyLive();
                 } else {
                     this.makeProxyStatic(shadowTarget);
@@ -1718,6 +1748,20 @@ export function createMembraneMarshall() {
                 'callableHasOwnProperty',
                 INBOUND_INSTRUMENTATION_LABEL
             ),
+            // callableIsLiveTarget
+            instrumentCallableWrapper(
+                (targetPointer: Pointer): boolean => {
+                    targetPointer();
+                    const target = getSelectedTarget();
+                    try {
+                        return isLiveTarget(target);
+                    } catch (e: any) {
+                        throw pushErrorAcrossBoundary(e);
+                    }
+                },
+                'callableIsLiveTarget',
+                INBOUND_INSTRUMENTATION_LABEL
+            ),
             // callableWarn
             instrumentCallableWrapper(
                 (...args: Parameters<typeof console.warn>): void => {
@@ -1760,7 +1804,8 @@ export function createMembraneMarshall() {
                 21: callableGetTargetIntegrityTraits,
                 22: callableGetUnbrandedTag,
                 23: callableHasOwnProperty,
-                24: callableWarn,
+                24: callableIsLiveTarget,
+                25: callableWarn,
             } = hooks;
             foreignCallablePushTarget = callablePushTarget;
             // traps utilities
@@ -1880,6 +1925,13 @@ export function createMembraneMarshall() {
                 instrumentCallableWrapper(
                     callableHasOwnProperty,
                     'callableHasOwnProperty',
+                    OUTBOUND_INSTRUMENTATION_LABEL
+                )
+            );
+            foreignCallableIsLiveTarget = foreignErrorControl(
+                instrumentCallableWrapper(
+                    callableIsLiveTarget,
+                    'callableIsLiveTarget',
                     OUTBOUND_INSTRUMENTATION_LABEL
                 )
             );

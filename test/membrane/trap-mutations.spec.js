@@ -7,54 +7,76 @@ class Base {
     }
 }
 
-let bFromRed;
-let getXFromRed;
-let mutateInRed;
-function save(arg1, arg2, arg3) {
-    bFromRed = arg1;
-    getXFromRed = arg2;
-    mutateInRed = arg3;
+class ExoticObject extends Base {
+    // eslint-disable-next-line class-methods-use-this
+    get y() {
+        return 3;
+    }
 }
 
-const env = createVirtualEnvironment(window, window, { endowments: { Base, save } });
+let plainInstanceFromRed;
+let exoticInstanceFromRed;
+let getPropFromRed;
+let mutateInRed;
+function save(arg1, arg2, arg3, arg4) {
+    plainInstanceFromRed = arg1;
+    exoticInstanceFromRed = arg2;
+    getPropFromRed = arg3;
+    mutateInRed = arg4;
+}
+
+const env = createVirtualEnvironment(window, window, {
+    endowments: { Base, ExoticObject, save },
+});
 env.evaluate(`
-    // overriding the behavior of a prototype in red.
-    // since this proto obj does not have the marker,
-    // it should be a local mutation to red only, and
-    // blue should never see it.
+    // Overriding the behavior of a plain prototype object in red.
+    // Since this prototype object is a plain object it is live, the mutation
+    // should be reflected in blue.
     Reflect.defineProperty(Base.prototype, 'x', {
         get() {
             return 2;
         }
     });
-    const red_b = new Base();
+    // Overriding the behavior of an exotic prototype object in red.
+    // Since this prototype object is an exotic object and does not have a marker,
+    // it should be a local mutation to red only, and blue should never see it.
+    Reflect.defineProperty(ExoticObject.prototype, 'y', {
+        get() {
+            return 4;
+        }
+    });
+    const plainInstanceFromRed = new Base();
+    const exoticInstanceFromRed = new ExoticObject();
     save(
-        // exposing a local instance
-        red_b,
-        // exposing a function that access property x from red
-        (blue_b) => blue_b.x,
-        // exposes a function to infuse an arbitrary mutation from red
-        (blue_b) => delete blue_b.something
+        // Expose local instances
+        plainInstanceFromRed,
+        exoticInstanceFromRed,
+        // Expose an accessor function from red.
+        (blueInstance, key) => blueInstance[key],
+        // Expose a function from red to perform an object mutation.
+        (blueInstance) => delete blueInstance.something
     );
 `);
 
 describe('trap mutations', () => {
-    it('should not affect blue with red mutations in proto', () => {
-        expect(bFromRed.x).toBe(1);
+    it('should not affect blue object instances with red prototype mutations', () => {
+        expect(plainInstanceFromRed.x).toBe(1);
+        expect(exoticInstanceFromRed.y).toBe(3);
     });
     it('should allow red to make local mutations', () => {
-        const o = new Base();
-        expect(getXFromRed(o)).toBe(2);
+        const plainInstance = new Base();
+        expect(getPropFromRed(plainInstance, 'x')).toBe(2);
+        const exoticInstance = new ExoticObject();
+        expect(getPropFromRed(exoticInstance, 'x')).toBe(2);
     });
-
     it('should honor the marker coming from blue', () => {
-        const o = new Base();
-        o[Symbol.for('@@lockerLiveValue')] = undefined;
-        expect(getXFromRed(o)).toBe(2);
-        // the following line should force the instance of base to
-        // not be ambigous anymore.
-        mutateInRed(o);
-        expect(o.x).toBe(1);
-        expect(getXFromRed(o)).toBe(2);
+        const exoticInstance = new ExoticObject();
+        exoticInstance[Symbol.for('@@lockerLiveValue')] = undefined;
+        expect(getPropFromRed(exoticInstance, 'y')).toBe(4);
+        // The following mutation should trigger the instance of Base to
+        // not be ambiguous anymore.
+        mutateInRed(exoticInstance);
+        expect(exoticInstance.y).toBe(3);
+        expect(getPropFromRed(exoticInstance, 'y')).toBe(4);
     });
 });
