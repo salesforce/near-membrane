@@ -86,7 +86,7 @@ export class VirtualEnvironment {
 
         let supportFlags = SupportFlagsEnum.None;
         const supportKeys = support ? ObjectKeys(support) : [];
-        for (let i = 0, len = supportKeys.length; i < len; i += 1) {
+        for (let i = 0, { length } = supportKeys; i < length; i += 1) {
             const enumKey = capitalizeFirstChar(supportKeys[i]);
             supportFlags |= SupportFlagsEnum[enumKey];
         }
@@ -184,7 +184,7 @@ export class VirtualEnvironment {
     link(...keys: (string | symbol)[]) {
         let bluePointer = this.blueGlobalThisPointer;
         let redPointer = this.redGlobalThisPointer;
-        for (let i = 0, len = keys.length; i < len; i += 1) {
+        for (let i = 0, { length } = keys; i < length; i += 1) {
             const key = keys[i];
             bluePointer = this.blueCallableGetPropertyValuePointer(bluePointer, key);
             redPointer = this.redCallableGetPropertyValuePointer(redPointer, key);
@@ -194,12 +194,12 @@ export class VirtualEnvironment {
     }
 
     remap(target: ProxyTarget, unsafeBlueDescMap: PropertyDescriptorMap) {
-        const keys = ReflectOwnKeys(unsafeBlueDescMap) as (string | symbol)[];
+        const ownKeys = ReflectOwnKeys(unsafeBlueDescMap);
         const targetPointer = this.blueGetTransferableValue(target) as Pointer;
         // prettier-ignore
-        for (let i = 0, len = keys.length; i < len; i += 1) {
-            const key = keys[i];
-            const unsafeBlueDesc = (unsafeBlueDescMap as any)[key];
+        for (let i = 0, { length } = ownKeys; i < length; i += 1) {
+            const ownKey = ownKeys[i];
+            const unsafeBlueDesc = (unsafeBlueDescMap as any)[ownKey];
             // Avoid poisoning by only installing own properties from unsafeBlueDescMap.
             // We don't use a toSafeDescriptor() style helper since that mutates
             // the unsafeBlueDesc.
@@ -208,7 +208,7 @@ export class VirtualEnvironment {
             // Install descriptor into the red side.
             this.redCallableDefineProperty(
                 targetPointer,
-                key,
+                ownKey,
                 'configurable' in safeBlueDesc
                     ? !!safeBlueDesc.configurable
                     : UNDEFINED_SYMBOL,
