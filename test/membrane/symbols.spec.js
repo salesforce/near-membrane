@@ -1,13 +1,9 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-// eslint-disable-next-line symbol-description
-globalThis.regularSymbol = Symbol();
-globalThis.symbolWithDescription = Symbol('symbol-with-desc');
-globalThis.symbolWithKey = Symbol.for('symbol-with-key');
-
-describe('Secure Membrane', () => {
+describe('Symbols', () => {
     it('should support symbols', () => {
         expect.assertions(6);
+
         const env = createVirtualEnvironment(window, window);
         env.evaluate(`
             expect(typeof Symbol() === 'symbol').toBeTrue();
@@ -20,23 +16,36 @@ describe('Secure Membrane', () => {
     });
     it('should allow access to symbols defined in outer realm', () => {
         expect.assertions(3);
+
+        // eslint-disable-next-line symbol-description
+        globalThis.regularSymbol = Symbol();
+        globalThis.symbolWithDescription = Symbol('symbol-with-desc');
+        globalThis.symbolWithKey = Symbol.for('symbol-with-key');
         const env = createVirtualEnvironment(window, window);
         env.evaluate(`
             expect(typeof globalThis.regularSymbol).toBe('symbol');
             expect(typeof globalThis.symbolWithDescription).toBe('symbol');
             expect(typeof globalThis.symbolWithKey).toBe('symbol');
         `);
+        delete globalThis.regularSymbol;
+        delete globalThis.symbolWithDescription;
+        delete globalThis.symbolWithKey;
     });
     it('should not leak outer realm global reference via symbols', () => {
         expect.assertions(2);
+
+        // eslint-disable-next-line symbol-description
+        globalThis.regularSymbol = Symbol();
         const env = createVirtualEnvironment(window, window);
         env.evaluate(`
             expect(globalThis.regularSymbol.constructor).toBe(Symbol);
             expect(globalThis.regularSymbol.constructor.__proto__.constructor('return this')() === globalThis).toBeTrue();
         `);
+        delete globalThis.regularSymbol;
     });
     it('should not leak outer realm global reference via Symbol.for()', () => {
         expect.assertions(3);
+
         const env = createVirtualEnvironment(window, window);
         env.evaluate(`
             expect(typeof Symbol.for('symbol-with-key')).toBe('symbol');
@@ -46,7 +55,7 @@ describe('Secure Membrane', () => {
     });
 
     it('blue Symbol class properties are inherited in red environments', () => {
-        const symbol = Symbol.for('method');
+        const symbol = Symbol('method');
 
         let successful = false;
 

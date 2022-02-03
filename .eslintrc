@@ -10,7 +10,8 @@
     "node": true
   },
   "globals": {
-    "globalThis": false
+    "BigInt": "readonly",
+    "globalThis": "readonly"
   },
   "parserOptions": {
     "ecmaVersion": 2020,

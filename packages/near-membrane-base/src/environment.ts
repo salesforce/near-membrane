@@ -30,9 +30,11 @@ interface VirtualEnvironmentOptions {
     instrumentation?: InstrumentationHooks;
 }
 
+const LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL = Symbol.for(
+    '@@lockerNearMembraneUndefinedValue'
+);
 const SHOULD_TRAP_MUTATION = true;
 const SHOULD_NOT_TRAP_MUTATION = false;
-const UNDEFINED_SYMBOL = Symbol.for('@@membraneUndefinedValue');
 
 const ErrorCtor = Error;
 const { assign: ObjectAssign, keys: ObjectKeys } = Object;
@@ -211,22 +213,22 @@ export class VirtualEnvironment {
                 ownKey,
                 'configurable' in safeBlueDesc
                     ? !!safeBlueDesc.configurable
-                    : UNDEFINED_SYMBOL,
+                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
                 'enumerable' in safeBlueDesc
                     ? !!safeBlueDesc.enumerable
-                    : UNDEFINED_SYMBOL,
+                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
                 'writable' in safeBlueDesc
                     ? !!safeBlueDesc.writable
-                    : UNDEFINED_SYMBOL,
+                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
                 'value' in safeBlueDesc
                     ? this.blueGetTransferableValue(safeBlueDesc.value)
-                    : UNDEFINED_SYMBOL,
+                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
                 'get' in safeBlueDesc
                     ? this.blueGetTransferableValue(safeBlueDesc.get) as Pointer
-                    : UNDEFINED_SYMBOL,
+                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
                 'set' in safeBlueDesc
                     ? this.blueGetTransferableValue(safeBlueDesc.set) as Pointer
-                    : UNDEFINED_SYMBOL
+                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
             );
         }
     }
