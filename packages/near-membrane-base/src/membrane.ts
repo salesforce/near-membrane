@@ -148,7 +148,7 @@ export function createMembraneMarshall() {
     // code is minified or in DEBUG_MODE.
     // https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.debug_mode_enable
     // eslint-disable-next-line @typescript-eslint/naming-convention
-    const DEBUG_MODE = function DEBUG_MODE() {}.name === 'DEBUG_MODE';
+    const DEBUG_MODE = `${() => /**/ 1}`.includes('*');
     const LOCKER_LIVE_MARKER_SYMBOL = Symbol.for('@@lockerLiveValue');
     const LOCKER_MAGIC_MARKER_SYMBOL = Symbol.for('@@lockerMagicValue');
     const { toStringTag: TO_STRING_TAG_SYMBOL } = Symbol;
