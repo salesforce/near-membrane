@@ -52,7 +52,7 @@ module.exports = {
                         }
                     );
                     const { plugins, presets } = mergedOptions;
-                    for (let i = 0, len = plugins.length; i < len; i += 1) {
+                    for (let i = 0, { length } = plugins; i < length; i += 1) {
                         const entry = plugins[i];
                         const name = Array.isArray(entry) ? entry[0] : entry;
                         if (name === '@babel/plugin-transform-modules-commonjs') {
@@ -60,7 +60,7 @@ module.exports = {
                             plugins.splice(i, 1);
                         }
                     }
-                    for (let i = 0, len = presets.length; i < len; i += 1) {
+                    for (let i = 0, { length } = presets; i < length; i += 1) {
                         const entry = presets[i];
                         if (Array.isArray(entry) && entry[0] === '@babel/preset-env') {
                             // Skip transforming module formats.
