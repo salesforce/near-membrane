@@ -53,8 +53,8 @@ const ESGlobalKeys = [
     // 'BigUint64Array', // Remapped
     'Boolean',
     // 'DataView', // Remapped
-    // 'Date', // Unstable & Remapped
-    // 'Error', // Unstable & Reflective
+    // 'Date', // Remapped
+    // 'Error', // Reflective
     // 'EvalError', // Reflective
     'FinalizationRegistry',
     // 'Float32Array', // Remapped
@@ -69,10 +69,10 @@ const ESGlobalKeys = [
     // Allow Blue `Promise` constructor to overwrite the Red one so that promises
     // created by the `Promise` constructor or APIs like `fetch` will work.
     // 'Promise', // Remapped
-    // 'Proxy', // Unstable & Reflective
+    // 'Proxy', // Reflective
     // 'RangeError', // Reflective
     // 'ReferenceError', // Reflective
-    'RegExp', // Unstable
+    // 'RegExp', // Reflective
     // 'Set', // Remapped
     // 'SharedArrayBuffer', // Remapped
     'String',
@@ -86,7 +86,6 @@ const ESGlobalKeys = [
     // 'URIError', // Reflective
     // 'WeakMap', // Remapped
     // 'WeakSet', // Remapped
-
     'WeakRef',
 
     // *** 18.4 Other Properties of the Global Object
@@ -100,7 +99,7 @@ const ESGlobalKeys = [
     'unescape',
 
     // *** ECMA-402
-    // 'Intl',  // Unstable & Remapped
+    // 'Intl',  // Remapped
 ];
 
 // These are foundational things that should never be wrapped but are equivalent
@@ -113,6 +112,7 @@ const ReflectiveIntrinsicObjectNames = [
     'Function',
     'Object',
     'Proxy',
+    'RegExp',
     'RangeError',
     'ReferenceError',
     'SyntaxError',
@@ -130,18 +130,20 @@ function assignFilteredGlobalObjectShapeDescriptors<T extends PropertyDescriptor
     descriptorMap: T,
     source: object
 ): T {
-    const keys = ReflectOwnKeys(source) as (string | symbol)[];
-    for (let i = 0, len = keys.length; i < len; i += 1) {
+    const ownKeys = ReflectOwnKeys(source);
+    for (let i = 0, { length } = ownKeys; i < length; i += 1) {
         // forcing to string here because of TypeScript's PropertyDescriptorMap
         // definition, which doesn't support symbols as entries.
-        const key = keys[i];
+        const ownKey = ownKeys[i];
         // avoid overriding ECMAScript global names that correspond
         // to global intrinsics. This guarantee that those entries
         // will be ignored if present in the endowments object.
         // TODO: what if the intent is to polyfill one of those
         // intrinsics?
-        if (!ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveInstrinsicObjectNames, [key])) {
-            const unsafeDesc = ReflectGetOwnPropertyDescriptor(source, key);
+        if (
+            !ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveInstrinsicObjectNames, [ownKey])
+        ) {
+            const unsafeDesc = ReflectGetOwnPropertyDescriptor(source, ownKey);
             // Safari 14.0.x (macOS) and 14.2 (iOS) have a bug where 'showModalDialog'
             // is returned in the list of own keys produces by ReflectOwnKeys(iframeWindow),
             // however 'showModalDialog' is not an own property and produces
@@ -153,7 +155,7 @@ function assignFilteredGlobalObjectShapeDescriptors<T extends PropertyDescriptor
             // So, as a general rule: if there is not an own descriptor,
             // ignore the entry and continue.
             if (unsafeDesc) {
-                (descriptorMap as any)[key] = unsafeDesc;
+                (descriptorMap as any)[ownKey] = unsafeDesc;
             }
         }
     }
@@ -162,7 +164,7 @@ function assignFilteredGlobalObjectShapeDescriptors<T extends PropertyDescriptor
 
 export function getResolvedShapeDescriptors(...sources: any[]): PropertyDescriptorMap {
     const unsafeDescMap: PropertyDescriptorMap = {};
-    for (let i = 0, len = sources.length; i < len; i += 1) {
+    for (let i = 0, { length } = sources; i < length; i += 1) {
         const source = sources[i];
         if (source) {
             assignFilteredGlobalObjectShapeDescriptors(unsafeDescMap, source);
@@ -175,8 +177,8 @@ export function linkIntrinsics(
     env: VirtualEnvironment,
     globalObjectVirtualizationTarget: typeof globalThis
 ) {
-    // remapping intrinsics that are realm's agnostic
-    for (let i = 0, len = ReflectiveIntrinsicObjectNames.length; i < len; i += 1) {
+    // remapping intrinsics that are realm agnostic
+    for (let i = 0, { length } = ReflectiveIntrinsicObjectNames; i < length; i += 1) {
         const globalName = ReflectiveIntrinsicObjectNames[i];
         const reflectiveValue = globalObjectVirtualizationTarget[globalName];
         if (reflectiveValue) {
