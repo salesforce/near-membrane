@@ -22,34 +22,29 @@ const {
 const { remove: ElementProtoRemove, setAttribute: ElementProtoSetAttribute } = Element.prototype;
 const { appendChild: NodeProtoAppendChild } = Node.prototype;
 const { assign: ObjectAssign } = Object;
-const {
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    __lookupGetter__: ObjectProto__lookupGetter__,
-    hasOwnProperty: ObjectProtoHasOwnProperty,
-} = Object.prototype as any;
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const { __lookupGetter__: ObjectProto__lookupGetter__ } = Object.prototype as any;
 const { apply: ReflectApply } = Reflect;
 
-function ObjectLookupOwnGetter(obj: object, key: PropertyKey): Function | undefined {
-    // Since this function is only used internally, and would not otherwise be
-    // reachable by user code, istanbul can ignore test coverage for the
-    // following condition.
-    // istanbul ignore next
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    if (obj === null || obj === undefined || !ReflectApply(ObjectProtoHasOwnProperty, obj, [key])) {
-        return undefined;
-    }
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    return ReflectApply(ObjectProto__lookupGetter__, obj, [key]);
-}
-
-const DocumentProtoBodyGetter = ObjectLookupOwnGetter(Document.prototype, 'body')!;
-const HTMLElementProtoStyleGetter = ObjectLookupOwnGetter(HTMLElement.prototype, 'style')!;
-const HTMLIFrameElementProtoContentWindowGetter = ObjectLookupOwnGetter(
-    HTMLIFrameElement.prototype,
-    'contentWindow'
+const DocumentProtoBodyGetter = ReflectApply(ObjectProto__lookupGetter__, Document.prototype, [
+    'body',
+])!;
+const HTMLElementProtoStyleGetter = ReflectApply(
+    ObjectProto__lookupGetter__,
+    HTMLElement.prototype,
+    ['style']
 )!;
-const NodeProtoIsConnectedGetter = ObjectLookupOwnGetter(Node.prototype, 'isConnected')!;
-const NodeProtoLastChildGetter = ObjectLookupOwnGetter(Node.prototype, 'lastChild')!;
+const HTMLIFrameElementProtoContentWindowGetter = ReflectApply(
+    ObjectProto__lookupGetter__,
+    HTMLIFrameElement.prototype,
+    ['contentWindow']
+)!;
+const NodeProtoIsConnectedGetter = ReflectApply(ObjectProto__lookupGetter__, Node.prototype, [
+    'isConnected',
+])!;
+const NodeProtoLastChildGetter = ReflectApply(ObjectProto__lookupGetter__, Node.prototype, [
+    'lastChild',
+])!;
 
 function DocumentBody(doc: Document): typeof Document.prototype.body {
     return ReflectApply(DocumentProtoBodyGetter, doc, []);
