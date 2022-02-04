@@ -156,12 +156,14 @@ export function createMembraneMarshall() {
     // https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.debug_mode_enable
     // eslint-disable-next-line @typescript-eslint/naming-convention
     const DEBUG_MODE = function DEBUG_MODE() {}.name === 'DEBUG_MODE';
+    const DEBUG_WARN_THRESHOLD = 5; // milliseconds
     const LOCKER_LIVE_MARKER_SYMBOL = Symbol.for('@@lockerLiveValue');
     const { toStringTag: TO_STRING_TAG_SYMBOL } = Symbol;
     const UNDEFINED_SYMBOL = Symbol.for('@@membraneUndefinedValue');
 
     const ArrayCtor = Array;
     const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
+    const { now: DateNow } = Date;
     const {
         defineProperties: ObjectDefineProperties,
         freeze: ObjectFreeze,
@@ -268,7 +270,8 @@ export function createMembraneMarshall() {
         let foreignCallableGetUnbrandedTag: CallableGetUnbrandedTag;
         let foreignCallableHasOwnProperty: CallableHasOwnProperty;
         let foreignCallableWarn: CallableWarn;
-        let selectedTarget: undefined | ProxyTarget;
+        let lastWarned: number | undefined;
+        let selectedTarget: ProxyTarget | undefined;
 
         function copyForeignDescriptorsToShadowTarget(
             foreignTargetPointer: Pointer,
@@ -820,15 +823,19 @@ export function createMembraneMarshall() {
             private makeProxyStatic(shadowTarget: ShadowTarget) {
                 const { foreignTargetPointer } = this;
                 if (DEBUG_MODE) {
-                    try {
-                        foreignCallableWarn(
-                            'Mutations on the membrane of an object originating ' +
-                                'outside of the sandbox will not be reflected on ' +
-                                'the object itself:',
-                            foreignTargetPointer
-                        );
-                        // eslint-disable-next-line no-empty
-                    } catch {}
+                    const now = DateNow();
+                    if (lastWarned === undefined || now - lastWarned > DEBUG_WARN_THRESHOLD) {
+                        lastWarned = now;
+                        try {
+                            foreignCallableWarn(
+                                'Mutations on the membrane of an object originating ' +
+                                    'outside of the sandbox will not be reflected on ' +
+                                    'the object itself:',
+                                foreignTargetPointer
+                            );
+                            // eslint-disable-next-line no-empty
+                        } catch {}
+                    }
                 }
                 const targetIntegrityTraits =
                     foreignCallableGetTargetIntegrityTraits(foreignTargetPointer);
