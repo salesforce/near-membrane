@@ -131,10 +131,8 @@ function assignFilteredGlobalObjectShapeDescriptors<T extends PropertyDescriptor
 ): T {
     const ownKeys = ReflectOwnKeys(source);
     for (let i = 0, { length } = ownKeys; i < length; i += 1) {
-        // forcing to string here because of TypeScript's PropertyDescriptorMap
-        // definition, which doesn't support symbols as entries.
         const ownKey = ownKeys[i];
-        // avoid overriding ECMAScript global names that correspond
+        // Avoid overriding ECMAScript global names that correspond
         // to global intrinsics. This guarantee that those entries
         // will be ignored if present in the endowments object.
         // TODO: what if the intent is to polyfill one of those

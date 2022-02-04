@@ -22,11 +22,8 @@ describe('VirtualEnvironment', () => {
     });
 
     it('throws when options bag is missing', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
         expect.assertions(1);
         expect(() => {
-            // @ts-ignore
             // eslint-disable-next-line no-new
             new VirtualEnvironment();
         }).toThrow(/Missing VirtualEnvironmentOptions options bag/);
@@ -61,8 +58,6 @@ describe('VirtualEnvironment', () => {
     });
     describe('VirtualEnvironment.prototype.evaluate', () => {
         it("calls through to the red realm's callable evaluation function", () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
@@ -75,7 +70,6 @@ describe('VirtualEnvironment', () => {
             ve.link('globalThis');
 
             const sourceTextToEvaluate = '"Hello!"';
-            // @ts-ignore
             ve.redCallableEvaluate = (sourceText) => {
                 expect(sourceText).toBe(sourceTextToEvaluate);
             };
@@ -84,8 +78,6 @@ describe('VirtualEnvironment', () => {
         });
 
         it('throws pushed error from blue target', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
@@ -103,8 +95,6 @@ describe('VirtualEnvironment', () => {
         });
 
         it('rethrows if blue target does not have pushed error', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
@@ -118,11 +108,9 @@ describe('VirtualEnvironment', () => {
 
             const ExpectedError = class extends Error {};
             const error = new ExpectedError();
-            // @ts-ignore
             ve.redCallableEvaluate = (_sourceText) => {
                 throw error;
             };
-            // @ts-ignore
             ve.blueGetSelectedTarget = () => undefined;
 
             expect(() => {
@@ -131,8 +119,6 @@ describe('VirtualEnvironment', () => {
         });
 
         it('returns result of evaluated expression', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             expect.assertions(12);
 
             // eslint-disable-next-line no-eval
@@ -161,9 +147,7 @@ describe('VirtualEnvironment', () => {
         });
     });
     describe('VirtualEnvironment.prototype.remap', () => {
-        it('Skips index-like properties', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
+        it('does not skip index-like properties', () => {
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
@@ -177,17 +161,14 @@ describe('VirtualEnvironment', () => {
 
             const redValue = {};
             const endowments: typeof globalThis = {
-                // @ts-ignore
                 0: 'foo',
             };
 
             ve.remap(redValue, getResolvedShapeDescriptors(endowments));
 
-            expect(Object.getOwnPropertyNames(redValue).length).toBe(0);
+            expect(Object.getOwnPropertyNames(redValue)).toEqual(['0']);
         });
-        it('Skips untamable properties, ie. descriptor is not configurable', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
+        it('skips untamable properties, ie. descriptor is not configurable', () => {
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
@@ -214,8 +195,6 @@ describe('VirtualEnvironment', () => {
         });
 
         it('calls a lazy endowment getter', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             expect.assertions(3);
 
             let count = 0;
@@ -232,7 +211,6 @@ describe('VirtualEnvironment', () => {
                     // This ignore is to suppress the following:
                     //  "Not all constituents of type 'RedProxyTarget' are callable."
                     // Which is generally true, but not in this case.
-                    // @ts-ignore
                     expect(v()).toBe(1);
                     return v;
                 },
@@ -256,8 +234,6 @@ describe('VirtualEnvironment', () => {
         });
 
         it('calls a lazy endowment setter', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             expect.assertions(7);
 
             let count = 0;
@@ -279,7 +255,6 @@ describe('VirtualEnvironment', () => {
                     count += 1;
                     return 1;
                 },
-                // @ts-ignore
                 set(v) {
                     // This should NOT be reached
                     blueSetValue = v;
@@ -301,8 +276,6 @@ describe('VirtualEnvironment', () => {
     });
     describe('VirtualEnvironment.prototype.remapProto', () => {
         it('calls blueGetTransferableValue with both args', () => {
-            // Ignoring "Property 'assertions' does not exist on type '{...}'."
-            // @ts-ignore
             expect.assertions(2);
 
             // eslint-disable-next-line no-eval
@@ -319,12 +292,10 @@ describe('VirtualEnvironment', () => {
 
             const calledWith: any[] = [];
 
-            // @ts-ignore
             ve.blueGetTransferableValue = (value) => {
                 calledWith.push(value);
                 return value;
             };
-            // @ts-ignore
             ve.redCallableSetPrototypeOf = (a, b) => {
                 expect(a).toBe(calledWith[0]);
                 expect(b).toBe(calledWith[1]);

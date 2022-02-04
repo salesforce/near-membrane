@@ -24,7 +24,7 @@ describe('membrane', () => {
         env.evaluate(`
             'use strict';
 
-            const originalProto = HTMLLinkElement.prototype;
+            const { prototype: originalProto } = HTMLLinkElement;
             const link = document.createElement('link');
             link.__proto__ = HTMLElement.prototype;
             // this attack is trying to change the proto chain, and therefore the instanceof checks and such on distortions,
