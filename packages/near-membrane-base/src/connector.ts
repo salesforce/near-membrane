@@ -25,7 +25,6 @@ const marshallSourceTextInStrictMode = `
                 // runtime check to determine whether our code is minified or in
                 // DEBUG_MODE.
                 // https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.debug_mode_enable
-                // eslint-disable-next-line @typescript-eslint/naming-convention
                 const DEBUG_MODE = `${() => /**/ 1}`.includes('*');
                 const ZERO_WIDTH_JOINER = '\u200D';
                 const LOCKER_IDENTIFIER_MARKER = `$LWS${ZERO_WIDTH_JOINER}`;
