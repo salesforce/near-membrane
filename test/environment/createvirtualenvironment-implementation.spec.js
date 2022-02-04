@@ -129,7 +129,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
     });
 
     describe('VirtualEnvironment.prototype.remap', () => {
-        it('Skips index-like properties', () => {
+        it('does not skip index-like properties', () => {
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval
@@ -148,9 +148,9 @@ describe('Implementing an environment with VirtualEnvironment', () => {
 
             ve.remap(redValue, getResolvedShapeDescriptors(endowments));
 
-            expect(Object.getOwnPropertyNames(redValue).length).toBe(0);
+            expect(Object.getOwnPropertyNames(redValue)).toEqual(['0']);
         });
-        it('Skips untamable properties, ie. descriptor is not configurable', () => {
+        it('skips untamable properties, ie. descriptor is not configurable', () => {
             expect.assertions(1);
 
             // eslint-disable-next-line no-eval

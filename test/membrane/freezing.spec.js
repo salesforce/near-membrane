@@ -1,6 +1,12 @@
 /* eslint-disable no-throw-literal, no-new, class-methods-use-this */
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
+class ExoticObject {
+    constructor(source) {
+        Object.assign(this, source);
+    }
+}
+
 describe('Freezing', () => {
     describe('before creating the sandbox', () => {
         it('should be observed from within the sandbox', () => {
@@ -28,9 +34,9 @@ describe('Freezing', () => {
                     isTypeError = e instanceof TypeError;
                 }
                 expect(isTypeError).toBe(true);
-                expect(bar.c).toBe(undefined);
+                expect('c' in bar).toBe(false);
             `);
-            // // verifying that when observed from outside, it is still reflected
+            // verifying that when observed from outside, it is still reflected
             env.evaluate(`
                 'use strict';
                 let error = null;
@@ -42,28 +48,28 @@ describe('Freezing', () => {
                 expect(() => {
                     bar.c = 3;
                 }).toThrow();
-                expect(bar.c).toBe(undefined);
+                expect('c' in bar).toBe(false);
             `);
         });
     });
     describe('after creating the sandbox', () => {
-        it('should not be observed from within the sandbox after a mutation', () => {
+        it('should not be observed from within the sandbox after mutation of exotic objects', () => {
             expect.assertions(9);
-            window.baz = { a: 1, b: 2 };
+            window.baz = new ExoticObject({ a: 1, b: 2 });
             const env = createVirtualEnvironment(window, window);
-            // checking the state of bar in the sandbox
+            // Check the state of baz in the sandbox.
             env.evaluate(`
                 expect(Object.isExtensible(window.baz)).toBe(true);
                 expect(Object.isSealed(window.baz)).toBe(false);
                 expect(Object.isFrozen(window.baz)).toBe(false);
-                baz.mutation = 1; // this makes the proxy static via snapshot
+                baz.mutation = 1; // Mutation makes the proxy static.
             `);
-            // freezing the blue value after being observed by the sandbox
+            // Freeze blue baz after being observed by the sandbox.
             Object.freeze(window.baz);
             expect(Object.isExtensible(window.baz)).toBe(false);
             expect(Object.isSealed(window.baz)).toBe(true);
             expect(Object.isFrozen(window.baz)).toBe(true);
-            // verifying the state of the obj from within the sandbox
+            // Verify the state of red baz from within the sandbox.
             env.evaluate(`
                 'use strict';
                 expect(() => {
@@ -71,8 +77,35 @@ describe('Freezing', () => {
                 }).not.toThrowError();
                 expect(baz.c).toBe(3);
             `);
-            // because it is a sandboxed expando that doesn't leak out
-            expect(window.baz.c).toBe(undefined);
+            // Verify the sandboxed expando doesn't leak to blue baz.
+            expect('c' in window.baz).toBe(false);
+        });
+        it('should be observed from within the sandbox after mutation of plain objects', () => {
+            expect.assertions(9);
+            window.baz = { a: 1, b: 2 };
+            const env = createVirtualEnvironment(window, window);
+            // Check the state of baz in the sandbox.
+            env.evaluate(`
+                expect(Object.isExtensible(window.baz)).toBe(true);
+                expect(Object.isSealed(window.baz)).toBe(false);
+                expect(Object.isFrozen(window.baz)).toBe(false);
+                baz.mutation = 1; // Mutation makes the proxy live.
+            `);
+            // Freeze blue baz after being observed by the sandbox.
+            Object.freeze(window.baz);
+            expect(Object.isExtensible(window.baz)).toBe(false);
+            expect(Object.isSealed(window.baz)).toBe(true);
+            expect(Object.isFrozen(window.baz)).toBe(true);
+            // Verify the state of red baz from within the sandbox.
+            env.evaluate(`
+                'use strict';
+                expect(() => {
+                    baz.c = 3;
+                }).toThrowError();
+                expect('c' in baz).toBe(false);
+            `);
+            // Verify the state of blue baz.
+            expect('c' in window.baz).toBe(false);
         });
     });
     describe('reverse proxies', () => {

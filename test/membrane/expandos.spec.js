@@ -1,22 +1,34 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-window.expandable = { x: 1 };
+class ExoticObject {
+    constructor(source) {
+        Object.assign(this, source);
+    }
+}
+
+window.plainObject = { x: 1 };
+window.exoticObject = new ExoticObject(window.plainObject);
 
 describe('The membrane', () => {
     it('should allow global inside the sandbox', () => {
-        expect.assertions(4);
+        expect.assertions(8);
         const env = createVirtualEnvironment(window, window);
         env.evaluate(`
-            expandable.y = 2;
-            expect(expandable.y).toBe(2);
+            plainObject.y = 2;
+            expect(plainObject.y).toBe(2);
+            exoticObject.y = 2;
+            expect(exoticObject.y).toBe(2);
         `);
         // eslint-disable-next-line no-undef
-        expect(expandable.y).toBe(undefined);
+        expect(window.plainObject.y).toBe(2);
+        expect('y' in window.exoticObject).toBe(false);
         // eslint-disable-next-line no-undef
-        expect(expandable.x).toBe(1);
+        expect(window.exoticObject.x).toBe(1);
+        expect(window.plainObject.x).toBe(1);
         env.evaluate(`
-            // still be 2 during another evaluation
-            expect(expandable.y).toBe(2);
+            // Still be 2 during another evaluation.
+            expect(exoticObject.y).toBe(2);
+            expect(plainObject.y).toBe(2);
         `);
     });
 });

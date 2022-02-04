@@ -27,7 +27,7 @@ export type Pointer = CallableFunction;
 type Primitive = bigint | boolean | null | number | string | symbol | undefined;
 type PointerOrPrimitive = Pointer | Primitive;
 export type ProxyTarget = CallableFunction | any[] | object;
-type ShadowTarget = CallableFunction | any[] | object;
+type ShadowTarget = ProxyTarget;
 type CallablePushTarget = (
     pointer: () => void,
     targetTraits: number,
@@ -94,6 +94,7 @@ type CallableGetOwnPropertyDescriptors = (
 type CallableGetTargetIntegrityTraits = (targetPointer: Pointer) => number;
 type CallableGetUnbrandedTag = (targetPointer: Pointer) => string | undefined;
 type CallableHasOwnProperty = (targetPointer: Pointer, key: string | symbol) => boolean;
+type CallableIsLiveTarget = (targetPointer: Pointer) => boolean;
 type CallableWarn = (...args: Parameters<typeof console.warn>) => void;
 export type CallableLinkPointers = (targetPointer: Pointer, foreignTargetPointer: Pointer) => void;
 export type CallableGetPropertyValuePointer = (
@@ -126,6 +127,7 @@ export type HooksCallback = (
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableGetUnbrandedTag: CallableGetUnbrandedTag,
     callableHasOwnProperty: CallableHasOwnProperty,
+    callableIsLiveTarget: CallableIsLiveTarget,
     callableWarn: CallableWarn
 ) => void;
 export type DistortionCallback = (target: ProxyTarget) => ProxyTarget;
@@ -154,17 +156,20 @@ export function createMembraneMarshall() {
     const UNDEFINED_SYMBOL = Symbol.for('@@membraneUndefinedValue');
 
     const ArrayCtor = Array;
-    const { isArray: isArrayOrNotOrThrowForRevoked } = Array;
+    const { isArray: isArrayOrNotOrThrowForRevoked } = ArrayCtor;
+    const { isView: ArrayBufferIsView } = ArrayBuffer;
+    const ObjectCtor = Object;
     const {
         defineProperties: ObjectDefineProperties,
         freeze: ObjectFreeze,
         getOwnPropertyDescriptors: ObjectGetOwnPropertyDescriptors,
         isFrozen: ObjectIsFrozen,
         isSealed: ObjectIsSealed,
+        prototype: ObjectProto,
         seal: ObjectSeal,
-    } = Object;
+    } = ObjectCtor;
     const { hasOwnProperty: ObjectProtoHasOwnProperty, toString: ObjectProtoToString } =
-        Object.prototype;
+        ObjectProto;
     const { revocable: ProxyRevocable } = Proxy;
     const {
         apply: ReflectApply,
@@ -219,7 +224,7 @@ export function createMembraneMarshall() {
         IsNotExtensible = 1 << 0,
         IsSealed = 1 << 1,
         IsFrozen = 1 << 2,
-        Revoked = 1 << 4,
+        Revoked = 1 << 3,
     }
     ReflectSetPrototypeOf(TargetIntegrityTraits, null);
     // eslint-disable-next-line no-shadow
@@ -227,8 +232,8 @@ export function createMembraneMarshall() {
         None = 0,
         IsArray = 1 << 0,
         IsFunction = 1 << 1,
-        IsObject = 1 << 2,
-        IsArrowFunction = 1 << 3,
+        IsArrowFunction = 1 << 2,
+        IsObject = 1 << 3,
         Revoked = 1 << 4,
     }
     ReflectSetPrototypeOf(TargetTraits, null);
@@ -267,6 +272,7 @@ export function createMembraneMarshall() {
         let foreignCallableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits;
         let foreignCallableGetUnbrandedTag: CallableGetUnbrandedTag;
         let foreignCallableHasOwnProperty: CallableHasOwnProperty;
+        let foreignCallableIsLiveTarget: CallableIsLiveTarget;
         let foreignCallableWarn: CallableWarn;
         let selectedTarget: undefined | ProxyTarget;
 
@@ -601,17 +607,30 @@ export function createMembraneMarshall() {
             return fn;
         }
 
-        /**
-         * An object is marked as a "live" object when it has a
-         * LOCKER_LIVE_MARKER_SYMBOL property. Live objects have their
-         * defineProperty, deleteProperty, preventExtensions, set, and
-         * setPrototypeOf proxy traps as "live" variations meaning that when
-         * mutation occurs instead of maintaining a separate object graph of
-         * changes the mutations are performed directly on the foreign target.
-         *
-         */
-        function isForeignTargetMarkedLive(foreignTargetPointer: Pointer): boolean {
-            return foreignCallableHasOwnProperty(foreignTargetPointer, LOCKER_LIVE_MARKER_SYMBOL);
+        function isLiveTarget(target: ProxyTarget): boolean {
+            if (target === ObjectProto) {
+                return false;
+            }
+            if (typeof target === 'object') {
+                if (
+                    // We only check for typed arrays here since arrays are
+                    // marked as live in the BoundaryProxyHandler constructor.
+                    ArrayBufferIsView(target)
+                ) {
+                    return true;
+                }
+                const { constructor } = target;
+                if (constructor === ObjectCtor) {
+                    // If the constructor, own or inherited, points to `Object`
+                    // then `value` is not likely a prototype object.
+                    return true;
+                }
+                if (ReflectGetPrototypeOf(target) === null) {
+                    // Ensure `value` is not an `Object.prototype` from an iframe.
+                    return typeof constructor !== 'function' || constructor.prototype !== target;
+                }
+            }
+            return ReflectApply(ObjectProtoHasOwnProperty, target, [LOCKER_LIVE_MARKER_SYMBOL]);
         }
 
         /**
@@ -1007,6 +1026,8 @@ export function createMembraneMarshall() {
                     // because it is not expecting to change in the future.
                     // future optimization: hoping that proxies with frozen handlers can be faster
                     ObjectFreeze(this);
+                } else if (foreignTargetTraits & TargetTraits.IsArray) {
+                    this.makeProxyLive();
                 }
             }
 
@@ -1158,7 +1179,7 @@ export function createMembraneMarshall() {
 
             private makeProxyUnambiguous(shadowTarget: ShadowTarget) {
                 // assert: trapMutations must be true
-                if (isForeignTargetMarkedLive(this.foreignTargetPointer)) {
+                if (foreignCallableIsLiveTarget(this.foreignTargetPointer)) {
                     this.makeProxyLive();
                 } else {
                     this.makeProxyStatic(shadowTarget);
@@ -1848,6 +1869,20 @@ export function createMembraneMarshall() {
                 'callableHasOwnProperty',
                 INBOUND_INSTRUMENTATION_LABEL
             ),
+            // callableIsLiveTarget
+            instrumentCallableWrapper(
+                (targetPointer: Pointer): boolean => {
+                    targetPointer();
+                    const target = getSelectedTarget();
+                    try {
+                        return isLiveTarget(target);
+                    } catch (e: any) {
+                        throw pushErrorAcrossBoundary(e);
+                    }
+                },
+                'callableIsLiveTarget',
+                INBOUND_INSTRUMENTATION_LABEL
+            ),
             // callableWarn
             instrumentCallableWrapper(
                 (...args: Parameters<typeof console.warn>): void => {
@@ -1888,7 +1923,8 @@ export function createMembraneMarshall() {
                 19: callableGetTargetIntegrityTraits,
                 20: callableGetUnbrandedTag,
                 21: callableHasOwnProperty,
-                22: callableWarn,
+                22: callableIsLiveTarget,
+                23: callableWarn,
             } = hooks;
             foreignCallablePushTarget = callablePushTarget;
             // traps utilities
@@ -1994,6 +2030,13 @@ export function createMembraneMarshall() {
                 instrumentCallableWrapper(
                     callableHasOwnProperty,
                     'callableHasOwnProperty',
+                    OUTBOUND_INSTRUMENTATION_LABEL
+                )
+            );
+            foreignCallableIsLiveTarget = foreignErrorControl(
+                instrumentCallableWrapper(
+                    callableIsLiveTarget,
+                    'callableIsLiveTarget',
                     OUTBOUND_INSTRUMENTATION_LABEL
                 )
             );
