@@ -1,68 +1,110 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-const LockerLiveValueMarkerSymbol = Symbol.for('@@lockerLiveValue');
+const LOCKER_LIVE_VALUE_MARKER_SYMBOL = Symbol.for('@@lockerLiveValue');
 
-const o = {
+class ExoticObject {
+    constructor(source) {
+        Object.assign(this, source);
+    }
+}
+
+const plainObject = {
     x: 'uno',
 };
 
-Reflect.defineProperty(o, LockerLiveValueMarkerSymbol, {});
+const exoticLiveObject = new ExoticObject(plainObject);
+Reflect.defineProperty(exoticLiveObject, LOCKER_LIVE_VALUE_MARKER_SYMBOL, {});
 
 const endowments = {
-    o,
+    plainObject,
+    exoticLiveObject,
     expect,
 };
 const env = createVirtualEnvironment(window, window, { endowments });
 
-describe('a live Red proxy', () => {
+describe('a live red proxy', () => {
     it('should surface new expandos from blue realm', () => {
-        expect.assertions(2);
-        o.x = 'uno';
-        o.y = 'dos';
+        expect.assertions(4);
+        exoticLiveObject.x = 'uno';
+        exoticLiveObject.y = 'dos';
+        plainObject.x = 'uno';
+        plainObject.y = 'dos';
         env.evaluate(`
-            expect(o.x).toBe('uno');
-            expect(o.y).toBe('dos');
+            expect(exoticLiveObject.x).toBe('uno');
+            expect(exoticLiveObject.y).toBe('dos');
+            expect(plainObject.x).toBe('uno');
+            expect(plainObject.y).toBe('dos');
         `);
     });
     it('should allow mutation from blue realm', () => {
-        expect.assertions(4);
-        o.x = 'tres';
-        o.y = 'cuatro';
+        expect.assertions(8);
+        exoticLiveObject.x = 'tres';
+        exoticLiveObject.y = 'cuatro';
+        plainObject.x = 'tres';
+        plainObject.y = 'cuatro';
         env.evaluate(`
-            expect(o.x).toBe('tres');
-            expect(o.y).toBe('cuatro');
+            expect(exoticLiveObject.x).toBe('tres');
+            expect(exoticLiveObject.y).toBe('cuatro');
+            expect(plainObject.x).toBe('tres');
+            expect(plainObject.y).toBe('cuatro');
         `);
-        expect(o.x).toBe('tres');
-        expect(o.y).toBe('cuatro');
+        expect(exoticLiveObject.x).toBe('tres');
+        expect(exoticLiveObject.y).toBe('cuatro');
+        expect(plainObject.x).toBe('tres');
+        expect(plainObject.y).toBe('cuatro');
     });
     it('should allow mutation from within the sandbox', () => {
-        expect.assertions(4);
+        expect.assertions(8);
         env.evaluate(`
-            o.x = 'cinco';
-            o.y = 'six';
-            expect(o.x).toBe('cinco');
-            expect(o.y).toBe('six');
+            exoticLiveObject.x = 'cinco';
+            exoticLiveObject.y = 'six';
+            expect(exoticLiveObject.x).toBe('cinco');
+            expect(exoticLiveObject.y).toBe('six');
+            plainObject.x = 'cinco';
+            plainObject.y = 'six';
+            expect(plainObject.x).toBe('cinco');
+            expect(plainObject.y).toBe('six');
         `);
-        expect(o.x).toBe('cinco');
-        expect(o.y).toBe('six');
+        expect(exoticLiveObject.x).toBe('cinco');
+        expect(exoticLiveObject.y).toBe('six');
+        expect(plainObject.x).toBe('cinco');
+        expect(plainObject.y).toBe('six');
     });
     it('should allow expandos added form within the sandbox', () => {
-        expect.assertions(2);
+        expect.assertions(4);
         env.evaluate(`
-            o.z = 'seven';
-            expect(o.z).toBe('seven');
+            exoticLiveObject.z = 'seven';
+            expect(exoticLiveObject.z).toBe('seven');
+            plainObject.z = 'seven';
+            expect(plainObject.z).toBe('seven');
         `);
-        expect(o.z).toBe('seven');
+        expect(exoticLiveObject.z).toBe('seven');
+        expect(plainObject.z).toBe('seven');
     });
-    it('should only have effect on own properties', () => {
-        expect.assertions(3);
-        o.w = { a: 1 };
+    it('should affect own properties of live objects', () => {
+        expect.assertions(5);
+        exoticLiveObject.w = new ExoticObject({ a: 1 });
         env.evaluate(`
-            o.z = 'seven';
-            expect(o.w.a).toBe(1);
-            o.w.a = 2;
-            expect(o.w.a).toBe(2);
+            exoticLiveObject.z = 'siete';
+            expect(exoticLiveObject.z).toBe('siete');
+            expect(exoticLiveObject.w.a).toBe(1);
+            exoticLiveObject.w.a = 2;
+            expect(exoticLiveObject.w.a).toBe(2);
         `);
-        expect(o.w.a).toBe(1);
+        expect(exoticLiveObject.z).toBe('siete');
+        expect(exoticLiveObject.w.a).toBe(1);
+    });
+    it('should affect all plain object properties', () => {
+        expect.assertions(5);
+        plainObject.w = { a: 1 };
+        env.evaluate(`
+            plainObject.z = 'siete';
+            expect(plainObject.z).toBe('siete');
+            expect(plainObject.w.a).toBe(1);
+            plainObject.w.a = 2;
+            expect(plainObject.w.a).toBe(2);
+        `);
+        expect(plainObject.z).toBe('siete');
+        expect(plainObject.w.a).toBe(2);
     });
 });
