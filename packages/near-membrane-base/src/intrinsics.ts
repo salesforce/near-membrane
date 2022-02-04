@@ -72,7 +72,7 @@ const ESGlobalKeys = [
     // 'Proxy', // Reflective
     // 'RangeError', // Reflective
     // 'ReferenceError', // Reflective
-    // 'RegExp', // Reflective
+    'RegExp',
     // 'Set', // Remapped
     // 'SharedArrayBuffer', // Remapped
     'String',
@@ -112,7 +112,6 @@ const ReflectiveIntrinsicObjectNames = [
     'Function',
     'Object',
     'Proxy',
-    'RegExp',
     'RangeError',
     'ReferenceError',
     'SyntaxError',
