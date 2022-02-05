@@ -32,9 +32,9 @@
     "bump:minor": "lerna version minor --exact --no-push --yes",
     "bump:beta": "lerna version prerelease --preid beta --exact --no-push --yes",
     "bump:test": "lerna version prerelease --preid test --exact --no-push --yes",
-    "push": "git push && git push --tags",
+    "push": "git push --follow-tags",
     "npm:login": "npm login --registry https://registry.npmjs.org/",
-    "publish": "lerna publish from-package --ignore-scripts --yes --registry https://registry.npmjs.org/",
+    "npm:publish": "lerna publish from-package --ignore-scripts --yes --registry https://registry.npmjs.org/",
     "debug": "karma start karma.config.js --browsers Chrome"
   },
   "files": [
