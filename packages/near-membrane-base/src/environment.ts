@@ -28,7 +28,7 @@ interface VirtualEnvironmentOptions {
     redConnector: ReturnType<typeof createMembraneMarshall>;
     // Environment support object
     support?: SupportFlagsObject;
-    // Instrumentation libray object
+    // Instrumentation library object
     instrumentation?: InstrumentationHooks;
 }
 
