@@ -120,7 +120,7 @@ const ReflectiveIntrinsicObjectNames = [
     'eval',
 ];
 
-const ESGlobalsAndReflectiveInstrinsicObjectNames = [
+const ESGlobalsAndReflectiveIntrinsicObjectNames = [
     ...ESGlobalKeys,
     ...ReflectiveIntrinsicObjectNames,
 ];
@@ -138,7 +138,7 @@ function assignFilteredGlobalObjectShapeDescriptors<T extends PropertyDescriptor
         // TODO: what if the intent is to polyfill one of those
         // intrinsics?
         if (
-            !ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveInstrinsicObjectNames, [ownKey])
+            !ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveIntrinsicObjectNames, [ownKey])
         ) {
             const unsafeDesc = ReflectGetOwnPropertyDescriptor(source, ownKey);
             // Safari 14.0.x (macOS) and 14.2 (iOS) have a bug where 'showModalDialog'
