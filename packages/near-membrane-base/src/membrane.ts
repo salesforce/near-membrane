@@ -1401,12 +1401,30 @@ export function createMembraneMarshall() {
                     ...listOfPointersOrPrimitives: PointerOrPrimitive[]
                 ): PointerOrPrimitive => {
                     targetPointer();
-                    const fn = getSelectedTarget();
-                    const thisArg = getLocalValue(thisArgPointerOrPrimitive);
+                    // Inline getSelectedTarget().
+                    const fn = selectedTarget as Function;
+                    selectedTarget = undefined;
+                    // Inline getLocalValue().
+                    let thisArg = thisArgPointerOrPrimitive as ProxyTarget | undefined;
+                    if (typeof thisArgPointerOrPrimitive === 'function') {
+                        thisArgPointerOrPrimitive();
+                        // Inline getSelectedTarget().
+                        thisArg = selectedTarget;
+                        selectedTarget = undefined;
+                    }
                     const { length: argsLen } = listOfPointersOrPrimitives;
                     const args = new ArrayCtor(argsLen);
                     for (let i = 0, len = argsLen; i < len; i += 1) {
-                        args[i] = getLocalValue(listOfPointersOrPrimitives[i]);
+                        const pointerOrPrimitive = listOfPointersOrPrimitives[i];
+                        // Inline getLocalValue().
+                        let localValue = pointerOrPrimitive as ProxyTarget | undefined;
+                        if (typeof pointerOrPrimitive === 'function') {
+                            pointerOrPrimitive();
+                            // Inline getSelectedTarget().
+                            localValue = selectedTarget;
+                            selectedTarget = undefined;
+                        }
+                        args[i] = localValue;
                     }
                     let value;
                     try {
@@ -1414,7 +1432,17 @@ export function createMembraneMarshall() {
                     } catch (e: any) {
                         throw pushErrorAcrossBoundary(e);
                     }
-                    return getTransferableValue(value);
+                    // Inline getTransferableValue().
+                    if (typeof value === 'undefined') {
+                        return undefined;
+                    }
+                    if (
+                        value === null ||
+                        (typeof value !== 'function' && typeof value !== 'object')
+                    ) {
+                        return value;
+                    }
+                    return getTransferablePointer(value);
                 },
                 'callableApply',
                 INBOUND_INSTRUMENTATION_LABEL
@@ -1427,12 +1455,29 @@ export function createMembraneMarshall() {
                     ...listOfPointersOrPrimitives: PointerOrPrimitive[]
                 ): PointerOrPrimitive => {
                     targetPointer();
-                    const constructor = getSelectedTarget();
-                    const newTarget = getLocalValue(newTargetPointerOrValue);
+                    // Inline getSelectedTarget().
+                    const constructor = selectedTarget as Function;
+                    // Inline getLocalValue().
+                    let newTarget = newTargetPointerOrValue as Function | undefined;
+                    if (typeof newTargetPointerOrValue === 'function') {
+                        newTargetPointerOrValue();
+                        // Inline getSelectedTarget().
+                        newTarget = selectedTarget as Function | undefined;
+                        selectedTarget = undefined;
+                    }
                     const { length: argsLen } = listOfPointersOrPrimitives;
                     const args = new ArrayCtor(argsLen);
                     for (let i = 0, len = argsLen; i < len; i += 1) {
-                        args[i] = getLocalValue(listOfPointersOrPrimitives[i]);
+                        const pointerOrPrimitive = listOfPointersOrPrimitives[i];
+                        // Inline getLocalValue().
+                        let localValue = pointerOrPrimitive as ProxyTarget | undefined;
+                        if (typeof pointerOrPrimitive === 'function') {
+                            pointerOrPrimitive();
+                            // Inline getSelectedTarget().
+                            localValue = selectedTarget;
+                            selectedTarget = undefined;
+                        }
+                        args[i] = localValue;
                     }
                     let value;
                     try {
@@ -1440,7 +1485,17 @@ export function createMembraneMarshall() {
                     } catch (e: any) {
                         throw pushErrorAcrossBoundary(e);
                     }
-                    return getTransferableValue(value);
+                    // Inline getTransferableValue().
+                    if (typeof value === 'undefined') {
+                        return undefined;
+                    }
+                    if (
+                        value === null ||
+                        (typeof value !== 'function' && typeof value !== 'object')
+                    ) {
+                        return value;
+                    }
+                    return getTransferablePointer(value);
                 },
                 'callableConstruct',
                 INBOUND_INSTRUMENTATION_LABEL
