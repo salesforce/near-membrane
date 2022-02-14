@@ -173,6 +173,9 @@ export function createMembraneMarshall() {
     const LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL = Symbol.for(
         '@@lockerNearMembraneUndefinedValue'
     );
+    // BigInt is not supported in Safari 13.1.
+    // https://caniuse.com/bigint
+    const SUPPORTS_BIG_INT = typeof BigInt === 'function';
     const { toStringTag: TO_STRING_TAG_SYMBOL } = Symbol;
 
     const ArrayCtor = Array;
@@ -181,7 +184,7 @@ export function createMembraneMarshall() {
     const TypeErrorCtor = TypeError;
     const { isArray: isArrayOrNotOrThrowForRevoked } = ArrayCtor;
     const { isView: ArrayBufferIsView } = ArrayBuffer;
-    const { valueOf: BigIntProtoValueOf } = BigInt.prototype;
+    const BigIntProtoValueOf = SUPPORTS_BIG_INT ? BigInt.prototype.valueOf : undefined;
     const { valueOf: BooleanProtoValueOf } = Boolean.prototype;
     const { stringify: JSONStringify } = JSON;
     const {
@@ -548,8 +551,11 @@ export function createMembraneMarshall() {
                 // The brand(s) below represent boxed primitives of `ESGlobalKeys`
                 // in packages/near-membrane-base/src/intrinsics.ts which are not
                 // remapped or reflective.
-                case '[object BigInt]':
-                    return ReflectApply(BigIntProtoValueOf, target, []);
+                case '[object BigInt]': {
+                    return SUPPORTS_BIG_INT
+                        ? ReflectApply(BigIntProtoValueOf!, target, [])
+                        : undefined;
+                }
                 case '[object Boolean]':
                     return ReflectApply(BooleanProtoValueOf, target, []);
                 case '[object Number]':
