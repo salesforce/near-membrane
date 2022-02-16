@@ -56,7 +56,6 @@ describe('Symbols', () => {
 
     it('blue Symbol class properties are inherited in red environments', () => {
         const symbol = Symbol('method');
-
         let successful = false;
 
         class Base {
@@ -77,7 +76,6 @@ describe('Symbols', () => {
             }
             new Bar();
         `);
-
         expect(successful).toBe(true);
     });
 });

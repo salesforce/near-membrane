@@ -15,7 +15,7 @@ function freezeObject(object, inheritFrom = Reflect.getPrototypeOf(object)) {
 
 describe('@@lockerNearMembrane', () => {
     it('should be detectable', () => {
-        expect.assertions(12);
+        expect.assertions(15);
 
         // eslint-disable-next-line no-unused-vars
         let takeInside;
@@ -27,8 +27,14 @@ describe('@@lockerNearMembrane', () => {
             },
             takeOutside(insideValue) {
                 // Test blue proxies.
+                // To unlock the near-membrane symbol gate first perform a has()
+                // trap check.
                 expect(LOCKER_NEAR_MEMBRANE_SYMBOL in insideValue).toBe(false);
+                // Next, perform a get() trap call.
                 expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(true);
+                // Performing a get() trap call without first performing a has()
+                // trap check will produce `undefined`.
+                expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(undefined);
             },
         };
 
@@ -125,7 +131,7 @@ describe('@@lockerNearMembrane', () => {
     });
 
     it('should not throw proxy invariant violation errors', () => {
-        expect.assertions(12);
+        expect.assertions(15);
 
         // eslint-disable-next-line no-unused-vars
         let takeInside;
@@ -137,8 +143,14 @@ describe('@@lockerNearMembrane', () => {
             },
             takeOutside(insideValue) {
                 // Test blue proxies.
+                // To unlock the near-membrane symbol gate first perform a has()
+                // trap check.
                 expect(LOCKER_NEAR_MEMBRANE_SYMBOL in insideValue).toBe(false);
+                // Next, perform a get() trap call.
                 expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(true);
+                // Performing a get() trap call without first performing a has()
+                // trap check will produce `undefined`.
+                expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(undefined);
             },
         };
 
@@ -178,7 +190,7 @@ describe('@@lockerNearMembrane', () => {
 
 describe('@@lockerNearMembraneSerializedValue', () => {
     it('should be detectable', () => {
-        expect.assertions(36);
+        expect.assertions(45);
 
         // eslint-disable-next-line no-unused-vars
         let takeInside;
@@ -190,10 +202,16 @@ describe('@@lockerNearMembraneSerializedValue', () => {
             },
             takeOutside(insideValue, expectedSerialized) {
                 // Test blue proxies.
+                // To unlock the near-membrane symbol gate first perform a has()
+                // trap check.
                 expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue).toBe(false);
+                // Next, perform a get() trap call.
                 expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
                     expectedSerialized
                 );
+                // Performing a get() trap call without first performing a has()
+                // trap check will produce `undefined`.
+                expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(undefined);
             },
         };
 
@@ -204,32 +222,30 @@ describe('@@lockerNearMembraneSerializedValue', () => {
                 '@@lockerNearMembraneSerializedValue'
             );
 
-            exposeTakeInside(function takeInside(outsideValue, expectedSerialized) {
+            exposeTakeInside(function takeInside(outsideValue) {
                 // Test red proxies.
                 expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in outsideValue).toBe(false);
-                expect(outsideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
-                    expectedSerialized
-                );
+                expect(outsideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(undefined);
             });
         `);
 
         // Test red proxies.
-        takeInside(Object(BigInt(0x1fffffffffffff)), undefined);
+        takeInside(Object(BigInt(0x1fffffffffffff)));
         // eslint-disable-next-line no-new-wrappers
-        takeInside(new Boolean(true), undefined);
+        takeInside(new Boolean(true));
         // eslint-disable-next-line no-new-wrappers
-        takeInside(new Boolean(false), undefined);
+        takeInside(new Boolean(false));
         // eslint-disable-next-line no-new-wrappers
-        takeInside(new Number(0), undefined);
+        takeInside(new Number(0));
         // prettier-ignore
-        takeInside(/outsideRegExpLiteral/img, undefined);
+        takeInside(/outsideRegExpLiteral/img);
         // eslint-disable-next-line prefer-regex-literals
-        takeInside(new RegExp('outsideRegExpObject', 'img'), undefined);
+        takeInside(new RegExp('outsideRegExpObject', 'img'));
         // eslint-disable-next-line no-new-wrappers
-        takeInside(new String('outsideString'), undefined);
+        takeInside(new String('outsideString'));
         const symbol = Symbol('outsideSymbol');
-        takeInside(Object(symbol), undefined);
-        takeInside(['outsideArray'], undefined);
+        takeInside(Object(symbol));
+        takeInside(['outsideArray']);
 
         env.evaluate(`
             // Test blue proxies.
@@ -421,7 +437,7 @@ describe('@@lockerNearMembraneSerializedValue', () => {
     });
 
     it('should not throw proxy invariant violation errors', () => {
-        expect.assertions(36);
+        expect.assertions(45);
 
         // eslint-disable-next-line no-unused-vars
         let takeInside;
@@ -433,10 +449,16 @@ describe('@@lockerNearMembraneSerializedValue', () => {
             },
             takeOutside(insideValue, expectedSerialized) {
                 // Test blue proxies.
+                // To unlock the near-membrane symbol gate first perform a has()
+                // trap check.
                 expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue).toBe(false);
+                // Next, perform a get() trap call.
                 expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
                     expectedSerialized
                 );
+                // Performing a get() trap call without first performing a has()
+                // trap check will produce `undefined`.
+                expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(undefined);
             },
         };
 
@@ -447,31 +469,29 @@ describe('@@lockerNearMembraneSerializedValue', () => {
                 '@@lockerNearMembraneSerializedValue'
             );
 
-            exposeTakeInside(function takeInside(outsideValue, expectedSerialized) {
+            exposeTakeInside(function takeInside(outsideValue) {
                 // Test red proxies.
                 expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in outsideValue).toBe(false);
-                expect(outsideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
-                    expectedSerialized
-                );
+                expect(outsideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(undefined);
             });
         `);
 
         // Test red proxies.
-        takeInside(freezeObject(Object(BigInt(0x1fffffffffffff))), undefined);
+        takeInside(freezeObject(Object(BigInt(0x1fffffffffffff))));
         // eslint-disable-next-line no-new-wrappers
-        takeInside(freezeObject(new Boolean(true)), undefined);
+        takeInside(freezeObject(new Boolean(true)));
         // eslint-disable-next-line no-new-wrappers
-        takeInside(freezeObject(new Boolean(false)), undefined);
+        takeInside(freezeObject(new Boolean(false)));
         // eslint-disable-next-line no-new-wrappers
-        takeInside(freezeObject(new Number(0)), undefined);
+        takeInside(freezeObject(new Number(0)));
         // prettier-ignore
-        takeInside(freezeObject(/outsideFrozenRegExpLiteral/img), undefined);
+        takeInside(freezeObject(/outsideFrozenRegExpLiteral/img));
         // eslint-disable-next-line prefer-regex-literals
-        takeInside(new RegExp('outsideFrozenRegExpObject', 'img'), undefined);
+        takeInside(new RegExp('outsideFrozenRegExpObject', 'img'));
         // eslint-disable-next-line no-new-wrappers
-        takeInside(freezeObject(new String('outsideFrozenStringObject')), undefined);
-        takeInside(freezeObject(Object(Symbol('outsideFrozenSymbolObject'))), undefined);
-        takeInside(freezeObject(['outsideFrozenArray']), undefined);
+        takeInside(freezeObject(new String('outsideFrozenStringObject')));
+        takeInside(freezeObject(Object(Symbol('outsideFrozenSymbolObject'))));
+        takeInside(freezeObject(['outsideFrozenArray']));
 
         env.evaluate(`
             function freezeObject(object, inheritFrom = Reflect.getPrototypeOf(object)) {
