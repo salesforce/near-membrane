@@ -51,6 +51,100 @@ describe('Freezing', () => {
                 expect('c' in bar).toBe(false);
             `);
         });
+        it('should be observed from within the sandbox (via endowments)', () => {
+            const bar = { a: 1, b: 2 };
+            Object.freeze(bar);
+            const env = createVirtualEnvironment(window, window, {
+                endowments: { bar, expect },
+            });
+            // checking the state of bar in the blue realm
+            expect(Object.isExtensible(bar)).toBe(false);
+            expect(Object.isSealed(bar)).toBe(true);
+            expect(Object.isFrozen(bar)).toBe(true);
+            // checking the state of bar in the sandbox
+            env.evaluate(`
+                expect(Object.isExtensible(bar)).toBe(false);
+                expect(Object.isSealed(bar)).toBe(true);
+                expect(Object.isFrozen(bar)).toBe(true);
+            `);
+            // verifying that in deep it is reflected as frozen
+            env.evaluate(`
+                'use strict';
+                expect(() => {
+                    bar.c = 3;
+                }).toThrowError(TypeError);
+                expect('c' in bar).toBe(false);
+                expect(() => {
+                    bar.a = 3;
+                }).toThrowError(TypeError);
+                expect(() => {
+                    bar.b = 3;
+                }).toThrowError(TypeError);
+                expect(bar.a).toBe(1);
+                expect(bar.b).toBe(2);
+            `);
+            expect(bar.a).toBe(1);
+            expect(bar.b).toBe(2);
+            expect('c' in bar).toBe(false);
+        });
+
+        it('should be observed after passing object back and forth', () => {
+            expect.assertions(13);
+            const tx = {
+                ref: null,
+            };
+            const rx = {
+                ref: null,
+            };
+            const env = createVirtualEnvironment(window, window, {
+                endowments: { tx, rx },
+            });
+            // The value of both tx.ref and rx.ref are initially null, as shown above,
+            // verified in sandbox
+            env.evaluate(`
+                expect(tx.ref).toBe(null);
+                expect(rx.ref).toBe(null);
+            `);
+            // Set the value of tx.ref to a POJO
+            tx.ref = {
+                a: 1,
+            };
+            // Verify that the new value of tx.ref is reflected in the sandbox
+            // Set the value of rx.ref to the value of tx.ref WITHIN the sandbox
+            env.evaluate(`
+                expect(tx.ref.a).toBe(1);
+                rx.ref = tx.ref;
+            `);
+            // Verify that the value of rx.ref is reflected back in system mode
+            expect(rx.ref.a).toBe(1);
+            // Now freeze rx.ref
+            Object.freeze(rx.ref);
+            // Check that the value of tx.ref is frozen (it's the same as rx.ref)
+            expect(Object.isFrozen(tx.ref)).toBe(true);
+            // Verify that properties of the value of rx.ref tx.ref cannot be
+            // reassigned to new values.
+            expect(() => {
+                rx.ref.a = 2;
+            }).toThrowError(TypeError);
+            expect(() => {
+                tx.ref.a = 2;
+            }).toThrowError(TypeError);
+            expect(rx.ref.a).toBe(1);
+            expect(tx.ref.a).toBe(1);
+
+            // Return to the sandbox and verify that both tx.ref and rx.ref are frozen.
+            env.evaluate(`
+                'use strict';
+                expect(() => {
+                    rx.ref.a = 3;
+                }).toThrowError(TypeError);
+                expect(() => {
+                    tx.ref.a = 3;
+                }).toThrowError(TypeError);
+                expect(rx.ref.a).toBe(1);
+                expect(tx.ref.a).toBe(1);
+            `);
+        });
     });
     describe('after creating the sandbox', () => {
         it('should not be observed from within the sandbox after mutation of exotic objects', () => {
