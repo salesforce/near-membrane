@@ -24,7 +24,7 @@ describe('Freezing', () => {
                 expect(Object.isSealed(window.bar)).toBe(true);
                 expect(Object.isFrozen(window.bar)).toBe(true);
             `);
-            // verifying that in deep it is reflected as frozen
+            // verifying that in strict mode it is reflected as frozen
             env.evaluate(`
                 'use strict';
                 let isTypeError = false;
@@ -67,7 +67,7 @@ describe('Freezing', () => {
                 expect(Object.isSealed(bar)).toBe(true);
                 expect(Object.isFrozen(bar)).toBe(true);
             `);
-            // verifying that in deep it is reflected as frozen
+            // verifying that in strict mode it is reflected as frozen
             env.evaluate(`
                 'use strict';
                 expect(() => {
@@ -89,7 +89,7 @@ describe('Freezing', () => {
         });
 
         it('should be observed after passing object back and forth', () => {
-            expect.assertions(13);
+            expect.assertions(11);
             const tx = {
                 ref: null,
             };
@@ -116,7 +116,7 @@ describe('Freezing', () => {
                 rx.ref = tx.ref;
             `);
             // Verify that the value of rx.ref is reflected back in system mode
-            expect(rx.ref.a).toBe(1);
+            expect(rx.ref).toBe(tx.ref);
             // Now freeze rx.ref
             Object.freeze(rx.ref);
             // Check that the value of tx.ref is frozen (it's the same as rx.ref)
@@ -126,18 +126,12 @@ describe('Freezing', () => {
             expect(() => {
                 rx.ref.a = 2;
             }).toThrowError(TypeError);
-            expect(() => {
-                tx.ref.a = 2;
-            }).toThrowError(TypeError);
             expect(rx.ref.a).toBe(1);
             expect(tx.ref.a).toBe(1);
 
             // Return to the sandbox and verify that both tx.ref and rx.ref are frozen.
             env.evaluate(`
                 'use strict';
-                expect(() => {
-                    rx.ref.a = 3;
-                }).toThrowError(TypeError);
                 expect(() => {
                     tx.ref.a = 3;
                 }).toThrowError(TypeError);
