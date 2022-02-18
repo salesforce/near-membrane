@@ -260,6 +260,23 @@ export function createMembraneMarshall() {
         }),
         globalThis);
     // eslint-disable-next-line no-shadow
+    const enum ProxyHandlerTraps {
+        None = 0,
+        Apply = 1 << 0,
+        Construct = 1 << 1,
+        DefineProperty = 1 << 2,
+        DeleteProperty = 1 << 3,
+        Get = 1 << 4,
+        GetOwnPropertyDescriptor = 1 << 5,
+        GetPrototypeOf = 1 << 6,
+        Has = 1 << 7,
+        IsExtensible = 1 << 8,
+        OwnKeys = 1 << 9,
+        PreventExtensions = 1 << 10,
+        Set = 1 << 11,
+        SetPrototypeOf = 1 << 12,
+    }
+    // eslint-disable-next-line no-shadow
     const enum TargetIntegrityTraits {
         None = 0,
         IsNotExtensible = 1 << 0,
@@ -276,11 +293,6 @@ export function createMembraneMarshall() {
         IsObject = 1 << 3,
         Revoked = 1 << 4,
     }
-    const PROPERTY_TO_HANDLER_KEY_MAP = {
-        __proto__: null,
-        [LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]: 'serializedValue',
-        [TO_STRING_TAG_SYMBOL]: 'unbrandedTag',
-    };
 
     return function createHooksCallback(
         color: string,
@@ -319,6 +331,8 @@ export function createMembraneMarshall() {
         let foreignCallableHasOwnProperty: CallableHasOwnProperty;
         let foreignCallableIsLiveTarget: CallableIsLiveTarget;
         let foreignCallableWarn: CallableWarn;
+        let lastProxyTrapCalled = ProxyHandlerTraps.None;
+        let nearMembraneSymbolHasTrapGate = false;
         let selectedTarget: undefined | ProxyTarget;
 
         function copyForeignDescriptorsToShadowTarget(
@@ -825,7 +839,7 @@ export function createMembraneMarshall() {
 
             private readonly foreignTargetPointer: Pointer;
 
-            private readonly foreignTargetTraits: TargetTraits;
+            private readonly foreignTargetTraits = TargetTraits.None;
 
             constructor(
                 foreignTargetPointer: Pointer,
@@ -919,6 +933,7 @@ export function createMembraneMarshall() {
                 thisArg: any,
                 args: any[]
             ): any {
+                lastProxyTrapCalled = ProxyHandlerTraps.Apply;
                 const { foreignTargetPointer } = this;
                 const transferableThisArg = getTransferableValue(thisArg);
                 const combinedArgs = [foreignTargetPointer, transferableThisArg];
@@ -951,6 +966,7 @@ export function createMembraneMarshall() {
                 args: any[],
                 newTarget: any
             ): any {
+                lastProxyTrapCalled = ProxyHandlerTraps.Construct;
                 if (newTarget === undefined) {
                     throw new TypeErrorCtor();
                 }
@@ -1170,6 +1186,7 @@ export function createMembraneMarshall() {
                 key: string | symbol,
                 unsafePartialDesc: PropertyDescriptor
             ): ReturnType<typeof Reflect.defineProperty> {
+                lastProxyTrapCalled = ProxyHandlerTraps.DefineProperty;
                 const { foreignTargetPointer } = this;
                 const descMeta = getDescriptorMeta(unsafePartialDesc);
                 const { 0: configurable } = descMeta;
@@ -1196,6 +1213,7 @@ export function createMembraneMarshall() {
                 _shadowTarget: ShadowTarget,
                 key: string | symbol
             ): ReturnType<typeof Reflect.deleteProperty> {
+                lastProxyTrapCalled = ProxyHandlerTraps.DeleteProperty;
                 return foreignCallableDeleteProperty(this.foreignTargetPointer, key);
             }
 
@@ -1205,27 +1223,85 @@ export function createMembraneMarshall() {
                 key: string | symbol,
                 receiver: any
             ): ReturnType<typeof Reflect.get> {
+                // Only allow accessing near-membrane symbol values if the
+                // BoundaryProxyHandler.has trap has been called immediately before.
+                nearMembraneSymbolHasTrapGate &&= lastProxyTrapCalled === ProxyHandlerTraps.Has;
+                lastProxyTrapCalled = ProxyHandlerTraps.Get;
                 const { foreignTargetPointer, foreignTargetTraits } = this;
                 const result = getLocalValue(
                     foreignCallableGet(foreignTargetPointer, key, getTransferableValue(receiver))
                 );
                 if (result === undefined) {
-                    if (
-                        key === LOCKER_NEAR_MEMBRANE_SYMBOL &&
-                        !foreignCallableHas(foreignTargetPointer, key)
-                    ) {
-                        return true;
-                    }
-                    const handlerKey = PROPERTY_TO_HANDLER_KEY_MAP[key];
-                    if (
-                        handlerKey !== undefined &&
-                        foreignTargetTraits & TargetTraits.IsObject &&
-                        !foreignCallableHas(foreignTargetPointer, key)
-                    ) {
-                        return this[handlerKey];
+                    if (key === TO_STRING_TAG_SYMBOL) {
+                        if (
+                            foreignTargetTraits & TargetTraits.IsObject &&
+                            !foreignCallableHas(foreignTargetPointer, key)
+                        ) {
+                            return this.unbrandedTag;
+                        }
+                    } else if (nearMembraneSymbolHasTrapGate) {
+                        if (key === LOCKER_NEAR_MEMBRANE_SYMBOL) {
+                            return true;
+                        }
+                        if (key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL) {
+                            return this.serializedValue;
+                        }
                     }
                 }
                 return result;
+            }
+
+            private static passthruGetPrototypeOfTrap(
+                this: BoundaryProxyHandler,
+                _shadowTarget: ShadowTarget
+            ): ReturnType<typeof Reflect.getPrototypeOf> {
+                lastProxyTrapCalled = ProxyHandlerTraps.GetPrototypeOf;
+                return getLocalValue(foreignCallableGetPrototypeOf(this.foreignTargetPointer));
+            }
+
+            private static passthruHasTrap(
+                this: BoundaryProxyHandler,
+                _shadowTarget: ShadowTarget,
+                key: string | symbol
+            ): ReturnType<typeof Reflect.has> {
+                lastProxyTrapCalled = ProxyHandlerTraps.Has;
+                const result = foreignCallableHas(this.foreignTargetPointer, key);
+                // The near-membrane symbol gate is open if the symbol does not
+                // exist on the object or its [[Prototype]].
+                nearMembraneSymbolHasTrapGate =
+                    !result &&
+                    (key === LOCKER_NEAR_MEMBRANE_SYMBOL ||
+                        key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL);
+                return result;
+            }
+
+            private static passthruIsExtensibleTrap(
+                this: BoundaryProxyHandler,
+                shadowTarget: ShadowTarget
+            ): ReturnType<typeof Reflect.isExtensible> {
+                lastProxyTrapCalled = ProxyHandlerTraps.IsExtensible;
+                // check if already locked
+                if (ReflectIsExtensible(shadowTarget)) {
+                    const { foreignTargetPointer } = this;
+                    if (foreignCallableIsExtensible(foreignTargetPointer)) {
+                        return true;
+                    }
+                    lockShadowTarget(shadowTarget, foreignTargetPointer);
+                }
+                return false;
+            }
+
+            private static passthruOwnKeysTrap(
+                this: BoundaryProxyHandler,
+                _shadowTarget: ShadowTarget
+            ): ReturnType<typeof Reflect.ownKeys> {
+                lastProxyTrapCalled = ProxyHandlerTraps.OwnKeys;
+                let keys: ReturnType<typeof Reflect.ownKeys>;
+                foreignCallableOwnKeys(this.foreignTargetPointer, (...args) => {
+                    keys = args;
+                });
+                // @ts-ignore: Prevent used before assignment error.
+                return keys || [];
             }
 
             private static passthruOwnPropertyDescriptorTrap(
@@ -1233,6 +1309,7 @@ export function createMembraneMarshall() {
                 shadowTarget: ShadowTarget,
                 key: string | symbol
             ): ReturnType<typeof Reflect.getOwnPropertyDescriptor> {
+                lastProxyTrapCalled = ProxyHandlerTraps.GetOwnPropertyDescriptor;
                 return getOwnForeignDescriptor(this.foreignTargetPointer, shadowTarget, key);
             }
 
@@ -1240,6 +1317,7 @@ export function createMembraneMarshall() {
                 this: BoundaryProxyHandler,
                 shadowTarget: ShadowTarget
             ): ReturnType<typeof Reflect.preventExtensions> {
+                lastProxyTrapCalled = ProxyHandlerTraps.PreventExtensions;
                 if (ReflectIsExtensible(shadowTarget)) {
                     const { foreignTargetPointer } = this;
                     if (!foreignCallablePreventExtensions(foreignTargetPointer)) {
@@ -1256,53 +1334,12 @@ export function createMembraneMarshall() {
                 return true;
             }
 
-            private static passthruGetPrototypeOfTrap(
-                this: BoundaryProxyHandler,
-                _shadowTarget: ShadowTarget
-            ): ReturnType<typeof Reflect.getPrototypeOf> {
-                return getLocalValue(foreignCallableGetPrototypeOf(this.foreignTargetPointer));
-            }
-
-            private static passthruHasTrap(
-                this: BoundaryProxyHandler,
-                _shadowTarget: ShadowTarget,
-                key: string | symbol
-            ): ReturnType<typeof Reflect.has> {
-                return foreignCallableHas(this.foreignTargetPointer, key);
-            }
-
-            private static passthruIsExtensibleTrap(
-                this: BoundaryProxyHandler,
-                shadowTarget: ShadowTarget
-            ): ReturnType<typeof Reflect.isExtensible> {
-                // check if already locked
-                if (ReflectIsExtensible(shadowTarget)) {
-                    const { foreignTargetPointer } = this;
-                    if (foreignCallableIsExtensible(foreignTargetPointer)) {
-                        return true;
-                    }
-                    lockShadowTarget(shadowTarget, foreignTargetPointer);
-                }
-                return false;
-            }
-
-            private static passthruOwnKeysTrap(
-                this: BoundaryProxyHandler,
-                _shadowTarget: ShadowTarget
-            ): ReturnType<typeof Reflect.ownKeys> {
-                let keys: ReturnType<typeof Reflect.ownKeys>;
-                foreignCallableOwnKeys(this.foreignTargetPointer, (...args) => {
-                    keys = args;
-                });
-                // @ts-ignore: Prevent used before assignment error.
-                return keys || [];
-            }
-
             private static passthruSetPrototypeOfTrap(
                 this: BoundaryProxyHandler,
                 _shadowTarget: ShadowTarget,
                 proto: object | null
             ): ReturnType<typeof Reflect.setPrototypeOf> {
+                lastProxyTrapCalled = ProxyHandlerTraps.SetPrototypeOf;
                 const transferableProto = proto ? getTransferablePointer(proto) : proto;
                 return foreignCallableSetPrototypeOf(this.foreignTargetPointer, transferableProto);
             }
@@ -1314,6 +1351,7 @@ export function createMembraneMarshall() {
                 value: any,
                 receiver: any
             ): boolean {
+                lastProxyTrapCalled = ProxyHandlerTraps.Set;
                 const { foreignTargetPointer } = this;
                 if (this.proxy === receiver) {
                     // Fast path.
