@@ -43,7 +43,7 @@ describe('The Error Boundary', () => {
     it('should remap the Blue Realm Error instance to the sandbox errors', () => {
         expect.assertions(3);
         const env = createVirtualEnvironment(globalThis, globalThis, {
-            endowments: { foo, expect },
+            endowments: { expect, foo },
         });
 
         env.evaluate(`

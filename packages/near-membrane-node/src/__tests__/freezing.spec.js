@@ -9,130 +9,128 @@ class ExoticObject {
 describe('Freezing', () => {
     describe('before creating the sandbox', () => {
         it('should be observed from within the sandbox', () => {
-            expect.assertions(10);
-            globalThis.bar = { a: 1, b: 2 };
-            Object.freeze(globalThis.bar);
+            expect.assertions(9);
+
+            globalThis.plainObject = { x: 1 };
+            Object.freeze(globalThis.plainObject);
             const env = createVirtualEnvironment(globalThis, globalThis);
-            // checking the state of bar in the blue realm
-            expect(Object.isExtensible(globalThis.bar)).toBe(false);
-            expect(Object.isSealed(globalThis.bar)).toBe(true);
-            expect(Object.isFrozen(globalThis.bar)).toBe(true);
-            // checking the state of bar in the sandbox
+            // Check the state of plainObject in the blue realm.
+            expect(Object.isExtensible(globalThis.plainObject)).toBe(false);
+            expect(Object.isSealed(globalThis.plainObject)).toBe(true);
+            expect(Object.isFrozen(globalThis.plainObject)).toBe(true);
+            // Check the state of plainObject in the sandbox.
             env.evaluate(`
-                expect(Object.isExtensible(globalThis.bar)).toBe(false);
-                expect(Object.isSealed(globalThis.bar)).toBe(true);
-                expect(Object.isFrozen(globalThis.bar)).toBe(true);
+                expect(Object.isExtensible(plainObject)).toBe(false);
+                expect(Object.isSealed(plainObject)).toBe(true);
+                expect(Object.isFrozen(plainObject)).toBe(true);
             `);
-            // verifying that in deep it is reflected as frozen
+            // Verify that in strict mode it is reflected as frozen.
             env.evaluate(`
                 'use strict';
-                let isTypeError = false;
-                try {
-                    bar.c = 3; // because it is frozen
-                } catch (e) {
-                    isTypeError = e instanceof TypeError;
-                }
-                expect(isTypeError).toBe(true);
-                expect('c' in bar).toBe(false);
-            `);
-            // verifying that when observed from outside, it is still reflected
-            env.evaluate(`
-                'use strict';
-                let error = null;
-                try {
-                    bar.c = 3; // because it is frozen
-                } catch (e) {
-                    error = e;
-                }
                 expect(() => {
-                    bar.c = 3;
-                }).toThrow(TypeError);
-                expect('c' in bar).toBe(false);
+                    plainObject.y = 2;
+                }).toThrowError(TypeError);
+                expect(plainObject).toEqual({ x: 1 });
             `);
+            expect(globalThis.plainObject).toEqual({ x: 1 });
+            delete globalThis.plainObject;
         });
     });
     describe('after creating the sandbox', () => {
         it('should not be observed from within the sandbox after mutation of exotic objects', () => {
             expect.assertions(9);
-            globalThis.baz = new ExoticObject({ a: 1, b: 2 });
+
+            globalThis.exoticObject = new ExoticObject({ x: 1 });
             const env = createVirtualEnvironment(globalThis, globalThis);
-            // Check the state of baz in the sandbox.
+            // Check the state of exoticObject in the sandbox.
             env.evaluate(`
-                expect(Object.isExtensible(globalThis.baz)).toBe(true);
-                expect(Object.isSealed(globalThis.baz)).toBe(false);
-                expect(Object.isFrozen(globalThis.baz)).toBe(false);
-                baz.mutation = 1; // Mutation makes the proxy static.
+                expect(Object.isExtensible(globalThis.exoticObject)).toBe(true);
+                expect(Object.isSealed(globalThis.exoticObject)).toBe(false);
+                expect(Object.isFrozen(globalThis.exoticObject)).toBe(false);
+                exoticObject.y = 2; // Mutation makes the exotic object proxy static.
             `);
-            // Freeze blue baz after being observed by the sandbox.
-            Object.freeze(globalThis.baz);
-            expect(Object.isExtensible(globalThis.baz)).toBe(false);
-            expect(Object.isSealed(globalThis.baz)).toBe(true);
-            expect(Object.isFrozen(globalThis.baz)).toBe(true);
-            // Verify the state of red baz from within the sandbox.
+            // Freeze blue exoticObject after being observed by the sandbox.
+            Object.freeze(globalThis.exoticObject);
+            expect(Object.isExtensible(globalThis.exoticObject)).toBe(false);
+            expect(Object.isSealed(globalThis.exoticObject)).toBe(true);
+            expect(Object.isFrozen(globalThis.exoticObject)).toBe(true);
+            // Verify the state of red exoticObject from within the sandbox.
             env.evaluate(`
                 'use strict';
                 expect(() => {
-                    baz.c = 3;
-                }).not.toThrowError();
-                expect(baz.c).toBe(3);
+                    exoticObject.z = 3;
+                }).not.toThrowError(TypeError);
+                expect({ ...exoticObject }).toEqual({ x: 1, y: 2, z: 3 });
             `);
-            // Verify the sandboxed expando doesn't leak to blue baz.
-            expect('c' in globalThis.baz).toBe(false);
+            // Verify the sandboxed expando doesn't leak to blue exoticObject.
+            expect(globalThis.exoticObject).toEqual(new ExoticObject({ x: 1 }));
+            delete globalThis.exoticObject;
         });
         it('should be observed from within the sandbox after mutation of plain objects', () => {
             expect.assertions(9);
-            globalThis.baz = { a: 1, b: 2 };
+
+            globalThis.plainObject = { x: 1 };
             const env = createVirtualEnvironment(globalThis, globalThis);
-            // Check the state of baz in the sandbox.
+            // Check the state of plainObject in the sandbox.
             env.evaluate(`
-                expect(Object.isExtensible(globalThis.baz)).toBe(true);
-                expect(Object.isSealed(globalThis.baz)).toBe(false);
-                expect(Object.isFrozen(globalThis.baz)).toBe(false);
-                baz.mutation = 1; // Mutation makes the proxy live.
+                expect(Object.isExtensible(globalThis.plainObject)).toBe(true);
+                expect(Object.isSealed(globalThis.plainObject)).toBe(false);
+                expect(Object.isFrozen(globalThis.plainObject)).toBe(false);
+                plainObject.y = 2; // Mutation makes the POJO proxy live.
             `);
-            // Freeze blue baz after being observed by the sandbox.
-            Object.freeze(globalThis.baz);
-            expect(Object.isExtensible(globalThis.baz)).toBe(false);
-            expect(Object.isSealed(globalThis.baz)).toBe(true);
-            expect(Object.isFrozen(globalThis.baz)).toBe(true);
-            // Verify the state of red baz from within the sandbox.
+            // Freeze blue plainObject after being observed by the sandbox.
+            Object.freeze(globalThis.plainObject);
+            expect(Object.isExtensible(globalThis.plainObject)).toBe(false);
+            expect(Object.isSealed(globalThis.plainObject)).toBe(true);
+            expect(Object.isFrozen(globalThis.plainObject)).toBe(true);
+            // Verify the state of red plainObject from within the sandbox.
             env.evaluate(`
                 'use strict';
                 expect(() => {
-                    baz.c = 3;
-                }).toThrowError();
-                expect('c' in baz).toBe(false);
+                    plainObject.z = 3;
+                }).toThrowError(TypeError);
+                expect(plainObject).toEqual({ x: 1, y: 2 });
             `);
-            // Verify the state of blue baz.
-            expect('c' in globalThis.baz).toBe(false);
+            // Verify the state of blue plainObject.
+            expect(globalThis.plainObject).toEqual({ x: 1, y: 2 });
+            delete globalThis.plainObject;
         });
     });
     describe('reverse proxies', () => {
-        it('can be freeze', () => {
-            expect.assertions(8);
-            globalThis.blueObjectFactory = (o, f) => {
-                expect(Object.isFrozen(o)).toBe(false);
-                expect(Object.isFrozen(f)).toBe(false);
-                Object.freeze(o);
-                Object.freeze(f);
-                expect(Object.isFrozen(o)).toBe(true);
-                expect(Object.isFrozen(f)).toBe(true);
+        it('can be frozen', () => {
+            expect.assertions(10);
+
+            globalThis.takeOutside = (object, func) => {
+                // Test blue proxies.
+                expect(Object.isFrozen(object)).toBe(false);
+                expect(Object.isFrozen(func)).toBe(false);
+                Object.freeze(object);
+                Object.freeze(func);
+                expect(Object.isFrozen(object)).toBe(true);
+                expect(Object.isFrozen(func)).toBe(true);
                 expect(() => {
-                    o.z = 3;
-                }).toThrowError();
+                    object.y = 2;
+                }).toThrowError(TypeError);
+                expect(() => {
+                    func.y = 2;
+                }).toThrowError(TypeError);
             };
             const env = createVirtualEnvironment(globalThis, globalThis);
             env.evaluate(`
                 'use strict';
-                const o = { x: 1 };
-                const f = function() {};
-                blueObjectFactory(o, f);
-                expect(Object.isFrozen(o)).toBe(true);
-                expect(Object.isFrozen(f)).toBe(true);
+                const object = { x: 1 };
+                const func = function() {};
+                takeOutside(object, func);
+                expect(Object.isFrozen(object)).toBe(true);
+                expect(Object.isFrozen(func)).toBe(true);
                 expect(() => {
-                    o.z = 3;
-                }).toThrowError();
+                    object.y = 2;
+                }).toThrowError(TypeError);
+                expect(() => {
+                    func.y = 2;
+                }).toThrowError(TypeError);
             `);
+            delete globalThis.takeOutside;
         });
     });
 });

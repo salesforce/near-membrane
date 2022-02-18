@@ -129,7 +129,9 @@ it('[red] non-error objects thrown in blue functions', () => {
         throw { foo: 'bar' };
     }
 
-    const env = createVirtualEnvironment(window, window, { endowments: { ...window, foo } });
+    const env = createVirtualEnvironment(window, window, {
+        endowments: { ...window, foo },
+    });
     env.evaluate(`
         try {
             foo()
@@ -147,7 +149,9 @@ it('[red] non-error objects thrown in blue constructors', () => {
         }
     }
 
-    const env = createVirtualEnvironment(window, window, { endowments: { ...window, Foo } });
+    const env = createVirtualEnvironment(window, window, {
+        endowments: { ...window, Foo },
+    });
     env.evaluate(`
         try {
             new Foo()
@@ -176,7 +180,9 @@ it('[red] blue extended error objects', () => {
         }
     }
 
-    const env = createVirtualEnvironment(window, window, { endowments: { ...window, Foo } });
+    const env = createVirtualEnvironment(window, window, {
+        endowments: { ...window, Foo },
+    });
     env.evaluate(`
         try {
             new Foo()
@@ -194,7 +200,7 @@ it('[red] .catch on blue promise', (done) => {
     });
 
     const env = createVirtualEnvironment(window, window, {
-        endowments: { ...window, promise, expect, done },
+        endowments: { ...window, done, expect, promise },
     });
     env.evaluate(`
         promise.catch(e => {
@@ -224,7 +230,9 @@ it('[red] non-error object with null proto from blue', () => {
     function foo() {
         throw Object.create(null, { foo: { value: 'bar' } });
     }
-    const env = createVirtualEnvironment(window, window, { endowments: { ...window, foo } });
+    const env = createVirtualEnvironment(window, window, {
+        endowments: { ...window, foo },
+    });
     env.evaluate(`
         try {
             foo()
@@ -262,7 +270,9 @@ it('[red] instanceof extended Error objects', () => {
 });
 
 it('[red] .catch instanceof Error', (done) => {
-    const env = createVirtualEnvironment(window, window, { endowments: { ...window, done } });
+    const env = createVirtualEnvironment(window, window, {
+        endowments: { ...window, done },
+    });
     env.evaluate(`
         new Promise((resolve, reject) => {
             reject(new Error('foo'))
@@ -294,7 +304,9 @@ it('[red] .catch instanceof blue Error objects', (done) => {
         reject(new Error('foo'));
     });
 
-    const env = createVirtualEnvironment(window, window, { endowments: { promise, expect, done } });
+    const env = createVirtualEnvironment(window, window, {
+        endowments: { done, expect, promise },
+    });
     env.evaluate(`
         promise.catch(e => {
             expect(e instanceof Error).toBe(true)
@@ -311,7 +323,9 @@ it('[blue] .catch on red promise', (done) => {
         promise = arg;
     }
 
-    const env = createVirtualEnvironment(window, window, { endowments: { ...window, save } });
+    const env = createVirtualEnvironment(window, window, {
+        endowments: { ...window, save },
+    });
     env.evaluate(`
         const error = { foo: 'bar' }
         const p = new Promise(() => {
@@ -354,7 +368,9 @@ it('[blue] non-error objects thrown in red functions', () => {
         fn = arg;
     }
 
-    const env = createVirtualEnvironment(window, window, { endowments: { ...window, save } });
+    const env = createVirtualEnvironment(window, window, {
+        endowments: { ...window, save },
+    });
     env.evaluate(`
         function foo() {
             throw { foo: 'bar' }

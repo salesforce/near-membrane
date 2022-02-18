@@ -1,4 +1,3 @@
-/* eslint-disable no-throw-literal, no-new, class-methods-use-this */
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 class ExoticObject {
@@ -10,217 +9,258 @@ class ExoticObject {
 describe('Freezing', () => {
     describe('before creating the sandbox', () => {
         it('should be observed from within the sandbox', () => {
-            // expect.assertions(10);
-            window.bar = { a: 1, b: 2 };
-            Object.freeze(window.bar);
+            expect.assertions(9);
+
+            window.plainObject = { x: 1 };
+            Object.freeze(window.plainObject);
             const env = createVirtualEnvironment(window, window);
-            // checking the state of bar in the blue realm
-            expect(Object.isExtensible(window.bar)).toBe(false);
-            expect(Object.isSealed(window.bar)).toBe(true);
-            expect(Object.isFrozen(window.bar)).toBe(true);
-            // checking the state of bar in the sandbox
+            // Check the state of plainObject in the blue realm.
+            expect(Object.isExtensible(window.plainObject)).toBe(false);
+            expect(Object.isSealed(window.plainObject)).toBe(true);
+            expect(Object.isFrozen(window.plainObject)).toBe(true);
+            // Check the state of plainObject in the sandbox.
             env.evaluate(`
-                expect(Object.isExtensible(window.bar)).toBe(false);
-                expect(Object.isSealed(window.bar)).toBe(true);
-                expect(Object.isFrozen(window.bar)).toBe(true);
+                expect(Object.isExtensible(plainObject)).toBe(false);
+                expect(Object.isSealed(plainObject)).toBe(true);
+                expect(Object.isFrozen(plainObject)).toBe(true);
             `);
-            // verifying that in strict mode it is reflected as frozen
+            // Verify that in strict mode it is reflected as frozen.
             env.evaluate(`
                 'use strict';
-                let isTypeError = false;
-                try {
-                    bar.c = 3; // because it is frozen
-                } catch (e) {
-                    isTypeError = e instanceof TypeError;
-                }
-                expect(isTypeError).toBe(true);
-                expect('c' in bar).toBe(false);
-            `);
-            // verifying that when observed from outside, it is still reflected
-            env.evaluate(`
-                'use strict';
-                let error = null;
-                try {
-                    bar.c = 3; // because it is frozen
-                } catch (e) {
-                    error = e;
-                }
                 expect(() => {
-                    bar.c = 3;
-                }).toThrow();
-                expect('c' in bar).toBe(false);
+                    plainObject.y = 2;
+                }).toThrowError(TypeError);
+                expect(plainObject).toEqual({ x: 1 });
             `);
+            expect(window.plainObject).toEqual({ x: 1 });
+            delete window.plainObject;
         });
         it('should be observed from within the sandbox (via endowments)', () => {
-            const bar = { a: 1, b: 2 };
-            Object.freeze(bar);
+            expect.assertions(9);
+
+            const plainObject = { x: 1 };
+            Object.freeze(plainObject);
             const env = createVirtualEnvironment(window, window, {
-                endowments: { bar, expect },
+                endowments: { expect, plainObject },
             });
-            // checking the state of bar in the blue realm
-            expect(Object.isExtensible(bar)).toBe(false);
-            expect(Object.isSealed(bar)).toBe(true);
-            expect(Object.isFrozen(bar)).toBe(true);
-            // checking the state of bar in the sandbox
+            // Check the state of plainObject in the blue realm.
+            expect(Object.isExtensible(plainObject)).toBe(false);
+            expect(Object.isSealed(plainObject)).toBe(true);
+            expect(Object.isFrozen(plainObject)).toBe(true);
+            // Check the state of plainObject in the sandbox.
             env.evaluate(`
-                expect(Object.isExtensible(bar)).toBe(false);
-                expect(Object.isSealed(bar)).toBe(true);
-                expect(Object.isFrozen(bar)).toBe(true);
+                expect(Object.isExtensible(plainObject)).toBe(false);
+                expect(Object.isSealed(plainObject)).toBe(true);
+                expect(Object.isFrozen(plainObject)).toBe(true);
             `);
-            // verifying that in strict mode it is reflected as frozen
+            // Verify that in strict mode it is reflected as frozen.
             env.evaluate(`
                 'use strict';
                 expect(() => {
-                    bar.c = 3;
+                    plainObject.y = 2;
                 }).toThrowError(TypeError);
-                expect('c' in bar).toBe(false);
-                expect(() => {
-                    bar.a = 3;
-                }).toThrowError(TypeError);
-                expect(() => {
-                    bar.b = 3;
-                }).toThrowError(TypeError);
-                expect(bar.a).toBe(1);
-                expect(bar.b).toBe(2);
+                expect(plainObject).toEqual({ x: 1 });
             `);
-            expect(bar.a).toBe(1);
-            expect(bar.b).toBe(2);
-            expect('c' in bar).toBe(false);
+            expect(plainObject).toEqual({ x: 1 });
         });
-
-        it('should be observed after passing object back and forth', () => {
+        it('should be observed after passing an object back and forth', () => {
             expect.assertions(11);
-            const tx = {
+
+            const receiveX = {
                 ref: null,
             };
-            const rx = {
+            const transmitX = {
                 ref: null,
             };
             const env = createVirtualEnvironment(window, window, {
-                endowments: { tx, rx },
+                endowments: { receiveX, transmitX },
             });
-            // The value of both tx.ref and rx.ref are initially null, as shown above,
-            // verified in sandbox
             env.evaluate(`
-                expect(tx.ref).toBe(null);
-                expect(rx.ref).toBe(null);
+                expect(transmitX.ref).toBe(null);
+                expect(receiveX.ref).toBe(null);
             `);
-            // Set the value of tx.ref to a POJO
-            tx.ref = {
-                a: 1,
+            // Set the value of transmitX.ref to a POJO.
+            transmitX.ref = {
+                x: 1,
             };
-            // Verify that the new value of tx.ref is reflected in the sandbox
-            // Set the value of rx.ref to the value of tx.ref WITHIN the sandbox
+            // Verify that the POJO of transmitX.ref is reflected in the sandbox.
+            // Set the value of receiveX.ref to the value of transmitX.ref WITHIN
+            // the sandbox.
             env.evaluate(`
-                expect(tx.ref.a).toBe(1);
-                rx.ref = tx.ref;
+                expect(transmitX.ref.x).toBe(1);
+                receiveX.ref = transmitX.ref;
             `);
-            // Verify that the value of rx.ref is reflected back in system mode
-            expect(rx.ref).toBe(tx.ref);
-            // Now freeze rx.ref
-            Object.freeze(rx.ref);
-            // Check that the value of tx.ref is frozen (it's the same as rx.ref)
-            expect(Object.isFrozen(tx.ref)).toBe(true);
-            // Verify that properties of the value of rx.ref tx.ref cannot be
-            // reassigned to new values.
+            // Verify that the value of receiveX.ref is reflected in system mode.
+            expect(receiveX.ref).toBe(transmitX.ref);
+            Object.freeze(receiveX.ref);
+            // Check that ref is frozen.
+            expect(Object.isFrozen(transmitX.ref)).toBe(true);
+            // Verify that properties of ref cannot be assigned new values.
             expect(() => {
-                rx.ref.a = 2;
+                receiveX.ref.x = 2;
             }).toThrowError(TypeError);
-            expect(rx.ref.a).toBe(1);
-            expect(tx.ref.a).toBe(1);
-
-            // Return to the sandbox and verify that both tx.ref and rx.ref are frozen.
+            expect(receiveX.ref.x).toBe(1);
+            expect(transmitX.ref.x).toBe(1);
+            // Return to the sandbox and verify that ref is frozen.
             env.evaluate(`
                 'use strict';
                 expect(() => {
-                    tx.ref.a = 3;
+                    transmitX.ref.x = 3;
                 }).toThrowError(TypeError);
-                expect(rx.ref.a).toBe(1);
-                expect(tx.ref.a).toBe(1);
+                expect(receiveX.ref).toEqual({ x: 1 });
+                expect(transmitX.ref).toEqual({ x: 1 });
             `);
         });
     });
     describe('after creating the sandbox', () => {
         it('should not be observed from within the sandbox after mutation of exotic objects', () => {
             expect.assertions(9);
-            window.baz = new ExoticObject({ a: 1, b: 2 });
+
+            window.exoticObject = new ExoticObject({ x: 1 });
             const env = createVirtualEnvironment(window, window);
-            // Check the state of baz in the sandbox.
+            // Check the state of exoticObject in the sandbox.
             env.evaluate(`
-                expect(Object.isExtensible(window.baz)).toBe(true);
-                expect(Object.isSealed(window.baz)).toBe(false);
-                expect(Object.isFrozen(window.baz)).toBe(false);
-                baz.mutation = 1; // Mutation makes the proxy static.
+                expect(Object.isExtensible(window.exoticObject)).toBe(true);
+                expect(Object.isSealed(window.exoticObject)).toBe(false);
+                expect(Object.isFrozen(window.exoticObject)).toBe(false);
+                exoticObject.y = 2; // Mutation makes the exotic object proxy static.
             `);
-            // Freeze blue baz after being observed by the sandbox.
-            Object.freeze(window.baz);
-            expect(Object.isExtensible(window.baz)).toBe(false);
-            expect(Object.isSealed(window.baz)).toBe(true);
-            expect(Object.isFrozen(window.baz)).toBe(true);
-            // Verify the state of red baz from within the sandbox.
+            // Freeze blue exoticObject after being observed by the sandbox.
+            Object.freeze(window.exoticObject);
+            expect(Object.isExtensible(window.exoticObject)).toBe(false);
+            expect(Object.isSealed(window.exoticObject)).toBe(true);
+            expect(Object.isFrozen(window.exoticObject)).toBe(true);
+            // Verify the state of red exoticObject from within the sandbox.
             env.evaluate(`
                 'use strict';
                 expect(() => {
-                    baz.c = 3;
-                }).not.toThrowError();
-                expect(baz.c).toBe(3);
+                    exoticObject.z = 3;
+                }).not.toThrowError(TypeError);
+                expect({ ...exoticObject }).toEqual({ x: 1, y: 2, z: 3 });
             `);
-            // Verify the sandboxed expando doesn't leak to blue baz.
-            expect('c' in window.baz).toBe(false);
+            // Verify the sandboxed expando doesn't leak to blue exoticObject.
+            expect(window.exoticObject).toEqual(new ExoticObject({ x: 1 }));
+            delete window.exoticObject;
         });
         it('should be observed from within the sandbox after mutation of plain objects', () => {
             expect.assertions(9);
-            window.baz = { a: 1, b: 2 };
+
+            window.plainObject = { x: 1 };
             const env = createVirtualEnvironment(window, window);
-            // Check the state of baz in the sandbox.
+            // Check the state of plainObject in the sandbox.
             env.evaluate(`
-                expect(Object.isExtensible(window.baz)).toBe(true);
-                expect(Object.isSealed(window.baz)).toBe(false);
-                expect(Object.isFrozen(window.baz)).toBe(false);
-                baz.mutation = 1; // Mutation makes the proxy live.
+                expect(Object.isExtensible(window.plainObject)).toBe(true);
+                expect(Object.isSealed(window.plainObject)).toBe(false);
+                expect(Object.isFrozen(window.plainObject)).toBe(false);
+                plainObject.y = 2; // Mutation makes the POJO proxy live.
             `);
-            // Freeze blue baz after being observed by the sandbox.
-            Object.freeze(window.baz);
-            expect(Object.isExtensible(window.baz)).toBe(false);
-            expect(Object.isSealed(window.baz)).toBe(true);
-            expect(Object.isFrozen(window.baz)).toBe(true);
-            // Verify the state of red baz from within the sandbox.
+            // Freeze blue plainObject after being observed by the sandbox.
+            Object.freeze(window.plainObject);
+            expect(Object.isExtensible(window.plainObject)).toBe(false);
+            expect(Object.isSealed(window.plainObject)).toBe(true);
+            expect(Object.isFrozen(window.plainObject)).toBe(true);
+            // Verify the state of red plainObject from within the sandbox.
             env.evaluate(`
                 'use strict';
                 expect(() => {
-                    baz.c = 3;
-                }).toThrowError();
-                expect('c' in baz).toBe(false);
+                    plainObject.z = 3;
+                }).toThrowError(TypeError);
+                expect(plainObject).toEqual({ x: 1, y: 2 });
             `);
-            // Verify the state of blue baz.
-            expect('c' in window.baz).toBe(false);
+            // Verify the state of blue plainObject.
+            expect(window.plainObject).toEqual({ x: 1, y: 2 });
+            delete window.plainObject;
         });
     });
     describe('reverse proxies', () => {
-        it('can be freeze', () => {
-            expect.assertions(8);
-            window.blueObjectFactory = (o, f) => {
-                expect(Object.isFrozen(o)).toBe(false);
-                expect(Object.isFrozen(f)).toBe(false);
-                Object.freeze(o);
-                Object.freeze(f);
-                expect(Object.isFrozen(o)).toBe(true);
-                expect(Object.isFrozen(f)).toBe(true);
+        it('can be frozen', () => {
+            expect.assertions(10);
+
+            window.takeOutside = (object, func) => {
+                // Test blue proxies.
+                expect(Object.isFrozen(object)).toBe(false);
+                expect(Object.isFrozen(func)).toBe(false);
+                Object.freeze(object);
+                Object.freeze(func);
+                expect(Object.isFrozen(object)).toBe(true);
+                expect(Object.isFrozen(func)).toBe(true);
                 expect(() => {
-                    o.z = 3;
-                }).toThrowError();
+                    object.y = 2;
+                }).toThrowError(TypeError);
+                expect(() => {
+                    func.y = 2;
+                }).toThrowError(TypeError);
             };
             const env = createVirtualEnvironment(window, window);
             env.evaluate(`
                 'use strict';
-                const o = { x: 1 };
-                const f = function() {};
-                blueObjectFactory(o, f);
-                expect(Object.isFrozen(o)).toBe(true);
-                expect(Object.isFrozen(f)).toBe(true);
+                const object = { x: 1 };
+                const func = function() {};
+                takeOutside(object, func);
+                expect(Object.isFrozen(object)).toBe(true);
+                expect(Object.isFrozen(func)).toBe(true);
                 expect(() => {
-                    o.z = 3;
-                }).toThrowError();
+                    object.y = 2;
+                }).toThrowError(TypeError);
+                expect(() => {
+                    func.y = 2;
+                }).toThrowError(TypeError);
+            `);
+            delete window.takeOutside;
+        });
+    });
+    describe('non-freezing objects', () => {
+        it('should not throw for exotic objects', () => {
+            expect.assertions(3);
+
+            const exoticObject = new Proxy(new ExoticObject({ x: 1 }), {
+                preventExtensions() {
+                    return false;
+                },
+            });
+            const env = createVirtualEnvironment(window, window, {
+                endowments: {
+                    exoticObject,
+                    expect,
+                },
+            });
+            env.evaluate(`
+                'use strict';
+                expect(() => {
+                    Object.freeze(exoticObject);
+                }).not.toThrow();
+                expect(() => {
+                    exoticObject.x = 2;
+                }).toThrowError(TypeError);
+                expect({ ...exoticObject }).toEqual({ x: 1 });
+            `);
+        });
+        it('should throw for plain objects', () => {
+            expect.assertions(3);
+
+            const plainObject = new Proxy(
+                { x: 1 },
+                {
+                    preventExtensions() {
+                        return false;
+                    },
+                }
+            );
+            const env = createVirtualEnvironment(window, window, {
+                endowments: {
+                    expect,
+                    plainObject,
+                },
+            });
+            env.evaluate(`
+                'use strict';
+                expect(() => {
+                    Object.freeze(plainObject);
+                }).toThrowError(TypeError);
+                expect(() => {
+                    plainObject.x = 2;
+                }).not.toThrow();
+                expect(plainObject).toEqual({ x: 2 });
             `);
         });
     });

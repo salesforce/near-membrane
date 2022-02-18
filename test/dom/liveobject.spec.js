@@ -1,5 +1,7 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
+const LOCKER_LIVE_VALUE_MARKER_SYMBOL = Symbol.for('@@lockerLiveValue');
+
 const env = createVirtualEnvironment(window, window);
 
 describe('@@lockerLiveValue', () => {
@@ -10,30 +12,21 @@ describe('@@lockerLiveValue', () => {
         const id = 'marked-live';
         div.id = id;
         document.body.appendChild(div);
-
-        Reflect.defineProperty(div.style, Symbol.for('@@lockerLiveValue'), {
-            value: undefined,
-            configurable: false,
-            enumerable: false,
-            writable: false,
-        });
-
+        Reflect.defineProperty(div.style, LOCKER_LIVE_VALUE_MARKER_SYMBOL, {});
         env.evaluate(`
-        const div = document.querySelector('#${id}');
-        div.style.color = 'red';
-        expect(div.style.color).toBe('red');
+            const div = document.querySelector('#${id}');
+            div.style.color = 'red';
+            expect(div.style.color).toBe('red');
         `);
-
         const styleAttributeValue = div.getAttribute('style');
         expect(styleAttributeValue).toBe('color: red;');
     });
     it('from system mode class', () => {
         expect.assertions(16);
 
-        const SYMBOL = Symbol.for('@@lockerLiveValue');
         class X {
             constructor() {
-                this[SYMBOL] = undefined;
+                this[LOCKER_LIVE_VALUE_MARKER_SYMBOL] = undefined;
                 this.foo = 0;
             }
 
@@ -49,18 +42,16 @@ describe('@@lockerLiveValue', () => {
                 this.foo++;
             }
         }
-
-        const endowments = {
-            X,
-            expect,
-            createYFromOutside(Y) {
-                // eslint-disable-next-line no-new
-                new Y();
+        const env = createVirtualEnvironment(window, window, {
+            endowments: {
+                X,
+                expect,
+                createYFromOutside(Y) {
+                    // eslint-disable-next-line no-new
+                    new Y();
+                },
             },
-        };
-
-        const env = createVirtualEnvironment(window, window, { endowments });
-
+        });
         env.evaluate(`
             class Y extends X {
                 constructor() {
@@ -105,18 +96,16 @@ describe('@@lockerLiveValue', () => {
                 this.foo++;
             }
         }
-
-        const endowments = {
-            A,
-            expect,
-            createBFromOutside(B) {
-                // eslint-disable-next-line no-new
-                new B();
+        const env = createVirtualEnvironment(window, window, {
+            endowments: {
+                A,
+                expect,
+                createBFromOutside(B) {
+                    // eslint-disable-next-line no-new
+                    new B();
+                },
             },
-        };
-
-        const env = createVirtualEnvironment(window, window, { endowments });
-
+        });
         env.evaluate(`
             class B extends A {
                 constructor() {
