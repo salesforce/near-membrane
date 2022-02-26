@@ -1,5 +1,7 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
+const LOCKER_LIVE_VALUE_MARKER_SYMBOL = Symbol.for('@@lockerLiveValue');
+
 class Base {
     // eslint-disable-next-line class-methods-use-this
     get x() {
@@ -71,7 +73,7 @@ describe('trap mutations', () => {
     });
     it('should honor the marker coming from blue', () => {
         const exoticInstance = new ExoticObject();
-        exoticInstance[Symbol.for('@@lockerLiveValue')] = undefined;
+        exoticInstance[LOCKER_LIVE_VALUE_MARKER_SYMBOL] = undefined;
         expect(getPropFromRed(exoticInstance, 'y')).toBe(4);
         // The following mutation should trigger the instance of Base to
         // not be ambiguous anymore.
