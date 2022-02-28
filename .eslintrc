@@ -11,6 +11,8 @@
   },
   "globals": {
     "BigInt": "readonly",
+    "BigInt64Array": "readonly",
+    "BigUint64Array": "readonly",
     "globalThis": "readonly"
   },
   "parserOptions": {

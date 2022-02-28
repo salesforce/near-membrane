@@ -139,7 +139,7 @@ describe('Freezing', () => {
                 expect({ ...exoticObject }).toEqual({ x: 1, y: 2, z: 3 });
             `);
             // Verify the sandboxed expando doesn't leak to blue exoticObject.
-            expect(window.exoticObject).toEqual(new ExoticObject({ x: 1 }));
+            expect({ ...window.exoticObject }).toEqual({ x: 1 });
             delete window.exoticObject;
         });
         it('should be observed from within the sandbox after mutation of plain objects', () => {

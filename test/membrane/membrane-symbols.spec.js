@@ -4,6 +4,17 @@ const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = Symbol.for(
     '@@lockerNearMembraneSerializedValue'
 );
 const LOCKER_NEAR_MEMBRANE_SYMBOL = Symbol.for('@@lockerNearMembrane');
+const { toStringTag: TO_STRING_TAG_SYMBOL } = Symbol;
+
+function customizeToStringTag(object) {
+    Reflect.defineProperty(object, TO_STRING_TAG_SYMBOL, {
+        configurable: true,
+        enumerable: false,
+        value: 'Custom',
+        writable: true,
+    });
+    return object;
+}
 
 function freezeObject(object, inheritFrom = Reflect.getPrototypeOf(object)) {
     const frozenProto = Object.create(inheritFrom);
@@ -271,6 +282,107 @@ describe('@@lockerNearMembraneSerializedValue', () => {
             const symbol = Symbol('insideSymbol');
             takeOutside(Object(symbol), symbol);
             takeOutside(['insideArray'], undefined);
+        `);
+    });
+
+    it('should be detectable with custom Symbol.toStringTag value', () => {
+        expect.assertions(45);
+
+        // eslint-disable-next-line no-unused-vars
+        let takeInside;
+
+        const endowments = {
+            expect,
+            exposeTakeInside(func) {
+                takeInside = func;
+            },
+            takeOutside(insideValue, expectedSerialized) {
+                // Test blue proxies.
+                // To unlock the near-membrane symbol gate first perform a has()
+                // trap check.
+                expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue).toBe(false);
+                // Next, perform a get() trap call.
+                expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
+                    expectedSerialized
+                );
+                // Performing a get() trap call without first performing a has()
+                // trap check will produce `undefined`.
+                expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(undefined);
+            },
+        };
+
+        const env = createVirtualEnvironment(window, window, { endowments });
+
+        env.evaluate(`
+            const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = Symbol.for(
+                '@@lockerNearMembraneSerializedValue'
+            );
+
+            exposeTakeInside(function takeInside(outsideValue) {
+                // Test red proxies.
+                expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in outsideValue).toBe(false);
+                expect(outsideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(undefined);
+            });
+        `);
+
+        // Test red proxies.
+        takeInside(customizeToStringTag(Object(BigInt(0x1fffffffffffff))));
+        // eslint-disable-next-line no-new-wrappers
+        takeInside(customizeToStringTag(new Boolean(true)));
+        // eslint-disable-next-line no-new-wrappers
+        takeInside(customizeToStringTag(new Boolean(false)));
+        // eslint-disable-next-line no-new-wrappers
+        takeInside(customizeToStringTag(new Number(0)));
+        // prettier-ignore
+        takeInside(customizeToStringTag(/outsideFrozenRegExpLiteral/img));
+        // eslint-disable-next-line prefer-regex-literals
+        takeInside(new RegExp('outsideFrozenRegExpObject', 'img'));
+        // eslint-disable-next-line no-new-wrappers
+        takeInside(customizeToStringTag(new String('outsideFrozenStringObject')));
+        takeInside(customizeToStringTag(Object(Symbol('outsideFrozenSymbolObject'))));
+        takeInside(customizeToStringTag(['outsideFrozenArray']));
+
+        env.evaluate(`
+            const { toStringTag: TO_STRING_TAG_SYMBOL } = Symbol;
+
+            function customizeToStringTag(object) {
+                Reflect.defineProperty(object, TO_STRING_TAG_SYMBOL, {
+                    configurable: true,
+                    enumerable: false,
+                    value: 'Custom',
+                    writable: true,
+                });
+                return object;
+            }
+
+            // Test blue proxies.
+            takeOutside(
+                customizeToStringTag(Object(BigInt(0x1fffffffffffff))),
+                BigInt(0x1fffffffffffff)
+            );
+            takeOutside(customizeToStringTag(new Boolean(true)), true);
+            takeOutside(customizeToStringTag(new Boolean(false)), false);
+            takeOutside(customizeToStringTag(new Number(0)), 0);
+            takeOutside(
+                customizeToStringTag(/insideFrozenRegExpLiteral/ysu),
+                JSON.stringify({
+                    flags: 'suy',
+                    source: 'insideFrozenRegExpLiteral',
+                })
+            );
+            takeOutside(
+                customizeToStringTag(
+                    new RegExp('insideFrozenRegExpObject', 'ysu')
+                ),
+                JSON.stringify({
+                    flags: 'suy',
+                    source: 'insideFrozenRegExpObject',
+                })
+            );
+            takeOutside(customizeToStringTag(new String('insideFrozenString')), 'insideFrozenString');
+            const symbol = Symbol('insideFrozenSymbol');
+            takeOutside(customizeToStringTag(Object(symbol)), symbol);
+            takeOutside(customizeToStringTag(['insideFrozenArray']), undefined);
         `);
     });
 

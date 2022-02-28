@@ -43,6 +43,12 @@ type CallableConstruct = (
     ...listOfPointersOrPrimitives: PointerOrPrimitive[]
 ) => PointerOrPrimitive;
 type CallableDeleteProperty = (targetPointer: Pointer, key: string | symbol) => boolean;
+type CallableGet = (
+    targetPointer: Pointer,
+    targetTraits: number,
+    key: string | symbol,
+    receiver: PointerOrPrimitive
+) => PointerOrPrimitive;
 type CallableGetOwnPropertyDescriptor = (
     targetPointer: Pointer,
     key: string | symbol,
@@ -62,18 +68,12 @@ type CallableSet = (
     value: any,
     receiver: PointerOrPrimitive
 ) => boolean;
-type CallableGetSerializedValueOfTarget = (targetPointer: Pointer) => SerializedValue | undefined;
+type CallableSerializeTarget = (targetPointer: Pointer) => SerializedValue | undefined;
 type CallableGetTargetIntegrityTraits = (targetPointer: Pointer) => number;
 type CallableGetToStringTagOfTarget = (targetPointer: Pointer) => string;
 type CallableIsTargetLive = (targetPointer: Pointer) => boolean;
 type CallableIsTargetRevoked = (targetPointer: Pointer) => boolean;
 type CallableWarn = (...args: Parameters<typeof console.warn>) => void;
-type CallableBatchGetAndHasToStringSymbolTag = (
-    targetPointer: Pointer,
-    targetTraits: number,
-    key: string | symbol,
-    receiver: PointerOrPrimitive
-) => PointerOrPrimitive;
 type CallableBatchGetPrototypeOfAndOwnPropertyDescriptors = (
     targetPointer: Pointer,
     foreignCallableDescriptorsCallback: CallableDescriptorsCallback
@@ -139,6 +139,7 @@ export type HooksCallback = (
     callableConstruct: CallableConstruct,
     callableDefineProperty: CallableDefineProperty,
     callableDeleteProperty: CallableDeleteProperty,
+    callableGet: CallableGet,
     callableGetOwnPropertyDescriptor: CallableGetOwnPropertyDescriptor,
     callableGetPrototypeOf: CallableGetPrototypeOf,
     callableHas: CallableHas,
@@ -147,13 +148,12 @@ export type HooksCallback = (
     callablePreventExtensions: CallablePreventExtensions,
     callableSet: CallableSet,
     callableSetPrototypeOf: CallableSetPrototypeOf,
-    callableGetSerializedValueOfTarget: CallableGetSerializedValueOfTarget,
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableGetToStringTagOfTarget: CallableGetToStringTagOfTarget,
     callableIsTargetLive: CallableIsTargetLive,
     callableIsTargetRevoked: CallableIsTargetRevoked,
+    callableSerializeTarget: CallableSerializeTarget,
     callableWarn: CallableWarn,
-    callableBatchGetAndHasToStringSymbolTag: CallableBatchGetAndHasToStringSymbolTag,
     callableBatchGetPrototypeOfAndOwnPropertyDescriptors: CallableBatchGetPrototypeOfAndOwnPropertyDescriptors,
     callableBatchGetPrototypeOfWhenHasNoOwnProperty: CallableBatchGetPrototypeOfWhenHasNoOwnProperty,
     callableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor: CallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
@@ -193,14 +193,9 @@ export function createMembraneMarshall() {
     const { toStringTag: TO_STRING_TAG_SYMBOL } = Symbol;
 
     const ArrayCtor = Array;
+    const ArrayBufferCtor = ArrayBuffer;
     const ObjectCtor = Object;
-    const RegExpProto = RegExp.prototype;
     const TypeErrorCtor = TypeError;
-    const { isArray: isArrayOrThrowForRevoked } = ArrayCtor;
-    const { isView: ArrayBufferIsView } = ArrayBuffer;
-    const BigIntProtoValueOf = SUPPORTS_BIG_INT ? BigInt.prototype.valueOf : undefined;
-    const { valueOf: BooleanProtoValueOf } = Boolean.prototype;
-    const { stringify: JSONStringify } = JSON;
     const {
         defineProperties: ObjectDefineProperties,
         freeze: ObjectFreeze,
@@ -218,8 +213,6 @@ export function createMembraneMarshall() {
         hasOwnProperty: ObjectProtoHasOwnProperty,
         toString: ObjectProtoToString,
     } = ObjectProto as any;
-    const { valueOf: NumberProtoValueOf } = Number.prototype;
-    const { revocable: ProxyRevocable } = Proxy;
     const {
         apply: ReflectApply,
         construct: ReflectConstruct,
@@ -236,6 +229,19 @@ export function createMembraneMarshall() {
         // eslint-disable-next-line @typescript-eslint/no-shadow, no-shadow
         setPrototypeOf: ReflectSetPrototypeOf,
     } = Reflect;
+    const { isArray: isArrayOrThrowForRevoked } = ArrayCtor;
+    const { isView: ArrayBufferIsView } = ArrayBufferCtor;
+    const ArrayBufferProtoByteLengthGetter = ReflectApply(
+        ObjectProto__lookupGetter__,
+        ArrayBufferCtor.prototype,
+        ['byteLength']
+    )!;
+    const BigIntProtoValueOf = SUPPORTS_BIG_INT ? BigInt.prototype.valueOf : undefined;
+    const { valueOf: BooleanProtoValueOf } = Boolean.prototype;
+    const { stringify: JSONStringify } = JSON;
+    const { valueOf: NumberProtoValueOf } = Number.prototype;
+    const { revocable: ProxyRevocable } = Proxy;
+    const { prototype: RegExpProto } = RegExp;
     const { exec: RegExpProtoExec, toString: RegExProtoToString } = RegExpProto;
     // Edge 15 does not support RegExp.prototype.flags.
     // https://caniuse.com/mdn-javascript_builtins_regexp_flags
@@ -315,15 +321,304 @@ export function createMembraneMarshall() {
         Revoked = 1 << 4,
     }
 
+    function createShadowTarget(
+        targetTraits: TargetTraits,
+        targetFunctionName: string | undefined
+    ): ShadowTarget {
+        let shadowTarget: ShadowTarget;
+        if (targetTraits & TargetTraits.IsFunction) {
+            // This shadow target is never invoked. It's needed to avoid
+            // proxy trap invariants. Because it's not invoked the code does
+            // not need to be instrumented for code coverage.
+            //
+            // istanbul ignore next
+            shadowTarget =
+                // eslint-disable-next-line func-names
+                targetTraits & TargetTraits.IsArrowFunction ? () => {} : function () {};
+            if (typeof targetFunctionName === 'string') {
+                // This is only really needed for debugging,
+                // it helps to identify the proxy by name
+                ReflectDefineProperty(shadowTarget, 'name', {
+                    // @ts-ignore: TS doesn't like __proto__ on property descriptors.
+                    __proto__: null,
+                    configurable: true,
+                    enumerable: false,
+                    value: targetFunctionName,
+                    writable: false,
+                });
+            }
+        } else if (targetTraits & TargetTraits.IsArray) {
+            shadowTarget = [];
+        } else {
+            shadowTarget = {};
+        }
+        return shadowTarget;
+    }
+
+    function getTargetTraits(target: object): TargetTraits {
+        let targetTraits = TargetTraits.None;
+        const targetIsFunction = typeof target === 'function';
+        if (targetIsFunction) {
+            targetTraits |= TargetTraits.IsFunction;
+            // A target may be a proxy that is revoked or throws in its
+            // "has" trap.
+            try {
+                // Detect arrow functions.
+                if (!('prototype' in target)) {
+                    targetTraits |= TargetTraits.IsArrowFunction;
+                }
+                return targetTraits;
+                // eslint-disable-next-line no-empty
+            } catch {}
+        }
+        let targetIsArray = false;
+        try {
+            targetIsArray = isArrayOrThrowForRevoked(target);
+        } catch {
+            targetTraits |= TargetTraits.Revoked;
+        }
+        if (targetIsArray) {
+            targetTraits |= TargetTraits.IsArray;
+        } else if (!targetIsFunction) {
+            targetTraits |= TargetTraits.IsObject;
+        }
+        return targetTraits;
+    }
+
+    function getTargetIntegrityTraits(target: object): TargetIntegrityTraits {
+        let targetIntegrityTraits = TargetIntegrityTraits.None;
+        // A target may be a proxy that is revoked or throws in its
+        // "isExtensible" trap.
+        try {
+            if (ObjectIsFrozen(target)) {
+                targetIntegrityTraits |=
+                    TargetIntegrityTraits.IsFrozen &
+                    TargetIntegrityTraits.IsSealed &
+                    TargetIntegrityTraits.IsNotExtensible;
+            } else if (ObjectIsSealed(target)) {
+                targetIntegrityTraits |=
+                    TargetIntegrityTraits.IsSealed & TargetIntegrityTraits.IsNotExtensible;
+            } else if (!ReflectIsExtensible(target)) {
+                targetIntegrityTraits |= TargetIntegrityTraits.IsNotExtensible;
+            }
+        } catch {
+            try {
+                isArrayOrThrowForRevoked(target);
+            } catch {
+                targetIntegrityTraits |= TargetIntegrityTraits.Revoked;
+            }
+        }
+        return targetIntegrityTraits;
+    }
+
+    function getToStringTagOfTarget(target: ProxyTarget): string {
+        // Section 19.1.3.6: Object.prototype.toString()
+        // https://tc39.github.io/ecma262/#sec-object.prototype.tostring
+        // Step 16: If `Type(tag)` is not `String`, let `tag` be `builtinTag`.
+        const brand = ReflectApply(ObjectProtoToString, target, []);
+        return ReflectApply(StringProtoSlice, brand, [8, -1]);
+    }
+
+    function isArrayBuffer(value: any): boolean {
+        try {
+            // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
+            // https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.bytelength
+            // Step 2: Perform ? RequireInternalSlot(O, [[ArrayBufferData]]).
+            ReflectApply(ArrayBufferProtoByteLengthGetter, value, []);
+            return true;
+            // eslint-disable-next-line no-empty
+        } catch {}
+        return false;
+    }
+
+    function isRegExp(value: any): boolean {
+        try {
+            // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
+            // https://tc39.es/ecma262/#sec-get-regexp.prototype.source
+            // Step 3: If R does not have an [[OriginalSource]] internal slot, then
+            //     a. If SameValue(R, %RegExp.prototype%) is true, return "(?:)".
+            //     b. Otherwise, throw a TypeError exception.
+            if (value !== RegExpProto) {
+                ReflectApply(RegExpProtoSourceGetter, value, []);
+                return true;
+            }
+            // eslint-disable-next-line no-empty
+        } catch {}
+        return false;
+    }
+
+    function isTargetLive(target: ProxyTarget): boolean {
+        if (target === ObjectProto) {
+            return false;
+        }
+        if (typeof target === 'object') {
+            const { constructor } = target;
+            if (constructor === ObjectCtor) {
+                // If the constructor, own or inherited, points to `Object`
+                // then `value` is not likely a prototype object.
+                return true;
+            }
+            let result = false;
+            if (ReflectGetPrototypeOf(target) === null) {
+                // Ensure `value` is not an `Object.prototype` from an iframe.
+                result = typeof constructor !== 'function' || constructor.prototype !== target;
+            }
+            if (!result) {
+                // We only check for typed arrays, array buffers, and regexp here
+                // since plain arrays are marked as live in the BoundaryProxyHandler
+                // constructor.
+                result = ArrayBufferIsView(target) || isArrayBuffer(target) || isRegExp(target);
+            }
+            if (result) {
+                return result;
+            }
+        }
+        return ReflectApply(ObjectProtoHasOwnProperty, target, [LOCKER_LIVE_VALUE_MARKER_SYMBOL]);
+    }
+
+    function isTargetRevoked(target: ProxyTarget): boolean {
+        try {
+            isArrayOrThrowForRevoked(target);
+            return false;
+            //  eslint-disable-next-line no-empty
+        } catch {}
+        return true;
+    }
+
+    function serializeBigIntObject(bigIntObject: BigInt): bigint {
+        // Section 21.2.3 Properties of the BigInt Prototype Object
+        // https://tc39.es/ecma262/#thisbigintvalue
+        // Step 2: If Type(value) is Object and value has a [[BigIntData]] internal slot, then
+        //     a. Assert: Type(value.[[BigIntData]]) is BigInt.
+        return ReflectApply(BigIntProtoValueOf!, bigIntObject, []);
+    }
+
+    function serializeBooleanObject(booleanObject: Boolean): boolean {
+        // Section 20.3.3 Properties of the Boolean Prototype Object
+        // https://tc39.es/ecma262/#thisbooleanvalue
+        // Step 2: If Type(value) is Object and value has a [[BooleanData]] internal slot, then
+        //     a. Let b be value.[[BooleanData]].
+        //     b. Assert: Type(b) is Boolean.
+        return ReflectApply(BooleanProtoValueOf, booleanObject, []);
+    }
+
+    function serializeNumberObject(numberObject: Number): number {
+        // 21.1.3 Properties of the Number Prototype Object
+        // https://tc39.es/ecma262/#thisnumbervalue
+        // Step 2: If Type(value) is Object and value has a [[NumberData]] internal slot, then
+        //     a. Let n be value.[[NumberData]].
+        //     b. Assert: Type(n) is Number.
+        return ReflectApply(NumberProtoValueOf, numberObject, []);
+    }
+
+    function serializeRegExp(value: any): string | undefined {
+        // 22.2.5.12 get RegExp.prototype.source
+        // https://tc39.es/ecma262/#sec-get-regexp.prototype.source
+        // Step 3: If R does not have an [[OriginalSource]] internal slot, then
+        //     a. If SameValue(R, %RegExp.prototype%) is true, return "(?:)".
+        //     b. Otherwise, throw a TypeError exception.
+        if (value !== RegExpProto) {
+            const source = ReflectApply(RegExpProtoSourceGetter, value, []);
+            return JSONStringify({
+                __proto__: null,
+                flags: ReflectApply(RegExpProtoFlagsGetter, value, []),
+                source,
+            });
+        }
+        return undefined;
+    }
+
+    function serializeStringObject(stringObject: String): string {
+        // 22.1.3 Properties of the String Prototype Object
+        // https://tc39.es/ecma262/#thisstringvalue
+        // Step 2: If Type(value) is Object and value has a [[StringData]] internal slot, then
+        //     a. Let s be value.[[StringData]].
+        //     b. Assert: Type(s) is String.
+        return ReflectApply(StringProtoValueOf, stringObject, []);
+    }
+
+    function serializeSymbolObject(symbolObject: Symbol): symbol {
+        // 20.4.3 Properties of the Symbol Prototype Object
+        // https://tc39.es/ecma262/#thissymbolvalue
+        // Step 2: If Type(value) is Object and value has a [[SymbolData]] internal slot, then
+        //     a. Let s be value.[[SymbolData]].
+        //     b. Assert: Type(s) is Symbol.
+        return ReflectApply(SymbolProtoValueOf, symbolObject, []);
+    }
+
+    function serializeTarget(target: ProxyTarget): SerializedValue | undefined {
+        if (!ReflectHas(target, TO_STRING_TAG_SYMBOL)) {
+            // Fast path.
+            const brand = ReflectApply(ObjectProtoToString, target, []);
+            switch (brand) {
+                // The brand(s) below represent boxed primitives of `ESGlobalKeys`
+                // in packages/near-membrane-base/src/intrinsics.ts which are not
+                // remapped or reflective.
+                case '[object BigInt]':
+                    return SUPPORTS_BIG_INT ? serializeBooleanObject(target as any) : undefined;
+                case '[object Boolean]':
+                    return serializeBooleanObject(target as any);
+                case '[object Number]':
+                    return serializeNumberObject(target as any);
+                case '[object RegExp]':
+                    return serializeRegExp(target as any);
+                case '[object String]':
+                    return serializeStringObject(target as any);
+                case '[object Symbol]':
+                    return serializeSymbolObject(target as any);
+                default:
+                    return undefined;
+            }
+        }
+        try {
+            // Symbol.prototype[@@toStringTag] is defined by default so make it
+            // the first serialization attempt.
+            // https://tc39.es/ecma262/#sec-symbol.prototype-@@tostringtag
+            return serializeSymbolObject(target as any);
+            // eslint-disable-next-line no-empty
+        } catch {}
+        if (SUPPORTS_BIG_INT) {
+            try {
+                return serializeBigIntObject(target as any);
+                // eslint-disable-next-line no-empty
+            } catch {}
+        }
+        try {
+            return serializeBooleanObject(target as any);
+            // eslint-disable-next-line no-empty
+        } catch {}
+        try {
+            return serializeNumberObject(target as any);
+            // eslint-disable-next-line no-empty
+        } catch {}
+        try {
+            return serializeRegExp(target as any);
+            // eslint-disable-next-line no-empty
+        } catch {}
+        try {
+            return serializeStringObject(target as any);
+            // eslint-disable-next-line no-empty
+        } catch {}
+        return undefined;
+    }
+
+    function toSafeDescriptor<T extends PropertyDescriptor>(desc: T): T {
+        ReflectSetPrototypeOf(desc, null);
+        return desc;
+    }
+
     return function createHooksCallback(
         color: string,
         trapMutations: boolean,
-        // eslint-disable-next-line @typescript-eslint/default-param-last
-        _supportFlags: SupportFlagsEnum = SupportFlagsEnum.None,
+        _supportFlags: SupportFlagsEnum,
         foreignCallableHooksCallback: HooksCallback,
         options?: InitLocalOptions
     ): HooksCallback {
-        const { distortionCallback = (o: ProxyTarget) => o, instrumentation } = options || {
+        // prettier-ignore
+        const {
+            distortionCallback = (o: ProxyTarget) => o,
+            instrumentation,
+        } = options ?? {
             __proto__: null,
         };
 
@@ -336,6 +631,7 @@ export function createMembraneMarshall() {
         let foreignCallableConstruct: CallableConstruct;
         let foreignCallableDefineProperty: CallableDefineProperty;
         let foreignCallableDeleteProperty: CallableDeleteProperty;
+        let foreignCallableGet: CallableGet;
         let foreignCallableGetOwnPropertyDescriptor: CallableGetOwnPropertyDescriptor;
         let foreignCallableGetPrototypeOf: CallableGetPrototypeOf;
         let foreignCallableHas: CallableHas;
@@ -344,13 +640,12 @@ export function createMembraneMarshall() {
         let foreignCallablePreventExtensions: CallablePreventExtensions;
         let foreignCallableSet: CallableSet;
         let foreignCallableSetPrototypeOf: CallableSetPrototypeOf;
-        let foreignCallableGetSerializedValueOfTarget: CallableGetSerializedValueOfTarget;
         let foreignCallableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits;
         let foreignCallableGetToStringTagOfTarget: CallableGetToStringTagOfTarget;
         let foreignCallableIsTargetLive: CallableIsTargetLive;
         let foreignCallableIsTargetRevoked: CallableIsTargetRevoked;
+        let foreignCallableSerializeTarget: CallableSerializeTarget;
         let foreignCallableWarn: CallableWarn;
-        let foreignCallableBatchGetAndHasToStringSymbolTag: CallableBatchGetAndHasToStringSymbolTag;
         let foreignCallableBatchGetPrototypeOfAndOwnPropertyDescriptors: CallableBatchGetPrototypeOfAndOwnPropertyDescriptors;
         let foreignCallableBatchGetPrototypeOfWhenHasNoOwnProperty: CallableBatchGetPrototypeOfWhenHasNoOwnProperty;
         let foreignCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor: CallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor;
@@ -434,40 +729,6 @@ export function createMembraneMarshall() {
             return pointer;
         }
 
-        function createShadowTarget(
-            targetTraits: TargetTraits,
-            targetFunctionName: string | undefined
-        ): ShadowTarget {
-            let shadowTarget: ShadowTarget;
-            if (targetTraits & TargetTraits.IsFunction) {
-                // This shadow target is never invoked. It's needed to avoid
-                // proxy trap invariants. Because it's not invoked the code does
-                // not need to be instrumented for code coverage.
-                //
-                // istanbul ignore next
-                shadowTarget =
-                    // eslint-disable-next-line func-names
-                    targetTraits & TargetTraits.IsArrowFunction ? () => {} : function () {};
-                if (typeof targetFunctionName === 'string') {
-                    // This is only really needed for debugging,
-                    // it helps to identify the proxy by name
-                    ReflectDefineProperty(shadowTarget, 'name', {
-                        // @ts-ignore: TS doesn't like __proto__ on property descriptors.
-                        __proto__: null,
-                        configurable: true,
-                        enumerable: false,
-                        value: targetFunctionName,
-                        writable: false,
-                    });
-                }
-            } else if (targetTraits & TargetTraits.IsArray) {
-                shadowTarget = [];
-            } else {
-                shadowTarget = {};
-            }
-            return shadowTarget;
-        }
-
         // This is needed even when using ShadowRealm, because the errors are
         // not going to cross the callable boundary in a try/catch, instead,
         // they need to be ported via the membrane artifacts.
@@ -540,100 +801,6 @@ export function createMembraneMarshall() {
             const result = selectedTarget;
             selectedTarget = undefined;
             return result;
-        }
-
-        function getSerializedValueOfTarget(target: ProxyTarget): SerializedValue | undefined {
-            const brand = ReflectApply(ObjectProtoToString, target, []);
-            switch (brand) {
-                // The brand(s) below represent boxed primitives of `ESGlobalKeys`
-                // in packages/near-membrane-base/src/intrinsics.ts which are not
-                // remapped or reflective.
-                case '[object BigInt]': {
-                    return SUPPORTS_BIG_INT
-                        ? ReflectApply(BigIntProtoValueOf!, target, [])
-                        : undefined;
-                }
-                case '[object Boolean]':
-                    return ReflectApply(BooleanProtoValueOf, target, []);
-                case '[object Number]':
-                    return ReflectApply(NumberProtoValueOf, target, []);
-                case '[object RegExp]':
-                    return JSONStringify({
-                        __proto__: null,
-                        flags: ReflectApply(RegExpProtoFlagsGetter, target, []),
-                        source: ReflectApply(RegExpProtoSourceGetter, target, []),
-                    });
-                case '[object String]':
-                    return ReflectApply(StringProtoValueOf, target, []);
-                case '[object Symbol]':
-                    return ReflectApply(SymbolProtoValueOf, target, []);
-                default:
-                    return undefined;
-            }
-        }
-
-        function getTargetTraits(target: object): TargetTraits {
-            let targetTraits = TargetTraits.None;
-            const targetIsFunction = typeof target === 'function';
-            if (targetIsFunction) {
-                targetTraits |= TargetTraits.IsFunction;
-                // A target may be a proxy that is revoked or throws in its
-                // "has" trap.
-                try {
-                    // Detect arrow functions.
-                    if (!('prototype' in target)) {
-                        targetTraits |= TargetTraits.IsArrowFunction;
-                    }
-                    return targetTraits;
-                    // eslint-disable-next-line no-empty
-                } catch {}
-            }
-            let targetIsArray = false;
-            try {
-                targetIsArray = isArrayOrThrowForRevoked(target);
-            } catch {
-                targetTraits |= TargetTraits.Revoked;
-            }
-            if (targetIsArray) {
-                targetTraits |= TargetTraits.IsArray;
-            } else if (!targetIsFunction) {
-                targetTraits |= TargetTraits.IsObject;
-            }
-            return targetTraits;
-        }
-
-        function getTargetIntegrityTraits(target: object): TargetIntegrityTraits {
-            let targetIntegrityTraits = TargetIntegrityTraits.None;
-            // A target may be a proxy that is revoked or throws in its
-            // "isExtensible" trap.
-            try {
-                if (ObjectIsFrozen(target)) {
-                    targetIntegrityTraits |=
-                        TargetIntegrityTraits.IsFrozen &
-                        TargetIntegrityTraits.IsSealed &
-                        TargetIntegrityTraits.IsNotExtensible;
-                } else if (ObjectIsSealed(target)) {
-                    targetIntegrityTraits |=
-                        TargetIntegrityTraits.IsSealed & TargetIntegrityTraits.IsNotExtensible;
-                } else if (!ReflectIsExtensible(target)) {
-                    targetIntegrityTraits |= TargetIntegrityTraits.IsNotExtensible;
-                }
-            } catch {
-                try {
-                    isArrayOrThrowForRevoked(target);
-                } catch {
-                    targetIntegrityTraits |= TargetIntegrityTraits.Revoked;
-                }
-            }
-            return targetIntegrityTraits;
-        }
-
-        function getToStringTagOfTarget(target: ProxyTarget): string {
-            // Section 19.1.3.6: Object.prototype.toString()
-            // Step 16: If `Type(tag)` is not `String`, let `tag` be `builtinTag`.
-            // https://tc39.github.io/ecma262/#sec-object.prototype.tostring
-            const brand = ReflectApply(ObjectProtoToString, target, []);
-            return ReflectApply(StringProtoSlice, brand, [8, -1]);
         }
 
         function getTransferablePointer(originalTarget: ProxyTarget): Pointer {
@@ -733,43 +900,6 @@ export function createMembraneMarshall() {
             return fn;
         }
 
-        function isTargetLive(target: ProxyTarget): boolean {
-            if (target === ObjectProto) {
-                return false;
-            }
-            if (typeof target === 'object') {
-                if (
-                    // We only check for typed arrays here since arrays are
-                    // marked as live in the BoundaryProxyHandler constructor.
-                    ArrayBufferIsView(target)
-                ) {
-                    return true;
-                }
-                const { constructor } = target;
-                if (constructor === ObjectCtor) {
-                    // If the constructor, own or inherited, points to `Object`
-                    // then `value` is not likely a prototype object.
-                    return true;
-                }
-                if (ReflectGetPrototypeOf(target) === null) {
-                    // Ensure `value` is not an `Object.prototype` from an iframe.
-                    return typeof constructor !== 'function' || constructor.prototype !== target;
-                }
-            }
-            return ReflectApply(ObjectProtoHasOwnProperty, target, [
-                LOCKER_LIVE_VALUE_MARKER_SYMBOL,
-            ]);
-        }
-
-        function isTargetRevoked(target: ProxyTarget): boolean {
-            try {
-                isArrayOrThrowForRevoked(target);
-                return false;
-                //  eslint-disable-next-line no-empty
-            } catch {}
-            return true;
-        }
-
         function lockShadowTarget(shadowTarget: ShadowTarget, foreignTargetPointer: Pointer): void {
             copyForeignOwnPropertyDescriptorsAndPrototypeToShadowTarget(
                 foreignTargetPointer,
@@ -830,11 +960,6 @@ export function createMembraneMarshall() {
             return e;
         }
 
-        function toSafeDescriptor<T extends PropertyDescriptor>(desc: T): T {
-            ReflectSetPrototypeOf(desc, null);
-            return desc;
-        }
-
         class BoundaryProxyHandler implements ProxyHandler<ShadowTarget> {
             // public fields
             defineProperty: ProxyHandler<ShadowTarget>['defineProperty'];
@@ -865,7 +990,7 @@ export function createMembraneMarshall() {
 
             serializedValue: string | undefined;
 
-            unbrandedTag: string | undefined;
+            staticToStringTag: string | undefined;
 
             // The membrane color help developers identify which side of the
             // membrane they are debugging.
@@ -894,7 +1019,7 @@ export function createMembraneMarshall() {
                 this.proxy = proxy;
                 this.revoke = revoke;
                 this.serializedValue = undefined;
-                this.unbrandedTag = undefined;
+                this.staticToStringTag = undefined;
                 // Define default traps.
                 this.defineProperty = BoundaryProxyHandler.defaultDefinePropertyTrap;
                 this.deleteProperty = BoundaryProxyHandler.defaultDeletePropertyTrap;
@@ -910,26 +1035,6 @@ export function createMembraneMarshall() {
                 this.set = BoundaryProxyHandler.defaultSetTrap;
                 if (isRevoked) {
                     revoke();
-                } else if (isUnrevokedObject) {
-                    // Lazily define unbrandedTag.
-                    let unbrandedTag: string | undefined | symbol =
-                        LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
-                    ReflectApply(ObjectProto__defineGetter__, this, [
-                        'unbrandedTag',
-                        () => {
-                            if (unbrandedTag === LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL) {
-                                const toStringTag = foreignCallableGetToStringTagOfTarget(
-                                    this.foreignTargetPointer
-                                );
-                                // The default language toStringTag is "Object".
-                                // If receive "Object" we return `undefined` to
-                                // let the language resolve it naturally without
-                                // projecting a value.
-                                unbrandedTag = toStringTag === 'Object' ? undefined : toStringTag;
-                            }
-                            return unbrandedTag;
-                        },
-                    ]);
                 }
                 if (trapMutations) {
                     if (foreignTargetTraits & TargetTraits.IsArray) {
@@ -946,7 +1051,7 @@ export function createMembraneMarshall() {
                                 if (
                                     serializedValue === LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
                                 ) {
-                                    serializedValue = foreignCallableGetSerializedValueOfTarget(
+                                    serializedValue = foreignCallableSerializeTarget(
                                         this.foreignTargetPointer
                                     );
                                 }
@@ -1049,17 +1154,6 @@ export function createMembraneMarshall() {
 
             private makeProxyStatic(shadowTarget: ShadowTarget) {
                 const { foreignTargetPointer } = this;
-                if (DEBUG_MODE) {
-                    try {
-                        foreignCallableWarn(
-                            'Mutations on the membrane of an object originating ' +
-                                'outside of the sandbox will not be reflected on ' +
-                                'the object itself:',
-                            foreignTargetPointer
-                        );
-                        // eslint-disable-next-line no-empty
-                    } catch {}
-                }
                 const targetIntegrityTraits =
                     foreignCallableGetTargetIntegrityTraits(foreignTargetPointer);
                 if (targetIntegrityTraits & TargetIntegrityTraits.Revoked) {
@@ -1081,6 +1175,18 @@ export function createMembraneMarshall() {
                         return;
                     }
                 }
+                if (
+                    this.foreignTargetTraits & TargetTraits.IsObject &&
+                    !ReflectHas(shadowTarget, TO_STRING_TAG_SYMBOL)
+                ) {
+                    const toStringTag = foreignCallableGetToStringTagOfTarget(foreignTargetPointer);
+                    // The default language toStringTag is "Object". If receive
+                    // "Object" we return `undefined` to let the language resolve
+                    // it naturally without projecting a value.
+                    if (toStringTag !== 'Object') {
+                        this.staticToStringTag = toStringTag;
+                    }
+                }
                 // Preserve the semantics of the target.
                 if (targetIntegrityTraits & TargetIntegrityTraits.IsFrozen) {
                     ObjectFreeze(shadowTarget);
@@ -1088,6 +1194,16 @@ export function createMembraneMarshall() {
                     ObjectSeal(shadowTarget);
                 } else if (targetIntegrityTraits & TargetIntegrityTraits.IsNotExtensible) {
                     ReflectPreventExtensions(shadowTarget);
+                } else if (DEBUG_MODE) {
+                    try {
+                        foreignCallableWarn(
+                            'Mutations on the membrane of an object originating ' +
+                                'outside of the sandbox will not be reflected on ' +
+                                'the object itself:',
+                            foreignTargetPointer
+                        );
+                        // eslint-disable-next-line no-empty
+                    } catch {}
                 }
                 // Reset all traps except apply and construct for static proxies
                 // since the proxy target is the shadow target and all operations
@@ -1170,11 +1286,8 @@ export function createMembraneMarshall() {
                 key: string | symbol,
                 receiver: any
             ): ReturnType<typeof Reflect.get> {
-                const safeDesc = lookupForeignDescriptor(
-                    this.foreignTargetPointer,
-                    shadowTarget,
-                    key
-                );
+                const { foreignTargetPointer } = this;
+                const safeDesc = lookupForeignDescriptor(foreignTargetPointer, shadowTarget, key);
                 if (safeDesc) {
                     const { get: getter, value: localValue } = safeDesc;
                     if (getter) {
@@ -1186,8 +1299,17 @@ export function createMembraneMarshall() {
                     }
                     return localValue;
                 }
-                if (key === TO_STRING_TAG_SYMBOL) {
-                    return this.unbrandedTag;
+                if (
+                    key === TO_STRING_TAG_SYMBOL &&
+                    this.foreignTargetTraits & TargetTraits.IsObject
+                ) {
+                    const toStringTag = foreignCallableGetToStringTagOfTarget(foreignTargetPointer);
+                    // The default language toStringTag is "Object". If receive
+                    // "Object" we return `undefined` to let the language resolve
+                    // it naturally without projecting a value.
+                    if (toStringTag !== 'Object') {
+                        return toStringTag;
+                    }
                 }
                 return undefined;
             }
@@ -1291,21 +1413,14 @@ export function createMembraneMarshall() {
                         return this.serializedValue;
                     }
                 }
-                const result = getLocalValue(
-                    foreignCallableBatchGetAndHasToStringSymbolTag(
+                return getLocalValue(
+                    foreignCallableGet(
                         this.foreignTargetPointer,
                         this.foreignTargetTraits,
                         key,
                         getTransferableValue(receiver)
                     )
                 );
-                if (
-                    key === TO_STRING_TAG_SYMBOL &&
-                    result === LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
-                ) {
-                    return this.unbrandedTag;
-                }
-                return result;
             }
 
             private static passthruGetPrototypeOfTrap(
@@ -1584,7 +1699,7 @@ export function createMembraneMarshall() {
                     this.foreignTargetTraits & TargetTraits.IsObject &&
                     !ReflectHas(shadowTarget, key)
                 ) {
-                    return this.unbrandedTag;
+                    return this.staticToStringTag;
                 }
                 return result;
             }
@@ -1848,6 +1963,48 @@ export function createMembraneMarshall() {
                 'callableDeleteProperty',
                 INBOUND_INSTRUMENTATION_LABEL
             ),
+            // callableGet
+            instrumentCallableWrapper(
+                (
+                    targetPointer: Pointer,
+                    targetTraits: TargetTraits,
+                    key: string | symbol,
+                    receiverPointerOrPrimitive: PointerOrPrimitive
+                ): PointerOrPrimitive => {
+                    targetPointer();
+                    const target = getSelectedTarget();
+                    const receiver = getLocalValue(receiverPointerOrPrimitive);
+                    let result;
+                    try {
+                        result = getTransferableValue(ReflectGet(target, key, receiver));
+                    } catch (e: any) {
+                        throw pushErrorAcrossBoundary(e);
+                    }
+                    if (
+                        result === undefined &&
+                        key === TO_STRING_TAG_SYMBOL &&
+                        targetTraits & TargetTraits.IsObject
+                    ) {
+                        try {
+                            if (!ReflectHas(target, key)) {
+                                const toStringTag = getToStringTagOfTarget(target);
+                                // The default language toStringTag is "Object".
+                                // If receive "Object" we return `undefined` to
+                                // let the language resolve it naturally without
+                                // projecting a value.
+                                if (toStringTag !== 'Object') {
+                                    result = toStringTag;
+                                }
+                            }
+                        } catch (e: any) {
+                            throw pushErrorAcrossBoundary(e);
+                        }
+                    }
+                    return result;
+                },
+                'callableGet',
+                INBOUND_INSTRUMENTATION_LABEL
+            ),
             // callableGetOwnPropertyDescriptor
             instrumentCallableWrapper(
                 (
@@ -2005,20 +2162,6 @@ export function createMembraneMarshall() {
                 'callableSetPrototypeOf',
                 INBOUND_INSTRUMENTATION_LABEL
             ),
-            // callableGetSerializedValueOfTarget
-            instrumentCallableWrapper(
-                (targetPointer: Pointer): SerializedValue | undefined => {
-                    targetPointer();
-                    const target = getSelectedTarget();
-                    try {
-                        return getSerializedValueOfTarget(target);
-                    } catch (e: any) {
-                        throw pushErrorAcrossBoundary(e);
-                    }
-                },
-                'callableGetSerializedValueOfTarget',
-                INBOUND_INSTRUMENTATION_LABEL
-            ),
             // callableGetTargetIntegrityTraits
             instrumentCallableWrapper(
                 (targetPointer: Pointer): TargetIntegrityTraits => {
@@ -2073,6 +2216,20 @@ export function createMembraneMarshall() {
                 'callableIsTargetRevoked',
                 INBOUND_INSTRUMENTATION_LABEL
             ),
+            // callableSerializeTarget
+            instrumentCallableWrapper(
+                (targetPointer: Pointer): SerializedValue | undefined => {
+                    targetPointer();
+                    const target = getSelectedTarget();
+                    try {
+                        return serializeTarget(target);
+                    } catch (e: any) {
+                        throw pushErrorAcrossBoundary(e);
+                    }
+                },
+                'callableSerializeTarget',
+                INBOUND_INSTRUMENTATION_LABEL
+            ),
             // callableWarn
             instrumentCallableWrapper(
                 (...args: Parameters<typeof console.warn>): void => {
@@ -2086,41 +2243,6 @@ export function createMembraneMarshall() {
                     }
                 },
                 'callableWarn',
-                INBOUND_INSTRUMENTATION_LABEL
-            ),
-            // callableBatchGetAndHasToStringSymbolTag
-            instrumentCallableWrapper(
-                (
-                    targetPointer: Pointer,
-                    targetTraits: TargetTraits,
-                    key: string | symbol,
-                    receiverPointerOrPrimitive: PointerOrPrimitive
-                ): PointerOrPrimitive => {
-                    targetPointer();
-                    const target = getSelectedTarget();
-                    const receiver = getLocalValue(receiverPointerOrPrimitive);
-                    let result;
-                    try {
-                        result = getTransferableValue(ReflectGet(target, key, receiver));
-                    } catch (e: any) {
-                        throw pushErrorAcrossBoundary(e);
-                    }
-                    if (
-                        result === undefined &&
-                        key === TO_STRING_TAG_SYMBOL &&
-                        targetTraits & TargetTraits.IsObject
-                    ) {
-                        try {
-                            if (!ReflectHas(target, key)) {
-                                result = LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
-                            }
-                        } catch (e: any) {
-                            throw pushErrorAcrossBoundary(e);
-                        }
-                    }
-                    return result;
-                },
-                'callableBatchGetAndHasToStringSymbolTag',
                 INBOUND_INSTRUMENTATION_LABEL
             ),
             // callableBatchGetPrototypeOfAndOwnPropertyDescriptors
@@ -2185,7 +2307,7 @@ export function createMembraneMarshall() {
                     }
                     return proto ? getTransferablePointer(proto) : proto;
                 },
-                'callableGetOwnPropertyDescriptors',
+                'callableBatchGetPrototypeOfAndOwnPropertyDescriptors',
                 INBOUND_INSTRUMENTATION_LABEL
             ),
             // callableBatchGetPrototypeOfWhenHasNoOwnProperty
@@ -2265,21 +2387,21 @@ export function createMembraneMarshall() {
                 8: callableConstruct,
                 9: callableDefineProperty,
                 10: callableDeleteProperty,
-                11: callableGetOwnPropertyDescriptor,
-                12: callableGetPrototypeOf,
-                13: callableHas,
-                14: callableIsExtensible,
-                15: callableOwnKeys,
-                16: callablePreventExtensions,
-                17: callableSet,
-                18: callableSetPrototypeOf,
-                19: callableGetSerializedValueOfTarget,
+                11: callableGet,
+                12: callableGetOwnPropertyDescriptor,
+                13: callableGetPrototypeOf,
+                14: callableHas,
+                15: callableIsExtensible,
+                16: callableOwnKeys,
+                17: callablePreventExtensions,
+                18: callableSet,
+                19: callableSetPrototypeOf,
                 20: callableGetTargetIntegrityTraits,
                 21: callableGetToStringTagOfTarget,
                 22: callableIsTargetLive,
                 23: callableIsTargetRevoked,
-                24: callableWarn,
-                25: callableBatchGetAndHasToStringSymbolTag,
+                24: callableSerializeTarget,
+                25: callableWarn,
                 26: callableBatchGetPrototypeOfAndOwnPropertyDescriptors,
                 27: callableBatchGetPrototypeOfWhenHasNoOwnProperty,
                 28: callableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
@@ -2311,6 +2433,13 @@ export function createMembraneMarshall() {
                 instrumentCallableWrapper(
                     callableDeleteProperty,
                     'callableDeleteProperty',
+                    OUTBOUND_INSTRUMENTATION_LABEL
+                )
+            );
+            foreignCallableGet = foreignErrorControl(
+                instrumentCallableWrapper(
+                    callableGet,
+                    'callableGet',
                     OUTBOUND_INSTRUMENTATION_LABEL
                 )
             );
@@ -2370,13 +2499,6 @@ export function createMembraneMarshall() {
                     OUTBOUND_INSTRUMENTATION_LABEL
                 )
             );
-            foreignCallableGetSerializedValueOfTarget = foreignErrorControl(
-                instrumentCallableWrapper(
-                    callableGetSerializedValueOfTarget,
-                    'callableGetSerializedValueOfTarget',
-                    OUTBOUND_INSTRUMENTATION_LABEL
-                )
-            );
             foreignCallableGetTargetIntegrityTraits = foreignErrorControl(
                 instrumentCallableWrapper(
                     callableGetTargetIntegrityTraits,
@@ -2405,17 +2527,17 @@ export function createMembraneMarshall() {
                     OUTBOUND_INSTRUMENTATION_LABEL
                 )
             );
+            foreignCallableSerializeTarget = foreignErrorControl(
+                instrumentCallableWrapper(
+                    callableSerializeTarget,
+                    'callableSerializeTarget',
+                    OUTBOUND_INSTRUMENTATION_LABEL
+                )
+            );
             foreignCallableWarn = foreignErrorControl(
                 instrumentCallableWrapper(
                     callableWarn,
                     'callableWarn',
-                    OUTBOUND_INSTRUMENTATION_LABEL
-                )
-            );
-            foreignCallableBatchGetAndHasToStringSymbolTag = foreignErrorControl(
-                instrumentCallableWrapper(
-                    callableBatchGetAndHasToStringSymbolTag,
-                    'callableBatchGetAndHasToStringSymbolTag',
                     OUTBOUND_INSTRUMENTATION_LABEL
                 )
             );

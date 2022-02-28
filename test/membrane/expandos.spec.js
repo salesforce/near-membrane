@@ -20,7 +20,7 @@ describe('The membrane', () => {
             expect({ ...exoticObject }).toEqual({ x: 1, y: 2 });
         `);
         expect(window.plainObject).toEqual({ x: 1, y: 2 });
-        expect(window.exoticObject).toEqual(new ExoticObject({ x: 1 }));
+        expect({ ...window.exoticObject }).toEqual({ x: 1 });
         env.evaluate(`
             // Still be 2 during another evaluation.
             expect(plainObject).toEqual({ x: 1, y: 2 });

@@ -148,14 +148,15 @@ export class VirtualEnvironment {
             // 8: redCallableConstruct,
             9: redCallableDefineProperty,
             // 10: redCallableDeleteProperty,
-            // 11: redCallableGetOwnPropertyDescriptor,
-            // 12: redCallableGetPrototypeOf,
-            // 13: redCallableHas,
-            // 14: redCallableIsExtensible,
-            // 15: redCallableOwnKeys,
-            // 16: redCallablePreventExtensions,
-            // 17: redCallableSet,
-            18: redCallableSetPrototypeOf,
+            // 11: redCallableGet,
+            // 12: redCallableGetOwnPropertyDescriptor,
+            // 13: redCallableGetPrototypeOf,
+            // 14: redCallableHas,
+            // 15: redCallableIsExtensible,
+            // 16: redCallableOwnKeys,
+            // 17: redCallablePreventExtensions,
+            // 18: redCallableSet,
+            19: redCallableSetPrototypeOf,
         } = redHooks!;
         this.redGlobalThisPointer = redGlobalThisPointer;
         this.redCallableEvaluate = redCallableEvaluate;
