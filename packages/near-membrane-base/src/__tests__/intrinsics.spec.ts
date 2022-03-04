@@ -1,7 +1,8 @@
 import {
+    assignFilteredGlobalDescriptors,
+    assignFilteredGlobalDescriptorsFromPropertyDescriptorMap,
     createConnector,
     linkIntrinsics,
-    getResolvedShapeDescriptors,
     VirtualEnvironment,
     createMembraneMarshall,
 } from '../index';
@@ -33,8 +34,8 @@ const ESGlobalKeys = [
     // 'BigUint64Array', // Remapped
     'Boolean',
     // 'DataView', // Remapped
-    // 'Date', // Unstable & Remapped
-    // 'Error', // Unstable & Reflective
+    // 'Date', // Remapped
+    // 'Error', // Reflective
     // 'EvalError', // Reflective
     'FinalizationRegistry',
     // 'Float32Array', // Remapped
@@ -49,10 +50,10 @@ const ESGlobalKeys = [
     // Allow Blue `Promise` constructor to overwrite the Red one so that promises
     // created by the `Promise` constructor or APIs like `fetch` will work.
     // 'Promise', // Remapped
-    // 'Proxy', // Unstable & Reflective
+    // 'Proxy', // Reflective
     // 'RangeError', // Reflective
     // 'ReferenceError', // Reflective
-    'RegExp', // Unstable
+    'RegExp',
     // 'Set', // Remapped
     // 'SharedArrayBuffer', // Remapped
     'String',
@@ -66,7 +67,6 @@ const ESGlobalKeys = [
     // 'URIError', // Reflective
     // 'WeakMap', // Remapped
     // 'WeakSet', // Remapped
-
     'WeakRef',
 
     // *** 18.4 Other Properties of the Global Object
@@ -80,14 +80,13 @@ const ESGlobalKeys = [
     'unescape',
 
     // *** ECMA-402
-    // 'Intl',  // Unstable & Remapped
+    // 'Intl',  // Remapped
 ];
 
 const ReflectiveIntrinsicObjectNames = [
     'AggregateError',
     'Array',
     'Error',
-    'eval',
     'EvalError',
     'Function',
     'Object',
@@ -97,6 +96,7 @@ const ReflectiveIntrinsicObjectNames = [
     'SyntaxError',
     'TypeError',
     'URIError',
+    'eval',
 ];
 
 const RemappedIntrinsicObjectNames = [
@@ -124,7 +124,7 @@ const RemappedIntrinsicObjectNames = [
     'WeakSet',
 ];
 
-describe('getResolvedShapeDescriptors()', () => {
+describe('assignFilteredGlobalDescriptors', () => {
     it('ignores non-remapped ES intrinsics', () => {
         // Ignoring "Property 'assertions' does not exist on type '{...}'."
         // @ts-ignore
@@ -134,12 +134,9 @@ describe('getResolvedShapeDescriptors()', () => {
             accum[key] = globalThis[key];
             return accum;
         }, {});
-
-        const filteredEndowmentDescriptors = getResolvedShapeDescriptors(shape);
-
-        for (let i = 0; i < ESGlobalKeys.length; i += 1) {
-            const key = ESGlobalKeys[i];
-            expect(filteredEndowmentDescriptors[key]).toBe(undefined);
+        const descMap = assignFilteredGlobalDescriptors({}, shape);
+        for (const key of ESGlobalKeys) {
+            expect(key in descMap).toBe(false);
         }
     });
     it('ignores Reflective ES intrinsics', () => {
@@ -151,12 +148,9 @@ describe('getResolvedShapeDescriptors()', () => {
             accum[key] = globalThis[key];
             return accum;
         }, {});
-
-        const filteredEndowmentDescriptors = getResolvedShapeDescriptors(shape);
-
-        for (let i = 0; i < ReflectiveIntrinsicObjectNames.length; i += 1) {
-            const key = ReflectiveIntrinsicObjectNames[i];
-            expect(filteredEndowmentDescriptors[key]).toBe(undefined);
+        const descMap = assignFilteredGlobalDescriptors({}, shape);
+        for (const key of ReflectiveIntrinsicObjectNames) {
+            expect(key in descMap).toBe(false);
         }
     });
     it('includes Remapped ES intrinsics', () => {
@@ -168,25 +162,101 @@ describe('getResolvedShapeDescriptors()', () => {
             accum[key] = globalThis[key];
             return accum;
         }, {});
-
-        const filteredEndowmentDescriptors = getResolvedShapeDescriptors(shape);
-
-        for (let i = 0; i < RemappedIntrinsicObjectNames.length; i += 1) {
-            const key = RemappedIntrinsicObjectNames[i];
-            expect(filteredEndowmentDescriptors[key]).not.toBe(undefined);
+        const descMap = assignFilteredGlobalDescriptors({}, shape);
+        for (const key of RemappedIntrinsicObjectNames) {
+            expect(descMap[key]).toBeDefined();
         }
     });
     it('should create a descriptor for non-ES built-ins', () => {
         // Ignoring "Property 'assertions' does not exist on type '{...}'."
         // @ts-ignore
         expect.assertions(1);
-        const filteredEndowmentDescriptors = getResolvedShapeDescriptors({
-            Foo: 1,
-        });
+
+        const descMap = assignFilteredGlobalDescriptors(
+            {},
+            {
+                Foo: 1,
+            }
+        );
         // Ignoring
         //  "Property 'toMatchObject' does not exist on type 'Matchers<PropertyDescriptor>'."
         // @ts-ignore
-        expect(filteredEndowmentDescriptors.Foo).toMatchObject({
+        expect(descMap.Foo).toMatchObject({
+            configurable: true,
+            enumerable: true,
+            value: 1,
+            writable: true,
+        });
+    });
+});
+
+describe('assignFilteredGlobalDescriptorsFromPropertyDescriptorMap', () => {
+    it('ignores non-remapped ES intrinsics', () => {
+        // Ignoring "Property 'assertions' does not exist on type '{...}'."
+        // @ts-ignore
+        expect.assertions(ESGlobalKeys.length);
+
+        const shape = ESGlobalKeys.reduce((accum, key) => {
+            accum[key] = globalThis[key];
+            return accum;
+        }, {});
+        const descMap = assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
+            {},
+            Object.getOwnPropertyDescriptors(shape)
+        );
+        for (const key of ESGlobalKeys) {
+            expect(key in descMap).toBe(false);
+        }
+    });
+    it('ignores Reflective ES intrinsics', () => {
+        // Ignoring "Property 'assertions' does not exist on type '{...}'."
+        // @ts-ignore
+        expect.assertions(ReflectiveIntrinsicObjectNames.length);
+
+        const shape = ReflectiveIntrinsicObjectNames.reduce((accum, key) => {
+            accum[key] = globalThis[key];
+            return accum;
+        }, {});
+        const descMap = assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
+            {},
+            Object.getOwnPropertyDescriptors(shape)
+        );
+        for (const key of ReflectiveIntrinsicObjectNames) {
+            expect(key in descMap).toBe(false);
+        }
+    });
+    it('includes Remapped ES intrinsics', () => {
+        // Ignoring "Property 'assertions' does not exist on type '{...}'."
+        // @ts-ignore
+        expect.assertions(RemappedIntrinsicObjectNames.length);
+
+        const shape = RemappedIntrinsicObjectNames.reduce((accum, key) => {
+            accum[key] = globalThis[key];
+            return accum;
+        }, {});
+        const descMap = assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
+            {},
+            Object.getOwnPropertyDescriptors(shape)
+        );
+        for (const key of RemappedIntrinsicObjectNames) {
+            expect(descMap[key]).toBeDefined();
+        }
+    });
+    it('should create a descriptor for non-ES built-ins', () => {
+        // Ignoring "Property 'assertions' does not exist on type '{...}'."
+        // @ts-ignore
+        expect.assertions(1);
+
+        const descMap = assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
+            {},
+            Object.getOwnPropertyDescriptors({
+                Foo: 1,
+            })
+        );
+        // Ignoring
+        //  "Property 'toMatchObject' does not exist on type 'Matchers<PropertyDescriptor>'."
+        // @ts-ignore
+        expect(descMap.Foo).toMatchObject({
             configurable: true,
             enumerable: true,
             value: 1,
@@ -204,7 +274,6 @@ describe('linkIntrinsics()', () => {
         const init = createMembraneMarshall();
         // eslint-disable-next-line no-eval
         const redConnector = createConnector(globalThis.eval);
-
         const ve = new VirtualEnvironment({
             blueConnector: init,
             redConnector,
@@ -216,7 +285,6 @@ describe('linkIntrinsics()', () => {
         ve.link = () => {
             count += 1;
         };
-
         // Since there are no intrinsics at all, ve.link should never get called.
         // @ts-ignore
         linkIntrinsics(ve, {});

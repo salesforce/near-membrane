@@ -1,10 +1,12 @@
 import { VirtualEnvironment } from './environment';
 
 const { includes: ArrayProtoIncludes } = Array.prototype;
+const { assign: ObjectAssign } = Object;
 const {
     apply: ReflectApply,
     getOwnPropertyDescriptor: ReflectGetOwnPropertyDescriptor,
     ownKeys: ReflectOwnKeys,
+    setPrototypeOf: ReflectSetPrototypeOf,
 } = Reflect;
 
 /**
@@ -125,49 +127,77 @@ const ESGlobalsAndReflectiveIntrinsicObjectNames = [
     ...ReflectiveIntrinsicObjectNames,
 ];
 
-function assignFilteredGlobalObjectShapeDescriptors<T extends PropertyDescriptorMap>(
-    descriptorMap: T,
-    source: object
+export function assignFilteredGlobalDescriptors<T extends PropertyDescriptorMap>(
+    descMap: T,
+    source?: object,
+    sourceForDesc = source
 ): T {
-    const ownKeys = ReflectOwnKeys(source);
-    for (let i = 0, { length } = ownKeys; i < length; i += 1) {
-        const ownKey = ownKeys[i];
-        // Avoid overriding ECMAScript global names that correspond
-        // to global intrinsics. This guarantee that those entries
-        // will be ignored if present in the endowments object.
-        // TODO: what if the intent is to polyfill one of those
-        // intrinsics?
-        if (
-            !ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveIntrinsicObjectNames, [ownKey])
-        ) {
-            const unsafeDesc = ReflectGetOwnPropertyDescriptor(source, ownKey);
-            // Safari 14.0.x (macOS) and 14.2 (iOS) have a bug where 'showModalDialog'
-            // is returned in the list of own keys produces by ReflectOwnKeys(iframeWindow),
-            // however 'showModalDialog' is not an own property and produces
-            // undefined at ReflectGetOwnPropertyDescriptor(window, key);
-            //
-            // In all other browsers, 'showModalDialog' is not an own property
-            // and does not appear in the list produces by ReflectOwnKeys(iframeWindow).
-            //
-            // So, as a general rule: if there is not an own descriptor,
-            // ignore the entry and continue.
-            if (unsafeDesc) {
-                (descriptorMap as any)[ownKey] = unsafeDesc;
+    if (source) {
+        const ownKeys = ReflectOwnKeys(source);
+        for (let i = 0, { length } = ownKeys; i < length; i += 1) {
+            const ownKey = ownKeys[i];
+            // Avoid overriding ECMAScript global names that correspond
+            // to global intrinsics. This guarantee that those entries
+            // will be ignored if present in the endowments descriptor map.
+            // TODO: what if the intent is to polyfill one of those
+            // intrinsics?
+            if (
+                !ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveIntrinsicObjectNames, [
+                    ownKey,
+                ])
+            ) {
+                // Safari 14.0.x (macOS) and 14.2 (iOS) have a bug where
+                // 'showModalDialog' is returned in the list of own keys produces
+                // by ReflectOwnKeys(iframeWindow), however 'showModalDialog' is
+                // not an own property and produces undefined at
+                // ReflectGetOwnPropertyDescriptor(window, key).
+                //
+                // In all other browsers, 'showModalDialog' is not an own property
+                // and does not appear in the list produces by
+                // ReflectOwnKeys(iframeWindow).
+                //
+                // So, as a general rule: if there is not an own descriptor,
+                // ignore the entry and continue.
+                const desc = ReflectGetOwnPropertyDescriptor(sourceForDesc!, ownKey);
+                if (desc) {
+                    ReflectSetPrototypeOf(desc, null);
+                    (descMap as any)[ownKey] = desc;
+                }
             }
         }
     }
-    return descriptorMap;
+    return descMap;
 }
 
-export function getResolvedShapeDescriptors(...sources: any[]): PropertyDescriptorMap {
-    const unsafeDescMap: PropertyDescriptorMap = {};
-    for (let i = 0, { length } = sources; i < length; i += 1) {
-        const source = sources[i];
-        if (source) {
-            assignFilteredGlobalObjectShapeDescriptors(unsafeDescMap, source);
+export function assignFilteredGlobalDescriptorsFromPropertyDescriptorMap<
+    T extends PropertyDescriptorMap
+>(descMap: T, source?: PropertyDescriptorMap, sourceForDesc = source): T {
+    if (source) {
+        const ownKeys = ReflectOwnKeys(source);
+        for (let i = 0, { length } = ownKeys; i < length; i += 1) {
+            const ownKey = ownKeys[i];
+            // Avoid overriding ECMAScript global names that correspond
+            // to global intrinsics. This guarantee that those entries
+            // will be ignored if present in the endowments descriptor map.
+            // TODO: what if the intent is to polyfill one of those
+            // intrinsics?
+            if (
+                !ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveIntrinsicObjectNames, [
+                    ownKey,
+                ])
+            ) {
+                const unsafeDesc = (sourceForDesc as any)[ownKey];
+                if (unsafeDesc) {
+                    // Avoid poisoning by only installing own properties from
+                    // unsafeDesc. We don't use a toSafeDescriptor() style helper
+                    // since that mutates the unsafeBlueDesc.
+                    // eslint-disable-next-line prefer-object-spread
+                    (descMap as any)[ownKey] = ObjectAssign({ __proto__: null }, unsafeDesc);
+                }
+            }
         }
     }
-    return unsafeDescMap;
+    return descMap;
 }
 
 export function linkIntrinsics(
@@ -186,4 +216,20 @@ export function linkIntrinsics(
             }
         }
     }
+}
+
+export function toSafeDescriptorMap<T extends PropertyDescriptorMap>(descriptorMap: T): T {
+    // Descriptor maps are not susceptible to Object.prototype pollution because
+    // the internal operation uses [[OwnPropertyKeys]]:
+    // https://tc39.es/ecma262/#sec-objectdefineproperties.
+    //
+    // However, their descriptors are because the internal operation uses
+    // [[HasProperty]]: https://tc39.es/ecma262/#sec-topropertydescriptor.
+    const ownKeys = ReflectOwnKeys(descriptorMap);
+    for (let i = 0, { length } = ownKeys; i < length; i += 1) {
+        const ownKey = ownKeys[i];
+        const desc = (descriptorMap as any)[ownKey];
+        ReflectSetPrototypeOf(desc, null);
+    }
+    return descriptorMap;
 }

@@ -37,7 +37,7 @@ const exoticLiveObject = new ExoticObject(plainObject);
 Reflect.defineProperty(exoticLiveObject, LOCKER_LIVE_VALUE_MARKER_SYMBOL, {});
 
 const env = createVirtualEnvironment(window, window, {
-    endowments: {
+    endowments: Object.getOwnPropertyDescriptors({
         array,
         bigInt64Array,
         bigUint64Array,
@@ -58,7 +58,7 @@ const env = createVirtualEnvironment(window, window, {
         uint8ClampedArray,
         uint16Array,
         uint32Array,
-    },
+    }),
 });
 
 describe('a live red proxy', () => {

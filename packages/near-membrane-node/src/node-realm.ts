@@ -1,12 +1,11 @@
 import {
+    assignFilteredGlobalDescriptors,
+    assignFilteredGlobalDescriptorsFromPropertyDescriptorMap,
     createConnector,
     createMembraneMarshall,
-    getResolvedShapeDescriptors,
     linkIntrinsics,
     DistortionCallback,
     InstrumentationHooks,
-    SupportFlagsObject,
-    validateRequiredGlobalShapeAndVirtualizationObjects,
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
 
@@ -14,11 +13,11 @@ import { runInNewContext } from 'vm';
 
 interface NodeEnvironmentOptions {
     distortionCallback?: DistortionCallback;
-    endowments?: object;
-    support?: SupportFlagsObject;
+    endowments?: PropertyDescriptorMap;
     instrumentation?: InstrumentationHooks;
 }
 
+const TypeErrorCtor = TypeError;
 const createHooksCallback = createMembraneMarshall();
 
 export default function createVirtualEnvironment(
@@ -26,15 +25,20 @@ export default function createVirtualEnvironment(
     globalObjectVirtualizationTarget: WindowProxy & typeof globalThis,
     providedOptions: NodeEnvironmentOptions
 ): VirtualEnvironment {
-    validateRequiredGlobalShapeAndVirtualizationObjects(
-        globalObjectShape,
-        globalObjectVirtualizationTarget
-    );
+    if (typeof globalObjectShape !== 'object' || globalObjectShape === null) {
+        throw new TypeErrorCtor('Missing global object shape.');
+    }
+    if (
+        typeof globalObjectVirtualizationTarget !== 'object' ||
+        globalObjectVirtualizationTarget === null
+    ) {
+        throw new TypeErrorCtor('Missing global object virtualization target.');
+    }
     const options = {
         __proto__: null,
         ...providedOptions,
     };
-    const { distortionCallback, endowments = {}, support, instrumentation } = options;
+    const { distortionCallback, endowments, instrumentation } = options;
     const redGlobalThis: typeof globalThis = runInNewContext('globalThis');
     const blueConnector = createHooksCallback;
     const redConnector = createConnector(redGlobalThis.eval);
@@ -42,15 +46,17 @@ export default function createVirtualEnvironment(
         blueConnector,
         distortionCallback,
         redConnector,
-        support,
         instrumentation,
     });
     env.link('globalThis');
     linkIntrinsics(env, globalObjectVirtualizationTarget);
-    // remapping globals
-    env.remap(
-        globalObjectVirtualizationTarget,
-        getResolvedShapeDescriptors(globalObjectShape, endowments)
+    const globalObjectShapeWithEndowments = {};
+    assignFilteredGlobalDescriptors(globalObjectShapeWithEndowments, globalObjectShape);
+    assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
+        globalObjectShapeWithEndowments,
+        endowments
     );
+    // remapping globals
+    env.remap(globalObjectVirtualizationTarget, globalObjectShapeWithEndowments);
     return env;
 }

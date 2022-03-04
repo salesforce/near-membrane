@@ -43,14 +43,14 @@ describe('@@lockerLiveValue', () => {
             }
         }
         const env = createVirtualEnvironment(window, window, {
-            endowments: {
+            endowments: Object.getOwnPropertyDescriptors({
                 X,
                 expect,
                 createYFromOutside(Y) {
                     // eslint-disable-next-line no-new
                     new Y();
                 },
-            },
+            }),
         });
         env.evaluate(`
             class Y extends X {
@@ -97,14 +97,14 @@ describe('@@lockerLiveValue', () => {
             }
         }
         const env = createVirtualEnvironment(window, window, {
-            endowments: {
+            endowments: Object.getOwnPropertyDescriptors({
                 A,
                 expect,
                 createBFromOutside(B) {
                     // eslint-disable-next-line no-new
                     new B();
                 },
-            },
+            }),
         });
         env.evaluate(`
             class B extends A {

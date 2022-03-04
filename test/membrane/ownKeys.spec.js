@@ -6,7 +6,9 @@ function exportData(arg) {
 }
 
 it('does not throw ownKeys trap invariant for classes or strict mode functions', () => {
-    const envOne = createVirtualEnvironment(window, window, { endowments: { exportData } });
+    const envOne = createVirtualEnvironment(window, window, {
+        endowments: Object.getOwnPropertyDescriptors({ exportData }),
+    });
     envOne.evaluate(`
     exportData([
       class Foo {},
@@ -14,7 +16,7 @@ it('does not throw ownKeys trap invariant for classes or strict mode functions',
     ]);
     `);
     const envTwo = createVirtualEnvironment(window, window, {
-        endowments: { exportData, imported: exported },
+        endowments: Object.getOwnPropertyDescriptors({ exportData, imported: exported }),
     });
     envTwo.evaluate(`
     exportData(imported.map(Reflect.ownKeys));

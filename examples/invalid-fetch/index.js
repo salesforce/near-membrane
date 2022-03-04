@@ -16,7 +16,7 @@ const distortionMap = new Map([
 const distortionCallback = (v) => distortionMap.get(v) || v;
 const env = createVirtualEnvironment(window, window, {
     distortionCallback,
-    endowments: { wrappedFetch },
+    endowments: Object.getOwnPropertyDescriptors({ wrappedFetch }),
 });
 
 env.evaluate(`

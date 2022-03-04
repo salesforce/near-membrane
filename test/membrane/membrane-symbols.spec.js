@@ -31,7 +31,7 @@ describe('@@lockerNearMembrane', () => {
         // eslint-disable-next-line no-unused-vars
         let takeInside;
 
-        const endowments = {
+        const endowments = Object.getOwnPropertyDescriptors({
             expect,
             exposeTakeInside(func) {
                 takeInside = func;
@@ -47,7 +47,7 @@ describe('@@lockerNearMembrane', () => {
                 // trap check will produce `undefined`.
                 expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(undefined);
             },
-        };
+        });
 
         const env = createVirtualEnvironment(window, window, { endowments });
 
@@ -80,7 +80,7 @@ describe('@@lockerNearMembrane', () => {
         // eslint-disable-next-line no-unused-vars
         let takeInside;
 
-        const endowments = {
+        const endowments = Object.getOwnPropertyDescriptors({
             expect,
             exposeTakeInside(func) {
                 takeInside = func;
@@ -90,7 +90,7 @@ describe('@@lockerNearMembrane', () => {
                 expect(LOCKER_NEAR_MEMBRANE_SYMBOL in insideValue).toBe(true);
                 expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(expectedSymbolValue);
             },
-        };
+        });
 
         const env = createVirtualEnvironment(window, window, { endowments });
 
@@ -147,7 +147,7 @@ describe('@@lockerNearMembrane', () => {
         // eslint-disable-next-line no-unused-vars
         let takeInside;
 
-        const endowments = {
+        const endowments = Object.getOwnPropertyDescriptors({
             expect,
             exposeTakeInside(func) {
                 takeInside = func;
@@ -163,7 +163,7 @@ describe('@@lockerNearMembrane', () => {
                 // trap check will produce `undefined`.
                 expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(undefined);
             },
-        };
+        });
 
         const env = createVirtualEnvironment(window, window, { endowments });
 
@@ -206,7 +206,7 @@ describe('@@lockerNearMembraneSerializedValue', () => {
         // eslint-disable-next-line no-unused-vars
         let takeInside;
 
-        const endowments = {
+        const endowments = Object.getOwnPropertyDescriptors({
             expect,
             exposeTakeInside(func) {
                 takeInside = func;
@@ -224,7 +224,7 @@ describe('@@lockerNearMembraneSerializedValue', () => {
                 // trap check will produce `undefined`.
                 expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(undefined);
             },
-        };
+        });
 
         const env = createVirtualEnvironment(window, window, { endowments });
 
@@ -291,7 +291,7 @@ describe('@@lockerNearMembraneSerializedValue', () => {
         // eslint-disable-next-line no-unused-vars
         let takeInside;
 
-        const endowments = {
+        const endowments = Object.getOwnPropertyDescriptors({
             expect,
             exposeTakeInside(func) {
                 takeInside = func;
@@ -309,7 +309,7 @@ describe('@@lockerNearMembraneSerializedValue', () => {
                 // trap check will produce `undefined`.
                 expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(undefined);
             },
-        };
+        });
 
         const env = createVirtualEnvironment(window, window, { endowments });
 
@@ -392,7 +392,7 @@ describe('@@lockerNearMembraneSerializedValue', () => {
         // eslint-disable-next-line no-unused-vars
         let takeInside;
 
-        const endowments = {
+        const endowments = Object.getOwnPropertyDescriptors({
             expect,
             exposeTakeInside(func) {
                 takeInside = func;
@@ -404,7 +404,7 @@ describe('@@lockerNearMembraneSerializedValue', () => {
                     expectedSymbolValue
                 );
             },
-        };
+        });
 
         const env = createVirtualEnvironment(window, window, { endowments });
 
@@ -554,7 +554,7 @@ describe('@@lockerNearMembraneSerializedValue', () => {
         // eslint-disable-next-line no-unused-vars
         let takeInside;
 
-        const endowments = {
+        const endowments = Object.getOwnPropertyDescriptors({
             expect,
             exposeTakeInside(func) {
                 takeInside = func;
@@ -572,7 +572,7 @@ describe('@@lockerNearMembraneSerializedValue', () => {
                 // trap check will produce `undefined`.
                 expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(undefined);
             },
-        };
+        });
 
         const env = createVirtualEnvironment(window, window, { endowments });
 
