@@ -1,6 +1,6 @@
 {
     "name": "@locker/near-membrane-dom",
-    "version": "0.9.6",
+    "version": "0.9.7",
     "license": "MIT",
     "author": "Caridy Patiño <caridy@gmail.com>",
     "description": "JavaScript DOM Membrane Library to create a sandboxed environment in the browser",
@@ -21,6 +21,6 @@
         "access": "public"
     },
     "dependencies": {
-        "@locker/near-membrane-base": "0.9.6"
+        "@locker/near-membrane-base": "0.9.7"
     }
 }
