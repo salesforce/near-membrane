@@ -4,6 +4,7 @@ import {
     CallableDefineProperty,
     CallableEvaluate,
     CallableGetPropertyValuePointer,
+    CallableInstallLazyDescriptors,
     CallableLinkPointers,
     CallableSetPrototypeOf,
     DistortionCallback,
@@ -32,6 +33,10 @@ const SHOULD_TRAP_MUTATION = true;
 const SHOULD_NOT_TRAP_MUTATION = false;
 
 const ErrorCtor = Error;
+const ObjectCtor = Object;
+const { includes: ArrayProtoIncludes, push: ArrayProtoPush } = Array.prototype;
+const { keys: ObjectKeys } = ObjectCtor;
+const { propertyIsEnumerable: ObjectProtoPropertyIsEnumerable } = ObjectCtor.prototype;
 const { apply: ReflectApply, ownKeys: ReflectOwnKeys } = Reflect;
 
 export class VirtualEnvironment {
@@ -39,27 +44,29 @@ export class VirtualEnvironment {
 
     public redConnector: ReturnType<typeof createMembraneMarshall>;
 
-    private blueGlobalThisPointer: Pointer;
-
-    private blueGetTransferableValue: GetTransferableValue;
+    private blueCallableGetPropertyValuePointer: CallableGetPropertyValuePointer;
 
     private blueCallableLinkPointers: CallableLinkPointers;
 
     private blueGetSelectedTarget: GetSelectedTarget;
 
-    private blueCallableGetPropertyValuePointer: CallableGetPropertyValuePointer;
+    private blueGetTransferableValue: GetTransferableValue;
 
-    private redGlobalThisPointer: Pointer;
-
-    private redCallableSetPrototypeOf: CallableSetPrototypeOf;
+    private blueGlobalThisPointer: Pointer;
 
     private redCallableEvaluate: CallableEvaluate;
 
-    private redCallableDefineProperty: CallableDefineProperty;
+    private redCallableGetPropertyValuePointer: CallableGetPropertyValuePointer;
 
     private redCallableLinkPointers: CallableLinkPointers;
 
-    private redCallableGetPropertyValuePointer: CallableGetPropertyValuePointer;
+    private redCallableDefineProperty: CallableDefineProperty;
+
+    private redCallableSetPrototypeOf: CallableSetPrototypeOf;
+
+    private redCallableInstallLazyDescriptors: CallableInstallLazyDescriptors;
+
+    private redGlobalThisPointer: Pointer;
 
     constructor(options: VirtualEnvironmentOptions) {
         if (options === undefined) {
@@ -129,13 +136,19 @@ export class VirtualEnvironment {
             // 17: redCallablePreventExtensions,
             // 18: redCallableSet,
             19: redCallableSetPrototypeOf,
+            // 20: redCallableDebugInfo,
+            // 21: redCallableGetTargetIntegrityTraits,
+            // 22: redCallableGetToStringTagOfTarget,
+            // 23: redCallableInstallErrorPrepareStackTrace,
+            24: redCallableInstallLazyDescriptors,
         } = redHooks!;
         this.redGlobalThisPointer = redGlobalThisPointer;
-        this.redCallableEvaluate = redCallableEvaluate;
-        this.redCallableSetPrototypeOf = redCallableSetPrototypeOf;
-        this.redCallableDefineProperty = redCallableDefineProperty;
         this.redCallableGetPropertyValuePointer = redCallableGetPropertyValuePointer;
+        this.redCallableEvaluate = redCallableEvaluate;
         this.redCallableLinkPointers = redCallableLinkPointers;
+        this.redCallableDefineProperty = redCallableDefineProperty;
+        this.redCallableSetPrototypeOf = redCallableSetPrototypeOf;
+        this.redCallableInstallLazyDescriptors = redCallableInstallLazyDescriptors;
     }
 
     evaluate(sourceText: string): any {
@@ -155,6 +168,22 @@ export class VirtualEnvironment {
         }
     }
 
+    lazyRemap(target: ProxyTarget, ownKeys: (string | symbol)[]) {
+        const targetPointer = this.blueGetTransferableValue(target) as Pointer;
+        const enumerableKeys = ObjectKeys(target);
+        const args: any[] = [targetPointer];
+        for (let i = 0, { length } = ownKeys; i < length; i += 1) {
+            const key = ownKeys[i];
+            const isEnumerable =
+                typeof key === 'symbol'
+                    ? ReflectApply(ObjectProtoPropertyIsEnumerable, target, [key])
+                    : ReflectApply(ArrayProtoIncludes, enumerableKeys, [key]);
+
+            ReflectApply(ArrayProtoPush, args, [key, isEnumerable]);
+        }
+        ReflectApply(this.redCallableInstallLazyDescriptors, undefined, args);
+    }
+
     link(...keys: (string | symbol)[]) {
         let bluePointer = this.blueGlobalThisPointer;
         let redPointer = this.redGlobalThisPointer;
@@ -170,11 +199,10 @@ export class VirtualEnvironment {
     remap(target: ProxyTarget, safeBlueDescMap: PropertyDescriptorMap) {
         const ownKeys = ReflectOwnKeys(safeBlueDescMap);
         const targetPointer = this.blueGetTransferableValue(target) as Pointer;
-        // prettier-ignore
         for (let i = 0, { length } = ownKeys; i < length; i += 1) {
             const ownKey = ownKeys[i];
             const safeBlueDesc = (safeBlueDescMap as any)[ownKey];
-            // Install descriptor into the red side.
+            // prettier-ignore
             this.redCallableDefineProperty(
                 targetPointer,
                 ownKey,

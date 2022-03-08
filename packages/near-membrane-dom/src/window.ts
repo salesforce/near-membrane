@@ -1,62 +1,53 @@
-import { toSafeDescriptorMap, VirtualEnvironment } from '@locker/near-membrane-base';
+import { VirtualEnvironment } from '@locker/near-membrane-base';
 
-const { getOwnPropertyDescriptors: ObjectGetOwnPropertyDescriptors } = Object;
-const { getPrototypeOf: ReflectGetPrototypeOf, apply: ReflectApply } = Reflect;
-const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMap.prototype;
+const WeakMapCtor = WeakMap;
+const { push: ArrayProtoPush } = Array.prototype;
+const {
+    apply: ReflectApply,
+    getPrototypeOf: ReflectGetPrototypeOf,
+    ownKeys: ReflectOwnKeys,
+} = Reflect;
+const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMapCtor.prototype;
 
 /**
  * - Unforgeable object and prototype references
  */
-interface BaseReferencesRecord extends Object {
+interface CachedBlueReferencesRecord extends Object {
     document: Document;
     window: WindowProxy;
     DocumentProto: object;
     EventTargetProto: object;
+    EventTargetProtoOwnKeys: (string | symbol)[];
     WindowPropertiesProto: object;
     WindowProto: object;
 }
 
-/**
- * - Unforgeable blue object and prototype references
- * - Descriptor maps for those unforgeable references
- */
-interface CachedBlueReferencesRecord extends BaseReferencesRecord {
-    EventTargetProtoDescriptors: PropertyDescriptorMap;
-}
-
-const cachedBlueGlobalMap: WeakMap<typeof globalThis, CachedBlueReferencesRecord> = new WeakMap();
-
-export function getBaseReferences(window: Window & typeof globalThis): BaseReferencesRecord {
-    const record = { __proto__: null } as any as BaseReferencesRecord;
-    // caching references to object values that can't be replaced
-    // window -> Window -> WindowProperties -> EventTarget
-    record.window = window.window;
-    record.document = window.document;
-    record.WindowProto = ReflectGetPrototypeOf(record.window) as object;
-    record.WindowPropertiesProto = ReflectGetPrototypeOf(record.WindowProto) as object;
-    record.EventTargetProto = ReflectGetPrototypeOf(record.WindowPropertiesProto) as object;
-    record.DocumentProto = ReflectGetPrototypeOf(record.document) as object;
-
-    return record;
-}
+const blueGlobalToRecordMap: WeakMap<typeof globalThis, CachedBlueReferencesRecord> =
+    new WeakMapCtor();
 
 export function getCachedBlueReferences(
-    window: Window & typeof globalThis
+    blueGlobalObject: WindowProxy & typeof globalThis
 ): CachedBlueReferencesRecord {
-    let record = ReflectApply(WeakMapProtoGet, cachedBlueGlobalMap, [window]) as
+    let record = ReflectApply(WeakMapProtoGet, blueGlobalToRecordMap, [blueGlobalObject]) as
         | CachedBlueReferencesRecord
         | undefined;
     if (record) {
         return record;
     }
-    record = getBaseReferences(window) as CachedBlueReferencesRecord;
+    record = { __proto__: null } as any as CachedBlueReferencesRecord;
+    // Cache references to object values that can't be replaced
+    // window -> Window -> WindowProperties -> EventTarget
+    record.window = blueGlobalObject.window;
+    record.document = blueGlobalObject.document;
+    record.WindowProto = ReflectGetPrototypeOf(record.window) as object;
+    record.WindowPropertiesProto = ReflectGetPrototypeOf(record.WindowProto) as object;
+    record.EventTargetProto = ReflectGetPrototypeOf(record.WindowPropertiesProto) as object;
+    record.DocumentProto = ReflectGetPrototypeOf(record.document) as object;
     // Cache the record.
-    ReflectApply(WeakMapProtoSet, cachedBlueGlobalMap, [window, record]);
+    ReflectApply(WeakMapProtoSet, blueGlobalToRecordMap, [blueGlobalObject, record]);
     // We intentionally avoid remapping the Window.prototype descriptor because
     // there is nothing in it that needs to be remapped.
-    record.EventTargetProtoDescriptors = toSafeDescriptorMap(
-        ObjectGetOwnPropertyDescriptors(record.EventTargetProto)
-    );
+    record.EventTargetProtoOwnKeys = ReflectOwnKeys(record.EventTargetProto);
     return record;
 }
 
@@ -68,14 +59,33 @@ export function getCachedBlueReferences(
  */
 getCachedBlueReferences(window);
 
+export function filterWindowKeys(keys: (string | symbol)[]): (string | symbol)[] {
+    const result: (string | symbol)[] = [];
+    for (let i = 0, { length } = keys; i < length; i += 1) {
+        const key = keys[i];
+        if (
+            // Filter out unforgeable property keys that cannot be installed.
+            key !== 'document' &&
+            key !== 'location ' &&
+            key !== 'top' &&
+            key !== 'window' &&
+            // Remove other browser specific unforgeables.
+            key !== 'chrome'
+        ) {
+            ReflectApply(ArrayProtoPush, result, [key]);
+        }
+    }
+    return result;
+}
+
 export function linkUnforgeables(
     env: VirtualEnvironment,
-    blueGlobalThis: Window & typeof globalThis
+    blueGlobalObject: WindowProxy & typeof globalThis
 ) {
     // The test of instance of event target is important to discard environments
     // in which a fake window (e.g. jest) is not following the specs, and can
     // break this membrane.
-    if (blueGlobalThis.EventTarget && blueGlobalThis instanceof EventTarget) {
+    if (blueGlobalObject.EventTarget && blueGlobalObject instanceof EventTarget) {
         // window.document
         env.link('document');
         // window.__proto__ (aka Window.prototype)
@@ -115,42 +125,12 @@ export function linkUnforgeables(
  * the red realm.
  */
 export function removeWindowDescriptors<T extends PropertyDescriptorMap>(unsafeDescMap: T): T {
-    // Removing unforgeable descriptors that cannot be installed
+    // Remove unforgeable descriptors that cannot be installed.
     delete unsafeDescMap.document;
     delete unsafeDescMap.location;
     delete unsafeDescMap.top;
     delete unsafeDescMap.window;
-    // Other browser specific undeniable globals
+    // Remove other browser specific unforgeables.
     delete unsafeDescMap.chrome;
     return unsafeDescMap;
-}
-
-export function tameDOM(
-    env: VirtualEnvironment,
-    blueRefs: CachedBlueReferencesRecord,
-    safeGlobalDescMap: PropertyDescriptorMap
-) {
-    env.remapProto(blueRefs.document, blueRefs.DocumentProto);
-    env.remap(blueRefs.window, safeGlobalDescMap);
-    // Remap unforgeable objects.
-    env.remap(blueRefs.EventTargetProto, blueRefs.EventTargetProtoDescriptors);
-    /**
-     * WindowProperties.prototype is magical, it provide access to any
-     * object that "clobbers" the WindowProxy instance for easy access. E.g.:
-     *
-     *     var object = document.createElement('object');
-     *     object.id = 'foo';
-     *     document.body.appendChild(object);
-     *
-     * The result of this code is that `window.foo` points to the HTMLObjectElement
-     * instance, and in some browsers, those are not even reported as descriptors
-     * installed on WindowProperties.prototype, but they are instead magically
-     * resolved when accessing `foo` from `window`.
-     *
-     * This forces us to avoid using the descriptors from the blue window directly,
-     * and instead, we might only need to shadow the descriptors installed in the brand
-     * new iframe, that way any magical entry from the blue window will not be
-     * installed on the iframe. That turns out to be also empty, therefore we
-     * don't need to remap `blueRefs.WindowPropertiesProto` descriptors at all.
-     */
 }

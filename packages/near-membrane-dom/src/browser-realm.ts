@@ -1,8 +1,8 @@
 import {
-    assignFilteredGlobalDescriptors,
     assignFilteredGlobalDescriptorsFromPropertyDescriptorMap,
     createConnector,
     createMembraneMarshall,
+    getFilteredGlobalOwnKeys,
     linkIntrinsics,
     DistortionCallback,
     InstrumentationHooks,
@@ -11,30 +11,29 @@ import {
 
 import {
     getCachedBlueReferences,
+    filterWindowKeys,
     linkUnforgeables,
     removeWindowDescriptors,
-    tameDOM,
 } from './window';
 
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 
+const ObjectCtor = Object;
 const TypeErrorCtor = TypeError;
-
+const { prototype: DocumentProto } = Document;
+const { prototype: NodeProto } = Node;
+const { remove: ElementProtoRemove, setAttribute: ElementProtoSetAttribute } = Element.prototype;
+const { appendChild: NodeProtoAppendChild } = NodeProto;
+const { assign: ObjectAssign } = ObjectCtor;
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const { __lookupGetter__: ObjectProto__lookupGetter__ } = ObjectCtor.prototype as any;
+const { apply: ReflectApply } = Reflect;
 const {
     close: DocumentProtoClose,
     createElement: DocumentProtoCreateElement,
     open: DocumentProtoOpen,
-} = document;
-const { remove: ElementProtoRemove, setAttribute: ElementProtoSetAttribute } = Element.prototype;
-const { appendChild: NodeProtoAppendChild } = Node.prototype;
-const { assign: ObjectAssign } = Object;
-// eslint-disable-next-line @typescript-eslint/naming-convention
-const { __lookupGetter__: ObjectProto__lookupGetter__ } = Object.prototype as any;
-const { apply: ReflectApply } = Reflect;
-
-const DocumentProtoBodyGetter = ReflectApply(ObjectProto__lookupGetter__, Document.prototype, [
-    'body',
-])!;
+} = DocumentProto;
+const DocumentProtoBodyGetter = ReflectApply(ObjectProto__lookupGetter__, DocumentProto, ['body'])!;
 const HTMLElementProtoStyleGetter = ReflectApply(
     ObjectProto__lookupGetter__,
     HTMLElement.prototype,
@@ -45,102 +44,10 @@ const HTMLIFrameElementProtoContentWindowGetter = ReflectApply(
     HTMLIFrameElement.prototype,
     ['contentWindow']
 )!;
-const NodeProtoIsConnectedGetter = ReflectApply(ObjectProto__lookupGetter__, Node.prototype, [
-    'isConnected',
-])!;
-const NodeProtoLastChildGetter = ReflectApply(ObjectProto__lookupGetter__, Node.prototype, [
+const NodeProtoLastChildGetter = ReflectApply(ObjectProto__lookupGetter__, NodeProto, [
     'lastChild',
 ])!;
-
-function DocumentBody(doc: Document): typeof Document.prototype.body {
-    return ReflectApply(DocumentProtoBodyGetter, doc, []);
-}
-
-function DocumentClose(doc: Document): ReturnType<typeof Document.prototype.close> {
-    return ReflectApply(DocumentProtoClose, doc, []);
-}
-
-function DocumentCreateElement(
-    doc: Document,
-    tagName: string
-): ReturnType<typeof Document.prototype.createElement> {
-    return ReflectApply(DocumentProtoCreateElement, doc, [tagName]);
-}
-
-function DocumentOpen(doc: Document): ReturnType<typeof Document.prototype.open> {
-    return ReflectApply(DocumentProtoOpen, doc, []);
-}
-
-function ElementSetAttribute(
-    el: Element,
-    name: string,
-    value: string
-): ReturnType<typeof Element.prototype.setAttribute> {
-    return ReflectApply(ElementProtoSetAttribute, el, [name, value]);
-}
-
-function ElementRemove(element: Element): Element {
-    return ReflectApply(ElementProtoRemove, element, []);
-}
-
-function HTMLElementStyleGetter(el: HTMLElement): typeof HTMLElement.prototype.style {
-    return ReflectApply(HTMLElementProtoStyleGetter, el, []);
-}
-
-function HTMLIFrameElementContentWindowGetter(
-    iframe: HTMLIFrameElement
-): typeof HTMLIFrameElement.prototype.contentWindow {
-    return ReflectApply(HTMLIFrameElementProtoContentWindowGetter, iframe, []);
-}
-
-function NodeAppendChild(parent: Node, child: ChildNode): ChildNode {
-    return ReflectApply(NodeProtoAppendChild, parent, [child]);
-}
-
-// It's impossible to test whether NodeLastChild(document) is reached
-// in a normal Karma test environment, because the document will always
-// have a body element. Ignore this in coverage reporting to
-// avoid a penalty.
-// istanbul ignore next
-function NodeLastChild(node: Node): typeof Node.prototype.lastChild {
-    return ReflectApply(NodeProtoLastChildGetter, node, []);
-}
-
-function NodeIsConnected(node: Node): boolean {
-    return ReflectApply(NodeProtoIsConnectedGetter, node, []);
-}
-
-function createDetachableIframe(): HTMLIFrameElement {
-    // @ts-ignore document global ref - in browsers
-    const iframe = DocumentCreateElement(document, 'iframe') as HTMLIFrameElement;
-    // It's impossible to test whether NodeLastChild(document) is reached
-    // in a normal Karma test environment. (See explanation above,
-    // at NodeLastChild definition.)
-    const parent = DocumentBody(document) || /* istanbul ignore next */ NodeLastChild(document);
-    const style = HTMLElementStyleGetter(iframe);
-    style.display = 'none';
-    ElementSetAttribute(iframe, 'sandbox', IFRAME_SANDBOX_ATTRIBUTE_VALUE);
-    NodeAppendChild(parent, iframe);
-    return iframe;
-}
-
-function removeIframe(iframe: HTMLIFrameElement) {
-    // In Chrome debugger statements will be ignored when the iframe is removed
-    // from the document. Other browsers like Firefox and Safari work as expected.
-    // https://bugs.chromium.org/p/chromium/issues/detail?id=1015462
-
-    // Because the detachable iframe is created, and then optionally removed, all
-    // within the execution of createVirtualEnvironment, there is no point in which
-    // test code can interfere with iframe element, or its prototype chain, in
-    // order to remove it from the DOM, or stub the isConnected accessor
-    // (the latter is already too late before createVirtualEnvironment is ever called).
-    // For this reason, ignore the lack of `else` path coverage.
-    //
-    // istanbul ignore else
-    if (NodeIsConnected(iframe)) {
-        ElementRemove(iframe);
-    }
-}
+const docRef = document;
 
 interface BrowserEnvironmentOptions {
     distortionCallback?: DistortionCallback;
@@ -151,7 +58,23 @@ interface BrowserEnvironmentOptions {
 
 const createHooksCallback = createMembraneMarshall();
 
-let defaultGlobalObjectShape: PropertyDescriptorMap | null = null;
+let defaultGlobalOwnKeys: (string | symbol)[] | null = null;
+
+function createDetachableIframe(): HTMLIFrameElement {
+    const iframe = ReflectApply(DocumentProtoCreateElement, docRef, [
+        'iframe',
+    ]) as HTMLIFrameElement;
+    // It is impossible to test whether the NodeProtoLastChildGetter branch is
+    // reached in a normal Karma test environment.
+    const parent =
+        ReflectApply(DocumentProtoBodyGetter, docRef, []) ||
+        /* istanbul ignore next */ ReflectApply(NodeProtoLastChildGetter, docRef, []);
+    const style = ReflectApply(HTMLElementProtoStyleGetter, iframe, []);
+    style.display = 'none';
+    ReflectApply(ElementProtoSetAttribute, iframe, ['sandbox', IFRAME_SANDBOX_ATTRIBUTE_VALUE]);
+    ReflectApply(NodeProtoAppendChild, parent, [iframe]);
+    return iframe;
+}
 
 export default function createVirtualEnvironment(
     globalObjectShape: object | null,
@@ -178,26 +101,19 @@ export default function createVirtualEnvironment(
     // eslint-disable-next-line prefer-object-spread
     const { distortionCallback, endowments, instrumentation, keepAlive } = options;
     const iframe = createDetachableIframe();
-    const redWindow = HTMLIFrameElementContentWindowGetter(iframe)!.window;
+    const redWindow = ReflectApply(HTMLIFrameElementProtoContentWindowGetter, iframe, [])!.window;
+    let globalOwnKeys;
     if (globalObjectShape === null) {
-        if (defaultGlobalObjectShape === null) {
-            defaultGlobalObjectShape = {};
-            assignFilteredGlobalDescriptors(defaultGlobalObjectShape, redWindow, window);
-            removeWindowDescriptors(defaultGlobalObjectShape);
+        if (defaultGlobalOwnKeys === null) {
+            defaultGlobalOwnKeys = filterWindowKeys(getFilteredGlobalOwnKeys(redWindow));
         }
-        globalObjectShape = defaultGlobalObjectShape;
-    }
-    const globalObjectShapeWithEndowments = {};
-    if (globalObjectShape === defaultGlobalObjectShape) {
-        ObjectAssign(globalObjectShapeWithEndowments, defaultGlobalObjectShape);
+        globalOwnKeys = defaultGlobalOwnKeys;
     } else {
-        assignFilteredGlobalDescriptors(globalObjectShapeWithEndowments, globalObjectShape);
+        globalOwnKeys = filterWindowKeys(getFilteredGlobalOwnKeys(globalObjectShape));
     }
-    assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
-        globalObjectShapeWithEndowments,
-        endowments
-    );
-    removeWindowDescriptors(globalObjectShapeWithEndowments);
+    const filteredEndowments = {};
+    assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(filteredEndowments, endowments);
+    removeWindowDescriptors(filteredEndowments);
     const { document: redDocument } = redWindow;
     const blueConnector = createHooksCallback;
     const redConnector = createConnector(redWindow.eval);
@@ -213,16 +129,22 @@ export default function createVirtualEnvironment(
     env.link('window');
     linkIntrinsics(env, globalObjectVirtualizationTarget);
     linkUnforgeables(env, globalObjectVirtualizationTarget);
-    tameDOM(env, blueRefs, globalObjectShapeWithEndowments);
+    env.remapProto(blueRefs.document, blueRefs.DocumentProto);
+    env.lazyRemap(blueRefs.window, globalOwnKeys);
+    env.remap(blueRefs.window, filteredEndowments);
+    env.lazyRemap(blueRefs.EventTargetProto, blueRefs.EventTargetProtoOwnKeys);
+    // We don't remap `blueRefs.WindowPropertiesProto` because it is "magical"
+    // in that it provides access to elements by id.
+    //
     // Once we get the iframe info ready, and all mapped, we can proceed
     // to detach the iframe only if the keepAlive option isn't true.
     if (keepAlive !== true) {
-        removeIframe(iframe);
+        ReflectApply(ElementProtoRemove, iframe, []);
     } else {
         // TODO: Temporary hack to preserve the document reference in Firefox.
         // https://bugzilla.mozilla.org/show_bug.cgi?id=543435
-        DocumentOpen(redDocument);
-        DocumentClose(redDocument);
+        ReflectApply(DocumentProtoOpen, redDocument, []);
+        ReflectApply(DocumentProtoClose, redDocument, []);
     }
     return env;
 }
