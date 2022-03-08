@@ -2,6 +2,7 @@ import {
     assignFilteredGlobalDescriptors,
     assignFilteredGlobalDescriptorsFromPropertyDescriptorMap,
     createConnector,
+    getFilteredGlobalOwnKeys,
     linkIntrinsics,
     VirtualEnvironment,
     createMembraneMarshall,
@@ -262,6 +263,59 @@ describe('assignFilteredGlobalDescriptorsFromPropertyDescriptorMap', () => {
             value: 1,
             writable: true,
         });
+    });
+});
+
+describe('getFilteredGlobalOwnKeys', () => {
+    it('ignores non-remapped ES intrinsics', () => {
+        // Ignoring "Property 'assertions' does not exist on type '{...}'."
+        // @ts-ignore
+        expect.assertions(ESGlobalKeys.length);
+
+        const shape = ESGlobalKeys.reduce((accum, key) => {
+            accum[key] = globalThis[key];
+            return accum;
+        }, {});
+        const filteredOwnKeys = getFilteredGlobalOwnKeys(shape);
+        for (const key of ESGlobalKeys) {
+            expect(filteredOwnKeys.includes(key)).toBe(false);
+        }
+    });
+    it('ignores Reflective ES intrinsics', () => {
+        // Ignoring "Property 'assertions' does not exist on type '{...}'."
+        // @ts-ignore
+        expect.assertions(ReflectiveIntrinsicObjectNames.length);
+
+        const shape = ReflectiveIntrinsicObjectNames.reduce((accum, key) => {
+            accum[key] = globalThis[key];
+            return accum;
+        }, {});
+        const filteredOwnKeys = getFilteredGlobalOwnKeys(shape);
+        for (const key of ReflectiveIntrinsicObjectNames) {
+            expect(filteredOwnKeys.includes(key)).toBe(false);
+        }
+    });
+    it('includes Remapped ES intrinsics', () => {
+        // Ignoring "Property 'assertions' does not exist on type '{...}'."
+        // @ts-ignore
+        expect.assertions(1);
+
+        const shape = RemappedIntrinsicObjectNames.reduce((accum, key) => {
+            accum[key] = globalThis[key];
+            return accum;
+        }, {});
+        const filteredOwnKeys = getFilteredGlobalOwnKeys(shape);
+        expect(filteredOwnKeys).toEqual(RemappedIntrinsicObjectNames);
+    });
+    it('should include non-ES built-ins', () => {
+        // Ignoring "Property 'assertions' does not exist on type '{...}'."
+        // @ts-ignore
+        expect.assertions(1);
+
+        const filteredOwnKeys = getFilteredGlobalOwnKeys({
+            Foo: 1,
+        });
+        expect(filteredOwnKeys).toEqual(['Foo']);
     });
 });
 

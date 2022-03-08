@@ -1,6 +1,6 @@
 import { VirtualEnvironment } from './environment';
 
-const { includes: ArrayProtoIncludes } = Array.prototype;
+const { includes: ArrayProtoIncludes, push: ArrayProtoPush } = Array.prototype;
 const { assign: ObjectAssign } = Object;
 const {
     apply: ReflectApply,
@@ -200,6 +200,25 @@ export function assignFilteredGlobalDescriptorsFromPropertyDescriptorMap<
     return descMap;
 }
 
+export function getFilteredGlobalOwnKeys(source: object): (string | symbol)[] {
+    const result: (string | symbol)[] = [];
+    const ownKeys = ReflectOwnKeys(source);
+    for (let i = 0, { length } = ownKeys; i < length; i += 1) {
+        const ownKey = ownKeys[i];
+        // Avoid overriding ECMAScript global names that correspond
+        // to global intrinsics. This guarantee that those entries
+        // will be ignored if present in the endowments descriptor map.
+        // TODO: what if the intent is to polyfill one of those
+        // intrinsics?
+        if (
+            !ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveIntrinsicObjectNames, [ownKey])
+        ) {
+            ReflectApply(ArrayProtoPush, result, [ownKey]);
+        }
+    }
+    return result;
+}
+
 export function linkIntrinsics(
     env: VirtualEnvironment,
     globalObjectVirtualizationTarget: typeof globalThis
@@ -216,20 +235,4 @@ export function linkIntrinsics(
             }
         }
     }
-}
-
-export function toSafeDescriptorMap<T extends PropertyDescriptorMap>(descriptorMap: T): T {
-    // Descriptor maps are not susceptible to Object.prototype pollution because
-    // the internal operation uses [[OwnPropertyKeys]]:
-    // https://tc39.es/ecma262/#sec-objectdefineproperties.
-    //
-    // However, their descriptors are because the internal operation uses
-    // [[HasProperty]]: https://tc39.es/ecma262/#sec-topropertydescriptor.
-    const ownKeys = ReflectOwnKeys(descriptorMap);
-    for (let i = 0, { length } = ownKeys; i < length; i += 1) {
-        const ownKey = ownKeys[i];
-        const desc = (descriptorMap as any)[ownKey];
-        ReflectSetPrototypeOf(desc, null);
-    }
-    return descriptorMap;
 }

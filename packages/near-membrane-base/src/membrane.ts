@@ -66,9 +66,10 @@ type CallableSet = (
     value: any,
     receiver: PointerOrPrimitive
 ) => boolean;
-type CallableDebugInfo = (...args: Parameters<typeof console.info>) => void;
+type CallableDebugInfo = (...args: Parameters<typeof console.info>) => boolean;
 type CallableGetTargetIntegrityTraits = (targetPointer: Pointer) => number;
 type CallableGetToStringTagOfTarget = (targetPointer: Pointer) => string;
+type CallableInstallErrorPrepareStackTrace = () => void;
 type CallableIsTargetLive = (targetPointer: Pointer) => boolean;
 type CallableIsTargetRevoked = (targetPointer: Pointer) => boolean;
 type CallableSerializeTarget = (targetPointer: Pointer) => SerializedValue | undefined;
@@ -117,6 +118,10 @@ export type CallableGetPropertyValuePointer = (
     targetPointer: Pointer,
     key: string | symbol
 ) => Pointer;
+export type CallableInstallLazyDescriptors = (
+    targetPointer: Pointer,
+    ...ownKeysAndEnumTuples: [string | symbol, boolean]
+) => void;
 export type CallableLinkPointers = (targetPointer: Pointer, foreignTargetPointer: Pointer) => void;
 export type CallableSetPrototypeOf = (
     targetPointer: Pointer,
@@ -149,6 +154,8 @@ export type HooksCallback = (
     callableDebugInfo: CallableDebugInfo,
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableGetToStringTagOfTarget: CallableGetToStringTagOfTarget,
+    callableInstallErrorPrepareStackTrace: CallableInstallErrorPrepareStackTrace,
+    callableInstallLazyDescriptors: CallableInstallLazyDescriptors,
     callableIsTargetLive: CallableIsTargetLive,
     callableIsTargetRevoked: CallableIsTargetRevoked,
     callableSerializeTarget: CallableSerializeTarget,
@@ -163,43 +170,33 @@ export interface InitLocalOptions {
 export type Pointer = CallableFunction;
 export type ProxyTarget = CallableFunction | any[] | object;
 
+export const sharedMembraneState = {
+    proxyTargetToLazyPropertyStateMap: new WeakMap(),
+};
 // istanbul ignore next
-export function createMembraneMarshall() {
+export function createMembraneMarshall(
+    isInShadowRealm?: boolean,
+    { proxyTargetToLazyPropertyStateMap } = sharedMembraneState
+) {
     // @rollup/plugin-replace replaces `DEV_MODE` references.
     const DEV_MODE = true;
     const FLAGS_REG_EXP = /\w*$/;
-    const LOCKER_DEBUG_MODE_SYMBOL = Symbol.for('@@lockerDebugMode');
-    const LOCKER_LIVE_VALUE_MARKER_SYMBOL = Symbol.for('@@lockerLiveValue');
-    const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = Symbol.for(
-        '@@lockerNearMembraneSerializedValue'
-    );
-    const LOCKER_NEAR_MEMBRANE_SYMBOL = Symbol.for('@@lockerNearMembrane');
-    const LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL = Symbol.for(
-        '@@lockerNearMembraneUndefinedValue'
-    );
     // BigInt is not supported in Safari 13.1.
     // https://caniuse.com/bigint
     const SUPPORTS_BIG_INT = typeof BigInt === 'function';
-    const { toStringTag: TO_STRING_TAG_SYMBOL } = Symbol;
-
-    // This package is bundled by third-parties that have their own build time
-    // replacement logic. Instead of customizing each build system to be aware
-    // of this package we implement a two phase debug mode by performing small
-    // runtime checks to determine phase one, our code is unminified, and
-    // phase two, the user opted-in to custom devtools formatters. Phase one
-    // is used for light weight initialization time debug while phase two is
-    // reserved for post initialization runtime.
-    const lockerUnminifiedGate = `${() => /**/ 1}`.includes('*');
-    // We'll check on debug mode phase two in BoundaryProxyHandler#makeProxyStatic().
-    let lockerDebugModeGate: boolean;
 
     const ArrayCtor = Array;
     const ArrayBufferCtor = ArrayBuffer;
+    const ErrorCtor = Error;
     const ObjectCtor = Object;
+    const ProxyCtor = Proxy;
+    const SymbolCtor = Symbol;
     const TypeErrorCtor = TypeError;
+    const WeakMapCtor = WeakMap;
     const {
         defineProperties: ObjectDefineProperties,
         freeze: ObjectFreeze,
+        getOwnPropertyDescriptor: ObjectGetOwnPropertyDescriptor,
         getOwnPropertyDescriptors: ObjectGetOwnPropertyDescriptors,
         isFrozen: ObjectIsFrozen,
         isSealed: ObjectIsSealed,
@@ -239,9 +236,10 @@ export function createMembraneMarshall() {
     )!;
     const BigIntProtoValueOf = SUPPORTS_BIG_INT ? BigInt.prototype.valueOf : undefined;
     const { valueOf: BooleanProtoValueOf } = Boolean.prototype;
+    const { toString: ErrorProtoToString } = ErrorCtor.prototype;
     const { stringify: JSONStringify } = JSON;
     const { valueOf: NumberProtoValueOf } = Number.prototype;
-    const { revocable: ProxyRevocable } = Proxy;
+    const { revocable: ProxyRevocable } = ProxyCtor;
     const { prototype: RegExpProto } = RegExp;
     const { exec: RegExpProtoExec, toString: RegExProtoToString } = RegExpProto;
     // Edge 15 does not support RegExp.prototype.flags.
@@ -255,9 +253,15 @@ export function createMembraneMarshall() {
     const RegExpProtoSourceGetter = ReflectApply(ObjectProto__lookupGetter__, RegExpProto, [
         'source',
     ])!;
-    const { slice: StringProtoSlice, valueOf: StringProtoValueOf } = String.prototype;
-    const { valueOf: SymbolProtoValueOf } = Symbol.prototype;
-    const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMap.prototype;
+    const {
+        endsWith: StringProtoEndsWith,
+        includes: StringProtoIncludes,
+        slice: StringProtoSlice,
+        valueOf: StringProtoValueOf,
+    } = String.prototype;
+    const { for: SymbolFor, toStringTag: TO_STRING_TAG_SYMBOL } = SymbolCtor;
+    const { valueOf: SymbolProtoValueOf } = SymbolCtor.prototype;
+    const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMapCtor.prototype;
     const consoleRef = console;
     const { info: consoleInfoRef } = consoleRef;
     const localEval = eval;
@@ -267,12 +271,12 @@ export function createMembraneMarshall() {
         // eslint-disable-next-line no-restricted-globals
         (typeof self !== 'undefined' && self) ||
         // See https://mathiasbynens.be/notes/globalthis for more details.
-        (ReflectDefineProperty(Object.prototype, 'globalThis', {
+        (ReflectDefineProperty(ObjectProto, 'globalThis', {
             // @ts-ignore: TS doesn't like __proto__ on property descriptors.
             __proto__: null,
             configurable: true,
             get() {
-                ReflectDeleteProperty(Object.prototype, 'globalThis');
+                ReflectDeleteProperty(ObjectProto, 'globalThis');
                 // Safari 12 on iOS 12.1 has a `this` of `undefined` so we
                 // fallback to `self`.
                 // eslint-disable-next-line no-restricted-globals
@@ -280,6 +284,30 @@ export function createMembraneMarshall() {
             },
         }),
         globalThis);
+
+    const LOCKER_DEBUG_MODE_SYMBOL = SymbolFor('@@lockerDebugMode');
+    const LOCKER_IDENTIFIER_MARKER = '$LWS';
+    const LOCKER_LIVE_VALUE_MARKER_SYMBOL = SymbolFor('@@lockerLiveValue');
+    const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = SymbolFor(
+        '@@lockerNearMembraneSerializedValue'
+    );
+    const LOCKER_NEAR_MEMBRANE_SYMBOL = SymbolFor('@@lockerNearMembrane');
+    const LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL = SymbolFor(
+        '@@lockerNearMembraneUndefinedValue'
+    );
+    // The default stack trace limit in Chrome is 10.
+    // Set to 20 to account for stack trace filtering.
+    const LOCKER_STACK_TRACE_LIMIT = 20;
+    // This package is bundled by third-parties that have their own build time
+    // replacement logic. Instead of customizing each build system to be aware
+    // of this package we implement a two phase debug mode by performing small
+    // runtime checks to determine phase one, our code is unminified, and
+    // phase two, the user opted-in to custom devtools formatters. Phase one
+    // is used for light weight initialization time debug while phase two is
+    // reserved for post initialization runtime.
+    const lockerUnminifiedGate = `${() => /**/ 1}`.includes('*');
+    // We'll check on debug mode phase two in BoundaryProxyHandler#makeProxyStatic().
+    let lockerDebugModeGate: boolean;
     // eslint-disable-next-line no-shadow
     const enum PreventExtensionsResult {
         None = 0,
@@ -418,6 +446,92 @@ export function createMembraneMarshall() {
         // Step 16: If `Type(tag)` is not `String`, let `tag` be `builtinTag`.
         const brand = ReflectApply(ObjectProtoToString, target, []);
         return ReflectApply(StringProtoSlice, brand, [8, -1]);
+    }
+
+    function installErrorPrepareStackTrace() {
+        // Feature detect the V8 stack trace API.
+        // https://v8.dev/docs/stack-trace-api
+        const CallSite = ((): Function | undefined => {
+            ErrorCtor.prepareStackTrace = (_error: Error, callSites: NodeJS.CallSite[]) =>
+                callSites;
+            const callSites = new ErrorCtor().stack as string | NodeJS.CallSite[];
+            delete ErrorCtor.prepareStackTrace;
+            return isArrayOrThrowForRevoked(callSites) && callSites.length > 0
+                ? callSites[0]?.constructor
+                : undefined;
+        })();
+        if (typeof CallSite !== 'function') {
+            return;
+        }
+        const {
+            getEvalOrigin: CallSiteProtoGetEvalOrigin,
+            getFunctionName: CallSiteProtoGetFunctionName,
+            toString: CallSiteProtoToString,
+        } = CallSite.prototype;
+
+        const formatStackTrace = function formatStackTrace(
+            error: Error,
+            callSites: NodeJS.CallSite[]
+        ): string {
+            // Based on V8's default stack trace formatting:
+            // https://chromium.googlesource.com/v8/v8.git/+/refs/heads/main/src/execution/messages.cc#371
+            let stackTrace = '';
+            try {
+                stackTrace = ReflectApply(ErrorProtoToString, error, []);
+            } catch {
+                stackTrace = '<error>';
+            }
+            let consecutive = false;
+            for (let i = 0, { length } = callSites; i < length; i += 1) {
+                const callSite = callSites[i];
+                const funcName = ReflectApply(CallSiteProtoGetFunctionName, callSite, []);
+                let isMarked = false;
+                if (
+                    typeof funcName === 'string' &&
+                    funcName !== 'eval' &&
+                    ReflectApply(StringProtoEndsWith, funcName, [LOCKER_IDENTIFIER_MARKER])
+                ) {
+                    isMarked = true;
+                }
+                if (!isMarked) {
+                    const evalOrigin = ReflectApply(CallSiteProtoGetEvalOrigin, callSite, []);
+                    if (
+                        typeof evalOrigin === 'string' &&
+                        ReflectApply(StringProtoIncludes, evalOrigin, [LOCKER_IDENTIFIER_MARKER])
+                    ) {
+                        isMarked = true;
+                    }
+                }
+                // Only write a single LWS entry per consecutive LWS stacks.
+                if (isMarked) {
+                    if (!consecutive) {
+                        consecutive = true;
+                        stackTrace += '\n    at LWS';
+                    }
+                    continue;
+                } else {
+                    consecutive = false;
+                }
+                try {
+                    stackTrace += `\n    at ${ReflectApply(CallSiteProtoToString, callSite, [])}`;
+                    // eslint-disable-next-line no-empty
+                } catch {}
+            }
+            return stackTrace;
+        };
+        // Error.prepareStackTrace cannot be a bound or proxy wrapped
+        // function, so to obscure its source we wrap the call to
+        // formatStackTrace().
+        ErrorCtor.prepareStackTrace = function prepareStackTrace(
+            error: Error,
+            callSites: NodeJS.CallSite[]
+        ) {
+            return formatStackTrace(error, callSites);
+        };
+        const { stackTraceLimit } = ErrorCtor;
+        if (typeof stackTraceLimit !== 'number' || stackTraceLimit < LOCKER_STACK_TRACE_LIMIT) {
+            ErrorCtor.stackTraceLimit = LOCKER_STACK_TRACE_LIMIT;
+        }
     }
 
     function isArrayBuffer(value: any): boolean {
@@ -608,6 +722,81 @@ export function createMembraneMarshall() {
         return desc;
     }
 
+    if (isInShadowRealm) {
+        // In the ShadowRealm activate lazy descriptors when they are accessed
+        // by Reflect.getOwnPropertyDescriptor, Object.getOwnPropertyDescriptor,
+        // or Object.getOwnPropertyDescriptors.
+        const hasLazyOwnProperty = (
+            target: any,
+            key: string | symbol,
+            lazyState = ReflectApply(WeakMapProtoGet, proxyTargetToLazyPropertyStateMap, [target])
+        ): boolean => lazyState?.[key] || false;
+        const wrapGetOwnPropertyDescriptor = (
+            originalFunc: typeof Reflect.getOwnPropertyDescriptor
+        ) =>
+            new ProxyCtor(originalFunc, {
+                apply(
+                    _originalFunc: Function,
+                    thisArg: any,
+                    args: [target: object, key: string | symbol]
+                ) {
+                    const unsafeDesc = ReflectApply(originalFunc, thisArg, args);
+                    if (unsafeDesc) {
+                        const { 0: target, 1: key } = args;
+                        if (hasLazyOwnProperty(target, key)) {
+                            ReflectGet(target, key);
+                            return ReflectApply(originalFunc, thisArg, args);
+                        }
+                    }
+                    return unsafeDesc;
+                },
+            }) as typeof Reflect.getOwnPropertyDescriptor;
+        const wrapGetOwnPropertyDescriptors = (
+            originalFunc: typeof Object.getOwnPropertyDescriptors
+        ) =>
+            new ProxyCtor(originalFunc, {
+                apply(_originalFunc: Function, thisArg: any, args: [target: object]) {
+                    const unsafeDescMap = ReflectApply(originalFunc, thisArg, args);
+                    const ownKeys = ReflectOwnKeys(unsafeDescMap);
+                    const { length } = ownKeys;
+                    if (!length) {
+                        return unsafeDescMap;
+                    }
+                    const { 0: target } = args;
+                    const lazyState = ReflectApply(
+                        WeakMapProtoGet,
+                        proxyTargetToLazyPropertyStateMap,
+                        [target]
+                    );
+                    if (lazyState === undefined) {
+                        return unsafeDescMap;
+                    }
+                    for (let i = 0; i < length; i += 1) {
+                        const ownKey = ownKeys[i];
+                        if (hasLazyOwnProperty(target, ownKey, lazyState)) {
+                            // Activate the descriptor by triggering its getter.
+                            ReflectGet(target, ownKey);
+                            const unsafeDesc = ReflectGetOwnPropertyDescriptor(target, ownKey);
+                            if (unsafeDesc) {
+                                unsafeDescMap[ownKey] = unsafeDesc;
+                            } else {
+                                delete unsafeDescMap[ownKey];
+                            }
+                        }
+                    }
+                    return unsafeDescMap;
+                },
+            }) as typeof Object.getOwnPropertyDescriptors;
+        Object.getOwnPropertyDescriptor = wrapGetOwnPropertyDescriptor(
+            ObjectGetOwnPropertyDescriptor
+        );
+        Object.getOwnPropertyDescriptors = wrapGetOwnPropertyDescriptors(
+            ObjectGetOwnPropertyDescriptors
+        );
+        Reflect.getOwnPropertyDescriptor = wrapGetOwnPropertyDescriptor(
+            ReflectGetOwnPropertyDescriptor
+        );
+    }
     return function createHooksCallback(
         color: string,
         trapMutations: boolean,
@@ -624,7 +813,8 @@ export function createMembraneMarshall() {
 
         const INBOUND_INSTRUMENTATION_LABEL = `to:${color}`;
         const OUTBOUND_INSTRUMENTATION_LABEL = `from:${color}`;
-        const PROXY_TARGET_TO_POINTER_MAP = new WeakMap();
+
+        const proxyTargetToPointerMap = new WeakMapCtor();
 
         let foreignCallablePushTarget: CallablePushTarget;
         let foreignCallableApply: CallableApply;
@@ -643,6 +833,7 @@ export function createMembraneMarshall() {
         let foreignCallableDebugInfo: CallableDebugInfo;
         let foreignCallableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits;
         let foreignCallableGetToStringTagOfTarget: CallableGetToStringTagOfTarget;
+        let foreignCallableInstallErrorPrepareStackTrace: CallableInstallErrorPrepareStackTrace;
         let foreignCallableIsTargetLive: CallableIsTargetLive;
         let foreignCallableIsTargetRevoked: CallableIsTargetRevoked;
         let foreignCallableSerializeTarget: CallableSerializeTarget;
@@ -652,6 +843,34 @@ export function createMembraneMarshall() {
         let lastProxyTrapCalled = ProxyHandlerTraps.None;
         let nearMembraneSymbolGate = false;
         let selectedTarget: undefined | ProxyTarget;
+
+        function activateLazyOwnPropertyDefinition(
+            target: object,
+            key: string | symbol,
+            lazyState: object
+        ) {
+            delete lazyState[key];
+            let safeDesc;
+            foreignCallableGetOwnPropertyDescriptor(
+                getTransferablePointer(target),
+                key,
+                (configurable, enumerable, writable, valuePointer, getPointer, setPointer) => {
+                    safeDesc = createDescriptorFromMeta(
+                        configurable,
+                        enumerable,
+                        writable,
+                        valuePointer,
+                        getPointer,
+                        setPointer
+                    );
+                }
+            );
+            if (safeDesc) {
+                ReflectDefineProperty(target, key, safeDesc);
+            } else {
+                delete target[key];
+            }
+        }
 
         function copyForeignOwnPropertyDescriptorsAndPrototypeToShadowTarget(
             foreignTargetPointer: Pointer,
@@ -683,7 +902,7 @@ export function createMembraneMarshall() {
             ReflectSetPrototypeOf(shadowTarget, proto);
         }
 
-        // metadata is the transferable descriptor definition
+        // The metadata is the transferable descriptor definition.
         function createDescriptorFromMeta(
             configurable: boolean | symbol,
             enumerable: boolean | symbol,
@@ -713,6 +932,34 @@ export function createMembraneMarshall() {
                 safeDesc.value = getLocalValue(valuePointer);
             }
             return safeDesc;
+        }
+
+        function createLazyDescriptor(
+            target: object,
+            key: string | symbol,
+            enumerable: boolean,
+            lazyState: object
+        ): PropertyDescriptor {
+            // The role of this descriptor is to serve as a bouncer, when either a getter
+            // or a setter is accessed, the descriptor will be replaced with the descriptor
+            // from the foreign side and the get/set operation will be carry on from there.
+            // TODO: somehow we need to track the unforgeable/key value pairs in case the
+            // local realm ever attempt to access the descriptor, in which case the same
+            // mechanism must be applied
+            return {
+                // @ts-ignore: TS doesn't like __proto__ on property descriptors.
+                __proto__: null,
+                configurable: true,
+                enumerable,
+                get(): any {
+                    activateLazyOwnPropertyDefinition(target, key, lazyState);
+                    return ReflectGet(target, key);
+                },
+                set(value: any) {
+                    activateLazyOwnPropertyDefinition(target, key, lazyState);
+                    ReflectSet(target, key, value);
+                },
+            };
         }
 
         function createPointer(originalTarget: ProxyTarget): () => void {
@@ -804,7 +1051,7 @@ export function createMembraneMarshall() {
         }
 
         function getTransferablePointer(originalTarget: ProxyTarget): Pointer {
-            let proxyPointer = ReflectApply(WeakMapProtoGet, PROXY_TARGET_TO_POINTER_MAP, [
+            let proxyPointer = ReflectApply(WeakMapProtoGet, proxyTargetToPointerMap, [
                 originalTarget,
             ]);
             if (proxyPointer) {
@@ -853,10 +1100,7 @@ export function createMembraneMarshall() {
             // value. This is not fatal, but implies that for every distorted value where will
             // two proxies that are not ===, which is weird. Guaranteeing this is not easy because
             // it means auditing the code.
-            ReflectApply(WeakMapProtoSet, PROXY_TARGET_TO_POINTER_MAP, [
-                originalTarget,
-                proxyPointer,
-            ]);
+            ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [originalTarget, proxyPointer]);
             return proxyPointer;
         }
 
@@ -953,12 +1197,12 @@ export function createMembraneMarshall() {
             return undefined;
         }
 
-        function pushErrorAcrossBoundary(e: any): any {
-            const foreignErrorPointer = getTransferableValue(e);
+        function pushErrorAcrossBoundary(error: any): any {
+            const foreignErrorPointer = getTransferableValue(error);
             if (typeof foreignErrorPointer === 'function') {
                 foreignErrorPointer();
             }
-            return e;
+            return error;
         }
 
         class BoundaryProxyHandler implements ProxyHandler<ShadowTarget> {
@@ -1144,8 +1388,6 @@ export function createMembraneMarshall() {
                 // target without taking snapshots.
                 this.deleteProperty = BoundaryProxyHandler.passthruDeletePropertyTrap;
                 this.defineProperty = BoundaryProxyHandler.passthruDefinePropertyTrap;
-                this.get = BoundaryProxyHandler.hybridGetTrap;
-                this.has = BoundaryProxyHandler.hybridHasTrap;
                 this.preventExtensions = BoundaryProxyHandler.passthruPreventExtensionsTrap;
                 this.set = BoundaryProxyHandler.passthruSetTrap;
                 this.setPrototypeOf = BoundaryProxyHandler.passthruSetPrototypeOfTrap;
@@ -1195,9 +1437,9 @@ export function createMembraneMarshall() {
                     ObjectSeal(shadowTarget);
                 } else if (targetIntegrityTraits & TargetIntegrityTraits.IsNotExtensible) {
                     ReflectPreventExtensions(shadowTarget);
-                } else if (lockerUnminifiedGate) {
+                } else if (lockerUnminifiedGate && lockerDebugModeGate !== false) {
                     try {
-                        foreignCallableDebugInfo(
+                        lockerDebugModeGate = foreignCallableDebugInfo(
                             'Mutations on the membrane of an object originating ' +
                                 'outside of the sandbox will not be reflected on ' +
                                 'the object itself:',
@@ -1249,7 +1491,7 @@ export function createMembraneMarshall() {
                 : BoundaryProxyHandler.passthruDeletePropertyTrap;
 
             private static defaultGetOwnPropertyDescriptorTrap =
-                BoundaryProxyHandler.passthruOwnPropertyDescriptorTrap;
+                BoundaryProxyHandler.passthruGetOwnPropertyDescriptorTrap;
 
             private static defaultGetPrototypeOfTrap =
                 BoundaryProxyHandler.passthruGetPrototypeOfTrap;
@@ -1480,7 +1722,7 @@ export function createMembraneMarshall() {
                 return keys || [];
             }
 
-            private static passthruOwnPropertyDescriptorTrap(
+            private static passthruGetOwnPropertyDescriptorTrap(
                 this: BoundaryProxyHandler,
                 shadowTarget: ShadowTarget,
                 key: string | symbol
@@ -1755,7 +1997,7 @@ export function createMembraneMarshall() {
             (targetPointer: Pointer, newPointer: Pointer) => {
                 targetPointer();
                 const target = getSelectedTarget();
-                ReflectApply(WeakMapProtoSet, PROXY_TARGET_TO_POINTER_MAP, [target, newPointer]);
+                ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [target, newPointer]);
             },
             /**
              * callablePushTarget: This function can be used by a foreign realm to install a proxy
@@ -1774,7 +2016,7 @@ export function createMembraneMarshall() {
                     foreignTargetTraits,
                     foreignTargetFunctionName
                 );
-                ReflectApply(WeakMapProtoSet, PROXY_TARGET_TO_POINTER_MAP, [
+                ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [
                     proxy,
                     foreignTargetPointer,
                 ]);
@@ -1984,7 +2226,7 @@ export function createMembraneMarshall() {
                     if (
                         result === undefined &&
                         key === TO_STRING_TAG_SYMBOL &&
-                        targetTraits & TargetTraits.IsObject
+                        (targetTraits === TargetTraits.None || targetTraits & TargetTraits.IsObject)
                     ) {
                         try {
                             if (!ReflectHas(target, key)) {
@@ -2165,13 +2407,21 @@ export function createMembraneMarshall() {
             ),
             // callableDebugInfo
             instrumentCallableWrapper(
-                (...args: Parameters<typeof console.info>): void => {
-                    if (lockerUnminifiedGate && lockerDebugModeGate === undefined) {
+                (...args: Parameters<typeof console.info>): boolean => {
+                    if (
+                        !isInShadowRealm &&
+                        lockerUnminifiedGate &&
+                        lockerDebugModeGate === undefined
+                    ) {
                         lockerDebugModeGate = ReflectApply(
                             ObjectProtoHasOwnProperty,
                             globalThisRef,
                             [LOCKER_DEBUG_MODE_SYMBOL]
                         );
+                        if (lockerDebugModeGate) {
+                            installErrorPrepareStackTrace();
+                            foreignCallableInstallErrorPrepareStackTrace();
+                        }
                     }
                     if (lockerDebugModeGate) {
                         for (let i = 0, { length } = args; i < length; i += 1) {
@@ -2182,7 +2432,9 @@ export function createMembraneMarshall() {
                         } catch (e: any) {
                             throw pushErrorAcrossBoundary(e);
                         }
+                        return true;
                     }
+                    return false;
                 },
                 'callableDebugInfo',
                 INBOUND_INSTRUMENTATION_LABEL
@@ -2213,7 +2465,46 @@ export function createMembraneMarshall() {
                 'callableGetToStringTagOfTarget',
                 INBOUND_INSTRUMENTATION_LABEL
             ),
-
+            // callableInstallErrorPrepareStackTrace
+            instrumentCallableWrapper(
+                installErrorPrepareStackTrace,
+                'callableInstallErrorPrepareStackTrace',
+                INBOUND_INSTRUMENTATION_LABEL
+            ),
+            // callableInstallLazyDescriptors
+            instrumentCallableWrapper(
+                (targetPointer: Pointer, ...ownKeysAndEnumTuples: [string | symbol, boolean]) => {
+                    if (!isInShadowRealm) {
+                        return;
+                    }
+                    targetPointer();
+                    const target = getSelectedTarget();
+                    let lazyState = ReflectApply(
+                        WeakMapProtoGet,
+                        proxyTargetToLazyPropertyStateMap,
+                        [target]
+                    );
+                    if (lazyState === undefined) {
+                        lazyState = { __proto__: null };
+                        ReflectApply(WeakMapProtoSet, proxyTargetToLazyPropertyStateMap, [
+                            target,
+                            lazyState,
+                        ]);
+                    }
+                    for (let i = 0, { length } = ownKeysAndEnumTuples; i < length; i += 2) {
+                        const ownKey = ownKeysAndEnumTuples[i] as string | symbol;
+                        const enumerable = ownKeysAndEnumTuples[i + 1] as boolean;
+                        lazyState[ownKey] = true;
+                        ReflectDefineProperty(
+                            target,
+                            ownKey,
+                            createLazyDescriptor(target, ownKey, enumerable, lazyState)
+                        );
+                    }
+                },
+                'callableInstallLazyDescriptors',
+                INBOUND_INSTRUMENTATION_LABEL
+            ),
             // callableIsTargetLive
             instrumentCallableWrapper(
                 (targetPointer: Pointer): boolean => {
@@ -2410,12 +2701,14 @@ export function createMembraneMarshall() {
                 20: callableDebugInfo,
                 21: callableGetTargetIntegrityTraits,
                 22: callableGetToStringTagOfTarget,
-                23: callableIsTargetLive,
-                24: callableIsTargetRevoked,
-                25: callableSerializeTarget,
-                26: callableBatchGetPrototypeOfAndOwnPropertyDescriptors,
-                27: callableBatchGetPrototypeOfWhenHasNoOwnProperty,
-                28: callableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
+                23: callableInstallErrorPrepareStackTrace,
+                // 24: callableInstallLazyDescriptors,
+                25: callableIsTargetLive,
+                26: callableIsTargetRevoked,
+                27: callableSerializeTarget,
+                28: callableBatchGetPrototypeOfAndOwnPropertyDescriptors,
+                29: callableBatchGetPrototypeOfWhenHasNoOwnProperty,
+                30: callableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
             } = hooks;
             foreignCallablePushTarget = callablePushTarget;
             // traps utilities
@@ -2472,6 +2765,13 @@ export function createMembraneMarshall() {
                 instrumentCallableWrapper(
                     callableHas,
                     'callableHas',
+                    OUTBOUND_INSTRUMENTATION_LABEL
+                )
+            );
+            foreignCallableInstallErrorPrepareStackTrace = foreignErrorControl(
+                instrumentCallableWrapper(
+                    callableInstallErrorPrepareStackTrace,
+                    'callableInstallErrorPrepareStackTrace',
                     OUTBOUND_INSTRUMENTATION_LABEL
                 )
             );
