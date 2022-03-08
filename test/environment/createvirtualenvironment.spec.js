@@ -25,7 +25,9 @@ describe('createVirtualEnvironment', () => {
                 expect(() => env.evaluate('')).not.toThrow();
             });
             it('options object has endowments, but is empty', () => {
-                const env = createVirtualEnvironment(window, window, { endowments: {} });
+                const env = createVirtualEnvironment(window, window, {
+                    endowments: {},
+                });
                 expect(() => env.evaluate('')).not.toThrow();
             });
             it('options object has keepAlive: true', () => {

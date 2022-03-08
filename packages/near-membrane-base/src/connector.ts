@@ -6,9 +6,17 @@ const marshallSourceTextInStrictMode = `
 (function(){
     'use strict';
     (${function initializeShadowRealm() {
-        // Hook into V8 stack trace API
-        // https://v8.dev/docs/stack-trace-api
-        if (typeof Error.prepareStackTrace !== 'function') {
+        // This package is bundled by third-parties that have their own build time
+        // replacement logic. Instead of customizing each build system to be aware
+        // of this package we implement a two phase debug mode by performing small
+        // runtime checks to determine phase one, our code is unminified, and
+        // phase two, the user opted-in to custom devtools formatters. Phase one
+        // is used for light weight initialization time debug while phase two is
+        // reserved for post initialization runtime.
+        const lockerUnminifiedGate = `${() => /**/ 1}`.includes('*');
+        if (lockerUnminifiedGate && typeof Error.prepareStackTrace !== 'function') {
+            // Feature detect the V8 stack trace API.
+            // https://v8.dev/docs/stack-trace-api
             const CallSite = ((): Function | undefined => {
                 Error.prepareStackTrace = (_error: Error, callSites: NodeJS.CallSite[]) =>
                     callSites;
@@ -19,18 +27,10 @@ const marshallSourceTextInStrictMode = `
                     : undefined;
             })();
             if (typeof CallSite === 'function') {
-                // This package is bundled by third-parties that have their own
-                // build time replacement logic. Instead of customizing each
-                // build system to be aware of this package we perform a small
-                // runtime check to determine whether our code is minified or in
-                // DEBUG_MODE.
-                // https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.debug_mode_enable
-                const DEBUG_MODE = `${() => /**/ 1}`.includes('*');
-                const ZERO_WIDTH_JOINER = '\u200D';
-                const LOCKER_IDENTIFIER_MARKER = `$LWS${ZERO_WIDTH_JOINER}`;
+                const LOCKER_IDENTIFIER_MARKER = '$LWS';
 
                 const { toString: ErrorProtoToString } = Error.prototype;
-                const { apply: ReflectApply, defineProperty: ReflectDefineProperty } = Reflect;
+                const { apply: ReflectApply } = Reflect;
                 const { endsWith: StringProtoEndsWith, includes: StringProtoIncludes } =
                     String.prototype;
                 const {
@@ -99,29 +99,18 @@ const marshallSourceTextInStrictMode = `
                     }
                     return stackTrace;
                 };
-                // Make Error.prepareStackTrace non-configurable and non-writable.
-                ReflectDefineProperty(Error, 'prepareStackTrace', {
-                    // @ts-ignore: TS doesn't like __proto__ on property descriptors.
-                    __proto__: null,
-                    enumerable: true,
-                    // Error.prepareStackTrace cannot be a bound or proxy wrapped
-                    // function, so to obscure its source we wrap the call to
-                    // formatStackTrace().
-                    value: function prepareStackTrace(error: Error, callSites: NodeJS.CallSite[]) {
-                        return formatStackTrace(error, callSites);
-                    },
-                });
-                // Make Error.stackTraceLimit configurable and writable in DEBUG_MODE.
-                ReflectDefineProperty(Error, 'stackTraceLimit', {
-                    // @ts-ignore: TS doesn't like __proto__ on property descriptors.
-                    __proto__: null,
-                    configurable: DEBUG_MODE,
-                    enumerable: true,
-                    // The default stack trace limit is 10.
-                    // Increasing to 20 for wiggle room of filtered results.
-                    value: 20,
-                    writable: DEBUG_MODE,
-                });
+                // Error.prepareStackTrace cannot be a bound or proxy wrapped
+                // function, so to obscure its source we wrap the call to
+                // formatStackTrace().
+                Error.prepareStackTrace = function prepareStackTrace(
+                    error: Error,
+                    callSites: NodeJS.CallSite[]
+                ) {
+                    return formatStackTrace(error, callSites);
+                };
+                // The default stack trace limit in Chrome is 10.
+                // Increasing to 20 for wiggle room of filtered results.
+                Error.stackTraceLimit = 20;
             }
         }
     }.toString()})();

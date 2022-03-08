@@ -4,7 +4,7 @@ describe('FF BugFix 543435', () => {
     it('should preserve the document reference in the next turn', (done) => {
         expect.assertions(3);
         const env = createVirtualEnvironment(window, window, {
-            endowments: {
+            endowments: Object.getOwnPropertyDescriptors({
                 validateSyncDocumentReference(redDoc) {
                     expect(redDoc).toBe(document);
                 },
@@ -15,7 +15,7 @@ describe('FF BugFix 543435', () => {
                     expect(redDoc).toBe(document);
                     done();
                 },
-            },
+            }),
             keepAlive: true,
         });
         env.evaluate(`

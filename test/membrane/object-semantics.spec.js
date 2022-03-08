@@ -1,21 +1,18 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-let obj;
-function saveObject(o) {
-    obj = o;
-}
-
-const endowments = {
-    saveObject,
-    expect,
-};
-
 describe('Blue Proxies', () => {
     it('should allow writable objects to change', () => {
-        'use strict';
-
         expect.assertions(9);
-        const env = createVirtualEnvironment(window, window, { endowments });
+
+        let obj;
+        const env = createVirtualEnvironment(window, window, {
+            endowments: Object.getOwnPropertyDescriptors({
+                expect,
+                saveObject(o) {
+                    obj = o;
+                },
+            }),
+        });
         env.evaluate(`
             'use strict';
             const obj = {

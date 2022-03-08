@@ -6,13 +6,16 @@ class Base {
         return 'from base';
     }
 }
-let Foo;
-function saveFoo(f) {
-    Foo = f;
-}
 
-const env = createVirtualEnvironment(window, window, { endowments: { Base, saveFoo } });
-env.evaluate(`
+let Foo;
+createVirtualEnvironment(window, window, {
+    endowments: Object.getOwnPropertyDescriptors({
+        Base,
+        saveFoo(f) {
+            Foo = f;
+        },
+    }),
+}).evaluate(`
     class Foo extends Base {
         foo() {
             return 'from foo';
@@ -21,15 +24,16 @@ env.evaluate(`
     saveFoo(Foo);
 `);
 
-const endowments = {
-    Foo,
-    expect,
-};
-
 describe('The membrane', () => {
     it('should allow expandos on endowments inside the sandbox', () => {
         expect.assertions(4);
-        const env = createVirtualEnvironment(window, window, { endowments });
+
+        const env = createVirtualEnvironment(window, window, {
+            endowments: Object.getOwnPropertyDescriptors({
+                Foo,
+                expect,
+            }),
+        });
         env.evaluate(`
             'use strict';
             expect(Foo.prototype.base()).toBe('from base');

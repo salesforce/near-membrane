@@ -19,6 +19,7 @@ module.exports = {
         delete options.footer;
         let babelOutputHooks;
         return {
+            name: 'babel-output',
             async renderStart(outputOptions) {
                 // Lazily initialize the getBabelOutputPlugin with a filename so that
                 // presets, like @babel/preset-typescript, will work.

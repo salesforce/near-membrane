@@ -12,10 +12,7 @@ import {
     HooksCallback,
     Pointer,
     ProxyTarget,
-    SupportFlagsEnum,
 } from './membrane';
-
-export interface SupportFlagsObject {}
 
 interface VirtualEnvironmentOptions {
     // Blue connector factory
@@ -24,8 +21,6 @@ interface VirtualEnvironmentOptions {
     distortionCallback?: DistortionCallback;
     // Red connector factory
     redConnector: ReturnType<typeof createMembraneMarshall>;
-    // Environment support object
-    support?: SupportFlagsObject;
     // Instrumentation library object
     instrumentation?: InstrumentationHooks;
 }
@@ -37,18 +32,7 @@ const SHOULD_TRAP_MUTATION = true;
 const SHOULD_NOT_TRAP_MUTATION = false;
 
 const ErrorCtor = Error;
-const { assign: ObjectAssign, keys: ObjectKeys } = Object;
 const { apply: ReflectApply, ownKeys: ReflectOwnKeys } = Reflect;
-const { slice: StringProtoSlice, toUpperCase: StringProtoToUpperCase } = String.prototype;
-
-function capitalizeFirstChar(string: string): string {
-    const { length } = string;
-    if (!length) {
-        return string;
-    }
-    const upper = ReflectApply(StringProtoToUpperCase, string[0], []);
-    return length === 1 ? upper : upper + ReflectApply(StringProtoSlice, string, [1]);
-}
 
 export class VirtualEnvironment {
     public blueConnector: ReturnType<typeof createMembraneMarshall>;
@@ -81,18 +65,9 @@ export class VirtualEnvironment {
         if (options === undefined) {
             throw new ErrorCtor('Missing VirtualEnvironmentOptions options bag.');
         }
-        const { blueConnector, redConnector, distortionCallback, support, instrumentation } =
-            options;
+        const { blueConnector, redConnector, distortionCallback, instrumentation } = options;
         this.blueConnector = blueConnector;
         this.redConnector = redConnector;
-
-        let supportFlags = SupportFlagsEnum.None;
-        const supportKeys = support ? ObjectKeys(support) : [];
-        for (let i = 0, { length } = supportKeys; i < length; i += 1) {
-            const enumKey = capitalizeFirstChar(supportKeys[i]);
-            supportFlags |= SupportFlagsEnum[enumKey];
-        }
-
         let blueHooks: Parameters<HooksCallback>;
         let redHooks: Parameters<HooksCallback>;
 
@@ -102,23 +77,20 @@ export class VirtualEnvironment {
         const redExportsCallback: HooksCallback = (...hooks) => {
             redHooks = hooks;
         };
-
         const initLocalOptions = {
             distortionCallback,
             instrumentation,
         };
-
         const localConnect = blueConnector(
             'blue',
             SHOULD_NOT_TRAP_MUTATION,
-            supportFlags,
             blueExportsCallback,
             initLocalOptions
         );
+        // prettier-ignore
         const foreignConnect = redConnector(
             'red',
             SHOULD_TRAP_MUTATION,
-            supportFlags,
             redExportsCallback
         );
         ReflectApply(localConnect, undefined, redHooks!);
@@ -195,18 +167,13 @@ export class VirtualEnvironment {
         this.blueCallableLinkPointers(bluePointer, redPointer);
     }
 
-    remap(target: ProxyTarget, unsafeBlueDescMap: PropertyDescriptorMap) {
-        const ownKeys = ReflectOwnKeys(unsafeBlueDescMap);
+    remap(target: ProxyTarget, safeBlueDescMap: PropertyDescriptorMap) {
+        const ownKeys = ReflectOwnKeys(safeBlueDescMap);
         const targetPointer = this.blueGetTransferableValue(target) as Pointer;
         // prettier-ignore
         for (let i = 0, { length } = ownKeys; i < length; i += 1) {
             const ownKey = ownKeys[i];
-            const unsafeBlueDesc = (unsafeBlueDescMap as any)[ownKey];
-            // Avoid poisoning by only installing own properties from unsafeBlueDescMap.
-            // We don't use a toSafeDescriptor() style helper since that mutates
-            // the unsafeBlueDesc.
-            // eslint-disable-next-line prefer-object-spread
-            const safeBlueDesc = ObjectAssign({ __proto__: null }, unsafeBlueDesc);
+            const safeBlueDesc = (safeBlueDescMap as any)[ownKey];
             // Install descriptor into the red side.
             this.redCallableDefineProperty(
                 targetPointer,

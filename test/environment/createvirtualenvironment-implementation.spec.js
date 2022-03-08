@@ -1,7 +1,6 @@
 import {
     createConnector,
     createMembraneMarshall,
-    getResolvedShapeDescriptors,
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
 
@@ -116,11 +115,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
             ve.link('globalThis');
 
             const redValue = {};
-            const endowments = {
-                0: 'foo',
-            };
-
-            ve.remap(redValue, getResolvedShapeDescriptors(endowments));
+            ve.remap(redValue, Object.getOwnPropertyDescriptors({ 0: 'foo' }));
 
             expect(Object.getOwnPropertyNames(redValue)).toEqual(['0']);
         });
@@ -141,11 +136,7 @@ describe('Implementing an environment with VirtualEnvironment', () => {
                 value: 0,
                 configurable: false,
             });
-            const endowments = {
-                a: 1,
-            };
-
-            ve.remap(redValue, getResolvedShapeDescriptors(endowments));
+            ve.remap(redValue, Object.getOwnPropertyDescriptors({ a: 1 }));
 
             expect(redValue.a).toBe(0);
         });

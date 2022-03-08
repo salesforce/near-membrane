@@ -1,6 +1,6 @@
-import { VirtualEnvironment } from '@locker/near-membrane-base';
+import { toSafeDescriptorMap, VirtualEnvironment } from '@locker/near-membrane-base';
 
-const { assign: ObjectAssign, getOwnPropertyDescriptors: ObjectGetOwnPropertyDescriptors } = Object;
+const { getOwnPropertyDescriptors: ObjectGetOwnPropertyDescriptors } = Object;
 const { getPrototypeOf: ReflectGetPrototypeOf, apply: ReflectApply } = Reflect;
 const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMap.prototype;
 
@@ -50,12 +50,13 @@ export function getCachedBlueReferences(
         return record;
     }
     record = getBaseReferences(window) as CachedBlueReferencesRecord;
-    // caching the record
+    // Cache the record.
     ReflectApply(WeakMapProtoSet, cachedBlueGlobalMap, [window, record]);
-    // intentionally avoiding remapping any Window.prototype descriptor,
-    // there is nothing in this prototype that needs to be remapped.
-    record.EventTargetProtoDescriptors = ObjectGetOwnPropertyDescriptors(record.EventTargetProto);
-
+    // We intentionally avoid remapping the Window.prototype descriptor because
+    // there is nothing in it that needs to be remapped.
+    record.EventTargetProtoDescriptors = toSafeDescriptorMap(
+        ObjectGetOwnPropertyDescriptors(record.EventTargetProto)
+    );
     return record;
 }
 
@@ -66,6 +67,25 @@ export function getCachedBlueReferences(
  * the environment.
  */
 getCachedBlueReferences(window);
+
+export function linkUnforgeables(
+    env: VirtualEnvironment,
+    blueGlobalThis: Window & typeof globalThis
+) {
+    // The test of instance of event target is important to discard environments
+    // in which a fake window (e.g. jest) is not following the specs, and can
+    // break this membrane.
+    if (blueGlobalThis.EventTarget && blueGlobalThis instanceof EventTarget) {
+        // window.document
+        env.link('document');
+        // window.__proto__ (aka Window.prototype)
+        env.link('__proto__');
+        // window.__proto__.__proto__ (aka WindowProperties.prototype)
+        env.link('__proto__', '__proto__');
+        // window.__proto__.__proto__.__proto__ (aka EventTarget.prototype)
+        env.link('__proto__', '__proto__', '__proto__');
+    }
+}
 
 /**
  * global descriptors are a combination of 3 set of descriptors:
@@ -94,14 +114,7 @@ getCachedBlueReferences(window);
  * that will be installed (via the membrane) as global descriptors in
  * the red realm.
  */
-function filterWindowDescriptors(
-    unsafeEndowmentsDescMap: PropertyDescriptorMap | undefined
-): PropertyDescriptorMap {
-    const unsafeDescMap: PropertyDescriptorMap = {};
-    // Endowments descriptors will overrule any default descriptor inferred
-    // from the detached iframe. note that they are already filtered, not need
-    // to check against intrinsics again.
-    ObjectAssign(unsafeDescMap, unsafeEndowmentsDescMap);
+export function removeWindowDescriptors<T extends PropertyDescriptorMap>(unsafeDescMap: T): T {
     // Removing unforgeable descriptors that cannot be installed
     delete unsafeDescMap.document;
     delete unsafeDescMap.location;
@@ -115,14 +128,11 @@ function filterWindowDescriptors(
 export function tameDOM(
     env: VirtualEnvironment,
     blueRefs: CachedBlueReferencesRecord,
-    unsafeEndowmentsDescMap: PropertyDescriptorMap
+    safeGlobalDescMap: PropertyDescriptorMap
 ) {
-    // adjusting proto chain of window.document
     env.remapProto(blueRefs.document, blueRefs.DocumentProto);
-    const unsafeGlobalDescMap = filterWindowDescriptors(unsafeEndowmentsDescMap);
-    // remapping globals
-    env.remap(blueRefs.window, unsafeGlobalDescMap);
-    // remapping unforgeable objects
+    env.remap(blueRefs.window, safeGlobalDescMap);
+    // Remap unforgeable objects.
     env.remap(blueRefs.EventTargetProto, blueRefs.EventTargetProtoDescriptors);
     /**
      * WindowProperties.prototype is magical, it provide access to any
@@ -143,23 +153,4 @@ export function tameDOM(
      * installed on the iframe. That turns out to be also empty, therefore we
      * don't need to remap `blueRefs.WindowPropertiesProto` descriptors at all.
      */
-}
-
-export function linkUnforgeables(
-    env: VirtualEnvironment,
-    blueGlobalThis: Window & typeof globalThis
-) {
-    // The test of instance of event target is important to discard environments
-    // in which a fake window (e.g. jest) is not following the specs, and can
-    // break this membrane.
-    if (blueGlobalThis.EventTarget && blueGlobalThis instanceof EventTarget) {
-        // window.document
-        env.link('document');
-        // window.__proto__ (aka Window.prototype)
-        env.link('__proto__');
-        // window.__proto__.__proto__ (aka WindowProperties.prototype)
-        env.link('__proto__', '__proto__');
-        // window.__proto__.__proto__.__proto__ (aka EventTarget.prototype)
-        env.link('__proto__', '__proto__', '__proto__');
-    }
 }

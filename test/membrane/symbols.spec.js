@@ -65,7 +65,9 @@ describe('Symbols', () => {
             }
         }
 
-        const env = createVirtualEnvironment(window, window, { endowments: { Base, symbol } });
+        const env = createVirtualEnvironment(window, window, {
+            endowments: Object.getOwnPropertyDescriptors({ Base, symbol }),
+        });
         env.evaluate(`
             class Bar extends Base {
                 constructor() {

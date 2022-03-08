@@ -9,7 +9,9 @@ function saveFoo(arg) {
     FooClazz = arg;
 }
 
-const env = createVirtualEnvironment(window, window, { endowments: { Base, saveFoo } });
+const env = createVirtualEnvironment(window, window, {
+    endowments: Object.getOwnPropertyDescriptors({ Base, saveFoo }),
+});
 env.evaluate(`
     class Foo extends Base {};
     saveFoo(Foo);

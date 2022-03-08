@@ -25,8 +25,6 @@
 
 import { InstrumentationHooks } from './instrumentation';
 
-const { setPrototypeOf: ReflectSetPrototypeOf } = Reflect;
-
 type CallablePushTarget = (
     pointer: () => void,
     targetTraits: number,
@@ -68,12 +66,12 @@ type CallableSet = (
     value: any,
     receiver: PointerOrPrimitive
 ) => boolean;
-type CallableSerializeTarget = (targetPointer: Pointer) => SerializedValue | undefined;
+type CallableDebugInfo = (...args: Parameters<typeof console.info>) => void;
 type CallableGetTargetIntegrityTraits = (targetPointer: Pointer) => number;
 type CallableGetToStringTagOfTarget = (targetPointer: Pointer) => string;
 type CallableIsTargetLive = (targetPointer: Pointer) => boolean;
 type CallableIsTargetRevoked = (targetPointer: Pointer) => boolean;
-type CallableWarn = (...args: Parameters<typeof console.warn>) => void;
+type CallableSerializeTarget = (targetPointer: Pointer) => SerializedValue | undefined;
 type CallableBatchGetPrototypeOfAndOwnPropertyDescriptors = (
     targetPointer: Pointer,
     foreignCallableDescriptorsCallback: CallableDescriptorsCallback
@@ -148,12 +146,12 @@ export type HooksCallback = (
     callablePreventExtensions: CallablePreventExtensions,
     callableSet: CallableSet,
     callableSetPrototypeOf: CallableSetPrototypeOf,
+    callableDebugInfo: CallableDebugInfo,
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableGetToStringTagOfTarget: CallableGetToStringTagOfTarget,
     callableIsTargetLive: CallableIsTargetLive,
     callableIsTargetRevoked: CallableIsTargetRevoked,
     callableSerializeTarget: CallableSerializeTarget,
-    callableWarn: CallableWarn,
     callableBatchGetPrototypeOfAndOwnPropertyDescriptors: CallableBatchGetPrototypeOfAndOwnPropertyDescriptors,
     callableBatchGetPrototypeOfWhenHasNoOwnProperty: CallableBatchGetPrototypeOfWhenHasNoOwnProperty,
     callableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor: CallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
@@ -164,21 +162,13 @@ export interface InitLocalOptions {
 }
 export type Pointer = CallableFunction;
 export type ProxyTarget = CallableFunction | any[] | object;
-// eslint-disable-next-line no-shadow
-export enum SupportFlagsEnum {
-    None = 0,
-}
-ReflectSetPrototypeOf(SupportFlagsEnum, null);
 
 // istanbul ignore next
 export function createMembraneMarshall() {
-    // This package is bundled by third-parties that have their own build time
-    // replacement logic. Instead of customizing each build system to be aware
-    // of this package we perform a small runtime check to determine whether our
-    // code is minified or in DEBUG_MODE.
-    // https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.debug_mode_enable
-    const DEBUG_MODE = `${() => /**/ 1}`.includes('*');
+    // @rollup/plugin-replace replaces `DEV_MODE` references.
+    const DEV_MODE = true;
     const FLAGS_REG_EXP = /\w*$/;
+    const LOCKER_DEBUG_MODE_SYMBOL = Symbol.for('@@lockerDebugMode');
     const LOCKER_LIVE_VALUE_MARKER_SYMBOL = Symbol.for('@@lockerLiveValue');
     const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = Symbol.for(
         '@@lockerNearMembraneSerializedValue'
@@ -191,6 +181,17 @@ export function createMembraneMarshall() {
     // https://caniuse.com/bigint
     const SUPPORTS_BIG_INT = typeof BigInt === 'function';
     const { toStringTag: TO_STRING_TAG_SYMBOL } = Symbol;
+
+    // This package is bundled by third-parties that have their own build time
+    // replacement logic. Instead of customizing each build system to be aware
+    // of this package we implement a two phase debug mode by performing small
+    // runtime checks to determine phase one, our code is unminified, and
+    // phase two, the user opted-in to custom devtools formatters. Phase one
+    // is used for light weight initialization time debug while phase two is
+    // reserved for post initialization runtime.
+    const lockerUnminifiedGate = `${() => /**/ 1}`.includes('*');
+    // We'll check on debug mode phase two in BoundaryProxyHandler#makeProxyStatic().
+    let lockerDebugModeGate: boolean;
 
     const ArrayCtor = Array;
     const ArrayBufferCtor = ArrayBuffer;
@@ -258,7 +259,7 @@ export function createMembraneMarshall() {
     const { valueOf: SymbolProtoValueOf } = Symbol.prototype;
     const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMap.prototype;
     const consoleRef = console;
-    const { warn: consoleWarnRef } = consoleRef;
+    const { info: consoleInfoRef } = consoleRef;
     const localEval = eval;
     const globalThisRef =
         (typeof globalThis !== 'undefined' && globalThis) ||
@@ -610,7 +611,6 @@ export function createMembraneMarshall() {
     return function createHooksCallback(
         color: string,
         trapMutations: boolean,
-        _supportFlags: SupportFlagsEnum,
         foreignCallableHooksCallback: HooksCallback,
         options?: InitLocalOptions
     ): HooksCallback {
@@ -640,17 +640,17 @@ export function createMembraneMarshall() {
         let foreignCallablePreventExtensions: CallablePreventExtensions;
         let foreignCallableSet: CallableSet;
         let foreignCallableSetPrototypeOf: CallableSetPrototypeOf;
+        let foreignCallableDebugInfo: CallableDebugInfo;
         let foreignCallableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits;
         let foreignCallableGetToStringTagOfTarget: CallableGetToStringTagOfTarget;
         let foreignCallableIsTargetLive: CallableIsTargetLive;
         let foreignCallableIsTargetRevoked: CallableIsTargetRevoked;
         let foreignCallableSerializeTarget: CallableSerializeTarget;
-        let foreignCallableWarn: CallableWarn;
         let foreignCallableBatchGetPrototypeOfAndOwnPropertyDescriptors: CallableBatchGetPrototypeOfAndOwnPropertyDescriptors;
         let foreignCallableBatchGetPrototypeOfWhenHasNoOwnProperty: CallableBatchGetPrototypeOfWhenHasNoOwnProperty;
         let foreignCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor: CallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor;
         let lastProxyTrapCalled = ProxyHandlerTraps.None;
-        let nearMembraneSymbolHasTrapGate = false;
+        let nearMembraneSymbolGate = false;
         let selectedTarget: undefined | ProxyTarget;
 
         function copyForeignOwnPropertyDescriptorsAndPrototypeToShadowTarget(
@@ -721,7 +721,7 @@ export function createMembraneMarshall() {
                 // assert: selectedTarget is undefined
                 selectedTarget = originalTarget;
             };
-            if (DEBUG_MODE) {
+            if (DEV_MODE) {
                 // In case debugging is needed, the following lines can help:
                 pointer['[[OriginalTarget]]'] = originalTarget;
                 pointer['[[Color]]'] = color;
@@ -816,7 +816,7 @@ export function createMembraneMarshall() {
             const targetTraits = getTargetTraits(distortedTarget);
             let targetFunctionName: string | undefined;
             if (typeof originalTarget === 'function') {
-                if (DEBUG_MODE) {
+                if (DEV_MODE) {
                     try {
                         // A revoked proxy will throw when reading the function name.
                         const unsafeNameDesc = ReflectGetOwnPropertyDescriptor(
@@ -881,7 +881,8 @@ export function createMembraneMarshall() {
         function instrumentCallableWrapper<T extends (...args: any[]) => any>(
             fn: T,
             activityName: string,
-            crossingDirection: string): T {
+            crossingDirection: string
+        ): T {
             if (instrumentation) {
                 return <T>function instrumentedFn(this: any, ...args: any[]): any {
                     const activity = instrumentation.startActivity(activityName, {
@@ -1194,9 +1195,9 @@ export function createMembraneMarshall() {
                     ObjectSeal(shadowTarget);
                 } else if (targetIntegrityTraits & TargetIntegrityTraits.IsNotExtensible) {
                     ReflectPreventExtensions(shadowTarget);
-                } else if (DEBUG_MODE) {
+                } else if (lockerUnminifiedGate) {
                     try {
-                        foreignCallableWarn(
+                        foreignCallableDebugInfo(
                             'Mutations on the membrane of an object originating ' +
                                 'outside of the sandbox will not be reflected on ' +
                                 'the object itself:',
@@ -1400,11 +1401,11 @@ export function createMembraneMarshall() {
                 // Only allow accessing near-membrane symbol values if the
                 // BoundaryProxyHandler.has trap has been called immediately
                 // before and the symbol does not exist.
-                nearMembraneSymbolHasTrapGate &&= lastProxyTrapCalled === ProxyHandlerTraps.Has;
+                nearMembraneSymbolGate &&= lastProxyTrapCalled === ProxyHandlerTraps.Has;
                 lastProxyTrapCalled = ProxyHandlerTraps.Get;
-                if (nearMembraneSymbolHasTrapGate) {
+                if (nearMembraneSymbolGate) {
                     // Exit without performing a [[Get]] for near-membrane symbols
-                    // because we know when the nearMembraneSymbolHasTrapGate is
+                    // because we know when the nearMembraneSymbolGate is
                     // open that there is no shadowed symbol value.
                     if (key === LOCKER_NEAR_MEMBRANE_SYMBOL) {
                         return true;
@@ -1443,7 +1444,7 @@ export function createMembraneMarshall() {
                 const result = foreignCallableHas(this.foreignTargetPointer, key);
                 // The near-membrane symbol gate is open if the symbol does not
                 // exist on the object or its [[Prototype]].
-                nearMembraneSymbolHasTrapGate =
+                nearMembraneSymbolGate =
                     !result &&
                     (key === LOCKER_NEAR_MEMBRANE_SYMBOL ||
                         key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL);
@@ -2162,6 +2163,30 @@ export function createMembraneMarshall() {
                 'callableSetPrototypeOf',
                 INBOUND_INSTRUMENTATION_LABEL
             ),
+            // callableDebugInfo
+            instrumentCallableWrapper(
+                (...args: Parameters<typeof console.info>): void => {
+                    if (lockerUnminifiedGate && lockerDebugModeGate === undefined) {
+                        lockerDebugModeGate = ReflectApply(
+                            ObjectProtoHasOwnProperty,
+                            globalThisRef,
+                            [LOCKER_DEBUG_MODE_SYMBOL]
+                        );
+                    }
+                    if (lockerDebugModeGate) {
+                        for (let i = 0, { length } = args; i < length; i += 1) {
+                            args[i] = getLocalValue(args[i]);
+                        }
+                        try {
+                            ReflectApply(consoleInfoRef, consoleRef, args);
+                        } catch (e: any) {
+                            throw pushErrorAcrossBoundary(e);
+                        }
+                    }
+                },
+                'callableDebugInfo',
+                INBOUND_INSTRUMENTATION_LABEL
+            ),
             // callableGetTargetIntegrityTraits
             instrumentCallableWrapper(
                 (targetPointer: Pointer): TargetIntegrityTraits => {
@@ -2188,6 +2213,7 @@ export function createMembraneMarshall() {
                 'callableGetToStringTagOfTarget',
                 INBOUND_INSTRUMENTATION_LABEL
             ),
+
             // callableIsTargetLive
             instrumentCallableWrapper(
                 (targetPointer: Pointer): boolean => {
@@ -2228,21 +2254,6 @@ export function createMembraneMarshall() {
                     }
                 },
                 'callableSerializeTarget',
-                INBOUND_INSTRUMENTATION_LABEL
-            ),
-            // callableWarn
-            instrumentCallableWrapper(
-                (...args: Parameters<typeof console.warn>): void => {
-                    for (let i = 0, { length } = args; i < length; i += 1) {
-                        args[i] = getLocalValue(args[i]);
-                    }
-                    try {
-                        ReflectApply(consoleWarnRef, consoleRef, args);
-                    } catch (e: any) {
-                        throw pushErrorAcrossBoundary(e);
-                    }
-                },
-                'callableWarn',
                 INBOUND_INSTRUMENTATION_LABEL
             ),
             // callableBatchGetPrototypeOfAndOwnPropertyDescriptors
@@ -2396,12 +2407,12 @@ export function createMembraneMarshall() {
                 17: callablePreventExtensions,
                 18: callableSet,
                 19: callableSetPrototypeOf,
-                20: callableGetTargetIntegrityTraits,
-                21: callableGetToStringTagOfTarget,
-                22: callableIsTargetLive,
-                23: callableIsTargetRevoked,
-                24: callableSerializeTarget,
-                25: callableWarn,
+                20: callableDebugInfo,
+                21: callableGetTargetIntegrityTraits,
+                22: callableGetToStringTagOfTarget,
+                23: callableIsTargetLive,
+                24: callableIsTargetRevoked,
+                25: callableSerializeTarget,
                 26: callableBatchGetPrototypeOfAndOwnPropertyDescriptors,
                 27: callableBatchGetPrototypeOfWhenHasNoOwnProperty,
                 28: callableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
@@ -2499,6 +2510,13 @@ export function createMembraneMarshall() {
                     OUTBOUND_INSTRUMENTATION_LABEL
                 )
             );
+            foreignCallableDebugInfo = foreignErrorControl(
+                instrumentCallableWrapper(
+                    callableDebugInfo,
+                    'callableDebugInfo',
+                    OUTBOUND_INSTRUMENTATION_LABEL
+                )
+            );
             foreignCallableGetTargetIntegrityTraits = foreignErrorControl(
                 instrumentCallableWrapper(
                     callableGetTargetIntegrityTraits,
@@ -2531,13 +2549,6 @@ export function createMembraneMarshall() {
                 instrumentCallableWrapper(
                     callableSerializeTarget,
                     'callableSerializeTarget',
-                    OUTBOUND_INSTRUMENTATION_LABEL
-                )
-            );
-            foreignCallableWarn = foreignErrorControl(
-                instrumentCallableWrapper(
-                    callableWarn,
-                    'callableWarn',
                     OUTBOUND_INSTRUMENTATION_LABEL
                 )
             );

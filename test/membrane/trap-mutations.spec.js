@@ -28,7 +28,7 @@ function save(arg1, arg2, arg3, arg4) {
 }
 
 const env = createVirtualEnvironment(window, window, {
-    endowments: { Base, ExoticObject, save },
+    endowments: Object.getOwnPropertyDescriptors({ Base, ExoticObject, save }),
 });
 env.evaluate(`
     // Overriding the behavior of a plain prototype object in red.

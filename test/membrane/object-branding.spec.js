@@ -5,7 +5,7 @@ describe('object-branding', () => {
         expect.assertions(28);
 
         const env = createVirtualEnvironment(window, window, {
-            endowments: { expect },
+            endowments: Object.getOwnPropertyDescriptors({ expect }),
         });
         env.evaluate(`
             function getToStringTag(object) {
@@ -57,7 +57,7 @@ describe('object-branding', () => {
         expect.assertions(39);
 
         const env = createVirtualEnvironment(window, window, {
-            endowments: { expect },
+            endowments: Object.getOwnPropertyDescriptors({ expect }),
         });
         env.evaluate(`
             function getToStringTag(object) {

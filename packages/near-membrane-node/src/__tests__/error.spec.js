@@ -25,7 +25,7 @@ describe('The Error Boundary', () => {
     it('should preserve identity of errors after a membrane roundtrip', () => {
         expect.assertions(3);
         const env = createVirtualEnvironment(globalThis, globalThis, {
-            endowments: { foo },
+            endowments: Object.getOwnPropertyDescriptors({ foo }),
         });
         env.evaluate(`foo.expose(() => { foo.a })`);
         expect(() => {
@@ -43,9 +43,8 @@ describe('The Error Boundary', () => {
     it('should remap the Blue Realm Error instance to the sandbox errors', () => {
         expect.assertions(3);
         const env = createVirtualEnvironment(globalThis, globalThis, {
-            endowments: { expect, foo },
+            endowments: Object.getOwnPropertyDescriptors({ expect, foo }),
         });
-
         env.evaluate(`
             expect(() => {
                 foo.a;
@@ -65,7 +64,7 @@ describe('The Error Boundary', () => {
     it('should capture throwing from user proxy', () => {
         expect.assertions(3);
         const env = createVirtualEnvironment(globalThis, globalThis, {
-            endowments: { foo },
+            endowments: Object.getOwnPropertyDescriptors({ foo }),
         });
         env.evaluate(`
             const revocable = Proxy.revocable(() => undefined, {});
@@ -85,9 +84,8 @@ describe('The Error Boundary', () => {
     });
     it('should protect from leaking sandbox errors during evaluation', () => {
         const env = createVirtualEnvironment(globalThis, globalThis, {
-            endowments: { foo },
+            endowments: Object.getOwnPropertyDescriptors({ foo }),
         });
-
         expect(() => {
             env.evaluate(`
                 throw new TypeError('from sandbox');
@@ -96,9 +94,8 @@ describe('The Error Boundary', () => {
     });
     it('should protect from leaking sandbox errors during parsing', () => {
         const env = createVirtualEnvironment(globalThis, globalThis, {
-            endowments: { foo },
+            endowments: Object.getOwnPropertyDescriptors({ foo }),
         });
-
         expect(() => {
             env.evaluate(`
                 return; // illegal return statement

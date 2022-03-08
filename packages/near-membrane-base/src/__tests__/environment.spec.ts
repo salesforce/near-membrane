@@ -1,10 +1,5 @@
 // @ts-nocheck
-import {
-    createConnector,
-    createMembraneMarshall,
-    getResolvedShapeDescriptors,
-    VirtualEnvironment,
-} from '../index';
+import { createConnector, createMembraneMarshall, VirtualEnvironment } from '../index';
 
 const init = createMembraneMarshall();
 
@@ -129,11 +124,7 @@ describe('VirtualEnvironment', () => {
             ve.link('globalThis');
 
             const redValue = {};
-            const endowments: typeof globalThis = {
-                0: 'foo',
-            };
-
-            ve.remap(redValue, getResolvedShapeDescriptors(endowments));
+            ve.remap(redValue, Object.getOwnPropertyDescriptors({ 0: 'foo' }));
 
             expect(Object.getOwnPropertyNames(redValue)).toEqual(['0']);
         });
@@ -154,11 +145,7 @@ describe('VirtualEnvironment', () => {
                 value: 0,
                 configurable: false,
             });
-            const endowments = {
-                a: 1,
-            };
-
-            ve.remap(redValue, getResolvedShapeDescriptors(endowments));
+            ve.remap(redValue, Object.getOwnPropertyDescriptors({ a: 1 }));
 
             expect(redValue.a).toBe(0);
         });
@@ -184,18 +171,15 @@ describe('VirtualEnvironment', () => {
                 },
             });
             ve.link('globalThis');
-
-            const endowments = {};
-
-            Object.defineProperty(endowments, 'b', {
-                get() {
-                    count += 1;
-                    return 1;
+            ve.remap(globalThis, {
+                b: {
+                    get() {
+                        count += 1;
+                        return 1;
+                    },
+                    configurable: true,
                 },
-                configurable: true,
             });
-
-            ve.remap(globalThis, getResolvedShapeDescriptors(endowments));
 
             expect(globalThis.b).toBe(1);
             expect(count).toBe(3);
@@ -214,22 +198,20 @@ describe('VirtualEnvironment', () => {
                 redConnector,
             });
             ve.link('globalThis');
-
-            const endowments = {};
-            Object.defineProperty(endowments, 'c', {
-                get() {
-                    // This WILL be reached, but only until the setter is called
-                    count += 1;
-                    return 1;
-                },
-                set(v) {
-                    // This should NOT be reached
-                    blueSetValue = v;
-                    count += 1;
+            ve.remap(globalThis, {
+                c: {
+                    get() {
+                        // This WILL be reached, but only until the setter is called
+                        count += 1;
+                        return 1;
+                    },
+                    set(v) {
+                        // This should NOT be reached
+                        blueSetValue = v;
+                        count += 1;
+                    },
                 },
             });
-
-            ve.remap(globalThis, getResolvedShapeDescriptors(endowments));
 
             expect(globalThis.c).toBe(1); // count + 1
             expect(globalThis.c).toBe(1); // count + 1
@@ -257,9 +239,7 @@ describe('VirtualEnvironment', () => {
 
             const a = {};
             const b = {};
-
             const calledWith: any[] = [];
-
             ve.blueGetTransferableValue = (value) => {
                 calledWith.push(value);
                 return value;

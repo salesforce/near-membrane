@@ -1,18 +1,24 @@
 import {
-    getResolvedShapeDescriptors,
+    assignFilteredGlobalDescriptors,
+    assignFilteredGlobalDescriptorsFromPropertyDescriptorMap,
     createConnector,
     createMembraneMarshall,
-    InstrumentationHooks,
     linkIntrinsics,
     DistortionCallback,
-    SupportFlagsObject,
-    validateRequiredGlobalShapeAndVirtualizationObjects,
+    InstrumentationHooks,
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
 
-import { getCachedBlueReferences, linkUnforgeables, tameDOM } from './window';
+import {
+    getCachedBlueReferences,
+    linkUnforgeables,
+    removeWindowDescriptors,
+    tameDOM,
+} from './window';
 
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
+
+const TypeErrorCtor = TypeError;
 
 const {
     close: DocumentProtoClose,
@@ -138,23 +144,29 @@ function removeIframe(iframe: HTMLIFrameElement) {
 
 interface BrowserEnvironmentOptions {
     distortionCallback?: DistortionCallback;
-    endowments?: object;
+    endowments?: PropertyDescriptorMap;
     keepAlive?: boolean;
-    support?: SupportFlagsObject;
     instrumentation?: InstrumentationHooks;
 }
 
 const createHooksCallback = createMembraneMarshall();
 
+let defaultGlobalObjectShape: PropertyDescriptorMap | null = null;
+
 export default function createVirtualEnvironment(
-    globalObjectShape: object,
+    globalObjectShape: object | null,
     globalObjectVirtualizationTarget: WindowProxy & typeof globalThis,
     providedOptions?: BrowserEnvironmentOptions
 ): VirtualEnvironment {
-    validateRequiredGlobalShapeAndVirtualizationObjects(
-        globalObjectShape,
-        globalObjectVirtualizationTarget
-    );
+    if (typeof globalObjectShape !== 'object') {
+        throw new TypeErrorCtor('Missing global object shape.');
+    }
+    if (
+        typeof globalObjectVirtualizationTarget !== 'object' ||
+        globalObjectVirtualizationTarget === null
+    ) {
+        throw new TypeErrorCtor('Missing global object virtualization target.');
+    }
     // eslint-disable-next-line prefer-object-spread
     const options = ObjectAssign(
         {
@@ -164,9 +176,28 @@ export default function createVirtualEnvironment(
         providedOptions
     );
     // eslint-disable-next-line prefer-object-spread
-    const { distortionCallback, endowments = {}, keepAlive, support, instrumentation } = options;
+    const { distortionCallback, endowments, instrumentation, keepAlive } = options;
     const iframe = createDetachableIframe();
     const redWindow = HTMLIFrameElementContentWindowGetter(iframe)!.window;
+    if (globalObjectShape === null) {
+        if (defaultGlobalObjectShape === null) {
+            defaultGlobalObjectShape = {};
+            assignFilteredGlobalDescriptors(defaultGlobalObjectShape, redWindow, window);
+            removeWindowDescriptors(defaultGlobalObjectShape);
+        }
+        globalObjectShape = defaultGlobalObjectShape;
+    }
+    const globalObjectShapeWithEndowments = {};
+    if (globalObjectShape === defaultGlobalObjectShape) {
+        ObjectAssign(globalObjectShapeWithEndowments, defaultGlobalObjectShape);
+    } else {
+        assignFilteredGlobalDescriptors(globalObjectShapeWithEndowments, globalObjectShape);
+    }
+    assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
+        globalObjectShapeWithEndowments,
+        endowments
+    );
+    removeWindowDescriptors(globalObjectShapeWithEndowments);
     const { document: redDocument } = redWindow;
     const blueConnector = createHooksCallback;
     const redConnector = createConnector(redWindow.eval);
@@ -177,13 +208,12 @@ export default function createVirtualEnvironment(
         blueConnector,
         distortionCallback,
         redConnector,
-        support,
         instrumentation,
     });
     env.link('window');
     linkIntrinsics(env, globalObjectVirtualizationTarget);
     linkUnforgeables(env, globalObjectVirtualizationTarget);
-    tameDOM(env, blueRefs, getResolvedShapeDescriptors(globalObjectShape, endowments));
+    tameDOM(env, blueRefs, globalObjectShapeWithEndowments);
     // Once we get the iframe info ready, and all mapped, we can proceed
     // to detach the iframe only if the keepAlive option isn't true.
     if (keepAlive !== true) {
