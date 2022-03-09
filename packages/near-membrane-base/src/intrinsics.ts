@@ -136,11 +136,10 @@ export function assignFilteredGlobalDescriptors<T extends PropertyDescriptorMap>
         const ownKeys = ReflectOwnKeys(source);
         for (let i = 0, { length } = ownKeys; i < length; i += 1) {
             const ownKey = ownKeys[i];
-            // Avoid overriding ECMAScript global names that correspond
-            // to global intrinsics. This guarantee that those entries
-            // will be ignored if present in the endowments descriptor map.
-            // TODO: what if the intent is to polyfill one of those
-            // intrinsics?
+            // Avoid overriding ECMAScript global names that correspond to global
+            // intrinsics. This guarantees that those entries will be ignored if
+            // present in the source object.
+            // TODO: what if the intent is to polyfill one of those intrinsics?
             if (
                 !ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveIntrinsicObjectNames, [
                     ownKey,
@@ -176,11 +175,9 @@ export function assignFilteredGlobalDescriptorsFromPropertyDescriptorMap<
         const ownKeys = ReflectOwnKeys(source);
         for (let i = 0, { length } = ownKeys; i < length; i += 1) {
             const ownKey = ownKeys[i];
-            // Avoid overriding ECMAScript global names that correspond
-            // to global intrinsics. This guarantee that those entries
-            // will be ignored if present in the endowments descriptor map.
-            // TODO: what if the intent is to polyfill one of those
-            // intrinsics?
+            // Avoid overriding ECMAScript global names that correspond to
+            // global intrinsics. This guarantee that those entries will be
+            // ignored if present in the source property descriptor map.
             if (
                 !ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveIntrinsicObjectNames, [
                     ownKey,
@@ -205,11 +202,9 @@ export function getFilteredGlobalOwnKeys(source: object): (string | symbol)[] {
     const ownKeys = ReflectOwnKeys(source);
     for (let i = 0, { length } = ownKeys; i < length; i += 1) {
         const ownKey = ownKeys[i];
-        // Avoid overriding ECMAScript global names that correspond
-        // to global intrinsics. This guarantee that those entries
-        // will be ignored if present in the endowments descriptor map.
-        // TODO: what if the intent is to polyfill one of those
-        // intrinsics?
+        // Avoid overriding ECMAScript global names that correspond to global
+        // intrinsics. This guarantees that those entries will be ignored if
+        // present in the source object.
         if (
             !ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveIntrinsicObjectNames, [ownKey])
         ) {

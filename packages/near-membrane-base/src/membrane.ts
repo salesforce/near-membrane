@@ -940,12 +940,10 @@ export function createMembraneMarshall(
             enumerable: boolean,
             lazyState: object
         ): PropertyDescriptor {
-            // The role of this descriptor is to serve as a bouncer, when either a getter
-            // or a setter is accessed, the descriptor will be replaced with the descriptor
-            // from the foreign side and the get/set operation will be carry on from there.
-            // TODO: somehow we need to track the unforgeable/key value pairs in case the
-            // local realm ever attempt to access the descriptor, in which case the same
-            // mechanism must be applied
+            // The role of this descriptor is to serve as a bouncer. When either
+            // a getter or a setter is invoked the descriptor will be replaced
+            // with the descriptor from the foreign side and the get/set operation
+            // will carry on from there.
             return {
                 // @ts-ignore: TS doesn't like __proto__ on property descriptors.
                 __proto__: null,
@@ -1092,14 +1090,15 @@ export function createMembraneMarshall(
                 targetFunctionName
             );
 
-            // the WeakMap is populated with the original target rather then the distorted one
-            // while the pointer always uses the distorted one.
-            // TODO: this mechanism poses another issue, which is that the return value of
-            // getSelectedTarget() can never be used to call across the membrane because that
-            // will cause a wrapping around the potential distorted value instead of the original
-            // value. This is not fatal, but implies that for every distorted value where will
-            // two proxies that are not ===, which is weird. Guaranteeing this is not easy because
-            // it means auditing the code.
+            // The WeakMap is populated with the original target rather then the
+            // distorted one while the pointer always uses the distorted one.
+            // TODO: This mechanism poses another issue, which is that the return
+            // value of getSelectedTarget() can never be used to call across the
+            // membrane because that will cause a wrapping around the potential
+            // distorted value instead of the original value. This is not fatal,
+            // but implies that for every distorted value where are two proxies
+            // that are not ===, which is weird. Guaranteeing this is not easy
+            // because it means auditing the code.
             ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [originalTarget, proxyPointer]);
             return proxyPointer;
         }
@@ -1110,7 +1109,6 @@ export function createMembraneMarshall(
             if (typeof value === 'undefined') {
                 return undefined;
             }
-            // TODO: What other ways to optimize this method?
             if (value === null || (typeof value !== 'function' && typeof value !== 'object')) {
                 return value;
             }
@@ -1118,9 +1116,7 @@ export function createMembraneMarshall(
         }
 
         // This wrapping mechanism provides the means to add instrumentation
-        // to the callable functions used to coordinate work between the sides
-        // of the membrane.
-        // TODO: do we need to pass more info into instrumentation hooks?
+        // to functions on both sides of the membrane.
         // prettier-ignore
         function instrumentCallableWrapper<T extends (...args: any[]) => any>(
             fn: T,
@@ -1475,13 +1471,12 @@ export function createMembraneMarshall(
                 }
             }
 
-            // logic implementation of all traps
+            // Logic implementation of all traps.
 
-            // default traps:
+            // Default traps:
 
-            // Pending traps are only really needed if this membrane traps
-            // mutations to avoid mutations operations on the side of the membrane.
-            // TODO: find a way to optimize the declaration rather than instantiation
+            // Pending traps are only needed if the membrane traps mutations to
+            // avoid mutation operations on the other side of the membrane.
             private static defaultDefinePropertyTrap = trapMutations
                 ? BoundaryProxyHandler.pendingDefinePropertyTrap
                 : BoundaryProxyHandler.passthruDefinePropertyTrap;
@@ -1520,7 +1515,7 @@ export function createMembraneMarshall(
                 ? BoundaryProxyHandler.pendingSetPrototypeOfTrap
                 : BoundaryProxyHandler.passthruSetPrototypeOfTrap;
 
-            // hybrid traps
+            // Hybrid traps:
             // (traps that operate on their shadowTarget, proxy, and foreignTargetPointer):
 
             private static hybridGetTrap(
@@ -1584,7 +1579,7 @@ export function createMembraneMarshall(
                 return false;
             }
 
-            // passthru forwarding Traps:
+            // Passthru traps:
 
             private static passthruDefinePropertyTrap(
                 this: BoundaryProxyHandler,
@@ -1981,7 +1976,6 @@ export function createMembraneMarshall(
                 targetPointer();
                 const target = getSelectedTarget();
                 const value: ProxyTarget = target[key];
-                // TODO: what if the value is not a valid proxy target?
                 return createPointer(value);
             },
             // callableEvaluate
