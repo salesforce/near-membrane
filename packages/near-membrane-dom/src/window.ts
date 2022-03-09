@@ -14,40 +14,45 @@ const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMapCtor.prototype;
  */
 interface CachedBlueReferencesRecord extends Object {
     document: Document;
-    window: WindowProxy;
     DocumentProto: object;
+    window: WindowProxy;
+    WindowProto: object;
+    WindowPropertiesProto: object;
     EventTargetProto: object;
     EventTargetProtoOwnKeys: (string | symbol)[];
-    WindowPropertiesProto: object;
-    WindowProto: object;
 }
 
 const blueGlobalToRecordMap: WeakMap<typeof globalThis, CachedBlueReferencesRecord> =
     new WeakMapCtor();
 
-export function getCachedBlueReferences(
-    blueGlobalObject: WindowProxy & typeof globalThis
+export function getCachedGlobalObjectReferences(
+    globalObjectVirtualizationTarget: WindowProxy & typeof globalThis
 ): CachedBlueReferencesRecord {
-    let record = ReflectApply(WeakMapProtoGet, blueGlobalToRecordMap, [blueGlobalObject]) as
-        | CachedBlueReferencesRecord
-        | undefined;
+    let record = ReflectApply(WeakMapProtoGet, blueGlobalToRecordMap, [
+        globalObjectVirtualizationTarget,
+    ]) as CachedBlueReferencesRecord | undefined;
     if (record) {
         return record;
     }
-    record = { __proto__: null } as any as CachedBlueReferencesRecord;
     // Cache references to object values that can't be replaced
     // window -> Window -> WindowProperties -> EventTarget
-    record.window = blueGlobalObject.window;
-    record.document = blueGlobalObject.document;
-    record.WindowProto = ReflectGetPrototypeOf(record.window) as object;
-    record.WindowPropertiesProto = ReflectGetPrototypeOf(record.WindowProto) as object;
-    record.EventTargetProto = ReflectGetPrototypeOf(record.WindowPropertiesProto) as object;
-    record.DocumentProto = ReflectGetPrototypeOf(record.document) as object;
-    // Cache the record.
-    ReflectApply(WeakMapProtoSet, blueGlobalToRecordMap, [blueGlobalObject, record]);
-    // We intentionally avoid remapping the Window.prototype descriptor because
-    // there is nothing in it that needs to be remapped.
-    record.EventTargetProtoOwnKeys = ReflectOwnKeys(record.EventTargetProto);
+    const { document, window } = globalObjectVirtualizationTarget;
+    const WindowProto = ReflectGetPrototypeOf(window)!;
+    const WindowPropertiesProto = ReflectGetPrototypeOf(WindowProto)!;
+    const EventTargetProto = ReflectGetPrototypeOf(WindowPropertiesProto)!;
+    record = {
+        document,
+        DocumentProto: ReflectGetPrototypeOf(document)!,
+        window,
+        WindowProto,
+        WindowPropertiesProto,
+        EventTargetProto,
+        EventTargetProtoOwnKeys: ReflectOwnKeys(EventTargetProto),
+    } as CachedBlueReferencesRecord;
+    ReflectApply(WeakMapProtoSet, blueGlobalToRecordMap, [
+        globalObjectVirtualizationTarget,
+        record,
+    ]);
     return record;
 }
 
@@ -57,7 +62,7 @@ export function getCachedBlueReferences(
  * usually help because this library runs before anything else that can poison
  * the environment.
  */
-getCachedBlueReferences(window);
+getCachedGlobalObjectReferences(window);
 
 export function filterWindowKeys(keys: (string | symbol)[]): (string | symbol)[] {
     const result: (string | symbol)[] = [];
@@ -78,23 +83,16 @@ export function filterWindowKeys(keys: (string | symbol)[]): (string | symbol)[]
     return result;
 }
 
-export function linkUnforgeables(
-    env: VirtualEnvironment,
-    blueGlobalObject: WindowProxy & typeof globalThis
-) {
+export function linkUnforgeables(env: VirtualEnvironment) {
     // The test of instance of event target is important to discard environments
     // in which a fake window (e.g. jest) is not following the specs, and can
     // break this membrane.
-    if (blueGlobalObject.EventTarget && blueGlobalObject instanceof EventTarget) {
-        // window.document
-        env.link('document');
-        // window.__proto__ (aka Window.prototype)
-        env.link('__proto__');
-        // window.__proto__.__proto__ (aka WindowProperties.prototype)
-        env.link('__proto__', '__proto__');
-        // window.__proto__.__proto__.__proto__ (aka EventTarget.prototype)
-        env.link('__proto__', '__proto__', '__proto__');
-    }
+    // window.document
+    env.link('document');
+    // window.__proto__ (aka Window.prototype)
+    // window.__proto__.__proto__ (aka WindowProperties.prototype)
+    // window.__proto__.__proto__.__proto__ (aka EventTarget.prototype)
+    env.link('__proto__', '__proto__', '__proto__');
 }
 
 /**

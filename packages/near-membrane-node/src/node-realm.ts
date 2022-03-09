@@ -34,11 +34,16 @@ export default function createVirtualEnvironment(
     ) {
         throw new TypeErrorCtor('Missing global object virtualization target.');
     }
-    const options = {
+    // prettier-ignore
+    const {
+        distortionCallback,
+        endowments,
+        instrumentation,
+    } = {
+        // @ts-ignore: TS doesn't like __proto__ on NodeEnvironmentOptions.
         __proto__: null,
         ...providedOptions,
     };
-    const { distortionCallback, endowments, instrumentation } = options;
     const redGlobalThis: typeof globalThis = runInNewContext('globalThis');
     const blueConnector = createHooksCallback;
     const redConnector = createConnector(redGlobalThis.eval);

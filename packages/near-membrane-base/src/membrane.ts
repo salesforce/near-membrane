@@ -163,7 +163,7 @@ export type HooksCallback = (
     callableBatchGetPrototypeOfWhenHasNoOwnProperty: CallableBatchGetPrototypeOfWhenHasNoOwnProperty,
     callableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor: CallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
 ) => void;
-export interface InitLocalOptions {
+export interface HooksOptions {
     distortionCallback?: DistortionCallback;
     instrumentation?: InstrumentationHooks;
 }
@@ -194,6 +194,7 @@ export function createMembraneMarshall(
     const TypeErrorCtor = TypeError;
     const WeakMapCtor = WeakMap;
     const {
+        assign: ObjectAssign,
         defineProperties: ObjectDefineProperties,
         freeze: ObjectFreeze,
         getOwnPropertyDescriptor: ObjectGetOwnPropertyDescriptor,
@@ -801,15 +802,13 @@ export function createMembraneMarshall(
         color: string,
         trapMutations: boolean,
         foreignCallableHooksCallback: HooksCallback,
-        options?: InitLocalOptions
+        providedOptions?: HooksOptions
     ): HooksCallback {
-        // prettier-ignore
         const {
             distortionCallback = (o: ProxyTarget) => o,
             instrumentation,
-        } = options ?? {
-            __proto__: null,
-        };
+            // eslint-disable-next-line prefer-object-spread
+        } = ObjectAssign({ __proto__: null }, providedOptions);
 
         const INBOUND_INSTRUMENTATION_LABEL = `to:${color}`;
         const OUTBOUND_INSTRUMENTATION_LABEL = `from:${color}`;
@@ -1991,7 +1990,12 @@ export function createMembraneMarshall(
             (targetPointer: Pointer, newPointer: Pointer) => {
                 targetPointer();
                 const target = getSelectedTarget();
-                ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [target, newPointer]);
+                if (
+                    (typeof target === 'object' && target !== null) ||
+                    typeof target === 'function'
+                ) {
+                    ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [target, newPointer]);
+                }
             },
             /**
              * callablePushTarget: This function can be used by a foreign realm to install a proxy

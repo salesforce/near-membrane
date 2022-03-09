@@ -16,13 +16,13 @@ import {
 } from './membrane';
 
 interface VirtualEnvironmentOptions {
-    // Blue connector factory
+    // Blue connector factory.
     blueConnector: ReturnType<typeof createMembraneMarshall>;
-    // Optional distortion callback to tame functionalities observed through the membrane
+    // Optional distortion callback to tame functionalities observed through the membrane.
     distortionCallback?: DistortionCallback;
-    // Red connector factory
+    // Red connector factory.
     redConnector: ReturnType<typeof createMembraneMarshall>;
-    // Instrumentation library object
+    // Instrumentation library object.
     instrumentation?: InstrumentationHooks;
 }
 
@@ -84,15 +84,15 @@ export class VirtualEnvironment {
         const redExportsCallback: HooksCallback = (...hooks) => {
             redHooks = hooks;
         };
-        const initLocalOptions = {
-            distortionCallback,
-            instrumentation,
-        };
+        // prettier-ignore
         const localConnect = blueConnector(
             'blue',
             SHOULD_NOT_TRAP_MUTATION,
             blueExportsCallback,
-            initLocalOptions
+            {
+                distortionCallback,
+                instrumentation,
+            }
         );
         // prettier-ignore
         const foreignConnect = redConnector(
@@ -191,9 +191,9 @@ export class VirtualEnvironment {
             const key = keys[i];
             bluePointer = this.blueCallableGetPropertyValuePointer(bluePointer, key);
             redPointer = this.redCallableGetPropertyValuePointer(redPointer, key);
+            this.redCallableLinkPointers(redPointer, bluePointer);
+            this.blueCallableLinkPointers(bluePointer, redPointer);
         }
-        this.redCallableLinkPointers(redPointer, bluePointer);
-        this.blueCallableLinkPointers(bluePointer, redPointer);
     }
 
     remap(target: ProxyTarget, safeBlueDescMap: PropertyDescriptorMap) {
