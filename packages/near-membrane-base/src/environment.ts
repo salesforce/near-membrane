@@ -35,7 +35,7 @@ const SHOULD_NOT_TRAP_MUTATION = false;
 const ErrorCtor = Error;
 const ObjectCtor = Object;
 const { includes: ArrayProtoIncludes, push: ArrayProtoPush } = Array.prototype;
-const { keys: ObjectKeys } = ObjectCtor;
+const { assign: ObjectAssign, keys: ObjectKeys } = ObjectCtor;
 const { propertyIsEnumerable: ObjectProtoPropertyIsEnumerable } = ObjectCtor.prototype;
 const { apply: ReflectApply, ownKeys: ReflectOwnKeys } = Reflect;
 
@@ -68,11 +68,17 @@ export class VirtualEnvironment {
 
     private redGlobalThisPointer: Pointer;
 
-    constructor(options: VirtualEnvironmentOptions) {
-        if (options === undefined) {
+    constructor(providedOptions: VirtualEnvironmentOptions) {
+        if (providedOptions === undefined) {
             throw new ErrorCtor('Missing VirtualEnvironmentOptions options bag.');
         }
-        const { blueConnector, redConnector, distortionCallback, instrumentation } = options;
+        // prettier-ignore
+        const {
+            blueConnector,
+            redConnector,
+            distortionCallback,
+            instrumentation,
+        } = ObjectAssign({ __proto__: null }, providedOptions);
         this.blueConnector = blueConnector;
         this.redConnector = redConnector;
         let blueHooks: Parameters<HooksCallback>;

@@ -1,5 +1,3 @@
-import { VirtualEnvironment } from '@locker/near-membrane-base';
-
 const WeakMapCtor = WeakMap;
 const { push: ArrayProtoPush } = Array.prototype;
 const {
@@ -81,18 +79,6 @@ export function filterWindowKeys(keys: (string | symbol)[]): (string | symbol)[]
         }
     }
     return result;
-}
-
-export function linkUnforgeables(env: VirtualEnvironment) {
-    // The test of instance of event target is important to discard environments
-    // in which a fake window (e.g. jest) is not following the specs, and can
-    // break this membrane.
-    // window.document
-    env.link('document');
-    // window.__proto__ (aka Window.prototype)
-    // window.__proto__.__proto__ (aka WindowProperties.prototype)
-    // window.__proto__.__proto__.__proto__ (aka EventTarget.prototype)
-    env.link('__proto__', '__proto__', '__proto__');
 }
 
 /**

@@ -267,8 +267,9 @@ export function createMembraneMarshall(
     const { info: consoleInfoRef } = consoleRef;
     const localEval = eval;
     const globalThisRef =
+        // Support for globalThis was added in Chrome 71.
         (typeof globalThis !== 'undefined' && globalThis) ||
-        // This is for environments like Android emulators running Chrome 69.
+        // However, environments like Android emulators are running Chrome 69.
         // eslint-disable-next-line no-restricted-globals
         (typeof self !== 'undefined' && self) ||
         // See https://mathiasbynens.be/notes/globalthis for more details.

@@ -53,7 +53,6 @@ export default function createVirtualEnvironment(
         redConnector,
         instrumentation,
     });
-    env.link('globalThis');
     linkIntrinsics(env, globalObjectVirtualizationTarget);
     const globalObjectShapeWithEndowments = {};
     assignFilteredGlobalDescriptors(globalObjectShapeWithEndowments, globalObjectShape);
@@ -61,7 +60,6 @@ export default function createVirtualEnvironment(
         globalObjectShapeWithEndowments,
         endowments
     );
-    // remapping globals
     env.remap(globalObjectVirtualizationTarget, globalObjectShapeWithEndowments);
     return env;
 }

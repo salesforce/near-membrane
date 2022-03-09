@@ -120,6 +120,7 @@ const ReflectiveIntrinsicObjectNames = [
     'TypeError',
     'URIError',
     'eval',
+    'globalThis',
 ];
 
 const ESGlobalsAndReflectiveIntrinsicObjectNames = [
@@ -223,10 +224,11 @@ export function linkIntrinsics(
         const globalName = ReflectiveIntrinsicObjectNames[i];
         const reflectiveValue = globalObjectVirtualizationTarget[globalName];
         if (reflectiveValue) {
-            env.link(globalName);
-            // Proxy.prototype is undefined, being the only weird thing here.
+            // Proxy.prototype is undefined.
             if (reflectiveValue.prototype) {
                 env.link(globalName, 'prototype');
+            } else {
+                env.link(globalName);
             }
         }
     }
