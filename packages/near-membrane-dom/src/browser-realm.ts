@@ -131,8 +131,9 @@ export default function createVirtualEnvironment(
     if (typeof globalThis === 'undefined') {
         // Support for globalThis was added in Chrome 71.
         // However, environments like Android emulators are running Chrome 69.
-        env.link('window.document');
+        env.link('window', 'document');
     } else {
+        // document is === window.document.
         env.link('document');
     }
     // window.__proto__ (aka Window.prototype)
