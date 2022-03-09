@@ -12,7 +12,6 @@ import {
 import {
     getCachedGlobalObjectReferences,
     filterWindowKeys,
-    linkUnforgeables,
     removeWindowDescriptors,
 } from './window';
 
@@ -98,7 +97,10 @@ export default function createVirtualEnvironment(
         // eslint-disable-next-line prefer-object-spread
     } = ObjectAssign({ __proto__: null }, providedOptions);
     const iframe = createDetachableIframe();
-    const redWindow = ReflectApply(HTMLIFrameElementProtoContentWindowGetter, iframe, [])!.window;
+    const {
+        window: redWindow,
+        window: { document: redDocument },
+    } = ReflectApply(HTMLIFrameElementProtoContentWindowGetter, iframe, [])!;
     let globalOwnKeys;
     if (globalObjectShape === null) {
         if (defaultGlobalOwnKeys === null) {
@@ -111,7 +113,6 @@ export default function createVirtualEnvironment(
     const filteredEndowments = {};
     assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(filteredEndowments, endowments);
     removeWindowDescriptors(filteredEndowments);
-    const { document: redDocument } = redWindow;
     const blueConnector = createHooksCallback;
     const redConnector = createConnector(redWindow.eval);
     // Extract the global references and descriptors before any interference.
@@ -123,9 +124,21 @@ export default function createVirtualEnvironment(
         redConnector,
         instrumentation,
     });
-    env.link('window');
     linkIntrinsics(env, globalObjectVirtualizationTarget);
-    linkUnforgeables(env);
+    // window
+    // window.document
+    // In browsers globalThis is === window.
+    if (typeof globalThis === 'undefined') {
+        // Support for globalThis was added in Chrome 71.
+        // However, environments like Android emulators are running Chrome 69.
+        env.link('window.document');
+    } else {
+        env.link('document');
+    }
+    // window.__proto__ (aka Window.prototype)
+    // window.__proto__.__proto__ (aka WindowProperties.prototype)
+    // window.__proto__.__proto__.__proto__ (aka EventTarget.prototype)
+    env.link('__proto__', '__proto__', '__proto__');
     env.remapProto(blueRefs.document, blueRefs.DocumentProto);
     env.lazyRemap(blueRefs.window, globalOwnKeys);
     env.remap(blueRefs.window, filteredEndowments);

@@ -51,7 +51,7 @@ env.evaluate(`
     function getLimit (depth = 1) {
         try {
             return getLimit(depth + 1)
-        } catch (err) {
+        } catch {
             return depth
         }
     }
