@@ -2,12 +2,7 @@ import { VirtualEnvironment } from './environment';
 
 const { includes: ArrayProtoIncludes, push: ArrayProtoPush } = Array.prototype;
 const { assign: ObjectAssign } = Object;
-const {
-    apply: ReflectApply,
-    getOwnPropertyDescriptor: ReflectGetOwnPropertyDescriptor,
-    ownKeys: ReflectOwnKeys,
-    setPrototypeOf: ReflectSetPrototypeOf,
-} = Reflect;
+const { apply: ReflectApply, ownKeys: ReflectOwnKeys } = Reflect;
 
 /**
  * This list must be in sync with ecma-262, anything new added to the global object
@@ -127,47 +122,6 @@ const ESGlobalsAndReflectiveIntrinsicObjectNames = [
     ...ESGlobalKeys,
     ...ReflectiveIntrinsicObjectNames,
 ];
-
-export function assignFilteredGlobalDescriptors<T extends PropertyDescriptorMap>(
-    descMap: T,
-    source?: object,
-    sourceForDesc = source
-): T {
-    if (source) {
-        const ownKeys = ReflectOwnKeys(source);
-        for (let i = 0, { length } = ownKeys; i < length; i += 1) {
-            const ownKey = ownKeys[i];
-            // Avoid overriding ECMAScript global names that correspond to global
-            // intrinsics. This guarantees that those entries will be ignored if
-            // present in the source object.
-            // TODO: What if the intent is to polyfill one of those intrinsics?
-            if (
-                !ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveIntrinsicObjectNames, [
-                    ownKey,
-                ])
-            ) {
-                // Safari 14.0.x (macOS) and 14.2 (iOS) have a bug where
-                // 'showModalDialog' is returned in the list of own keys produces
-                // by ReflectOwnKeys(iframeWindow), however 'showModalDialog' is
-                // not an own property and produces undefined at
-                // ReflectGetOwnPropertyDescriptor(window, key).
-                //
-                // In all other browsers, 'showModalDialog' is not an own property
-                // and does not appear in the list produces by
-                // ReflectOwnKeys(iframeWindow).
-                //
-                // So, as a general rule: if there is not an own descriptor,
-                // ignore the entry and continue.
-                const desc = ReflectGetOwnPropertyDescriptor(sourceForDesc!, ownKey);
-                if (desc) {
-                    ReflectSetPrototypeOf(desc, null);
-                    (descMap as any)[ownKey] = desc;
-                }
-            }
-        }
-    }
-    return descMap;
-}
 
 export function assignFilteredGlobalDescriptorsFromPropertyDescriptorMap<
     T extends PropertyDescriptorMap
