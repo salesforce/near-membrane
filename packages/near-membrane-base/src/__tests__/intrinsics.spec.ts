@@ -1,5 +1,4 @@
 import {
-    assignFilteredGlobalDescriptors,
     assignFilteredGlobalDescriptorsFromPropertyDescriptorMap,
     createConnector,
     getFilteredGlobalOwnKeys,
@@ -98,6 +97,7 @@ const ReflectiveIntrinsicObjectNames = [
     'TypeError',
     'URIError',
     'eval',
+    'globalThis',
 ];
 
 const RemappedIntrinsicObjectNames = [
@@ -124,72 +124,6 @@ const RemappedIntrinsicObjectNames = [
     'WeakMap',
     'WeakSet',
 ];
-
-describe('assignFilteredGlobalDescriptors', () => {
-    it('ignores non-remapped ES intrinsics', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
-        expect.assertions(ESGlobalKeys.length);
-
-        const shape = ESGlobalKeys.reduce((accum, key) => {
-            accum[key] = globalThis[key];
-            return accum;
-        }, {});
-        const descMap = assignFilteredGlobalDescriptors({}, shape);
-        for (const key of ESGlobalKeys) {
-            expect(key in descMap).toBe(false);
-        }
-    });
-    it('ignores Reflective ES intrinsics', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
-        expect.assertions(ReflectiveIntrinsicObjectNames.length);
-
-        const shape = ReflectiveIntrinsicObjectNames.reduce((accum, key) => {
-            accum[key] = globalThis[key];
-            return accum;
-        }, {});
-        const descMap = assignFilteredGlobalDescriptors({}, shape);
-        for (const key of ReflectiveIntrinsicObjectNames) {
-            expect(key in descMap).toBe(false);
-        }
-    });
-    it('includes Remapped ES intrinsics', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
-        expect.assertions(RemappedIntrinsicObjectNames.length);
-
-        const shape = RemappedIntrinsicObjectNames.reduce((accum, key) => {
-            accum[key] = globalThis[key];
-            return accum;
-        }, {});
-        const descMap = assignFilteredGlobalDescriptors({}, shape);
-        for (const key of RemappedIntrinsicObjectNames) {
-            expect(descMap[key]).toBeDefined();
-        }
-    });
-    it('should create a descriptor for non-ES built-ins', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
-        expect.assertions(1);
-
-        const descMap = assignFilteredGlobalDescriptors(
-            {},
-            {
-                Foo: 1,
-            }
-        );
-        // Ignoring
-        //  "Property 'toMatchObject' does not exist on type 'Matchers<PropertyDescriptor>'."
-        // @ts-ignore
-        expect(descMap.Foo).toMatchObject({
-            configurable: true,
-            enumerable: true,
-            value: 1,
-            writable: true,
-        });
-    });
-});
 
 describe('assignFilteredGlobalDescriptorsFromPropertyDescriptorMap', () => {
     it('ignores non-remapped ES intrinsics', () => {

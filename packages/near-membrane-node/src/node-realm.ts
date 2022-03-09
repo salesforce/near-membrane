@@ -1,8 +1,8 @@
 import {
-    assignFilteredGlobalDescriptors,
     assignFilteredGlobalDescriptorsFromPropertyDescriptorMap,
     createConnector,
     createMembraneMarshall,
+    getFilteredGlobalOwnKeys,
     linkIntrinsics,
     DistortionCallback,
     InstrumentationHooks,
@@ -44,6 +44,9 @@ export default function createVirtualEnvironment(
         __proto__: null,
         ...providedOptions,
     };
+    const globalOwnKeys = getFilteredGlobalOwnKeys(globalObjectShape);
+    const filteredEndowments = {};
+    assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(filteredEndowments, endowments);
     const redGlobalThis: typeof globalThis = runInNewContext('globalThis');
     const blueConnector = createHooksCallback;
     const redConnector = createConnector(redGlobalThis.eval);
@@ -54,12 +57,7 @@ export default function createVirtualEnvironment(
         instrumentation,
     });
     linkIntrinsics(env, globalObjectVirtualizationTarget);
-    const globalObjectShapeWithEndowments = {};
-    assignFilteredGlobalDescriptors(globalObjectShapeWithEndowments, globalObjectShape);
-    assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
-        globalObjectShapeWithEndowments,
-        endowments
-    );
-    env.remap(globalObjectVirtualizationTarget, globalObjectShapeWithEndowments);
+    env.lazyRemap(globalObjectVirtualizationTarget, globalOwnKeys);
+    env.remap(globalObjectVirtualizationTarget, filteredEndowments);
     return env;
 }
