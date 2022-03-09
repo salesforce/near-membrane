@@ -139,7 +139,7 @@ export function assignFilteredGlobalDescriptors<T extends PropertyDescriptorMap>
             // Avoid overriding ECMAScript global names that correspond to global
             // intrinsics. This guarantees that those entries will be ignored if
             // present in the source object.
-            // TODO: what if the intent is to polyfill one of those intrinsics?
+            // TODO: What if the intent is to polyfill one of those intrinsics?
             if (
                 !ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveIntrinsicObjectNames, [
                     ownKey,
@@ -218,13 +218,13 @@ export function linkIntrinsics(
     env: VirtualEnvironment,
     globalObjectVirtualizationTarget: typeof globalThis
 ) {
-    // remapping intrinsics that are realm agnostic
+    // Remap intrinsics that are realm agnostic.
     for (let i = 0, { length } = ReflectiveIntrinsicObjectNames; i < length; i += 1) {
         const globalName = ReflectiveIntrinsicObjectNames[i];
         const reflectiveValue = globalObjectVirtualizationTarget[globalName];
         if (reflectiveValue) {
             env.link(globalName);
-            // Proxy.prototype is undefined, being the only weird thing here
+            // Proxy.prototype is undefined, being the only weird thing here.
             if (reflectiveValue.prototype) {
                 env.link(globalName, 'prototype');
             }

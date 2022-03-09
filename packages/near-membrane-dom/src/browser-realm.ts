@@ -10,7 +10,7 @@ import {
 } from '@locker/near-membrane-base';
 
 import {
-    getCachedBlueReferences,
+    getCachedGlobalObjectReferences,
     filterWindowKeys,
     linkUnforgeables,
     removeWindowDescriptors,
@@ -90,16 +90,13 @@ export default function createVirtualEnvironment(
     ) {
         throw new TypeErrorCtor('Missing global object virtualization target.');
     }
-    // eslint-disable-next-line prefer-object-spread
-    const options = ObjectAssign(
-        {
-            __proto__: null,
-            keepAlive: false,
-        },
-        providedOptions
-    );
-    // eslint-disable-next-line prefer-object-spread
-    const { distortionCallback, endowments, instrumentation, keepAlive } = options;
+    const {
+        distortionCallback,
+        endowments,
+        instrumentation,
+        keepAlive = false,
+        // eslint-disable-next-line prefer-object-spread
+    } = ObjectAssign({ __proto__: null }, providedOptions);
     const iframe = createDetachableIframe();
     const redWindow = ReflectApply(HTMLIFrameElementProtoContentWindowGetter, iframe, [])!.window;
     let globalOwnKeys;
@@ -118,7 +115,7 @@ export default function createVirtualEnvironment(
     const blueConnector = createHooksCallback;
     const redConnector = createConnector(redWindow.eval);
     // Extract the global references and descriptors before any interference.
-    const blueRefs = getCachedBlueReferences(globalObjectVirtualizationTarget);
+    const blueRefs = getCachedGlobalObjectReferences(globalObjectVirtualizationTarget);
     // Create a new environment.
     const env = new VirtualEnvironment({
         blueConnector,
@@ -128,10 +125,12 @@ export default function createVirtualEnvironment(
     });
     env.link('window');
     linkIntrinsics(env, globalObjectVirtualizationTarget);
-    linkUnforgeables(env, globalObjectVirtualizationTarget);
+    linkUnforgeables(env);
     env.remapProto(blueRefs.document, blueRefs.DocumentProto);
     env.lazyRemap(blueRefs.window, globalOwnKeys);
     env.remap(blueRefs.window, filteredEndowments);
+    // We intentionally skip remapping Window.prototype because there is nothing
+    // in it that needs to be remapped.
     env.lazyRemap(blueRefs.EventTargetProto, blueRefs.EventTargetProtoOwnKeys);
     // We don't remap `blueRefs.WindowPropertiesProto` because it is "magical"
     // in that it provides access to elements by id.
