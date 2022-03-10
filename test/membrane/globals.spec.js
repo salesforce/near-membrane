@@ -71,6 +71,7 @@ describe('sandbox', () => {
             // delete itself. By performing this empty loop we knock the bug
             // out and the tests after the Object.getOwnPropertyDescriptors(window)
             // call will pass.
+            // https://bugs.chromium.org/p/chromium/issues/detail?id=1305302
             for (const key of Reflect.ownKeys(window)) {}
 
             expect(Object.getOwnPropertyDescriptors(window).Map).toEqual({
