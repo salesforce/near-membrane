@@ -34,9 +34,8 @@ const SHOULD_NOT_TRAP_MUTATION = false;
 
 const ErrorCtor = Error;
 const ObjectCtor = Object;
-const { includes: ArrayProtoIncludes, push: ArrayProtoPush } = Array.prototype;
-const { assign: ObjectAssign, keys: ObjectKeys } = ObjectCtor;
-const { propertyIsEnumerable: ObjectProtoPropertyIsEnumerable } = ObjectCtor.prototype;
+const { push: ArrayProtoPush } = Array.prototype;
+const { assign: ObjectAssign } = ObjectCtor;
 const { apply: ReflectApply, ownKeys: ReflectOwnKeys } = Reflect;
 
 export class VirtualEnvironment {
@@ -176,17 +175,8 @@ export class VirtualEnvironment {
 
     lazyRemap(target: ProxyTarget, ownKeys: (string | symbol)[]) {
         const targetPointer = this.blueGetTransferableValue(target) as Pointer;
-        const enumerableKeys = ObjectKeys(target);
         const args: any[] = [targetPointer];
-        for (let i = 0, { length } = ownKeys; i < length; i += 1) {
-            const key = ownKeys[i];
-            const isEnumerable =
-                typeof key === 'symbol'
-                    ? ReflectApply(ObjectProtoPropertyIsEnumerable, target, [key])
-                    : ReflectApply(ArrayProtoIncludes, enumerableKeys, [key]);
-
-            ReflectApply(ArrayProtoPush, args, [key, isEnumerable]);
-        }
+        ReflectApply(ArrayProtoPush, args, ownKeys);
         ReflectApply(this.redCallableInstallLazyDescriptors, undefined, args);
     }
 
