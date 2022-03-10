@@ -425,6 +425,7 @@ describe('a live red proxy', () => {
         expect.assertions(4);
 
         exoticLiveObject.w = new ExoticObject({ x: 1 });
+
         env.evaluate(`
             exoticLiveObject.z = 'siete';
             expect(exoticLiveObject.z).toBe('siete');

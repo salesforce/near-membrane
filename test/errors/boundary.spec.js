@@ -6,7 +6,7 @@ function throwNewError(Ctor, msg) {
 
 let sandboxedValue;
 
-globalThis.boundaryHooks = {
+const boundaryHooks = {
     set a(v) {
         throwNewError(Error, `a() setter throws for argument: ${v}`);
     },
@@ -24,22 +24,34 @@ globalThis.boundaryHooks = {
 describe('The Error Boundary', () => {
     it('should preserve identity of errors after a membrane roundtrip', () => {
         expect.assertions(3);
+
+        window.boundaryHooks = boundaryHooks;
+
         const env = createVirtualEnvironment(window, window);
+
         env.evaluate(`boundaryHooks.expose(() => { boundaryHooks.a })`);
+
         expect(() => {
             sandboxedValue();
         }).toThrowError(Error);
+
         env.evaluate(`boundaryHooks.expose(() => { boundaryHooks.a = 1; })`);
+
         expect(() => {
             sandboxedValue();
         }).toThrowError(Error);
+
         env.evaluate(`boundaryHooks.expose(() => { boundaryHooks.b(2); })`);
+
         expect(() => {
             sandboxedValue();
         }).toThrowError(RangeError);
     });
     it('should remap the Outer Realm Error instance to the sandbox errors', () => {
         expect.assertions(3);
+
+        window.boundaryHooks = boundaryHooks;
+
         const env = createVirtualEnvironment(window, window);
 
         env.evaluate(`
@@ -60,12 +72,17 @@ describe('The Error Boundary', () => {
     });
     it('should capture throwing from user proxy', () => {
         expect.assertions(3);
+
+        window.boundaryHooks = boundaryHooks;
+
         const env = createVirtualEnvironment(window, window);
+
         env.evaluate(`
             const revocable = Proxy.revocable(() => undefined, {});
             revocable.revoke();
             boundaryHooks.expose(revocable.proxy);
         `);
+
         expect(() => {
             // eslint-disable-next-line no-unused-expressions
             sandboxedValue.x;

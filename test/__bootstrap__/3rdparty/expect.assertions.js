@@ -10,12 +10,6 @@ EXPECT_PATCHING_SCOPE: {
 
     let actualExpects = 0;
     let expectedExpects = null;
-
-    beforeEach(() => {
-        actualExpects = 0;
-        expectedExpects = null;
-    });
-
     const { expect: originalExpect } = globalThis;
 
     globalThis.expect = function (...args) {
@@ -44,6 +38,20 @@ EXPECT_PATCHING_SCOPE: {
             );
         }
     };
+
+    const defaultGlobalThisKeysLookup = new Set(Reflect.ownKeys(globalThis));
+
+    beforeEach(() => {
+        actualExpects = 0;
+        expectedExpects = null;
+        // Cleanup global object pollution after each test.
+        const ownKeys = Reflect.ownKeys(globalThis);
+        for (const ownKey of ownKeys) {
+            if (!defaultGlobalThisKeysLookup.has(ownKey)) {
+                delete globalThis[ownKey];
+            }
+        }
+    });
 
     afterEach(checkExpectCount);
 }

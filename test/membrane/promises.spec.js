@@ -5,6 +5,7 @@ describe('Promise', () => {
         const env = createVirtualEnvironment(window, window, {
             endowments: Object.getOwnPropertyDescriptors({ done, expect }),
         });
+
         env.evaluate(`
             const p = new Promise(resolve => {
                 resolve(1);
@@ -19,6 +20,7 @@ describe('Promise', () => {
         const env = createVirtualEnvironment(window, window, {
             endowments: Object.getOwnPropertyDescriptors({ done, expect }),
         });
+
         env.evaluate(`
             const p = Promise.resolve(1);
             p.then((value) => {
@@ -31,6 +33,7 @@ describe('Promise', () => {
         const env = createVirtualEnvironment(window, window, {
             endowments: Object.getOwnPropertyDescriptors({ done, expect }),
         });
+
         env.evaluate(`
             const p = Promise.reject(new Error('foo'));
             p.catch((e) => {
@@ -43,6 +46,7 @@ describe('Promise', () => {
         const env = createVirtualEnvironment(window, window, {
             endowments: Object.getOwnPropertyDescriptors({ done, expect }),
         });
+
         env.evaluate(`
             const p = new Promise(() => {
                 throw new Error('foo');
@@ -57,6 +61,7 @@ describe('Promise', () => {
         const env = createVirtualEnvironment(window, window, {
             endowments: Object.getOwnPropertyDescriptors({ done, expect }),
         });
+
         env.evaluate(`
             const p = new Promise(() => {
                 throw { foo: 'bar' };

@@ -1,9 +1,5 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-// patching the outer realm before extracting the descriptors
-window.originalFetch = fetch;
-window.wrappedFetch = (...args) => fetch(...args);
-
 const distortionMap = new Map([
     [
         fetch,
@@ -13,15 +9,18 @@ const distortionMap = new Map([
     ],
 ]);
 
-function distortionCallback(v) {
-    return distortionMap.get(v) || v;
-}
-
-const env = createVirtualEnvironment(window, window, { distortionCallback });
+const envOptions = {
+    distortionCallback(v) {
+        return distortionMap.get(v) || v;
+    },
+};
 
 describe('Method Distortion', () => {
     it('should be invoked when invoked directly', () => {
         expect.assertions(1);
+
+        const env = createVirtualEnvironment(window, window, envOptions);
+
         env.evaluate(`
             expect(() => {
                 fetch('./invalid-network-request.json');
@@ -30,6 +29,11 @@ describe('Method Distortion', () => {
     });
     it('should be invoked when invoked indirectly', () => {
         expect.assertions(1);
+
+        window.originalFetch = fetch;
+
+        const env = createVirtualEnvironment(window, window, envOptions);
+
         env.evaluate(`
             expect(() => {
                 originalFetch('./invalid-fetch.html');
@@ -38,6 +42,11 @@ describe('Method Distortion', () => {
     });
     it('should bypass the restriction because fetch ref never goes throw the membrane', () => {
         expect.assertions(1);
+
+        window.wrappedFetch = (...args) => fetch(...args);
+
+        const env = createVirtualEnvironment(window, window, envOptions);
+
         env.evaluate(`
             expect(() => {
                 wrappedFetch('./invalid-fetch.html');

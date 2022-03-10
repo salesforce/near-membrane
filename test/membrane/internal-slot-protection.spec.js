@@ -3,10 +3,12 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 describe('membrane', () => {
     it('should prevent attacks that are changing the prototype for impersonation', () => {
         expect.assertions(4);
+
         const { value: setAttribute } = Object.getOwnPropertyDescriptor(
             Element.prototype,
             'setAttribute'
         );
+
         const distortionMap = new Map([
             [
                 setAttribute,
@@ -17,10 +19,13 @@ describe('membrane', () => {
                 },
             ],
         ]);
-        function distortionCallback(v) {
-            return distortionMap.get(v) || v;
-        }
-        const env = createVirtualEnvironment(window, window, { distortionCallback });
+
+        const env = createVirtualEnvironment(window, window, {
+            distortionCallback(v) {
+                return distortionMap.get(v) || v;
+            },
+        });
+
         env.evaluate(`
             'use strict';
 

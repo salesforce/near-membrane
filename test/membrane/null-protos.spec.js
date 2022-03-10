@@ -12,9 +12,11 @@ function saveFoo(arg) {
 describe('null __proto__', () => {
     it('should work for get trap', () => {
         expect.assertions(4);
+
         const env = createVirtualEnvironment(window, window, {
             endowments: Object.getOwnPropertyDescriptors({ bar, saveFoo, expect }),
         });
+
         env.evaluate(`
             const foo = Object.create(null, {
                 y: { value: 2 }
@@ -23,14 +25,17 @@ describe('null __proto__', () => {
             expect(bar.x).toBe(1);
             expect(bar.y).toBe(undefined);
         `);
+
         expect(foo.x).toBe(undefined);
         expect(foo.y).toBe(2);
     });
     it('should work for set trap', () => {
         expect.assertions(6);
+
         const env = createVirtualEnvironment(window, window, {
             endowments: Object.getOwnPropertyDescriptors({ bar, saveFoo, expect }),
         });
+
         env.evaluate(`
             const foo = Object.create(null, {
                 x: { value: 2 },
@@ -41,15 +46,18 @@ describe('null __proto__', () => {
             expect(Reflect.set(bar, 'expando', 3)).toBe(true);
             expect(Reflect.set(bar, 'z', 4)).toBe(true);
         `);
+
         expect(Reflect.set(foo, 'x', 5)).toBe(false); // non-writable
         expect(Reflect.set(foo, 'expando', 6)).toBe(true);
         expect(Reflect.set(foo, 'y', 7)).toBe(true);
     });
     it('should work for has trap', () => {
         expect.assertions(4);
+
         const env = createVirtualEnvironment(window, window, {
             endowments: Object.getOwnPropertyDescriptors({ bar, saveFoo, expect }),
         });
+
         env.evaluate(`
             const foo = Object.create(null, {
                 y: { value: 2, writable: true }
@@ -58,6 +66,7 @@ describe('null __proto__', () => {
             expect('x' in bar).toBe(true);
             expect('y' in bar).toBe(false);
         `);
+
         expect('x' in foo).toBe(false);
         expect('y' in foo).toBe(true);
     });

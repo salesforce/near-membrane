@@ -11,6 +11,7 @@ if (!skipTests) {
             const env = createVirtualEnvironment(window, window, {
                 endowments: Object.getOwnPropertyDescriptors({ done, expect }),
             });
+
             env.evaluate(`
                 async function hello() {
                     return await "Hello";

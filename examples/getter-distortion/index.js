@@ -2,7 +2,6 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 // getting reference to the function to be distorted
 const { get } = Object.getOwnPropertyDescriptor(ShadowRoot.prototype, 'host');
-
 const distortionMap = new Map([
     [
         get,
@@ -12,9 +11,11 @@ const distortionMap = new Map([
         },
     ],
 ]);
-
-const distortionCallback = (v) => distortionMap.get(v) || v;
-const env = createVirtualEnvironment(window, window, { distortionCallback });
+const env = createVirtualEnvironment(window, window, {
+    distortionCallback(v) {
+        return distortionMap.get(v) || v;
+    },
+});
 
 env.evaluate(`
     debugger;

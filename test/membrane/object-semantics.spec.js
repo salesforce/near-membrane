@@ -13,6 +13,7 @@ describe('Blue Proxies', () => {
                 },
             }),
         });
+
         env.evaluate(`
             'use strict';
             const obj = {
@@ -29,6 +30,7 @@ describe('Blue Proxies', () => {
             });
             saveObject(obj);
         `);
+
         expect(obj.x).toBe(1);
         expect(Object.getOwnPropertyDescriptor(obj, 'x').value).toBe(1);
         obj.x = 2;

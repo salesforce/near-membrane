@@ -34,6 +34,7 @@ describe('The membrane', () => {
                 expect,
             }),
         });
+
         env.evaluate(`
             'use strict';
             expect(Foo.prototype.base()).toBe('from base');

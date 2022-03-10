@@ -30,6 +30,7 @@ function save(arg1, arg2, arg3, arg4) {
 const env = createVirtualEnvironment(window, window, {
     endowments: Object.getOwnPropertyDescriptors({ Base, ExoticObject, save }),
 });
+
 env.evaluate(`
     // Overriding the behavior of a plain prototype object in red.
     // Since this prototype object is a plain object it is live, the mutation
