@@ -1,5 +1,8 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
+globalThis.bar = { a: 1, b: 2 };
+Object.freeze(globalThis.bar);
+
 const distortionMap = new Map([
     [
         alert,
@@ -9,12 +12,10 @@ const distortionMap = new Map([
     ],
 ]);
 
-globalThis.bar = { a: 1, b: 2 };
-Object.freeze(globalThis.bar);
-
-const distortionCallback = (v) => distortionMap.get(v) || v;
 const env = createVirtualEnvironment(window, window, {
-    distortionCallback,
+    distortionCallback(v) {
+        return distortionMap.get(v) || v;
+    },
 });
 
 try {
@@ -23,6 +24,7 @@ try {
     `);
 } catch (e) {
     // testing syntax error when evaluating
+    // eslint-disable-next-line no-unused-expressions
     e instanceof SyntaxError;
 }
 
@@ -32,12 +34,14 @@ try {
     `);
 } catch (e) {
     // testing initialization error when evaluating
+    // eslint-disable-next-line no-unused-expressions
     e instanceof Error;
 }
 
 // verifying that in deep it is reflected as frozen
 env.evaluate(`
     'use strict';
+
     try {
         bar.c = 3; // because it is frozen
     } catch (e) {
@@ -45,9 +49,9 @@ env.evaluate(`
     }
     bar.c === undefined;
 `);
-
 env.evaluate(`
     'use strict';
+
     function getLimit (depth = 1) {
         try {
             return getLimit(depth + 1)
@@ -71,7 +75,6 @@ env.evaluate(`
             err =_err
         }
     }
-
 
     // exhausting the engine by calling a function from the sandbox
     exhaust(limit - 1, function () {})

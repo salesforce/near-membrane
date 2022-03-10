@@ -6,6 +6,7 @@ describe('TypedArray', () => {
             const env = createVirtualEnvironment(window, window, {
                 endowments: Object.getOwnPropertyDescriptors({ done, expect }),
             });
+
             env.evaluate(`
                 const ab = new ArrayBuffer(Int32Array.BYTES_PER_ELEMENT );
                 const i32a = new Int32Array(ab);
@@ -27,6 +28,7 @@ describe('TypedArray', () => {
             const env = createVirtualEnvironment(window, window, {
                 endowments: Object.getOwnPropertyDescriptors({ done, expect }),
             });
+
             env.evaluate(`
                 const a = new Uint8Array([97, 98, 99]);
                 const b = new Blob([a], { type: 'application/octet-stream' });
@@ -42,6 +44,7 @@ describe('TypedArray', () => {
             const env = createVirtualEnvironment(window, window, {
                 endowments: Object.getOwnPropertyDescriptors({ done, expect }),
             });
+
             env.evaluate(`
                 expect(() => {
                     crypto.getRandomValues(new Uint8Array(1));
@@ -55,6 +58,7 @@ describe('TypedArray', () => {
             const env = createVirtualEnvironment(window, window, {
                 endowments: Object.getOwnPropertyDescriptors({ done, expect }),
             });
+
             env.evaluate(`
                 const source = new Uint8Array([97, 98, 99]);
                 const blob = new Blob([source]);

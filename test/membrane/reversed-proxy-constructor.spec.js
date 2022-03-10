@@ -17,6 +17,7 @@ describe('Reversed Proxy constructor', () => {
                 },
             }),
         });
+
         env.evaluate(`test({ Proxy });`);
     });
     it('.revocable() should be supported', () => {
@@ -37,6 +38,7 @@ describe('Reversed Proxy constructor', () => {
                 },
             }),
         });
+
         env.evaluate(`test({ Proxy });`);
     });
 });

@@ -13,11 +13,14 @@ describe('Freezing', () => {
 
             globalThis.plainObject = { x: 1 };
             Object.freeze(globalThis.plainObject);
+
             const env = createVirtualEnvironment(globalThis, globalThis);
+
             // Check the state of plainObject in the blue realm.
             expect(Object.isExtensible(globalThis.plainObject)).toBe(false);
             expect(Object.isSealed(globalThis.plainObject)).toBe(true);
             expect(Object.isFrozen(globalThis.plainObject)).toBe(true);
+
             // Check the state of plainObject in the sandbox.
             env.evaluate(`
                 expect(Object.isExtensible(plainObject)).toBe(false);
@@ -32,8 +35,8 @@ describe('Freezing', () => {
                 }).toThrowError(TypeError);
                 expect(plainObject).toEqual({ x: 1 });
             `);
+
             expect(globalThis.plainObject).toEqual({ x: 1 });
-            delete globalThis.plainObject;
         });
     });
     describe('after creating the sandbox', () => {
@@ -41,7 +44,9 @@ describe('Freezing', () => {
             expect.assertions(9);
 
             globalThis.exoticObject = new ExoticObject({ x: 1 });
+
             const env = createVirtualEnvironment(globalThis, globalThis);
+
             // Check the state of exoticObject in the sandbox.
             env.evaluate(`
                 expect(Object.isExtensible(globalThis.exoticObject)).toBe(true);
@@ -49,11 +54,13 @@ describe('Freezing', () => {
                 expect(Object.isFrozen(globalThis.exoticObject)).toBe(false);
                 exoticObject.y = 2; // Mutation makes the exotic object proxy static.
             `);
+
             // Freeze blue exoticObject after being observed by the sandbox.
             Object.freeze(globalThis.exoticObject);
             expect(Object.isExtensible(globalThis.exoticObject)).toBe(false);
             expect(Object.isSealed(globalThis.exoticObject)).toBe(true);
             expect(Object.isFrozen(globalThis.exoticObject)).toBe(true);
+
             // Verify the state of red exoticObject from within the sandbox.
             env.evaluate(`
                 'use strict';
@@ -62,15 +69,17 @@ describe('Freezing', () => {
                 }).not.toThrowError(TypeError);
                 expect({ ...exoticObject }).toEqual({ x: 1, y: 2, z: 3 });
             `);
+
             // Verify the sandboxed expando doesn't leak to blue exoticObject.
             expect({ ...globalThis.exoticObject }).toEqual({ x: 1 });
-            delete globalThis.exoticObject;
         });
         it('should be observed from within the sandbox after mutation of plain objects', () => {
             expect.assertions(9);
 
             globalThis.plainObject = { x: 1 };
+
             const env = createVirtualEnvironment(globalThis, globalThis);
+
             // Check the state of plainObject in the sandbox.
             env.evaluate(`
                 expect(Object.isExtensible(globalThis.plainObject)).toBe(true);
@@ -78,11 +87,13 @@ describe('Freezing', () => {
                 expect(Object.isFrozen(globalThis.plainObject)).toBe(false);
                 plainObject.y = 2; // Mutation makes the POJO proxy live.
             `);
+
             // Freeze blue plainObject after being observed by the sandbox.
             Object.freeze(globalThis.plainObject);
             expect(Object.isExtensible(globalThis.plainObject)).toBe(false);
             expect(Object.isSealed(globalThis.plainObject)).toBe(true);
             expect(Object.isFrozen(globalThis.plainObject)).toBe(true);
+
             // Verify the state of red plainObject from within the sandbox.
             env.evaluate(`
                 'use strict';
@@ -93,7 +104,6 @@ describe('Freezing', () => {
             `);
             // Verify the state of blue plainObject.
             expect(globalThis.plainObject).toEqual({ x: 1, y: 2 });
-            delete globalThis.plainObject;
         });
     });
     describe('reverse proxies', () => {
@@ -115,7 +125,9 @@ describe('Freezing', () => {
                     func.y = 2;
                 }).toThrowError(TypeError);
             };
+
             const env = createVirtualEnvironment(globalThis, globalThis);
+
             env.evaluate(`
                 'use strict';
                 const object = { x: 1 };
@@ -130,7 +142,6 @@ describe('Freezing', () => {
                     func.y = 2;
                 }).toThrowError(TypeError);
             `);
-            delete globalThis.takeOutside;
         });
     });
 });

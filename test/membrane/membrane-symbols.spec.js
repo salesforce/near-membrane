@@ -30,26 +30,25 @@ describe('@@lockerNearMembrane', () => {
 
         // eslint-disable-next-line no-unused-vars
         let takeInside;
-
-        const endowments = Object.getOwnPropertyDescriptors({
-            expect,
-            exposeTakeInside(func) {
-                takeInside = func;
-            },
-            takeOutside(insideValue) {
-                // Test blue proxies.
-                // To unlock the near-membrane symbol gate first perform a has()
-                // trap check.
-                expect(LOCKER_NEAR_MEMBRANE_SYMBOL in insideValue).toBe(false);
-                // Next, perform a get() trap call.
-                expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(true);
-                // Performing a get() trap call without first performing a has()
-                // trap check will produce `undefined`.
-                expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(undefined);
-            },
+        const env = createVirtualEnvironment(window, window, {
+            endowments: Object.getOwnPropertyDescriptors({
+                expect,
+                exposeTakeInside(func) {
+                    takeInside = func;
+                },
+                takeOutside(insideValue) {
+                    // Test blue proxies.
+                    // To unlock the near-membrane symbol gate first perform a has()
+                    // trap check.
+                    expect(LOCKER_NEAR_MEMBRANE_SYMBOL in insideValue).toBe(false);
+                    // Next, perform a get() trap call.
+                    expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(true);
+                    // Performing a get() trap call without first performing a has()
+                    // trap check will produce `undefined`.
+                    expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(undefined);
+                },
+            }),
         });
-
-        const env = createVirtualEnvironment(window, window, { endowments });
 
         env.evaluate(`
             const LOCKER_NEAR_MEMBRANE_SYMBOL = Symbol.for('@@lockerNearMembrane');
@@ -79,20 +78,19 @@ describe('@@lockerNearMembrane', () => {
 
         // eslint-disable-next-line no-unused-vars
         let takeInside;
-
-        const endowments = Object.getOwnPropertyDescriptors({
-            expect,
-            exposeTakeInside(func) {
-                takeInside = func;
-            },
-            takeOutside(insideValue, expectedSymbolValue) {
-                // Test blue proxies.
-                expect(LOCKER_NEAR_MEMBRANE_SYMBOL in insideValue).toBe(true);
-                expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(expectedSymbolValue);
-            },
+        const env = createVirtualEnvironment(window, window, {
+            endowments: Object.getOwnPropertyDescriptors({
+                expect,
+                exposeTakeInside(func) {
+                    takeInside = func;
+                },
+                takeOutside(insideValue, expectedSymbolValue) {
+                    // Test blue proxies.
+                    expect(LOCKER_NEAR_MEMBRANE_SYMBOL in insideValue).toBe(true);
+                    expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(expectedSymbolValue);
+                },
+            }),
         });
-
-        const env = createVirtualEnvironment(window, window, { endowments });
 
         env.evaluate(`
             const LOCKER_NEAR_MEMBRANE_SYMBOL = Symbol.for('@@lockerNearMembrane');
@@ -146,26 +144,25 @@ describe('@@lockerNearMembrane', () => {
 
         // eslint-disable-next-line no-unused-vars
         let takeInside;
-
-        const endowments = Object.getOwnPropertyDescriptors({
-            expect,
-            exposeTakeInside(func) {
-                takeInside = func;
-            },
-            takeOutside(insideValue) {
-                // Test blue proxies.
-                // To unlock the near-membrane symbol gate first perform a has()
-                // trap check.
-                expect(LOCKER_NEAR_MEMBRANE_SYMBOL in insideValue).toBe(false);
-                // Next, perform a get() trap call.
-                expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(true);
-                // Performing a get() trap call without first performing a has()
-                // trap check will produce `undefined`.
-                expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(undefined);
-            },
+        const env = createVirtualEnvironment(window, window, {
+            endowments: Object.getOwnPropertyDescriptors({
+                expect,
+                exposeTakeInside(func) {
+                    takeInside = func;
+                },
+                takeOutside(insideValue) {
+                    // Test blue proxies.
+                    // To unlock the near-membrane symbol gate first perform a has()
+                    // trap check.
+                    expect(LOCKER_NEAR_MEMBRANE_SYMBOL in insideValue).toBe(false);
+                    // Next, perform a get() trap call.
+                    expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(true);
+                    // Performing a get() trap call without first performing a has()
+                    // trap check will produce `undefined`.
+                    expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(undefined);
+                },
+            }),
         });
-
-        const env = createVirtualEnvironment(window, window, { endowments });
 
         env.evaluate(`
             const LOCKER_NEAR_MEMBRANE_SYMBOL = Symbol.for('@@lockerNearMembrane');
@@ -205,28 +202,29 @@ describe('@@lockerNearMembraneSerializedValue', () => {
 
         // eslint-disable-next-line no-unused-vars
         let takeInside;
-
-        const endowments = Object.getOwnPropertyDescriptors({
-            expect,
-            exposeTakeInside(func) {
-                takeInside = func;
-            },
-            takeOutside(insideValue, expectedSerialized) {
-                // Test blue proxies.
-                // To unlock the near-membrane symbol gate first perform a has()
-                // trap check.
-                expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue).toBe(false);
-                // Next, perform a get() trap call.
-                expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
-                    expectedSerialized
-                );
-                // Performing a get() trap call without first performing a has()
-                // trap check will produce `undefined`.
-                expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(undefined);
-            },
+        const env = createVirtualEnvironment(window, window, {
+            endowments: Object.getOwnPropertyDescriptors({
+                expect,
+                exposeTakeInside(func) {
+                    takeInside = func;
+                },
+                takeOutside(insideValue, expectedSerialized) {
+                    // Test blue proxies.
+                    // To unlock the near-membrane symbol gate first perform a has()
+                    // trap check.
+                    expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue).toBe(false);
+                    // Next, perform a get() trap call.
+                    expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
+                        expectedSerialized
+                    );
+                    // Performing a get() trap call without first performing a has()
+                    // trap check will produce `undefined`.
+                    expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
+                        undefined
+                    );
+                },
+            }),
         });
-
-        const env = createVirtualEnvironment(window, window, { endowments });
 
         env.evaluate(`
             const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = Symbol.for(
@@ -290,28 +288,29 @@ describe('@@lockerNearMembraneSerializedValue', () => {
 
         // eslint-disable-next-line no-unused-vars
         let takeInside;
-
-        const endowments = Object.getOwnPropertyDescriptors({
-            expect,
-            exposeTakeInside(func) {
-                takeInside = func;
-            },
-            takeOutside(insideValue, expectedSerialized) {
-                // Test blue proxies.
-                // To unlock the near-membrane symbol gate first perform a has()
-                // trap check.
-                expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue).toBe(false);
-                // Next, perform a get() trap call.
-                expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
-                    expectedSerialized
-                );
-                // Performing a get() trap call without first performing a has()
-                // trap check will produce `undefined`.
-                expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(undefined);
-            },
+        const env = createVirtualEnvironment(window, window, {
+            endowments: Object.getOwnPropertyDescriptors({
+                expect,
+                exposeTakeInside(func) {
+                    takeInside = func;
+                },
+                takeOutside(insideValue, expectedSerialized) {
+                    // Test blue proxies.
+                    // To unlock the near-membrane symbol gate first perform a has()
+                    // trap check.
+                    expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue).toBe(false);
+                    // Next, perform a get() trap call.
+                    expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
+                        expectedSerialized
+                    );
+                    // Performing a get() trap call without first performing a has()
+                    // trap check will produce `undefined`.
+                    expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
+                        undefined
+                    );
+                },
+            }),
         });
-
-        const env = createVirtualEnvironment(window, window, { endowments });
 
         env.evaluate(`
             const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = Symbol.for(
@@ -391,22 +390,21 @@ describe('@@lockerNearMembraneSerializedValue', () => {
 
         // eslint-disable-next-line no-unused-vars
         let takeInside;
-
-        const endowments = Object.getOwnPropertyDescriptors({
-            expect,
-            exposeTakeInside(func) {
-                takeInside = func;
-            },
-            takeOutside(insideValue, expectedSymbolValue) {
-                // Test blue proxies.
-                expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue).toBe(true);
-                expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
-                    expectedSymbolValue
-                );
-            },
+        const env = createVirtualEnvironment(window, window, {
+            endowments: Object.getOwnPropertyDescriptors({
+                expect,
+                exposeTakeInside(func) {
+                    takeInside = func;
+                },
+                takeOutside(insideValue, expectedSymbolValue) {
+                    // Test blue proxies.
+                    expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue).toBe(true);
+                    expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
+                        expectedSymbolValue
+                    );
+                },
+            }),
         });
-
-        const env = createVirtualEnvironment(window, window, { endowments });
 
         env.evaluate(`
             const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = Symbol.for(
@@ -553,28 +551,29 @@ describe('@@lockerNearMembraneSerializedValue', () => {
 
         // eslint-disable-next-line no-unused-vars
         let takeInside;
-
-        const endowments = Object.getOwnPropertyDescriptors({
-            expect,
-            exposeTakeInside(func) {
-                takeInside = func;
-            },
-            takeOutside(insideValue, expectedSerialized) {
-                // Test blue proxies.
-                // To unlock the near-membrane symbol gate first perform a has()
-                // trap check.
-                expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue).toBe(false);
-                // Next, perform a get() trap call.
-                expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
-                    expectedSerialized
-                );
-                // Performing a get() trap call without first performing a has()
-                // trap check will produce `undefined`.
-                expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(undefined);
-            },
+        const env = createVirtualEnvironment(window, window, {
+            endowments: Object.getOwnPropertyDescriptors({
+                expect,
+                exposeTakeInside(func) {
+                    takeInside = func;
+                },
+                takeOutside(insideValue, expectedSerialized) {
+                    // Test blue proxies.
+                    // To unlock the near-membrane symbol gate first perform a has()
+                    // trap check.
+                    expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue).toBe(false);
+                    // Next, perform a get() trap call.
+                    expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
+                        expectedSerialized
+                    );
+                    // Performing a get() trap call without first performing a has()
+                    // trap check will produce `undefined`.
+                    expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
+                        undefined
+                    );
+                },
+            }),
         });
-
-        const env = createVirtualEnvironment(window, window, { endowments });
 
         env.evaluate(`
             const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = Symbol.for(

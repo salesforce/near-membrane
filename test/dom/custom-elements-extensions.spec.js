@@ -2,13 +2,15 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 // outer element declaration
 class Base extends HTMLElement {}
+
 customElements.define('x-base', Base);
 
-describe('Extending Custom Element', () => {
-    const env = createVirtualEnvironment(window, window);
+const env = createVirtualEnvironment(window, window);
 
+describe('Extending Custom Element', () => {
     it('should be allowed from blue to red', () => {
         expect.assertions(1);
+
         env.evaluate(`
             const Base = customElements.get('x-base');
             customElements.define('x-red-base', class extends Base {});
@@ -18,6 +20,7 @@ describe('Extending Custom Element', () => {
     });
     it('should be allowed in red', () => {
         expect.assertions(1);
+
         env.evaluate(`
             class Red extends HTMLElement {}
             customElements.define('x-red', Red);
@@ -27,6 +30,7 @@ describe('Extending Custom Element', () => {
     });
     it('should support multiple extensions in the same namespace', () => {
         expect.assertions(2);
+
         env.evaluate(`
             class Foo extends HTMLElement {}
             class Bar extends Foo {}
@@ -38,6 +42,7 @@ describe('Extending Custom Element', () => {
     });
     it('should support multiple extensions from blue in the same namespace', () => {
         expect.assertions(3);
+
         env.evaluate(`
             const Base = customElements.get('x-base');
             class Foo extends Base {}
@@ -57,6 +62,7 @@ describe('NS-to-NS custom element extension', () => {
 
     it('should work when using multiple namespaces in proto-chain', () => {
         expect.assertions(3);
+
         envNS1.evaluate(`
             const Base = customElements.get('x-base');
             class Foo extends Base {}

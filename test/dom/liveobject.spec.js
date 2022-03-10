@@ -13,11 +13,13 @@ describe('@@lockerLiveValue', () => {
         div.id = id;
         document.body.appendChild(div);
         Reflect.defineProperty(div.style, LOCKER_LIVE_VALUE_MARKER_SYMBOL, {});
+
         env.evaluate(`
             const div = document.querySelector('#${id}');
             div.style.color = 'red';
             expect(div.style.color).toBe('red');
         `);
+
         const styleAttributeValue = div.getAttribute('style');
         expect(styleAttributeValue).toBe('color: red;');
     });
@@ -52,6 +54,7 @@ describe('@@lockerLiveValue', () => {
                 },
             }),
         });
+
         env.evaluate(`
             class Y extends X {
                 constructor() {
@@ -106,6 +109,7 @@ describe('@@lockerLiveValue', () => {
                 },
             }),
         });
+
         env.evaluate(`
             class B extends A {
                 constructor() {

@@ -3,6 +3,7 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 // This emulates LWC LightningElement proto chain and freezing mechanism
 class Base {}
 Object.freeze(Base.prototype);
+
 let FooClazz;
 function saveFoo(arg) {
     Object.freeze(arg.prototype);
@@ -12,6 +13,7 @@ function saveFoo(arg) {
 const env = createVirtualEnvironment(window, window, {
     endowments: Object.getOwnPropertyDescriptors({ Base, saveFoo }),
 });
+
 env.evaluate(`
     class Foo extends Base {};
     saveFoo(Foo);

@@ -12,6 +12,7 @@ describe('arrays', () => {
         const env = createVirtualEnvironment(window, window, {
             endowments: Object.getOwnPropertyDescriptors({ blue, expect, saveFoo }),
         });
+
         env.evaluate(`
             saveFoo(['a', 'b', 'c']);
             expect(blue.length).toBe(3);
@@ -20,6 +21,7 @@ describe('arrays', () => {
             expect(blue.length).toBe(4);
             expect(blue[3]).toBe(4);
         `);
+
         // Blue mutation from red realm should leak into blue realm.
         expect(blue.length).toBe(4);
         expect(blue[3]).toBe(4);

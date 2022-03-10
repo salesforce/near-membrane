@@ -3,7 +3,7 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 const env = createVirtualEnvironment(window, window);
 
 // listening for x from outer realm
-document.body.addEventListener('x', function (e) {
+document.body.addEventListener('x', (e) => {
     console.log(e, e.target, e.currentTarget);
 });
 

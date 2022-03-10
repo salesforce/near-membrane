@@ -3,7 +3,9 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 describe('The object graph', () => {
     it('should be shadowed by a sandbox', () => {
         expect.assertions(21);
+
         const env = createVirtualEnvironment(window, window);
+
         env.evaluate(`
             'use strict';
 

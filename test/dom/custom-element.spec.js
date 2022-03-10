@@ -1,21 +1,21 @@
 /* eslint-disable no-proto */
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-// outer element declaration
 class ExternalElement extends HTMLElement {
     // eslint-disable-next-line class-methods-use-this
     identity() {
         return 'ExternalElement';
     }
 }
-customElements.define('x-external', ExternalElement);
-window.refToExternalElement = ExternalElement;
 
-const env = createVirtualEnvironment(window, window);
+customElements.define('x-external', ExternalElement);
 
 describe('Outer Realm Custom Element', () => {
     it('should be accessible within the sandbox', () => {
         expect.assertions(3);
+
+        const env = createVirtualEnvironment(window, window);
+
         env.evaluate(`
             const elm = document.createElement('x-external');
             expect(elm.identity()).toBe('ExternalElement');
@@ -32,6 +32,9 @@ describe('Outer Realm Custom Element', () => {
     });
     it('should be extensible within the sandbox', () => {
         expect.assertions(3);
+
+        const env = createVirtualEnvironment(window, window);
+
         env.evaluate(`
             const ExternalElement = customElements.get('x-external');
             class Foo extends ExternalElement {}
@@ -44,6 +47,9 @@ describe('Outer Realm Custom Element', () => {
     });
     it('should be extensible and can be new from within the sandbox', () => {
         expect.assertions(3);
+
+        const env = createVirtualEnvironment(window, window);
+
         env.evaluate(`
             const ExternalElement = customElements.get('x-external');
             class Baz extends ExternalElement {}
@@ -56,6 +62,11 @@ describe('Outer Realm Custom Element', () => {
     });
     it('should get access to external registered elements', () => {
         expect.assertions(1);
+
+        window.refToExternalElement = ExternalElement;
+
+        const env = createVirtualEnvironment(window, window);
+
         env.evaluate(`
             const E = customElements.get('x-external');
             expect(E).toBe(refToExternalElement);
@@ -63,7 +74,7 @@ describe('Outer Realm Custom Element', () => {
     });
     it('should preserve the invariants of classes in outer realm', () => {
         expect.assertions(7);
-        // eslint-disable-next-line no-proto
+
         expect(HTMLElement.__proto__ === Element).toBeTrue();
         expect(HTMLElement.prototype.__proto__ === Element.prototype).toBeTrue();
         expect(HTMLElement.prototype.constructor === HTMLElement).toBeTrue();
@@ -75,11 +86,15 @@ describe('Outer Realm Custom Element', () => {
 });
 
 describe('Sandboxed Custom Element', () => {
-    env.evaluate(`
-        class Bar extends HTMLElement {}
-        customElements.define('x-bar', Bar);
-    `);
     it('should preserve the invariants of classes from within the sandbox', () => {
+        window.refToExternalElement = ExternalElement;
+
+        const env = createVirtualEnvironment(window, window);
+
+        env.evaluate(`
+            class Bar extends HTMLElement {}
+            customElements.define('x-bar', Bar);
+        `);
         env.evaluate(`
             expect(HTMLElement.__proto__ === Element).toBeTrue();
             expect(HTMLElement.prototype.__proto__ === Element.prototype).toBeTrue();

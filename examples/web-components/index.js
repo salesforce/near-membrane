@@ -16,12 +16,15 @@ distortionMap.set(assignedElements, () => {
 });
 
 function evaluateInNewSandbox(sourceText) {
-    const distortionCallback = (v) => distortionMap.get(v) || v;
-    const env = createVirtualEnvironment(window, window, { distortionCallback });
+    const env = createVirtualEnvironment(window, window, {
+        distortionCallback(v) {
+            return distortionMap.get(v) || v;
+        },
+    });
     env.evaluate(sourceText);
 }
 
-document.querySelector('button').addEventListener('click', function (e) {
+document.querySelector('button').addEventListener('click', () => {
     const sourceText = document.querySelector('textarea').value;
     evaluateInNewSandbox(sourceText);
 });

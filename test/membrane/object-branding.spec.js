@@ -7,6 +7,7 @@ describe('object-branding', () => {
         const env = createVirtualEnvironment(window, window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
         });
+
         env.evaluate(`
             function getToStringTag(object) {
                 return Object.prototype.toString.call(object).slice(8, -1);
@@ -59,6 +60,7 @@ describe('object-branding', () => {
         const env = createVirtualEnvironment(window, window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
         });
+
         env.evaluate(`
             function getToStringTag(object) {
                 return Object.prototype.toString.call(object).slice(8, -1);

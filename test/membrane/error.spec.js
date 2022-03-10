@@ -1,7 +1,7 @@
 /* eslint-disable no-throw-literal, no-new, class-methods-use-this */
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-globalThis.onerror = (function (originalOnError) {
+const onerrorHandler = (function (originalOnError) {
     return function onerror(...args) {
         const { 0: message } = args;
         // Suppress Jasmine's built-in unhandled promise rejection handling.
@@ -13,6 +13,7 @@ globalThis.onerror = (function (originalOnError) {
 
 it('[red] non-error objects thrown in red functions', () => {
     const env = createVirtualEnvironment(window, window);
+
     env.evaluate(`
         const errorObj = { foo: 'bar' }
         function foo() {
@@ -31,6 +32,7 @@ it('[red] non-error objects thrown in red functions', () => {
 
 it('[red] non-error objects thrown in red constructors', () => {
     const env = createVirtualEnvironment(window, window);
+
     env.evaluate(`
         const errorObj = { foo: 'bar' }
 
@@ -54,6 +56,7 @@ it('[red] non-error objects thrown in Promise', (done) => {
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors({ done }),
     });
+
     env.evaluate(`
         const error = { foo: 'bar' }
         const p = new Promise(() => {
@@ -69,9 +72,12 @@ it('[red] non-error objects thrown in Promise', (done) => {
 });
 
 it('[red] unhandled promise rejections with non-error objects and red listener', (done) => {
+    globalThis.onerror = onerrorHandler;
+
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors({ done }),
     });
+
     env.evaluate(`
         const errorObj = { foo: 'bar' }
 
@@ -96,6 +102,7 @@ it('[red] Promise.reject non-error objects', (done) => {
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors({ done }),
     });
+
     env.evaluate(`
         const errorObj = { foo: 'bar' }
 
@@ -110,9 +117,12 @@ it('[red] Promise.reject non-error objects', (done) => {
 });
 
 it('[red] unhandled promise rejections and Promise.reject with non-error objects and red listener', (done) => {
+    globalThis.onerror = onerrorHandler;
+
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors({ done }),
     });
+
     env.evaluate(`
         const errorObj = { foo: 'bar' }
 
@@ -140,6 +150,7 @@ it('[red] non-error objects thrown in blue functions', () => {
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors({ ...window, foo }),
     });
+
     env.evaluate(`
         try {
             foo()
@@ -160,6 +171,7 @@ it('[red] non-error objects thrown in blue constructors', () => {
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors({ ...window, Foo }),
     });
+
     env.evaluate(`
         try {
             new Foo()
@@ -191,6 +203,7 @@ it('[red] blue extended error objects', () => {
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors({ ...window, Foo }),
     });
+
     env.evaluate(`
         try {
             new Foo()
@@ -210,6 +223,7 @@ it('[red] .catch on blue promise', (done) => {
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors({ ...window, done, expect, promise }),
     });
+
     env.evaluate(`
         promise.catch(e => {
             expect(e.foo).toBe('bar')
@@ -221,6 +235,7 @@ it('[red] .catch on blue promise', (done) => {
 
 it('[red] non-error object with null proto', () => {
     const env = createVirtualEnvironment(window, window);
+
     env.evaluate(`
         const errorObj = Object.create(null, {foo: {value: 'bar'}})
         try {
@@ -238,9 +253,11 @@ it('[red] non-error object with null proto from blue', () => {
     function foo() {
         throw Object.create(null, { foo: { value: 'bar' } });
     }
+
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors({ ...window, foo }),
     });
+
     env.evaluate(`
         try {
             foo()
@@ -254,6 +271,7 @@ it('[red] non-error object with null proto from blue', () => {
 
 it('[red] instanceof Error', () => {
     const env = createVirtualEnvironment(window, window);
+
     env.evaluate(`
         try {
             throw new Error('foo')
@@ -266,6 +284,7 @@ it('[red] instanceof Error', () => {
 
 it('[red] instanceof extended Error objects', () => {
     const env = createVirtualEnvironment(window, window);
+
     env.evaluate(`
         class CustomError extends Error {}
         try {
@@ -281,6 +300,7 @@ it('[red] .catch instanceof Error', (done) => {
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors({ ...window, done }),
     });
+
     env.evaluate(`
         new Promise((resolve, reject) => {
             reject(new Error('foo'))
@@ -296,9 +316,11 @@ it('[red] instanceof blue Error objects', () => {
     function foo() {
         throw new Error('foo');
     }
+
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors({ foo }),
     });
+
     env.evaluate(`
         try {
             foo()
@@ -317,6 +339,7 @@ it('[red] .catch instanceof blue Error objects', (done) => {
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors({ done, expect, promise }),
     });
+
     env.evaluate(`
         promise.catch(e => {
             expect(e instanceof Error).toBe(true)
@@ -336,6 +359,7 @@ it('[blue] .catch on red promise', (done) => {
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors({ ...window, save }),
     });
+
     env.evaluate(`
         const error = { foo: 'bar' }
         const p = new Promise(() => {
@@ -353,6 +377,8 @@ it('[blue] .catch on red promise', (done) => {
 });
 
 it('[blue] unhandled promise rejections listener with red non-error objects', (done) => {
+    globalThis.onerror = onerrorHandler;
+
     function handler(event) {
         window.removeEventListener('unhandledrejection', handler);
         event.preventDefault();
@@ -366,6 +392,7 @@ it('[blue] unhandled promise rejections listener with red non-error objects', (d
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors(window),
     });
+
     env.evaluate(`
         const errorObj = { foo: 'bar' }
         new Promise((resolve, reject) => {
@@ -383,6 +410,7 @@ it('[blue] non-error objects thrown in red functions', () => {
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors({ ...window, save }),
     });
+
     env.evaluate(`
         function foo() {
             throw { foo: 'bar' }
@@ -407,6 +435,7 @@ it('[blue] non-error objects thrown in red consturctors', () => {
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors({ ...window, save }),
     });
+
     env.evaluate(`
         class Foo {
             constructor() {
@@ -434,6 +463,7 @@ it('[blue] red extended error objects', () => {
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors({ ...window, save }),
     });
+
     env.evaluate(`
         class CustomError extends Error {
             constructor(message) {
@@ -474,6 +504,7 @@ it('[blue] non-error objects with null proto from red', () => {
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors({ ...window, save }),
     });
+
     env.evaluate(`
         function foo() {
             const errorObj = Object.create(null, {foo: {value: 'bar'}})
@@ -501,6 +532,7 @@ it('[blue] instanceof red error', () => {
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors({ ...window, save }),
     });
+
     env.evaluate(`
         function foo() {
             throw new Error('foo')
@@ -526,6 +558,7 @@ it('[blue] .catch instanceof red error', (done) => {
     const env = createVirtualEnvironment(window, window, {
         endowments: Object.getOwnPropertyDescriptors({ ...window, save }),
     });
+
     env.evaluate(`
         const promise = new Promise((resolve, reject) => {
             reject(new Error('foo'))

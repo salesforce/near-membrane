@@ -13,11 +13,14 @@ describe('Freezing', () => {
 
             window.plainObject = { x: 1 };
             Object.freeze(window.plainObject);
+
             const env = createVirtualEnvironment(window, window);
+
             // Check the state of plainObject in the blue realm.
             expect(Object.isExtensible(window.plainObject)).toBe(false);
             expect(Object.isSealed(window.plainObject)).toBe(true);
             expect(Object.isFrozen(window.plainObject)).toBe(true);
+
             // Check the state of plainObject in the sandbox.
             env.evaluate(`
                 expect(Object.isExtensible(plainObject)).toBe(false);
@@ -32,21 +35,24 @@ describe('Freezing', () => {
                 }).toThrowError(TypeError);
                 expect(plainObject).toEqual({ x: 1 });
             `);
+
             expect(window.plainObject).toEqual({ x: 1 });
-            delete window.plainObject;
         });
         it('should be observed from within the sandbox (via endowments)', () => {
             expect.assertions(9);
 
             const plainObject = { x: 1 };
             Object.freeze(plainObject);
+
             const env = createVirtualEnvironment(window, window, {
                 endowments: Object.getOwnPropertyDescriptors({ expect, plainObject }),
             });
+
             // Check the state of plainObject in the blue realm.
             expect(Object.isExtensible(plainObject)).toBe(false);
             expect(Object.isSealed(plainObject)).toBe(true);
             expect(Object.isFrozen(plainObject)).toBe(true);
+
             // Check the state of plainObject in the sandbox.
             env.evaluate(`
                 expect(Object.isExtensible(plainObject)).toBe(false);
@@ -61,6 +67,7 @@ describe('Freezing', () => {
                 }).toThrowError(TypeError);
                 expect(plainObject).toEqual({ x: 1 });
             `);
+
             expect(plainObject).toEqual({ x: 1 });
         });
         it('should be observed after passing an object back and forth', () => {
@@ -69,20 +76,25 @@ describe('Freezing', () => {
             const receiveX = {
                 ref: null,
             };
+
             const transmitX = {
                 ref: null,
             };
+
             const env = createVirtualEnvironment(window, window, {
                 endowments: Object.getOwnPropertyDescriptors({ receiveX, transmitX }),
             });
+
             env.evaluate(`
                 expect(transmitX.ref).toBe(null);
                 expect(receiveX.ref).toBe(null);
             `);
+
             // Set the value of transmitX.ref to a POJO.
             transmitX.ref = {
                 x: 1,
             };
+
             // Verify that the POJO of transmitX.ref is reflected in the sandbox.
             // Set the value of receiveX.ref to the value of transmitX.ref WITHIN
             // the sandbox.
@@ -90,6 +102,7 @@ describe('Freezing', () => {
                 expect(transmitX.ref.x).toBe(1);
                 receiveX.ref = transmitX.ref;
             `);
+
             // Verify that the value of receiveX.ref is reflected in system mode.
             expect(receiveX.ref).toBe(transmitX.ref);
             Object.freeze(receiveX.ref);
@@ -101,6 +114,7 @@ describe('Freezing', () => {
             }).toThrowError(TypeError);
             expect(receiveX.ref.x).toBe(1);
             expect(transmitX.ref.x).toBe(1);
+
             // Return to the sandbox and verify that ref is frozen.
             env.evaluate(`
                 'use strict';
@@ -117,7 +131,9 @@ describe('Freezing', () => {
             expect.assertions(9);
 
             window.exoticObject = new ExoticObject({ x: 1 });
+
             const env = createVirtualEnvironment(window, window);
+
             // Check the state of exoticObject in the sandbox.
             env.evaluate(`
                 expect(Object.isExtensible(window.exoticObject)).toBe(true);
@@ -125,11 +141,13 @@ describe('Freezing', () => {
                 expect(Object.isFrozen(window.exoticObject)).toBe(false);
                 exoticObject.y = 2; // Mutation makes the exotic object proxy static.
             `);
+
             // Freeze blue exoticObject after being observed by the sandbox.
             Object.freeze(window.exoticObject);
             expect(Object.isExtensible(window.exoticObject)).toBe(false);
             expect(Object.isSealed(window.exoticObject)).toBe(true);
             expect(Object.isFrozen(window.exoticObject)).toBe(true);
+
             // Verify the state of red exoticObject from within the sandbox.
             env.evaluate(`
                 'use strict';
@@ -138,15 +156,17 @@ describe('Freezing', () => {
                 }).not.toThrowError(TypeError);
                 expect({ ...exoticObject }).toEqual({ x: 1, y: 2, z: 3 });
             `);
+
             // Verify the sandboxed expando doesn't leak to blue exoticObject.
             expect({ ...window.exoticObject }).toEqual({ x: 1 });
-            delete window.exoticObject;
         });
         it('should be observed from within the sandbox after mutation of plain objects', () => {
             expect.assertions(9);
 
             window.plainObject = { x: 1 };
+
             const env = createVirtualEnvironment(window, window);
+
             // Check the state of plainObject in the sandbox.
             env.evaluate(`
                 expect(Object.isExtensible(window.plainObject)).toBe(true);
@@ -154,11 +174,13 @@ describe('Freezing', () => {
                 expect(Object.isFrozen(window.plainObject)).toBe(false);
                 plainObject.y = 2; // Mutation makes the POJO proxy live.
             `);
+
             // Freeze blue plainObject after being observed by the sandbox.
             Object.freeze(window.plainObject);
             expect(Object.isExtensible(window.plainObject)).toBe(false);
             expect(Object.isSealed(window.plainObject)).toBe(true);
             expect(Object.isFrozen(window.plainObject)).toBe(true);
+
             // Verify the state of red plainObject from within the sandbox.
             env.evaluate(`
                 'use strict';
@@ -167,9 +189,9 @@ describe('Freezing', () => {
                 }).toThrowError(TypeError);
                 expect(plainObject).toEqual({ x: 1, y: 2 });
             `);
+
             // Verify the state of blue plainObject.
             expect(window.plainObject).toEqual({ x: 1, y: 2 });
-            delete window.plainObject;
         });
     });
     describe('reverse proxies', () => {
@@ -191,7 +213,9 @@ describe('Freezing', () => {
                     func.y = 2;
                 }).toThrowError(TypeError);
             };
+
             const env = createVirtualEnvironment(window, window);
+
             env.evaluate(`
                 'use strict';
                 const object = { x: 1 };
@@ -206,7 +230,6 @@ describe('Freezing', () => {
                     func.y = 2;
                 }).toThrowError(TypeError);
             `);
-            delete window.takeOutside;
         });
     });
     describe('non-freezing objects', () => {
@@ -218,12 +241,14 @@ describe('Freezing', () => {
                     return false;
                 },
             });
+
             const env = createVirtualEnvironment(window, window, {
                 endowments: Object.getOwnPropertyDescriptors({
                     exoticObject,
                     expect,
                 }),
             });
+
             env.evaluate(`
                 'use strict';
                 expect(() => {
@@ -252,6 +277,7 @@ describe('Freezing', () => {
                     plainObject,
                 }),
             });
+
             env.evaluate(`
                 'use strict';
                 expect(() => {
