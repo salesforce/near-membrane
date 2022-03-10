@@ -39,34 +39,49 @@ describe('sandbox', () => {
         `);
     });
     it('should not observe lazy global descriptors', () => {
-        expect.assertions(12);
+        expect.assertions(14);
 
         const env = createVirtualEnvironment(window, window);
+
         env.evaluate(`
-            const ArrayBufferDesc = {
+            expect(Reflect.getOwnPropertyDescriptor.name).toBe('getOwnPropertyDescriptor');
+            expect(Reflect.getOwnPropertyDescriptor.length).toBe(2);
+            expect(Reflect.getOwnPropertyDescriptor.toString()).toContain('[native code]');
+            expect(Reflect.getOwnPropertyDescriptor(window, 'ArrayBuffer')).toEqual({
                 configurable: true,
                 enumerable: false,
                 value: ArrayBuffer,
                 writable: true,
-            };
-            expect(Reflect.getOwnPropertyDescriptor.name).toBe('getOwnPropertyDescriptor');
-            expect(Reflect.getOwnPropertyDescriptor.length).toBe(2);
-            expect(Reflect.getOwnPropertyDescriptor.toString()).toContain('[native code]');
-            expect(Reflect.getOwnPropertyDescriptor(window, 'ArrayBuffer')).toEqual(
-                ArrayBufferDesc
-            );
+            });
             expect(Object.getOwnPropertyDescriptor.name).toBe('getOwnPropertyDescriptor');
             expect(Object.getOwnPropertyDescriptor.length).toBe(2);
             expect(Object.getOwnPropertyDescriptor.toString()).toContain('[native code]');
-            expect(Object.getOwnPropertyDescriptor(window, 'ArrayBuffer')).toEqual(
-                ArrayBufferDesc
-            );
+            expect(Object.getOwnPropertyDescriptor(window, 'Date')).toEqual({
+                configurable: true,
+                enumerable: false,
+                value: Date,
+                writable: true,
+            });
             expect(Object.getOwnPropertyDescriptors.name).toBe('getOwnPropertyDescriptors');
             expect(Object.getOwnPropertyDescriptors.length).toBe(1);
             expect(Object.getOwnPropertyDescriptors.toString()).toContain('[native code]');
-            expect(Object.getOwnPropertyDescriptors(window).ArrayBuffer).toEqual(
-                ArrayBufferDesc
-            );
+
+            // Chrome has a JIT bug when working with a detached iframe and
+            // Object.getOwnPropertyDescriptors(window) that causes window to
+            // delete itself. By performing this empty loop we knock the bug
+            // out and the tests after the Object.getOwnPropertyDescriptors(window)
+            // call will pass.
+            for (const key of Reflect.ownKeys(window)) {}
+
+            expect(Object.getOwnPropertyDescriptors(window).Map).toEqual({
+                configurable: true,
+                enumerable: false,
+                value: Map,
+                writable: true,
+            });
+
+            expect(window.propertyIsEnumerable('length')).toBe(true);
+            expect(window.propertyIsEnumerable('window')).toBe(true);
         `);
     });
 });
