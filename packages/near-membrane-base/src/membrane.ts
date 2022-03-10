@@ -120,7 +120,7 @@ export type CallableGetPropertyValuePointer = (
 ) => Pointer;
 export type CallableInstallLazyDescriptors = (
     targetPointer: Pointer,
-    ...ownKeysAndEnumTuples: [string | symbol, boolean]
+    ...ownKeys: (string | symbol)[]
 ) => void;
 export type CallableLinkPointers = (targetPointer: Pointer, foreignTargetPointer: Pointer) => void;
 export type CallableSetPrototypeOf = (
@@ -758,13 +758,12 @@ export function createMembraneMarshall(
         ) =>
             new ProxyCtor(originalFunc, {
                 apply(_originalFunc: Function, thisArg: any, args: [target: object]) {
-                    const unsafeDescMap = ReflectApply(originalFunc, thisArg, args);
-                    const ownKeys = ReflectOwnKeys(unsafeDescMap);
-                    const { length } = ownKeys;
-                    if (!length) {
-                        return unsafeDescMap;
+                    if (!args.length) {
+                        // Defer to originalFunc to throw exception.
+                        return ReflectApply(originalFunc, thisArg, args);
                     }
                     const { 0: target } = args;
+                    const unsafeDescMap = ReflectApply(originalFunc, thisArg, args);
                     const lazyState = ReflectApply(
                         WeakMapProtoGet,
                         proxyTargetToLazyPropertyStateMap,
@@ -773,7 +772,8 @@ export function createMembraneMarshall(
                     if (lazyState === undefined) {
                         return unsafeDescMap;
                     }
-                    for (let i = 0; i < length; i += 1) {
+                    const ownKeys = ReflectOwnKeys(target);
+                    for (let i = 0, { length } = ownKeys; i < length; i += 1) {
                         const ownKey = ownKeys[i];
                         if (hasLazyOwnProperty(target, ownKey, lazyState)) {
                             // Activate the descriptor by triggering its getter.
@@ -789,14 +789,14 @@ export function createMembraneMarshall(
                     return unsafeDescMap;
                 },
             }) as typeof Object.getOwnPropertyDescriptors;
+        Reflect.getOwnPropertyDescriptor = wrapGetOwnPropertyDescriptor(
+            ReflectGetOwnPropertyDescriptor
+        );
         Object.getOwnPropertyDescriptor = wrapGetOwnPropertyDescriptor(
             ObjectGetOwnPropertyDescriptor
         );
         Object.getOwnPropertyDescriptors = wrapGetOwnPropertyDescriptors(
             ObjectGetOwnPropertyDescriptors
-        );
-        Reflect.getOwnPropertyDescriptor = wrapGetOwnPropertyDescriptor(
-            ReflectGetOwnPropertyDescriptor
         );
     }
     return function createHooksCallback(
@@ -937,7 +937,6 @@ export function createMembraneMarshall(
         function createLazyDescriptor(
             target: object,
             key: string | symbol,
-            enumerable: boolean,
             lazyState: object
         ): PropertyDescriptor {
             // The role of this descriptor is to serve as a bouncer. When either
@@ -948,7 +947,6 @@ export function createMembraneMarshall(
                 // @ts-ignore: TS doesn't like __proto__ on property descriptors.
                 __proto__: null,
                 configurable: true,
-                enumerable,
                 get(): any {
                     activateLazyOwnPropertyDefinition(target, key, lazyState);
                     return ReflectGet(target, key);
@@ -2472,8 +2470,9 @@ export function createMembraneMarshall(
             ),
             // callableInstallLazyDescriptors
             instrumentCallableWrapper(
-                (targetPointer: Pointer, ...ownKeysAndEnumTuples: [string | symbol, boolean]) => {
-                    if (!isInShadowRealm) {
+                (targetPointer: Pointer, ...ownKeys: (string | symbol)[]) => {
+                    const { length } = ownKeys;
+                    if (!isInShadowRealm || !length) {
                         return;
                     }
                     targetPointer();
@@ -2490,14 +2489,13 @@ export function createMembraneMarshall(
                             lazyState,
                         ]);
                     }
-                    for (let i = 0, { length } = ownKeysAndEnumTuples; i < length; i += 2) {
-                        const ownKey = ownKeysAndEnumTuples[i] as string | symbol;
-                        const enumerable = ownKeysAndEnumTuples[i + 1] as boolean;
+                    for (let i = 0; i < length; i += 1) {
+                        const ownKey = ownKeys[i];
                         lazyState[ownKey] = true;
                         ReflectDefineProperty(
                             target,
                             ownKey,
-                            createLazyDescriptor(target, ownKey, enumerable, lazyState)
+                            createLazyDescriptor(target, ownKey, lazyState)
                         );
                     }
                 },
