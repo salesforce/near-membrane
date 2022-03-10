@@ -178,6 +178,7 @@ export function createMembraneMarshall(
     isInShadowRealm?: boolean,
     { proxyTargetToLazyPropertyStateMap } = sharedMembraneState
 ) {
+    /* eslint-disable prefer-object-spread */
     // @rollup/plugin-replace replaces `DEV_MODE` references.
     const DEV_MODE = true;
     const FLAGS_REG_EXP = /\w*$/;
@@ -2875,4 +2876,5 @@ export function createMembraneMarshall(
             );
         };
     };
+    /* eslint-enable prefer-object-spread */
 }
