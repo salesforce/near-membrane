@@ -23,12 +23,9 @@ interface CachedBlueReferencesRecord extends Object {
 const blueGlobalToRecordMap: WeakMap<typeof globalThis, CachedBlueReferencesRecord> =
     new WeakMapCtor();
 
-// Chrome has a bug when working with detached iframes and their window getters.
+// Chrome has a bug that nulls the result of `window` getters in detached
+// iframes when the property descriptor of `window.window` is retrieved.
 // https://bugs.chromium.org/p/chromium/issues/detail?id=1305302
-//
-// Some methods are poisoned when they interact with the window object and
-// retrieve property descriptors, like 'window', that contain the window object
-// itself.
 export const unforgeablePoisonedWindowKeys = ['window'];
 
 export function getCachedGlobalObjectReferences(
