@@ -39,7 +39,7 @@ describe('sandbox', () => {
         `);
     });
     it('should not observe lazy global descriptors', () => {
-        expect.assertions(14);
+        expect.assertions(20);
 
         const env = createVirtualEnvironment(window, window);
 
@@ -66,23 +66,45 @@ describe('sandbox', () => {
             expect(Object.getOwnPropertyDescriptors.length).toBe(1);
             expect(Object.getOwnPropertyDescriptors.toString()).toContain('[native code]');
 
-            // Chrome has a JIT bug when working with a detached iframe and
-            // Object.getOwnPropertyDescriptors(window) that causes window to
-            // delete itself. By performing this empty loop we knock the bug
-            // out and the tests after the Object.getOwnPropertyDescriptors(window)
-            // call will pass.
-            // https://bugs.chromium.org/p/chromium/issues/detail?id=1305302
-            for (const key of Reflect.ownKeys(window)) {}
+            const globalThisDescMatcher = jasmine.objectContaining({
+                configurable: true,
+                enumerable: false,
+            });
 
-            expect(Object.getOwnPropertyDescriptors(window).Map).toEqual({
+            const winDescMatcher = jasmine.objectContaining({
+                configurable: false,
+                enumerable: true,
+            });
+
+            expect(Reflect.getOwnPropertyDescriptor(window, 'globalThis')).toEqual(
+                globalThisDescMatcher
+            );
+            expect(Reflect.getOwnPropertyDescriptor(window, 'window')).toEqual(
+                winDescMatcher
+            );
+
+            expect(window.propertyIsEnumerable('length')).toBe(true);
+
+            expect(Object.getOwnPropertyDescriptor(window, 'globalThis')).toEqual(
+                globalThisDescMatcher
+            );
+            expect(Object.getOwnPropertyDescriptor(window, 'window')).toEqual(
+                winDescMatcher
+            );
+
+            expect(window.propertyIsEnumerable('window')).toBe(true);
+
+            const mapDesc = {
                 configurable: true,
                 enumerable: false,
                 value: Map,
                 writable: true,
-            });
+            };
 
-            expect(window.propertyIsEnumerable('length')).toBe(true);
-            expect(window.propertyIsEnumerable('window')).toBe(true);
+            expect(Object.getOwnPropertyDescriptors(globalThis).Map).toEqual(mapDesc);
+            expect(Object.getOwnPropertyDescriptors(window).Map).toEqual(mapDesc);
+
+            expect(window.propertyIsEnumerable('Set')).toBe(false);
         `);
     });
 });

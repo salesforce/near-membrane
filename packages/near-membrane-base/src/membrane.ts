@@ -120,7 +120,7 @@ export type CallableGetPropertyValuePointer = (
 ) => Pointer;
 export type CallableInstallLazyDescriptors = (
     targetPointer: Pointer,
-    ...ownKeys: (string | symbol)[]
+    ...ownKeysAndUnforgeableGlobalThisKeys: (string | symbol)[]
 ) => void;
 export type CallableLinkPointers = (targetPointer: Pointer, foreignTargetPointer: Pointer) => void;
 export type CallableSetPrototypeOf = (
@@ -211,6 +211,7 @@ export function createMembraneMarshall(
         // eslint-disable-next-line @typescript-eslint/naming-convention
         __lookupGetter__: ObjectProto__lookupGetter__,
         hasOwnProperty: ObjectProtoHasOwnProperty,
+        propertyIsEnumerable: ObjectProtoPropertyIsEnumerable,
         toString: ObjectProtoToString,
     } = ObjectProto as any;
     const {
@@ -230,6 +231,11 @@ export function createMembraneMarshall(
         setPrototypeOf: ReflectSetPrototypeOf,
     } = Reflect;
     const { isArray: isArrayOrThrowForRevoked } = ArrayCtor;
+    const {
+        includes: ArrayProtoIncludes,
+        indexOf: ArrayProtoIndexOf,
+        slice: ArrayProtoSlice,
+    } = ArrayCtor.prototype;
     const { isView: ArrayBufferIsView } = ArrayBufferCtor;
     const ArrayBufferProtoByteLengthGetter = ReflectApply(
         ObjectProto__lookupGetter__,
@@ -308,9 +314,13 @@ export function createMembraneMarshall(
     // phase two, the user opted-in to custom devtools formatters. Phase one
     // is used for light weight initialization time debug while phase two is
     // reserved for post initialization runtime.
-    const lockerUnminifiedGate = `${() => /**/ 1}`.includes('*');
+    const lockerUnminifiedFlag = `${() => /**/ 1}`.includes('*');
     // We'll check on debug mode phase two in BoundaryProxyHandler#makeProxyStatic().
-    let lockerDebugModeGate: boolean;
+    let lockerDebugModeFlag: boolean | undefined;
+    // Install flags to ensure things are installed once per realm.
+    let installedErrorPrepareStackTraceFlag = false;
+    let installedGetOwnPropertyDescriptorWrappersFlag = false;
+
     // eslint-disable-next-line no-shadow
     const enum PreventExtensionsResult {
         None = 0,
@@ -387,6 +397,20 @@ export function createMembraneMarshall(
         return shadowTarget;
     }
 
+    function createUnforgeableGlobalThisDescriptor(
+        target: object,
+        key: string | symbol
+    ): PropertyDescriptor {
+        return {
+            configurable: false,
+            enumerable: ReflectApply(ObjectProtoPropertyIsEnumerable, target, [key]),
+            get() {
+                return globalThisRef;
+            },
+            set: undefined,
+        };
+    }
+
     function getTargetTraits(target: object): TargetTraits {
         let targetTraits = TargetTraits.None;
         const targetIsFunction = typeof target === 'function';
@@ -451,7 +475,135 @@ export function createMembraneMarshall(
         return ReflectApply(StringProtoSlice, brand, [8, -1]);
     }
 
+    function installOwnPropertyDescriptorWrappers(unforgeableGlobalThisKeys: (string | symbol)[]) {
+        if (installedGetOwnPropertyDescriptorWrappersFlag) {
+            return;
+        }
+        installedGetOwnPropertyDescriptorWrappersFlag = true;
+        // Chrome has a bug when working with detached iframes and their window
+        // getters.
+        // https://bugs.chromium.org/p/chromium/issues/detail?id=1305302
+        //
+        // Some methods are poisoned when they interact with the window object
+        // and retrieve property descriptors, like 'window', that contain the
+        // window object itself. Once retrieved, the window getter will return
+        // `null` instead of the window object. The following methods run into
+        // this issue:
+        //     console.log(window);
+        //     Object.getOwnPropertyDescriptors(window);
+        //     Object.getOwnPropertyDescriptor(window, 'globalThis');
+        //     Reflect.getOwnPropertyDescriptor(window, 'globalThis');
+        //
+        // We side step issues with console by mapping it to the the blue
+        // realm's console. Since we're already wrapping GetOwnPropertyDescriptor(s)
+        // methods to activate lazy descriptors we use the wrapper to workaround
+        // the window nulling bug.
+        const getDescriptor = (target: any, key: string | symbol): PropertyDescriptor | undefined =>
+            target === globalThisRef &&
+            ReflectApply(ArrayProtoIncludes, unforgeableGlobalThisKeys, [key])
+                ? createUnforgeableGlobalThisDescriptor(target, key)
+                : ReflectGetOwnPropertyDescriptor(target, key);
+
+        const wrapGetOwnPropertyDescriptor = (
+            originalFunc: typeof Reflect.getOwnPropertyDescriptor
+        ) =>
+            new ProxyCtor(originalFunc, {
+                apply(
+                    _originalFunc: Function,
+                    thisArg: any,
+                    args: [target: object, key: string | symbol]
+                ) {
+                    if (args.length < 2) {
+                        // Defer to native method to throw exception.
+                        return ReflectApply(originalFunc, thisArg, args);
+                    }
+                    const { 0: target, 1: key } = args;
+                    const lazyState = ReflectApply(
+                        WeakMapProtoGet,
+                        proxyTargetToLazyPropertyStateMap,
+                        [target]
+                    );
+                    const isGlobalThis = target === globalThisRef;
+                    if (isGlobalThis || lazyState) {
+                        const isLazProp = !!lazyState?.[key];
+                        if (isGlobalThis || isLazProp) {
+                            if (isLazProp) {
+                                // Activate the descriptor by triggering its getter.
+                                ReflectGet(target, key);
+                            }
+                            return getDescriptor(target, key);
+                        }
+                    }
+                    return ReflectApply(originalFunc, thisArg, args);
+                },
+            }) as typeof Reflect.getOwnPropertyDescriptor;
+
+        const wrapGetOwnPropertyDescriptors = (
+            originalFunc: typeof Object.getOwnPropertyDescriptors
+        ) =>
+            new ProxyCtor(originalFunc, {
+                apply(_originalFunc: Function, thisArg: any, args: [target: object]) {
+                    if (!args.length) {
+                        // Defer to native method to throw exception.
+                        return ReflectApply(originalFunc, thisArg, args);
+                    }
+                    const { 0: target } = args;
+                    const lazyState = ReflectApply(
+                        WeakMapProtoGet,
+                        proxyTargetToLazyPropertyStateMap,
+                        [target]
+                    );
+                    const isGlobalThis = target === globalThisRef;
+                    const unsafeDescMap = isGlobalThis
+                        ? // Create an empty property descriptor map to populate
+                          // with curated descriptors.
+                          ({} as PropertyDescriptorMap)
+                        : // Since this is not a global object it is safe to
+                          // use the native method.
+                          ReflectApply(originalFunc, thisArg, args);
+                    if (!isGlobalThis && lazyState === undefined) {
+                        // Exit early if the target is not a global object and
+                        // there are no lazy descriptors.
+                        return unsafeDescMap;
+                    }
+                    const ownKeys = ReflectOwnKeys(isGlobalThis ? target : unsafeDescMap);
+                    for (let i = 0, { length } = ownKeys; i < length; i += 1) {
+                        const ownKey = ownKeys[i];
+                        const isLazProp = !!lazyState?.[ownKey];
+                        if (isGlobalThis || isLazProp) {
+                            if (isLazProp) {
+                                // Activate the descriptor by triggering its getter.
+                                ReflectGet(target, ownKey);
+                            }
+                            const unsafeDesc = getDescriptor(target, ownKey);
+                            // Update the descriptor map entry.
+                            if (unsafeDesc) {
+                                unsafeDescMap[ownKey] = unsafeDesc;
+                            } else if (!isGlobalThis) {
+                                delete unsafeDescMap[ownKey];
+                            }
+                        }
+                    }
+                    return unsafeDescMap;
+                },
+            }) as typeof Object.getOwnPropertyDescriptors;
+
+        Reflect.getOwnPropertyDescriptor = wrapGetOwnPropertyDescriptor(
+            ReflectGetOwnPropertyDescriptor
+        );
+        Object.getOwnPropertyDescriptor = wrapGetOwnPropertyDescriptor(
+            ObjectGetOwnPropertyDescriptor
+        );
+        Object.getOwnPropertyDescriptors = wrapGetOwnPropertyDescriptors(
+            ObjectGetOwnPropertyDescriptors
+        );
+    }
+
     function installErrorPrepareStackTrace() {
+        if (installedErrorPrepareStackTraceFlag) {
+            return;
+        }
+        installedErrorPrepareStackTraceFlag = true;
         // Feature detect the V8 stack trace API.
         // https://v8.dev/docs/stack-trace-api
         const CallSite = ((): Function | undefined => {
@@ -725,78 +877,6 @@ export function createMembraneMarshall(
         return desc;
     }
 
-    if (isInShadowRealm) {
-        // In the ShadowRealm activate lazy descriptors when they are accessed
-        // by Reflect.getOwnPropertyDescriptor, Object.getOwnPropertyDescriptor,
-        // or Object.getOwnPropertyDescriptors.
-        const hasLazyOwnProperty = (
-            target: any,
-            key: string | symbol,
-            lazyState = ReflectApply(WeakMapProtoGet, proxyTargetToLazyPropertyStateMap, [target])
-        ): boolean => lazyState?.[key] || false;
-        const wrapGetOwnPropertyDescriptor = (
-            originalFunc: typeof Reflect.getOwnPropertyDescriptor
-        ) =>
-            new ProxyCtor(originalFunc, {
-                apply(
-                    _originalFunc: Function,
-                    thisArg: any,
-                    args: [target: object, key: string | symbol]
-                ) {
-                    const unsafeDesc = ReflectApply(originalFunc, thisArg, args);
-                    if (unsafeDesc) {
-                        const { 0: target, 1: key } = args;
-                        if (hasLazyOwnProperty(target, key)) {
-                            ReflectGet(target, key);
-                            return ReflectApply(originalFunc, thisArg, args);
-                        }
-                    }
-                    return unsafeDesc;
-                },
-            }) as typeof Reflect.getOwnPropertyDescriptor;
-        const wrapGetOwnPropertyDescriptors = (
-            originalFunc: typeof Object.getOwnPropertyDescriptors
-        ) =>
-            new ProxyCtor(originalFunc, {
-                apply(_originalFunc: Function, thisArg: any, args: [target: object]) {
-                    const unsafeDescMap = ReflectApply(originalFunc, thisArg, args);
-                    const { 0: target } = args;
-                    const lazyState = ReflectApply(
-                        WeakMapProtoGet,
-                        proxyTargetToLazyPropertyStateMap,
-                        [target]
-                    );
-                    if (lazyState === undefined) {
-                        return unsafeDescMap;
-                    }
-                    const ownKeys = ReflectOwnKeys(unsafeDescMap);
-                    for (let i = 0, { length } = ownKeys; i < length; i += 1) {
-                        const ownKey = ownKeys[i];
-                        if (hasLazyOwnProperty(target, ownKey, lazyState)) {
-                            // Activate the descriptor by triggering its getter.
-                            ReflectGet(target, ownKey);
-                            const unsafeDesc = ReflectGetOwnPropertyDescriptor(target, ownKey);
-                            // Update the descriptor map entry.
-                            if (unsafeDesc) {
-                                unsafeDescMap[ownKey] = unsafeDesc;
-                            } else {
-                                delete unsafeDescMap[ownKey];
-                            }
-                        }
-                    }
-                    return unsafeDescMap;
-                },
-            }) as typeof Object.getOwnPropertyDescriptors;
-        Reflect.getOwnPropertyDescriptor = wrapGetOwnPropertyDescriptor(
-            ReflectGetOwnPropertyDescriptor
-        );
-        Object.getOwnPropertyDescriptor = wrapGetOwnPropertyDescriptor(
-            ObjectGetOwnPropertyDescriptor
-        );
-        Object.getOwnPropertyDescriptors = wrapGetOwnPropertyDescriptors(
-            ObjectGetOwnPropertyDescriptors
-        );
-    }
     return function createHooksCallback(
         color: string,
         trapMutations: boolean,
@@ -839,7 +919,7 @@ export function createMembraneMarshall(
         let foreignCallableBatchGetPrototypeOfWhenHasNoOwnProperty: CallableBatchGetPrototypeOfWhenHasNoOwnProperty;
         let foreignCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor: CallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor;
         let lastProxyTrapCalled = ProxyHandlerTraps.None;
-        let nearMembraneSymbolGate = false;
+        let nearMembraneSymbolFlag = false;
         let selectedTarget: undefined | ProxyTarget;
 
         function activateLazyOwnPropertyDefinition(
@@ -1435,9 +1515,9 @@ export function createMembraneMarshall(
                     ObjectSeal(shadowTarget);
                 } else if (targetIntegrityTraits & TargetIntegrityTraits.IsNotExtensible) {
                     ReflectPreventExtensions(shadowTarget);
-                } else if (lockerUnminifiedGate && lockerDebugModeGate !== false) {
+                } else if (lockerUnminifiedFlag && lockerDebugModeFlag !== false) {
                     try {
-                        lockerDebugModeGate = foreignCallableDebugInfo(
+                        lockerDebugModeFlag = foreignCallableDebugInfo(
                             'Mutations on the membrane of an object originating ' +
                                 'outside of the sandbox will not be reflected on ' +
                                 'the object itself:',
@@ -1640,11 +1720,11 @@ export function createMembraneMarshall(
                 // Only allow accessing near-membrane symbol values if the
                 // BoundaryProxyHandler.has trap has been called immediately
                 // before and the symbol does not exist.
-                nearMembraneSymbolGate &&= lastProxyTrapCalled === ProxyHandlerTraps.Has;
+                nearMembraneSymbolFlag &&= lastProxyTrapCalled === ProxyHandlerTraps.Has;
                 lastProxyTrapCalled = ProxyHandlerTraps.Get;
-                if (nearMembraneSymbolGate) {
+                if (nearMembraneSymbolFlag) {
                     // Exit without performing a [[Get]] for near-membrane symbols
-                    // because we know when the nearMembraneSymbolGate is
+                    // because we know when the nearMembraneSymbolFlag is
                     // open that there is no shadowed symbol value.
                     if (key === LOCKER_NEAR_MEMBRANE_SYMBOL) {
                         return true;
@@ -1681,9 +1761,9 @@ export function createMembraneMarshall(
             ): ReturnType<typeof Reflect.has> {
                 lastProxyTrapCalled = ProxyHandlerTraps.Has;
                 const result = foreignCallableHas(this.foreignTargetPointer, key);
-                // The near-membrane symbol gate is open if the symbol does not
+                // The near-membrane symbol flag is on if the symbol does not
                 // exist on the object or its [[Prototype]].
-                nearMembraneSymbolGate =
+                nearMembraneSymbolFlag =
                     !result &&
                     (key === LOCKER_NEAR_MEMBRANE_SYMBOL ||
                         key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL);
@@ -2411,20 +2491,20 @@ export function createMembraneMarshall(
                 (...args: Parameters<typeof console.info>): boolean => {
                     if (
                         !isInShadowRealm &&
-                        lockerUnminifiedGate &&
-                        lockerDebugModeGate === undefined
+                        lockerUnminifiedFlag &&
+                        lockerDebugModeFlag === undefined
                     ) {
-                        lockerDebugModeGate = ReflectApply(
+                        lockerDebugModeFlag = ReflectApply(
                             ObjectProtoHasOwnProperty,
                             globalThisRef,
                             [LOCKER_DEBUG_MODE_SYMBOL]
                         );
-                        if (lockerDebugModeGate) {
+                        if (lockerDebugModeFlag) {
                             installErrorPrepareStackTrace();
                             foreignCallableInstallErrorPrepareStackTrace();
                         }
                     }
-                    if (lockerDebugModeGate) {
+                    if (lockerDebugModeFlag) {
                         for (let i = 0, { length } = args; i < length; i += 1) {
                             args[i] = getLocalValue(args[i]);
                         }
@@ -2474,11 +2554,40 @@ export function createMembraneMarshall(
             ),
             // callableInstallLazyDescriptors
             instrumentCallableWrapper(
-                (targetPointer: Pointer, ...ownKeys: (string | symbol)[]) => {
-                    const { length } = ownKeys;
-                    if (!isInShadowRealm || !length) {
+                (
+                    targetPointer: Pointer,
+                    ...ownKeysAndUnforgeableGlobalThisKeys: (string | symbol)[]
+                ) => {
+                    const sliceIndex = ReflectApply(
+                        ArrayProtoIndexOf,
+                        ownKeysAndUnforgeableGlobalThisKeys,
+                        [LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL]
+                    );
+                    let ownKeys;
+                    let unforgeableGlobalThisKeys;
+                    if (sliceIndex === -1) {
+                        ownKeys = ownKeysAndUnforgeableGlobalThisKeys;
+                        unforgeableGlobalThisKeys = [];
+                    } else {
+                        ownKeys = ReflectApply(
+                            ArrayProtoSlice,
+                            ownKeysAndUnforgeableGlobalThisKeys,
+                            [0, sliceIndex]
+                        );
+                        unforgeableGlobalThisKeys = ReflectApply(
+                            ArrayProtoSlice,
+                            ownKeysAndUnforgeableGlobalThisKeys,
+                            [sliceIndex + 1]
+                        );
+                    }
+                    if (!isInShadowRealm) {
                         return;
                     }
+                    // Activate lazy descriptors when they are accessed by:
+                    //   Object.getOwnPropertyDescriptors()
+                    //   Object.getOwnPropertyDescriptor()
+                    //   Reflect.getOwnPropertyDescriptor()
+                    installOwnPropertyDescriptorWrappers(unforgeableGlobalThisKeys);
                     targetPointer();
                     const target = getSelectedTarget();
                     let lazyState = ReflectApply(
@@ -2493,7 +2602,7 @@ export function createMembraneMarshall(
                             lazyState,
                         ]);
                     }
-                    for (let i = 0; i < length; i += 1) {
+                    for (let i = 0, { length } = ownKeys; i < length; i += 1) {
                         const ownKey = ownKeys[i];
                         lazyState[ownKey] = true;
                         ReflectDefineProperty(
