@@ -111,6 +111,10 @@ export default function createVirtualEnvironment(
     } else {
         globalOwnKeys = filterWindowKeys(getFilteredGlobalOwnKeys(globalObjectShape));
     }
+    // Chrome has a bug that nulls the result of `window` getters in detached
+    // iframes when the property descriptor of `window.window` is retrieved.
+    // https://bugs.chromium.org/p/chromium/issues/detail?id=1305302
+    const unforgeableGlobalThisKeys = keepAlive ? undefined : unforgeablePoisonedWindowKeys;
     const filteredEndowments = {};
     assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(filteredEndowments, endowments);
     removeWindowDescriptors(filteredEndowments);
@@ -142,7 +146,7 @@ export default function createVirtualEnvironment(
     // window.__proto__.__proto__.__proto__ (aka EventTarget.prototype)
     env.link('__proto__', '__proto__', '__proto__');
     env.remapProto(blueRefs.document, blueRefs.DocumentProto);
-    env.lazyRemap(blueRefs.window, globalOwnKeys, unforgeablePoisonedWindowKeys);
+    env.lazyRemap(blueRefs.window, globalOwnKeys, unforgeableGlobalThisKeys);
     env.remap(blueRefs.window, filteredEndowments);
     // We intentionally skip remapping Window.prototype because there is nothing
     // in it that needs to be remapped.
@@ -152,13 +156,13 @@ export default function createVirtualEnvironment(
     //
     // Once we get the iframe info ready, and all mapped, we can proceed
     // to detach the iframe only if the keepAlive option isn't true.
-    if (keepAlive !== true) {
-        ReflectApply(ElementProtoRemove, iframe, []);
-    } else {
+    if (keepAlive) {
         // TODO: Temporary hack to preserve the document reference in Firefox.
         // https://bugzilla.mozilla.org/show_bug.cgi?id=543435
         ReflectApply(DocumentProtoOpen, redDocument, []);
         ReflectApply(DocumentProtoClose, redDocument, []);
+    } else {
+        ReflectApply(ElementProtoRemove, iframe, []);
     }
     return env;
 }
