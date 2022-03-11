@@ -173,10 +173,16 @@ export class VirtualEnvironment {
         }
     }
 
-    lazyRemap(target: ProxyTarget, ownKeys: (string | symbol)[]) {
+    lazyRemap(
+        target: ProxyTarget,
+        ownKeys: (string | symbol)[],
+        unforgeableGlobalThisKeys: (string | symbol)[] = []
+    ) {
         const targetPointer = this.blueGetTransferableValue(target) as Pointer;
         const args: any[] = [targetPointer];
         ReflectApply(ArrayProtoPush, args, ownKeys);
+        ReflectApply(ArrayProtoPush, args, [LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL]);
+        ReflectApply(ArrayProtoPush, args, unforgeableGlobalThisKeys);
         ReflectApply(this.redCallableInstallLazyDescriptors, undefined, args);
     }
 

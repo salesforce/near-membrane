@@ -13,6 +13,7 @@ import {
     getCachedGlobalObjectReferences,
     filterWindowKeys,
     removeWindowDescriptors,
+    unforgeablePoisonedWindowKeys,
 } from './window';
 
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
@@ -141,7 +142,7 @@ export default function createVirtualEnvironment(
     // window.__proto__.__proto__.__proto__ (aka EventTarget.prototype)
     env.link('__proto__', '__proto__', '__proto__');
     env.remapProto(blueRefs.document, blueRefs.DocumentProto);
-    env.lazyRemap(blueRefs.window, globalOwnKeys);
+    env.lazyRemap(blueRefs.window, globalOwnKeys, unforgeablePoisonedWindowKeys);
     env.remap(blueRefs.window, filteredEndowments);
     // We intentionally skip remapping Window.prototype because there is nothing
     // in it that needs to be remapped.
