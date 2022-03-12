@@ -18,11 +18,10 @@
     "start": "http-server ./examples",
     "coverage": "yarn coverage:jest && yarn coverage:karma && yarn coverage:merge && yarn coverage:report",
     "coverage:jest": "yarn jest --coverage",
-    "coverage:karma": "yarn karma --coverage",
+    "coverage:karma": "NODE_OPTIONS=\"$NODE_OPTIONS --max_old_space_size=8192\" karma start karma.config.js --single-run --browsers ChromeHeadlessNoSandbox --coverage",
     "coverage:merge": "istanbul-merge --out coverage-merged.json coverage/coverage-final.json coverage/json/coverage.json",
     "coverage:report": "yarn istanbul --include report coverage-merged.json --dir coverage-merged html",
     "test": "yarn jest; yarn karma",
-    "test:bundlesize": "bundlesize",
     "jest": "jest --no-cache --runInBand --silent --config jest.config.js",
     "jest:debug": "node --inspect-brk node_modules/.bin/jest --no-cache --runInBand --config jest.config.js",
     "karma": "karma start karma.config.js --single-run --browsers ChromeHeadless,FirefoxHeadless",
@@ -56,7 +55,6 @@
     "@types/jest": "27.0.3",
     "@typescript-eslint/eslint-plugin": "5.7.0",
     "@typescript-eslint/parser": "5.7.0",
-    "bundlesize": "0.18.1",
     "chokidar": "3.5.2",
     "cross-env": "7.0.3",
     "eslint": "7.32.0",
@@ -95,23 +93,6 @@
     "node": ">=16"
   },
   "engineStrict": true,
-  "bundlesize": [
-    {
-      "path": "packages/near-membrane-base/dist/index.min.js",
-      "maxSize": "13 kB",
-      "compression": "none"
-    },
-    {
-      "path": "packages/near-membrane-dom/dist/index.min.js",
-      "maxSize": "3 kB",
-      "compression": "none"
-    },
-    {
-      "path": "packages/near-membrane-node/dist/index.min.js",
-      "maxSize": "1 kB",
-      "compression": "none"
-    }
-  ],
   "lint-staged": {
     "packages/**/*.{js,ts}": [
       "eslint --fix"
