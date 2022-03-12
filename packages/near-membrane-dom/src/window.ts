@@ -23,10 +23,34 @@ interface CachedBlueReferencesRecord extends Object {
 const blueGlobalToRecordMap: WeakMap<typeof globalThis, CachedBlueReferencesRecord> =
     new WeakMapCtor();
 
-// Chrome has a bug that nulls the result of `window` getters in detached
-// iframes when the property descriptor of `window.window` is retrieved.
+// Chromium based browsers have a bug that nulls the result of `window`
+// getters in detached iframes when the property descriptor of `window.window`
+// is retrieved.
 // https://bugs.chromium.org/p/chromium/issues/detail?id=1305302
-export const unforgeablePoisonedWindowKeys = ['window'];
+export const unforgeablePoisonedWindowKeys = (() => {
+    const {
+        navigator: { userAgent, userAgentData },
+    }: any = window;
+    // The user-agent client hints API is experimental and subject to change.
+    // https://caniuse.com/mdn-api_navigator_useragentdata
+    const brands: { brand: string; version: string }[] = userAgentData?.brands;
+    if (
+        // While experimental, `navigator.userAgentData.brands` may be defined
+        // as an empty array in headless Chromium based browsers.
+        Array.isArray(brands) && brands.length
+            ? // Use user-agent client hints API if available to avoid
+              // deprecation warnings.
+              // https://developer.mozilla.org/en-US/docs/Web/API/User-Agent_Client_Hints_API
+              brands.find((item) => item?.brand === 'Chromium')
+            : // Fallback to a standard user-agent string sniff.
+              // Note: Chromium identifies itself as Chrome in its user-agent string.
+              // https://developer.mozilla.org/en-US/docs/Web/HTTP/Browser_detection_using_the_user_agent
+              / (?:Headless)?Chrome\/\d+/.test(userAgent)
+    ) {
+        return ['window'];
+    }
+    return undefined;
+})();
 
 export function getCachedGlobalObjectReferences(
     globalObjectVirtualizationTarget: WindowProxy & typeof globalThis

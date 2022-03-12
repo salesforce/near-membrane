@@ -510,8 +510,9 @@ export function createMembraneMarshall(
         //   Object.prototype.__lookupGetter__()
         //   Object.prototype.__lookupSetter__()
         //
-        // Chrome has a bug that nulls the result of `window` getters in detached
-        // iframes when the property descriptor of `window.window` is retrieved.
+        // Chromium based browsers have a bug that nulls the result of `window`
+        // getters in detached iframes when the property descriptor of `window.window`
+        // is retrieved.
         // https://bugs.chromium.org/p/chromium/issues/detail?id=1305302
         //
         // Methods may be poisoned when they interact with the `window` object

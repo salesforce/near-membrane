@@ -109,8 +109,8 @@ describe('sandbox', () => {
             expect(Object.getOwnPropertyDescriptors.length).toBe(1);
             expect(Object.getOwnPropertyDescriptors.toString()).toContain('[native code]');
 
-            // Chrome has a bug that nulls the result of window getters in
-            // detached iframes when the property descriptor of window.window
+            // Chromium based browsers have a bug that nulls the result of window
+            // getters in detached iframes when the property descriptor of window.window
             // is retrieved.
             // https://bugs.chromium.org/p/chromium/issues/detail?id=1305302
             const globalThisDescMatcher = jasmine.objectContaining({

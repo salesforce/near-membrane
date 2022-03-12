@@ -181,7 +181,7 @@ export class VirtualEnvironment {
         const targetPointer = this.blueGetTransferableValue(target) as Pointer;
         const args: any[] = [targetPointer];
         ReflectApply(ArrayProtoPush, args, ownKeys);
-        if (unforgeableGlobalThisKeys) {
+        if (unforgeableGlobalThisKeys?.length) {
             // Use `LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL` to delimit
             // `ownKeys` and `unforgeableGlobalThisKeys`.
             ReflectApply(ArrayProtoPush, args, [LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL]);
