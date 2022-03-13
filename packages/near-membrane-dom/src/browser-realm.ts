@@ -116,9 +116,6 @@ export default function createVirtualEnvironment(
     // is retrieved.
     // https://bugs.chromium.org/p/chromium/issues/detail?id=1305302
     const unforgeableGlobalThisKeys = keepAlive ? undefined : unforgeablePoisonedWindowKeys;
-    const filteredEndowments = {};
-    assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(filteredEndowments, endowments);
-    removeWindowDescriptors(filteredEndowments);
     const blueConnector = createHooksCallback;
     const redConnector = createConnector(redWindow.eval);
     // Extract the global references and descriptors before any interference.
@@ -148,7 +145,12 @@ export default function createVirtualEnvironment(
     env.link('__proto__', '__proto__', '__proto__');
     env.remapProto(blueRefs.document, blueRefs.DocumentProto);
     env.lazyRemap(blueRefs.window, globalOwnKeys, unforgeableGlobalThisKeys);
-    env.remap(blueRefs.window, filteredEndowments);
+    if (endowments) {
+        const filteredEndowments = {};
+        assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(filteredEndowments, endowments);
+        removeWindowDescriptors(filteredEndowments);
+        env.remap(blueRefs.window, filteredEndowments);
+    }
     // We intentionally skip remapping Window.prototype because there is nothing
     // in it that needs to be remapped.
     env.lazyRemap(blueRefs.EventTargetProto, blueRefs.EventTargetProtoOwnKeys);
