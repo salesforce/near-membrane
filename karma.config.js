@@ -26,11 +26,26 @@ if (globby.sync(testFilesPattern).length) {
 
 const coverage = process.argv.includes('--coverage');
 
+const customLaunchers = {
+    ChromeHeadlessNoSandbox: {
+        base: 'ChromeHeadless',
+        flags: ['--disable-gpu', '--no-sandbox'],
+    },
+};
+
 module.exports = function (config) {
     const bootstrapFilesPattern = 'test/__bootstrap__/**/*.js';
     const karmaConfig = {
-        browsers: ['ChromeHeadless'],
+        client: {
+            captureConsole: false,
+        },
+        concurrency: 1,
+        customLaunchers,
+        browsers: Object.keys(customLaunchers),
         browserConsoleLogOptions: { level: config.LOG_ERROR, format: '%m', terminal: true },
+        browserDisconnectTimeout: 10000,
+        browserDisconnectTolerance: 3,
+        browserNoActivityTimeout: 100000,
         files: [
             bootstrapFilesPattern,
             { pattern: testFilesPattern, watched: true, type: 'module' },
