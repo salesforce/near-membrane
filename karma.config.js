@@ -5,12 +5,15 @@
 const globby = require('globby');
 const istanbul = require('rollup-plugin-istanbul');
 const { nodeResolve } = require('@rollup/plugin-node-resolve');
+const path = require('path');
 
 process.env.CHROME_BIN = require('puppeteer').executablePath();
 
 let testFilesPattern = './test/**/*.spec.js';
 
+const basePath = path.resolve(__dirname, './');
 const matchArg = process.argv.indexOf('--match');
+
 if (matchArg > -1) {
     testFilesPattern = process.argv[matchArg + 1] || '';
 }
@@ -36,16 +39,17 @@ const customLaunchers = {
 module.exports = function (config) {
     const bootstrapFilesPattern = 'test/__bootstrap__/**/*.js';
     const karmaConfig = {
-        client: {
-            captureConsole: false,
-        },
-        concurrency: 1,
-        customLaunchers,
+        basePath,
         browsers: Object.keys(customLaunchers),
         browserConsoleLogOptions: { level: config.LOG_ERROR, format: '%m', terminal: true },
         browserDisconnectTimeout: 10000,
         browserDisconnectTolerance: 3,
         browserNoActivityTimeout: 100000,
+        client: {
+            captureConsole: false,
+        },
+        concurrency: 1,
+        customLaunchers,
         files: [
             bootstrapFilesPattern,
             { pattern: testFilesPattern, watched: true, type: 'module' },
@@ -78,7 +82,7 @@ module.exports = function (config) {
         karmaConfig.reporters.push('coverage');
         karmaConfig.rollupPreprocessor.plugins.push(
             istanbul({
-                exclude: ['packages/near-membrane-node', 'test/**/*.js'],
+                exclude: ['packages/near-membrane-node', 'test/**/*.spec.js'],
             })
         );
         karmaConfig.coverageReporter = {
