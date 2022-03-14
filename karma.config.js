@@ -34,6 +34,51 @@ const customLaunchers = {
         base: 'ChromeHeadless',
         flags: ['--disable-gpu', '--no-sandbox'],
     },
+    sl_chrome: {
+        base: 'SauceLabs',
+        browserName: 'chrome',
+        flags: ['--disable-gpu', '--no-sandbox'],
+        version: 'latest',
+    },
+    sl_firefox: {
+        base: 'SauceLabs',
+        browserName: 'firefox',
+        version: 'latest',
+    },
+    sl_edge: {
+        base: 'SauceLabs',
+        browserName: 'MicrosoftEdge',
+        version: 'latest',
+        platform: 'Windows 10',
+    },
+    sl_safari_previous: {
+        base: 'SauceLabs',
+        browserName: 'safari',
+        version: '13',
+        platform: 'macOS 10.15',
+    },
+    sl_safari: {
+        base: 'SauceLabs',
+        browserName: 'safari',
+        version: '14',
+        platform: 'macOS 11',
+    },
+    sl_ios_previous: {
+        base: 'SauceLabs',
+        browserName: 'Safari',
+        deviceName: 'iPhone 12 Pro Simulator',
+        platformVersion: '14.5',
+        platformName: 'iOS',
+        appiumVersion: '1.21.0',
+    },
+    sl_ios: {
+        base: 'SauceLabs',
+        browserName: 'Safari',
+        deviceName: 'iPhone 13 Simulator',
+        platformVersion: '15.0',
+        platformName: 'iOS',
+        appiumVersion: '1.22.0',
+    },
 };
 
 module.exports = function (config) {
@@ -75,6 +120,11 @@ module.exports = function (config) {
                     preferBuiltins: true,
                 }),
             ],
+        },
+        sauceLabs: {
+            idleTimeout: 1000,
+            username: process.env.SauceLabs_Username,
+            accessKey: process.env.SauceLabs_AccessKey,
         },
     };
 

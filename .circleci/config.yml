@@ -102,6 +102,28 @@ jobs:
       - *load_workspace
       - *run_browser_tests
 
+  'Run functional tests in Chrome (via Karma)':
+    <<: *env_default
+    steps:
+      - *load_workspace
+      - run:
+          command: yarn karma:ci:chrome;
+
+  'Run functional tests in Edge (via Karma)':
+    <<: *env_default
+    steps:
+      - *load_workspace
+      - run:
+          command: yarn karma:ci:edge;
+
+  'Run functional tests in Firefox (via Karma)':
+    <<: *env_default
+    steps:
+      - *load_workspace
+      - run:
+          command: yarn karma:ci:firefox;
+
+
   'Run, Merge & Store Coverage':
     <<: *env_default
     steps:
@@ -123,6 +145,15 @@ workflows:
           requires:
             - 'Build Test Workspace'
       - 'Run functional tests in ChromeHeadless (via Karma)':
+          requires:
+            - 'Build Test Workspace'
+      - 'Run functional tests in Chrome (via Karma)':
+          requires:
+            - 'Build Test Workspace'
+      - 'Run functional tests in Edge (via Karma)':
+          requires:
+            - 'Build Test Workspace'
+      - 'Run functional tests in Firefox (via Karma)':
           requires:
             - 'Build Test Workspace'
       - 'Run, Merge & Store Coverage':
