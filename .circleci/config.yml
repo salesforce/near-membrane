@@ -30,7 +30,7 @@ save_workspace: &save_workspace
 
 load_workspace: &load_workspace
   attach_workspace:
-    at: ~/tmp/workspace
+    at: ~/near-membrane
 
 # Build
 install: &install
@@ -41,7 +41,7 @@ install: &install
       yarn build
 
 # Checks
-run_linting: &run_linting
+run_linter: &run_linter
   run:
     name: Run linting
     command: yarn lint
@@ -58,13 +58,12 @@ run_browser_tests: &run_browser_tests
     name: Run DOM tests (Karma)
     command: yarn coverage:karma
 
-# Merge the two coverage reports
-merge_coverage: &merge_coverage
+# Run & Merge the two coverage reports
+run_merge_coverage: &run_merge_coverage
   run:
-    name: Merge Coverage Reports
+    name: Run & Merge Coverage Reports
     command: |
-      yarn coverage:merge
-      yarn coverage:report
+      yarn coverage
 
 store_coverage: &store_coverage
   store_artifacts:
@@ -76,29 +75,57 @@ store_coverage: &store_coverage
 
 version: 2
 jobs:
-  build:
+  'Build Test Workspace':
     <<: *env_default
     steps:
       - checkout
-
       - *restore_yarn_cache
       - *install
       - *save_yarn_cache
       - *save_workspace
 
-      - *run_linting
+  'Run linter (via ESLint)':
+    <<: *env_default
+    steps:
+      - *load_workspace
+      - *run_linter
+
+  'Run unit tests in Node.js (via Jest)':
+    <<: *env_default
+    steps:
+      - *load_workspace
       - *run_node_tests
+
+  'Run functional tests in ChromeHeadless (via Karma)':
+    <<: *env_default
+    steps:
+      - *load_workspace
       - *run_browser_tests
 
-      - *merge_coverage
+  'Run, Merge & Store Coverage':
+    <<: *env_default
+    steps:
+      - *load_workspace
+      - *run_merge_coverage
       - *store_coverage
-
 
 # Workflows definition
 # ====================
-
 workflows:
   version: 2
-  build_and_test:
+  'Build & Test':
     jobs:
-      - build
+      - 'Build Test Workspace'
+      - 'Run linter (via ESLint)':
+          requires:
+            - 'Build Test Workspace'
+      - 'Run unit tests in Node.js (via Jest)':
+          requires:
+            - 'Build Test Workspace'
+      - 'Run functional tests in ChromeHeadless (via Karma)':
+          requires:
+            - 'Build Test Workspace'
+      - 'Run, Merge & Store Coverage':
+          requires:
+            - 'Build Test Workspace'
+
