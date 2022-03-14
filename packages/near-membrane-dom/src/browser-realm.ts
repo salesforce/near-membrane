@@ -111,8 +111,9 @@ export default function createVirtualEnvironment(
     } else {
         globalOwnKeys = filterWindowKeys(getFilteredGlobalOwnKeys(globalObjectShape));
     }
-    // Chrome has a bug that nulls the result of `window` getters in detached
-    // iframes when the property descriptor of `window.window` is retrieved.
+    // Chromium based browsers have a bug that nulls the result of `window`
+    // getters in detached iframes when the property descriptor of `window.window`
+    // is retrieved.
     // https://bugs.chromium.org/p/chromium/issues/detail?id=1305302
     const unforgeableGlobalThisKeys = keepAlive ? undefined : unforgeablePoisonedWindowKeys;
     const filteredEndowments = {};
