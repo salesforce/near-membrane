@@ -24,17 +24,17 @@ describe('Ensure instrumentation object usage in near-membrane', () => {
         `);
         // eslint-disable-next-line no-unused-expressions
         redProxy.foo;
-        expect(startActivitySpy).toHaveBeenCalledTimes(2);
+        expect(startActivitySpy).toHaveBeenCalledTimes(1);
         expect(logSpy).not.toHaveBeenCalled();
         expect(errorSpy).not.toHaveBeenCalled();
 
         redProxy.foo = 1;
-        expect(startActivitySpy).toHaveBeenCalledTimes(3);
+        expect(startActivitySpy).toHaveBeenCalledTimes(2);
         expect(logSpy).not.toHaveBeenCalled();
         expect(errorSpy).not.toHaveBeenCalled();
 
         redProxy.fn();
-        expect(startActivitySpy).toHaveBeenCalledTimes(5);
+        expect(startActivitySpy).toHaveBeenCalledTimes(4);
         expect(logSpy).not.toHaveBeenCalled();
         expect(errorSpy).not.toHaveBeenCalled();
     });

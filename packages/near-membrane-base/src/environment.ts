@@ -164,12 +164,8 @@ export class VirtualEnvironment {
                 return this.blueGetSelectedTarget();
             }
             return bluePointerOrPrimitiveValue;
-        } catch (e: any) {
-            const pushedError = this.blueGetSelectedTarget();
-            if (pushedError) {
-                throw pushedError;
-            }
-            throw e;
+        } catch (error: any) {
+            throw this.blueGetSelectedTarget() ?? error;
         }
     }
 
