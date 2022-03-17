@@ -86,12 +86,8 @@ module.exports = function (config) {
             })
         );
         karmaConfig.coverageReporter = {
-            dir: 'coverage/',
-            reporters: [
-                { type: 'html', subdir: 'html' },
-                { type: 'json', subdir: 'json', file: 'coverage.json' },
-                { type: 'text-summary' },
-            ],
+            dir: 'karma-coverage/',
+            reporters: [{ type: 'json', subdir: 'json', file: 'coverage-final.json' }],
         };
     }
 

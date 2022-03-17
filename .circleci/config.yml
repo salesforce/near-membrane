@@ -67,7 +67,7 @@ run_merge_coverage: &run_merge_coverage
 
 store_coverage: &store_coverage
   store_artifacts:
-    path: coverage-merged
+    path: coverage/report
 
 
 # Jobs definition
