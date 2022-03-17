@@ -719,95 +719,106 @@ export function createMembraneMarshall(
         );
     }
 
-    function installErrorPrepareStackTrace() {
-        if (installedErrorPrepareStackTraceFlag) {
-            return;
-        }
-        installedErrorPrepareStackTraceFlag = true;
-        // Feature detect the V8 stack trace API.
-        // https://v8.dev/docs/stack-trace-api
-        const CallSite = ((): Function | undefined => {
-            ErrorCtor.prepareStackTrace = (_error: Error, callSites: NodeJS.CallSite[]) =>
-                callSites;
-            const callSites = new ErrorCtor().stack as string | NodeJS.CallSite[];
-            delete ErrorCtor.prepareStackTrace;
-            return isArrayOrThrowForRevoked(callSites) && callSites.length > 0
-                ? callSites[0]?.constructor
-                : undefined;
-        })();
-        if (typeof CallSite !== 'function') {
-            return;
-        }
-        const {
-            getEvalOrigin: CallSiteProtoGetEvalOrigin,
-            getFunctionName: CallSiteProtoGetFunctionName,
-            toString: CallSiteProtoToString,
-        } = CallSite.prototype;
+    const installErrorPrepareStackTrace = LOCKER_UNMINIFIED_FLAG
+        ? () => {
+              if (installedErrorPrepareStackTraceFlag) {
+                  return;
+              }
+              installedErrorPrepareStackTraceFlag = true;
+              // Feature detect the V8 stack trace API.
+              // https://v8.dev/docs/stack-trace-api
+              const CallSite = ((): Function | undefined => {
+                  ErrorCtor.prepareStackTrace = (_error: Error, callSites: NodeJS.CallSite[]) =>
+                      callSites;
+                  const callSites = new ErrorCtor().stack as string | NodeJS.CallSite[];
+                  delete ErrorCtor.prepareStackTrace;
+                  return isArrayOrThrowForRevoked(callSites) && callSites.length > 0
+                      ? callSites[0]?.constructor
+                      : undefined;
+              })();
+              if (typeof CallSite !== 'function') {
+                  return;
+              }
+              const {
+                  getEvalOrigin: CallSiteProtoGetEvalOrigin,
+                  getFunctionName: CallSiteProtoGetFunctionName,
+                  toString: CallSiteProtoToString,
+              } = CallSite.prototype;
 
-        const formatStackTrace = function formatStackTrace(
-            error: Error,
-            callSites: NodeJS.CallSite[]
-        ): string {
-            // Based on V8's default stack trace formatting:
-            // https://chromium.googlesource.com/v8/v8.git/+/refs/heads/main/src/execution/messages.cc#371
-            let stackTrace = '';
-            try {
-                stackTrace = ReflectApply(ErrorProtoToString, error, []);
-            } catch {
-                stackTrace = '<error>';
-            }
-            let consecutive = false;
-            for (let i = 0, { length } = callSites; i < length; i += 1) {
-                const callSite = callSites[i];
-                const funcName = ReflectApply(CallSiteProtoGetFunctionName, callSite, []);
-                let isMarked = false;
-                if (
-                    typeof funcName === 'string' &&
-                    funcName !== 'eval' &&
-                    ReflectApply(StringProtoEndsWith, funcName, [LOCKER_IDENTIFIER_MARKER])
-                ) {
-                    isMarked = true;
-                }
-                if (!isMarked) {
-                    const evalOrigin = ReflectApply(CallSiteProtoGetEvalOrigin, callSite, []);
-                    if (
-                        typeof evalOrigin === 'string' &&
-                        ReflectApply(StringProtoIncludes, evalOrigin, [LOCKER_IDENTIFIER_MARKER])
-                    ) {
-                        isMarked = true;
-                    }
-                }
-                // Only write a single LWS entry per consecutive LWS stacks.
-                if (isMarked) {
-                    if (!consecutive) {
-                        consecutive = true;
-                        stackTrace += '\n    at LWS';
-                    }
-                    continue;
-                } else {
-                    consecutive = false;
-                }
-                try {
-                    stackTrace += `\n    at ${ReflectApply(CallSiteProtoToString, callSite, [])}`;
-                    // eslint-disable-next-line no-empty
-                } catch {}
-            }
-            return stackTrace;
-        };
-        // Error.prepareStackTrace cannot be a bound or proxy wrapped
-        // function, so to obscure its source we wrap the call to
-        // formatStackTrace().
-        ErrorCtor.prepareStackTrace = function prepareStackTrace(
-            error: Error,
-            callSites: NodeJS.CallSite[]
-        ) {
-            return formatStackTrace(error, callSites);
-        };
-        const { stackTraceLimit } = ErrorCtor;
-        if (typeof stackTraceLimit !== 'number' || stackTraceLimit < LOCKER_STACK_TRACE_LIMIT) {
-            ErrorCtor.stackTraceLimit = LOCKER_STACK_TRACE_LIMIT;
-        }
-    }
+              const formatStackTrace = function formatStackTrace(
+                  error: Error,
+                  callSites: NodeJS.CallSite[]
+              ): string {
+                  // Based on V8's default stack trace formatting:
+                  // https://chromium.googlesource.com/v8/v8.git/+/refs/heads/main/src/execution/messages.cc#371
+                  let stackTrace = '';
+                  try {
+                      stackTrace = ReflectApply(ErrorProtoToString, error, []);
+                  } catch {
+                      stackTrace = '<error>';
+                  }
+                  let consecutive = false;
+                  for (let i = 0, { length } = callSites; i < length; i += 1) {
+                      const callSite = callSites[i];
+                      const funcName = ReflectApply(CallSiteProtoGetFunctionName, callSite, []);
+                      let isMarked = false;
+                      if (
+                          typeof funcName === 'string' &&
+                          funcName !== 'eval' &&
+                          ReflectApply(StringProtoEndsWith, funcName, [LOCKER_IDENTIFIER_MARKER])
+                      ) {
+                          isMarked = true;
+                      }
+                      if (!isMarked) {
+                          const evalOrigin = ReflectApply(CallSiteProtoGetEvalOrigin, callSite, []);
+                          if (
+                              typeof evalOrigin === 'string' &&
+                              ReflectApply(StringProtoIncludes, evalOrigin, [
+                                  LOCKER_IDENTIFIER_MARKER,
+                              ])
+                          ) {
+                              isMarked = true;
+                          }
+                      }
+                      // Only write a single LWS entry per consecutive LWS stacks.
+                      if (isMarked) {
+                          if (!consecutive) {
+                              consecutive = true;
+                              stackTrace += '\n    at LWS';
+                          }
+                          continue;
+                      } else {
+                          consecutive = false;
+                      }
+                      try {
+                          stackTrace += `\n    at ${ReflectApply(
+                              CallSiteProtoToString,
+                              callSite,
+                              []
+                          )}`;
+                          // eslint-disable-next-line no-empty
+                      } catch {}
+                  }
+                  return stackTrace;
+              };
+              // Error.prepareStackTrace cannot be a bound or proxy wrapped
+              // function, so to obscure its source we wrap the call to
+              // formatStackTrace().
+              ErrorCtor.prepareStackTrace = function prepareStackTrace(
+                  error: Error,
+                  callSites: NodeJS.CallSite[]
+              ) {
+                  return formatStackTrace(error, callSites);
+              };
+              const { stackTraceLimit } = ErrorCtor;
+              if (
+                  typeof stackTraceLimit !== 'number' ||
+                  stackTraceLimit < LOCKER_STACK_TRACE_LIMIT
+              ) {
+                  ErrorCtor.stackTraceLimit = LOCKER_STACK_TRACE_LIMIT;
+              }
+          }
+        : ((() => {}) as unknown as CallableInstallErrorPrepareStackTrace);
 
     function isArrayBuffer(value: any): boolean {
         try {
@@ -1217,6 +1228,41 @@ export function createMembraneMarshall(
             }
             return pointer;
         }
+        const debugInfo = LOCKER_UNMINIFIED_FLAG
+            ? (...args: Parameters<typeof console.info>): boolean => {
+                  if (!isInShadowRealm && LOCKER_DEBUG_MODE_FLAG === undefined) {
+                      LOCKER_DEBUG_MODE_FLAG = ReflectApply(
+                          ObjectProtoHasOwnProperty,
+                          globalThisRef,
+                          [LOCKER_DEBUG_MODE_SYMBOL]
+                      );
+                      if (LOCKER_DEBUG_MODE_FLAG) {
+                          try {
+                              installErrorPrepareStackTrace();
+                              foreignCallableInstallErrorPrepareStackTrace();
+                              // eslint-disable-next-line no-empty
+                          } catch {}
+                      }
+                  }
+                  if (LOCKER_DEBUG_MODE_FLAG) {
+                      for (let i = 0, { length } = args; i < length; i += 1) {
+                          // Inline getLocalValue().
+                          const pointerOrPrimitive: PointerOrPrimitive = args[i];
+                          if (typeof pointerOrPrimitive === 'function') {
+                              pointerOrPrimitive();
+                              args[i] = selectedTarget;
+                              selectedTarget = undefined;
+                          }
+                      }
+                      try {
+                          ReflectApply(consoleInfoRef, consoleRef, args);
+                          // eslint-disable-next-line no-empty
+                      } catch {}
+                      return true;
+                  }
+                  return false;
+              }
+            : ((() => false) as unknown as CallableDebugInfo);
 
         function getDescriptorMeta(
             unsafePartialDesc: PropertyDescriptor
@@ -1939,7 +1985,7 @@ export function createMembraneMarshall(
                     ObjectSeal(shadowTarget);
                 } else if (targetIntegrityTraits & TargetIntegrityTraits.IsNotExtensible) {
                     ReflectPreventExtensions(shadowTarget);
-                } else if (LOCKER_UNMINIFIED_FLAG && LOCKER_DEBUG_MODE_FLAG !== false) {
+                } else if (LOCKER_DEBUG_MODE_FLAG !== false) {
                     // We don't wrap `foreignCallableDebugInfo()` in a try-catch
                     // because it cannot throw.
                     LOCKER_DEBUG_MODE_FLAG = foreignCallableDebugInfo(
@@ -2981,43 +3027,7 @@ export function createMembraneMarshall(
                 }
             },
             // callableDebugInfo
-            (...args: Parameters<typeof console.info>): boolean => {
-                if (
-                    !isInShadowRealm &&
-                    LOCKER_UNMINIFIED_FLAG &&
-                    LOCKER_DEBUG_MODE_FLAG === undefined
-                ) {
-                    LOCKER_DEBUG_MODE_FLAG = ReflectApply(
-                        ObjectProtoHasOwnProperty,
-                        globalThisRef,
-                        [LOCKER_DEBUG_MODE_SYMBOL]
-                    );
-                    if (LOCKER_DEBUG_MODE_FLAG) {
-                        try {
-                            installErrorPrepareStackTrace();
-                            foreignCallableInstallErrorPrepareStackTrace();
-                            // eslint-disable-next-line no-empty
-                        } catch {}
-                    }
-                }
-                if (LOCKER_DEBUG_MODE_FLAG) {
-                    for (let i = 0, { length } = args; i < length; i += 1) {
-                        // Inline getLocalValue().
-                        const pointerOrPrimitive: PointerOrPrimitive = args[i];
-                        if (typeof pointerOrPrimitive === 'function') {
-                            pointerOrPrimitive();
-                            args[i] = selectedTarget;
-                            selectedTarget = undefined;
-                        }
-                    }
-                    try {
-                        ReflectApply(consoleInfoRef, consoleRef, args);
-                        // eslint-disable-next-line no-empty
-                    } catch {}
-                    return true;
-                }
-                return false;
-            },
+            debugInfo,
             // callableGetTargetIntegrityTraits
             (targetPointer: Pointer): TargetIntegrityTraits => {
                 targetPointer();
