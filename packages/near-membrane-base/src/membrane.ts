@@ -178,14 +178,6 @@ export function createMembraneMarshall(
     isInShadowRealm?: boolean,
     { proxyTargetToLazyPropertyStateMap } = sharedMembraneState
 ) {
-    /* eslint-disable prefer-object-spread */
-    // @rollup/plugin-replace replaces `DEV_MODE` references.
-    const DEV_MODE = true;
-    const FLAGS_REG_EXP = /\w*$/;
-    // BigInt is not supported in Safari 13.1.
-    // https://caniuse.com/bigint
-    const SUPPORTS_BIG_INT = typeof BigInt === 'function';
-
     const ArrayCtor = Array;
     const ArrayBufferCtor = ArrayBuffer;
     const ErrorCtor = Error;
@@ -195,6 +187,38 @@ export function createMembraneMarshall(
     const SymbolCtor = Symbol;
     const TypeErrorCtor = TypeError;
     const WeakMapCtor = WeakMap;
+    const { for: SymbolFor, toStringTag: TO_STRING_TAG_SYMBOL } = SymbolCtor;
+    /* eslint-disable prefer-object-spread */
+    // @rollup/plugin-replace replaces `DEV_MODE` references.
+    const DEV_MODE = true;
+    const FLAGS_REG_EXP = /\w*$/;
+    const LOCKER_DEBUG_MODE_SYMBOL = Symbol.for('@@lockerDebugMode');
+    const LOCKER_IDENTIFIER_MARKER = '$LWS';
+    const LOCKER_LIVE_VALUE_MARKER_SYMBOL = SymbolFor('@@lockerLiveValue');
+    const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = SymbolFor(
+        '@@lockerNearMembraneSerializedValue'
+    );
+    const LOCKER_NEAR_MEMBRANE_SYMBOL = SymbolFor('@@lockerNearMembrane');
+    const LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL = SymbolFor(
+        '@@lockerNearMembraneUndefinedValue'
+    );
+    // The default stack trace limit in Chrome is 10.
+    // Set to 20 to account for stack trace filtering.
+    const LOCKER_STACK_TRACE_LIMIT = 20;
+    // This package is bundled by third-parties that have their own build time
+    // replacement logic. Instead of customizing each build system to be aware
+    // of this package we implement a two phase debug mode by performing small
+    // runtime checks to determine phase one, our code is unminified, and
+    // phase two, the user opted-in to custom devtools formatters. Phase one
+    // is used for light weight initialization time debug while phase two is
+    // reserved for post initialization runtime.
+    const LOCKER_UNMINIFIED_FLAG = `${() => /* $LWS */ 1}`.includes('*');
+    // Lazily define debug mode phase two in
+    // `BoundaryProxyHandler.prototype.makeProxyStatic()`.
+    let LOCKER_DEBUG_MODE_FLAG: boolean | undefined = LOCKER_UNMINIFIED_FLAG && undefined;
+    // BigInt is not supported in Safari 13.1.
+    // https://caniuse.com/bigint
+    const SUPPORTS_BIG_INT = typeof BigInt === 'function';
     const {
         assign: ObjectAssign,
         defineProperties: ObjectDefineProperties,
@@ -273,7 +297,6 @@ export function createMembraneMarshall(
         slice: StringProtoSlice,
         valueOf: StringProtoValueOf,
     } = String.prototype;
-    const { for: SymbolFor, toStringTag: TO_STRING_TAG_SYMBOL } = SymbolCtor;
     const { valueOf: SymbolProtoValueOf } = SymbolCtor.prototype;
     const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMapCtor.prototype;
     const consoleRef = console;
@@ -299,37 +322,11 @@ export function createMembraneMarshall(
             },
         }),
         globalThis);
-
-    const LOCKER_DEBUG_MODE_SYMBOL = SymbolFor('@@lockerDebugMode');
-    const LOCKER_IDENTIFIER_MARKER = '$LWS';
-    const LOCKER_LIVE_VALUE_MARKER_SYMBOL = SymbolFor('@@lockerLiveValue');
-    const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = SymbolFor(
-        '@@lockerNearMembraneSerializedValue'
-    );
-    const LOCKER_NEAR_MEMBRANE_SYMBOL = SymbolFor('@@lockerNearMembrane');
-    const LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL = SymbolFor(
-        '@@lockerNearMembraneUndefinedValue'
-    );
-    // The default stack trace limit in Chrome is 10.
-    // Set to 20 to account for stack trace filtering.
-    const LOCKER_STACK_TRACE_LIMIT = 20;
-    // This package is bundled by third-parties that have their own build time
-    // replacement logic. Instead of customizing each build system to be aware
-    // of this package we implement a two phase debug mode by performing small
-    // runtime checks to determine phase one, our code is unminified, and
-    // phase two, the user opted-in to custom devtools formatters. Phase one
-    // is used for light weight initialization time debug while phase two is
-    // reserved for post initialization runtime.
-    const lockerUnminifiedFlag = `${() => /**/ 1}`.includes('*');
     // Install flags to ensure things are installed once per realm.
     let installedErrorPrepareStackTraceFlag = false;
     let installedPropertyDescriptorMethodWrappersFlag = false;
     // Lazily populated in `getUnforgeableGlobalThisGetter()`;
     const keyToGlobalThisGetterRegistry = { __proto__: null };
-    // Lazily define debug mode phase two in
-    // `BoundaryProxyHandler.prototype.makeProxyStatic()`.
-    let lockerDebugModeFlag: boolean | undefined;
-
     // eslint-disable-next-line no-shadow
     const enum PreventExtensionsResult {
         None = 0,
@@ -1844,9 +1841,9 @@ export function createMembraneMarshall(
                     ObjectSeal(shadowTarget);
                 } else if (targetIntegrityTraits & TargetIntegrityTraits.IsNotExtensible) {
                     ReflectPreventExtensions(shadowTarget);
-                } else if (lockerUnminifiedFlag && lockerDebugModeFlag !== false) {
+                } else if (LOCKER_UNMINIFIED_FLAG && LOCKER_DEBUG_MODE_FLAG !== false) {
                     try {
-                        lockerDebugModeFlag = foreignCallableDebugInfo(
+                        LOCKER_DEBUG_MODE_FLAG = foreignCallableDebugInfo(
                             'Mutations on the membrane of an object originating ' +
                                 'outside of the sandbox will not be reflected on ' +
                                 'the object itself:',
@@ -2983,11 +2980,17 @@ export function createMembraneMarshall(
             },
             // callableDebugInfo
             (...args: Parameters<typeof console.info>): boolean => {
-                if (!isInShadowRealm && lockerUnminifiedFlag && lockerDebugModeFlag === undefined) {
-                    lockerDebugModeFlag = ReflectApply(ObjectProtoHasOwnProperty, globalThisRef, [
-                        LOCKER_DEBUG_MODE_SYMBOL,
-                    ]);
-                    if (lockerDebugModeFlag) {
+                if (
+                    !isInShadowRealm &&
+                    LOCKER_UNMINIFIED_FLAG &&
+                    LOCKER_DEBUG_MODE_FLAG === undefined
+                ) {
+                    LOCKER_DEBUG_MODE_FLAG = ReflectApply(
+                        ObjectProtoHasOwnProperty,
+                        globalThisRef,
+                        [LOCKER_DEBUG_MODE_SYMBOL]
+                    );
+                    if (LOCKER_DEBUG_MODE_FLAG) {
                         installErrorPrepareStackTrace();
                         try {
                             foreignCallableInstallErrorPrepareStackTrace();
@@ -2995,7 +2998,7 @@ export function createMembraneMarshall(
                         } catch {}
                     }
                 }
-                if (lockerDebugModeFlag) {
+                if (LOCKER_DEBUG_MODE_FLAG) {
                     for (let i = 0, { length } = args; i < length; i += 1) {
                         args[i] = getLocalValue(args[i]);
                     }
