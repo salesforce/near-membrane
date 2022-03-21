@@ -40,10 +40,9 @@ export default function createVirtualEnvironment(
         endowments,
         instrumentation,
     } = {
-        // @ts-ignore: TS doesn't like __proto__ on NodeEnvironmentOptions.
         __proto__: null,
         ...providedOptions,
-    };
+    } as NodeEnvironmentOptions;
     const globalOwnKeys = getFilteredGlobalOwnKeys(globalObjectShape);
     const redGlobalThis: typeof globalThis = runInNewContext('globalThis');
     const blueConnector = createHooksCallback;
