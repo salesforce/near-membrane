@@ -1026,6 +1026,12 @@ export function createMembraneMarshall(
             // eslint-disable-next-line prefer-object-spread
         } = ObjectAssign({ __proto__: null }, providedOptions);
 
+        const LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG: boolean =
+            // In the future we can add LOCKER_UNMINIFIED_FLAG condition to
+            // have instrumentation removed in minified production builds.
+            // LOCKER_UNMINIFIED_FLAG &&
+            typeof instrumentation === 'object' && instrumentation !== null;
+
         const arityToInvokeTrapMakerRegistry = {
             __proto__: null,
             0: makeApplyOrConstructTrapForZeroOrMoreArgs,
@@ -1037,6 +1043,9 @@ export function createMembraneMarshall(
         };
 
         const proxyTargetToPointerMap = new WeakMapCtor();
+
+        const startActivity: any =
+            LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG && instrumentation!.startActivity;
 
         let foreignCallablePushTarget: CallablePushTarget;
         let foreignCallableApply: CallableApply;
@@ -1073,9 +1082,10 @@ export function createMembraneMarshall(
             lazyState: object
         ) {
             delete lazyState[key];
-            const activity = instrumentation
-                ? instrumentation.startActivity('callableGetOwnPropertyDescriptor')
-                : undefined;
+            let activity: any;
+            if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                activity = startActivity('callableGetOwnPropertyDescriptor');
+            }
             const foreignTargetPointer = getTransferablePointer(target);
             let safeDesc;
             try {
@@ -1096,10 +1106,14 @@ export function createMembraneMarshall(
             } catch (error: any) {
                 const errorToThrow = selectedTarget ?? error;
                 selectedTarget = undefined;
-                activity?.error(errorToThrow);
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.error(errorToThrow);
+                }
                 throw errorToThrow;
             } finally {
-                activity?.stop();
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
+                }
             }
             if (safeDesc) {
                 ReflectDefineProperty(target, key, safeDesc);
@@ -1138,11 +1152,10 @@ export function createMembraneMarshall(
             foreignTargetPointer: Pointer,
             shadowTarget: ShadowTarget
         ): void {
-            const activity = instrumentation
-                ? instrumentation.startActivity(
-                      'callableBatchGetPrototypeOfAndOwnPropertyDescriptors'
-                  )
-                : undefined;
+            let activity: any;
+            if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                activity = startActivity('callableBatchGetPrototypeOfAndOwnPropertyDescriptors');
+            }
             let protoPointerOrNull;
             try {
                 protoPointerOrNull = foreignCallableBatchGetPrototypeOfAndOwnPropertyDescriptors(
@@ -1168,9 +1181,14 @@ export function createMembraneMarshall(
             } catch (error: any) {
                 const errorToThrow = selectedTarget ?? error;
                 selectedTarget = undefined;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.error(errorToThrow);
+                }
                 throw errorToThrow;
             } finally {
-                activity?.stop();
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
+                }
             }
             let proto: any = protoPointerOrNull;
             if (typeof protoPointerOrNull === 'function') {
@@ -1450,11 +1468,12 @@ export function createMembraneMarshall(
             shadowTarget: ShadowTarget,
             key: string | symbol
         ): PropertyDescriptor | undefined {
-            const activity = instrumentation
-                ? instrumentation.startActivity(
-                      'callableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor'
-                  )
-                : undefined;
+            let activity: any;
+            if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                activity = startActivity(
+                    'callableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor'
+                );
+            }
             let protoPointerOrNull;
             let safeDesc;
             try {
@@ -1488,10 +1507,14 @@ export function createMembraneMarshall(
             } catch (error: any) {
                 const errorToThrow = selectedTarget ?? error;
                 selectedTarget = undefined;
-                activity?.error(errorToThrow);
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.error(errorToThrow);
+                }
                 throw errorToThrow;
             } finally {
-                activity?.stop();
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
+                }
             }
             if (safeDesc) {
                 return safeDesc;
@@ -1531,9 +1554,10 @@ export function createMembraneMarshall(
                 argsOrNewTarget: any
             ) {
                 lastProxyTrapCalled = proxyTrapEnum;
-                const activity = instrumentation
-                    ? instrumentation.startActivity(activityName)
-                    : undefined;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity(activityName);
+                }
                 // @ts-ignore: Prevent private property access error.
                 const { foreignTargetPointer } = this;
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
@@ -1563,10 +1587,14 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    activity?.error(errorToThrow);
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.error(errorToThrow);
+                    }
                     throw errorToThrow;
                 } finally {
-                    activity?.stop();
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
                 }
             };
         }
@@ -1586,9 +1614,10 @@ export function createMembraneMarshall(
                 argsOrNewTarget: any
             ) {
                 lastProxyTrapCalled = proxyTrapEnum;
-                const activity = instrumentation
-                    ? instrumentation.startActivity(activityName)
-                    : undefined;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity(activityName);
+                }
                 // @ts-ignore: Prevent private property access error.
                 const { foreignTargetPointer } = this;
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
@@ -1624,10 +1653,14 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    activity?.error(errorToThrow);
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.error(errorToThrow);
+                    }
                     throw errorToThrow;
                 } finally {
-                    activity?.stop();
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
                 }
             };
         }
@@ -1647,9 +1680,10 @@ export function createMembraneMarshall(
                 argsOrNewTarget: any
             ) {
                 lastProxyTrapCalled = proxyTrapEnum;
-                const activity = instrumentation
-                    ? instrumentation.startActivity(activityName)
-                    : undefined;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity(activityName);
+                }
                 // @ts-ignore: Prevent private property access error.
                 const { foreignTargetPointer } = this;
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
@@ -1695,10 +1729,14 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    activity?.error(errorToThrow);
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.error(errorToThrow);
+                    }
                     throw errorToThrow;
                 } finally {
-                    activity?.stop();
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
                 }
             };
         }
@@ -1718,9 +1756,10 @@ export function createMembraneMarshall(
                 argsOrNewTarget: any
             ) {
                 lastProxyTrapCalled = proxyTrapEnum;
-                const activity = instrumentation
-                    ? instrumentation.startActivity(activityName)
-                    : undefined;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity(activityName);
+                }
                 // @ts-ignore: Prevent private property access error.
                 const { foreignTargetPointer } = this;
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
@@ -1773,10 +1812,14 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    activity?.error(errorToThrow);
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.error(errorToThrow);
+                    }
                     throw errorToThrow;
                 } finally {
-                    activity?.stop();
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
                 }
             };
         }
@@ -1796,9 +1839,10 @@ export function createMembraneMarshall(
                 argsOrNewTarget: any
             ) {
                 lastProxyTrapCalled = proxyTrapEnum;
-                const activity = instrumentation
-                    ? instrumentation.startActivity(activityName)
-                    : undefined;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity(activityName);
+                }
                 // @ts-ignore: Prevent private property access error.
                 const { foreignTargetPointer } = this;
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
@@ -1858,10 +1902,14 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    activity?.error(errorToThrow);
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.error(errorToThrow);
+                    }
                     throw errorToThrow;
                 } finally {
-                    activity?.stop();
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
                 }
             };
         }
@@ -1881,9 +1929,10 @@ export function createMembraneMarshall(
                 argsOrNewTarget: any
             ) {
                 lastProxyTrapCalled = proxyTrapEnum;
-                const activity = instrumentation
-                    ? instrumentation.startActivity(activityName)
-                    : undefined;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity(activityName);
+                }
                 // @ts-ignore: Prevent private property access error.
                 const { foreignTargetPointer } = this;
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
@@ -1950,10 +1999,14 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    activity?.error(errorToThrow);
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.error(errorToThrow);
+                    }
                     throw errorToThrow;
                 } finally {
-                    activity?.stop();
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
                 }
             };
         }
@@ -1964,9 +2017,10 @@ export function createMembraneMarshall(
             value: any,
             receiver: any
         ): boolean {
-            const activity = instrumentation
-                ? instrumentation.startActivity('callableSet')
-                : undefined;
+            let activity: any;
+            if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                activity = startActivity('callableSet');
+            }
             // Inline getTransferableValue().
             const transferableValue =
                 (typeof value === 'object' && value !== null) || typeof value === 'function'
@@ -1985,10 +2039,14 @@ export function createMembraneMarshall(
             } catch (error: any) {
                 const errorToThrow = selectedTarget ?? error;
                 selectedTarget = undefined;
-                activity?.error(errorToThrow);
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.error(errorToThrow);
+                }
                 throw errorToThrow;
             } finally {
-                activity?.stop();
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
+                }
             }
         }
 
@@ -2215,14 +2273,17 @@ export function createMembraneMarshall(
                 const { foreignTargetPointer } = this;
                 let targetIntegrityTraits;
                 {
-                    const activity = instrumentation
-                        ? instrumentation.startActivity('callableGetTargetIntegrityTraits')
-                        : undefined;
+                    let activity: any;
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity = startActivity('callableGetTargetIntegrityTraits');
+                    }
                     // We don't wrap `foreignCallableGetTargetIntegrityTraits()`
                     // in a try-catch because it cannot throw.
                     targetIntegrityTraits =
                         foreignCallableGetTargetIntegrityTraits(foreignTargetPointer);
-                    activity?.stop();
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
                     if (targetIntegrityTraits & TargetIntegrityTraits.Revoked) {
                         // the target is a revoked proxy, in which case we revoke
                         // this proxy as well.
@@ -2238,13 +2299,16 @@ export function createMembraneMarshall(
                         shadowTarget
                     );
                 } catch {
-                    const activity = instrumentation
-                        ? instrumentation.startActivity('callableIsTargetRevoked')
-                        : undefined;
+                    let activity: any;
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity = startActivity('callableIsTargetRevoked');
+                    }
                     // We don't wrap `foreignCallableIsTargetRevoked()` in a
                     // try-catch because it cannot throw.
                     const shouldRevoke = foreignCallableIsTargetRevoked(foreignTargetPointer);
-                    activity?.stop();
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
                     if (shouldRevoke) {
                         this.revoke();
                         return;
@@ -2254,15 +2318,18 @@ export function createMembraneMarshall(
                     this.foreignTargetTraits & TargetTraits.IsObject &&
                     !ReflectHas(shadowTarget, TO_STRING_TAG_SYMBOL)
                 ) {
-                    const activity = instrumentation
-                        ? instrumentation.startActivity('callableGetToStringTagOfTarget')
-                        : undefined;
+                    let activity: any;
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity = startActivity('callableGetToStringTagOfTarget');
+                    }
                     let toStringTag = 'Object';
                     try {
                         toStringTag = foreignCallableGetToStringTagOfTarget(foreignTargetPointer);
                         // eslint-disable-next-line no-empty
                     } catch {}
-                    activity?.stop();
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
                     // The default language toStringTag is "Object". If receive
                     // "Object" we return `undefined` to let the language resolve
                     // it naturally without projecting a value.
@@ -2307,13 +2374,16 @@ export function createMembraneMarshall(
             }
 
             private makeProxyUnambiguous(shadowTarget: ShadowTarget) {
-                const activity = instrumentation
-                    ? instrumentation.startActivity('callableIsTargetLive')
-                    : undefined;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity('callableIsTargetLive');
+                }
                 // We don't wrap `foreignCallableIsTargetLive()` in a try-catch
                 // because it cannot throw.
                 const shouldMakeProxyLive = foreignCallableIsTargetLive(this.foreignTargetPointer);
-                activity?.stop();
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
+                }
                 if (shouldMakeProxyLive) {
                     this.makeProxyLive();
                 } else {
@@ -2391,19 +2461,24 @@ export function createMembraneMarshall(
                     key === TO_STRING_TAG_SYMBOL &&
                     this.foreignTargetTraits & TargetTraits.IsObject
                 ) {
-                    const activity = instrumentation
-                        ? instrumentation.startActivity('callableGetToStringTagOfTarget')
-                        : undefined;
+                    let activity: any;
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity = startActivity('callableGetToStringTagOfTarget');
+                    }
                     let toStringTag;
                     try {
                         toStringTag = foreignCallableGetToStringTagOfTarget(foreignTargetPointer);
                     } catch (error: any) {
                         const errorToThrow = selectedTarget ?? error;
                         selectedTarget = undefined;
-                        activity?.error(errorToThrow);
+                        if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                            activity.error(errorToThrow);
+                        }
                         throw errorToThrow;
                     } finally {
-                        activity?.stop();
+                        if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                            activity.stop();
+                        }
                     }
                     // The default language toStringTag is "Object". If receive
                     // "Object" we return `undefined` to let the language resolve
@@ -2420,11 +2495,10 @@ export function createMembraneMarshall(
                 _shadowTarget: ShadowTarget,
                 key: string | symbol
             ): ReturnType<typeof Reflect.has> {
-                const activity = instrumentation
-                    ? instrumentation.startActivity(
-                          'callableBatchGetPrototypeOfWhenHasNoOwnProperty'
-                      )
-                    : undefined;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity('callableBatchGetPrototypeOfWhenHasNoOwnProperty');
+                }
                 let trueOrProtoPointerOrNull;
                 try {
                     trueOrProtoPointerOrNull =
@@ -2435,10 +2509,14 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    activity?.error(errorToThrow);
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.error(errorToThrow);
+                    }
                     throw errorToThrow;
                 } finally {
-                    activity?.stop();
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
                 }
                 if (trueOrProtoPointerOrNull === true) {
                     return true;
@@ -2469,9 +2547,10 @@ export function createMembraneMarshall(
                 unsafePartialDesc: PropertyDescriptor
             ): ReturnType<typeof Reflect.defineProperty> {
                 lastProxyTrapCalled = ProxyHandlerTraps.DefineProperty;
-                const activity = instrumentation
-                    ? instrumentation.startActivity('callableDefineProperty')
-                    : undefined;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity('callableDefineProperty');
+                }
                 const descMeta = getDescriptorMeta(unsafePartialDesc);
                 const { foreignTargetPointer } = this;
                 try {
@@ -2512,10 +2591,14 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    activity?.error(errorToThrow);
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.error(errorToThrow);
+                    }
                     throw errorToThrow;
                 } finally {
-                    activity?.stop();
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
                 }
             }
 
@@ -2525,18 +2608,23 @@ export function createMembraneMarshall(
                 key: string | symbol
             ): ReturnType<typeof Reflect.deleteProperty> {
                 lastProxyTrapCalled = ProxyHandlerTraps.DeleteProperty;
-                const activity = instrumentation
-                    ? instrumentation.startActivity('callableDeleteProperty')
-                    : undefined;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity('callableDeleteProperty');
+                }
                 try {
                     return foreignCallableDeleteProperty(this.foreignTargetPointer, key);
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    activity?.error(errorToThrow);
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.error(errorToThrow);
+                    }
                     throw errorToThrow;
                 } finally {
-                    activity?.stop();
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
                 }
             }
 
@@ -2562,9 +2650,10 @@ export function createMembraneMarshall(
                         return this.serializedValue;
                     }
                 }
-                const activity = instrumentation
-                    ? instrumentation.startActivity('callableGet')
-                    : undefined;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity('callableGet');
+                }
                 // Inline getTransferableValue().
                 const transferableReceiver =
                     (typeof receiver === 'object' && receiver !== null) ||
@@ -2590,10 +2679,14 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    activity?.error(errorToThrow);
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.error(errorToThrow);
+                    }
                     throw errorToThrow;
                 } finally {
-                    activity?.stop();
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
                 }
             }
 
@@ -2602,19 +2695,24 @@ export function createMembraneMarshall(
                 _shadowTarget: ShadowTarget
             ): ReturnType<typeof Reflect.getPrototypeOf> {
                 lastProxyTrapCalled = ProxyHandlerTraps.GetPrototypeOf;
-                const activity = instrumentation
-                    ? instrumentation.startActivity('callableGetPrototypeOf')
-                    : undefined;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity('callableGetPrototypeOf');
+                }
                 let protoPointerOrNull;
                 try {
                     protoPointerOrNull = foreignCallableGetPrototypeOf(this.foreignTargetPointer);
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    activity?.error(errorToThrow);
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.error(errorToThrow);
+                    }
                     throw errorToThrow;
                 } finally {
-                    activity?.stop();
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
                 }
                 let proto: any = protoPointerOrNull;
                 if (typeof protoPointerOrNull === 'function') {
@@ -2631,19 +2729,24 @@ export function createMembraneMarshall(
                 key: string | symbol
             ): ReturnType<typeof Reflect.has> {
                 lastProxyTrapCalled = ProxyHandlerTraps.Has;
-                const activity = instrumentation
-                    ? instrumentation.startActivity('callableHas')
-                    : undefined;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity('callableHas');
+                }
                 let result;
                 try {
                     result = foreignCallableHas(this.foreignTargetPointer, key);
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    activity?.error(errorToThrow);
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.error(errorToThrow);
+                    }
                     throw errorToThrow;
                 } finally {
-                    activity?.stop();
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
                 }
                 // The near-membrane symbol flag is on if the symbol does not
                 // exist on the object or its [[Prototype]].
@@ -2661,9 +2764,10 @@ export function createMembraneMarshall(
                 lastProxyTrapCalled = ProxyHandlerTraps.IsExtensible;
                 // Check if already locked.
                 if (ReflectIsExtensible(shadowTarget)) {
-                    const activity = instrumentation
-                        ? instrumentation.startActivity('callableIsExtensible')
-                        : undefined;
+                    let activity: any;
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity = startActivity('callableIsExtensible');
+                    }
                     const { foreignTargetPointer } = this;
                     try {
                         if (foreignCallableIsExtensible(foreignTargetPointer)) {
@@ -2672,10 +2776,14 @@ export function createMembraneMarshall(
                     } catch (error: any) {
                         const errorToThrow = selectedTarget ?? error;
                         selectedTarget = undefined;
-                        activity?.error(errorToThrow);
+                        if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                            activity.error(errorToThrow);
+                        }
                         throw errorToThrow;
                     } finally {
-                        activity?.stop();
+                        if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                            activity.stop();
+                        }
                     }
                     lockShadowTarget(shadowTarget, foreignTargetPointer);
                 }
@@ -2687,9 +2795,10 @@ export function createMembraneMarshall(
                 _shadowTarget: ShadowTarget
             ): ReturnType<typeof Reflect.ownKeys> {
                 lastProxyTrapCalled = ProxyHandlerTraps.OwnKeys;
-                const activity = instrumentation
-                    ? instrumentation.startActivity('callableOwnKeys')
-                    : undefined;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity('callableOwnKeys');
+                }
                 let ownKeys: ReturnType<typeof Reflect.ownKeys>;
                 try {
                     foreignCallableOwnKeys(this.foreignTargetPointer, (...args) => {
@@ -2698,10 +2807,14 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    activity?.error(errorToThrow);
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.error(errorToThrow);
+                    }
                     throw errorToThrow;
                 } finally {
-                    activity?.stop();
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
                 }
                 // @ts-ignore: Prevent used before assignment error.
                 return ownKeys || [];
@@ -2713,9 +2826,10 @@ export function createMembraneMarshall(
                 key: string | symbol
             ): ReturnType<typeof Reflect.getOwnPropertyDescriptor> {
                 lastProxyTrapCalled = ProxyHandlerTraps.GetOwnPropertyDescriptor;
-                const activity = instrumentation
-                    ? instrumentation.startActivity('callableGetOwnPropertyDescriptor')
-                    : undefined;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity('callableGetOwnPropertyDescriptor');
+                }
                 let safeDesc: PropertyDescriptor | undefined;
                 try {
                     foreignCallableGetOwnPropertyDescriptor(
@@ -2747,10 +2861,14 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    activity?.error(errorToThrow);
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.error(errorToThrow);
+                    }
                     throw errorToThrow;
                 } finally {
-                    activity?.stop();
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
                 }
                 return safeDesc;
             }
@@ -2761,9 +2879,10 @@ export function createMembraneMarshall(
             ): ReturnType<typeof Reflect.preventExtensions> {
                 lastProxyTrapCalled = ProxyHandlerTraps.PreventExtensions;
                 if (ReflectIsExtensible(shadowTarget)) {
-                    const activity = instrumentation
-                        ? instrumentation.startActivity('callablePreventExtensions')
-                        : undefined;
+                    let activity: any;
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity = startActivity('callablePreventExtensions');
+                    }
                     const { foreignTargetPointer } = this;
                     let result;
                     try {
@@ -2771,10 +2890,14 @@ export function createMembraneMarshall(
                     } catch (error: any) {
                         const errorToThrow = selectedTarget ?? error;
                         selectedTarget = undefined;
-                        activity?.error(errorToThrow);
+                        if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                            activity.error(errorToThrow);
+                        }
                         throw errorToThrow;
                     } finally {
-                        activity?.stop();
+                        if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                            activity.stop();
+                        }
                     }
                     if (result & PreventExtensionsResult.False) {
                         if (!(result & PreventExtensionsResult.Extensible)) {
@@ -2796,9 +2919,10 @@ export function createMembraneMarshall(
                 proto: object | null
             ): ReturnType<typeof Reflect.setPrototypeOf> {
                 lastProxyTrapCalled = ProxyHandlerTraps.SetPrototypeOf;
-                const activity = instrumentation
-                    ? instrumentation.startActivity('callableSetPrototypeOf')
-                    : undefined;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity('callableSetPrototypeOf');
+                }
                 const transferableProto = proto ? getTransferablePointer(proto) : proto;
                 try {
                     return foreignCallableSetPrototypeOf(
@@ -2808,10 +2932,14 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    activity?.error(errorToThrow);
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.error(errorToThrow);
+                    }
                     throw errorToThrow;
                 } finally {
-                    activity?.stop();
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
                 }
             }
 
