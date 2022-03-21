@@ -1027,9 +1027,9 @@ export function createMembraneMarshall(
         } = ObjectAssign({ __proto__: null }, providedOptions);
 
         const LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG: boolean =
-            // In the future we can add LOCKER_UNMINIFIED_FLAG condition to
-            // have instrumentation removed in minified production builds.
-            // LOCKER_UNMINIFIED_FLAG &&
+            // In the future we can preface the LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG
+            // definition with a LOCKER_UNMINIFIED_FLAG check to have instrumentation
+            // removed in minified production builds.
             typeof instrumentation === 'object' && instrumentation !== null;
 
         const arityToInvokeTrapMakerRegistry = {
