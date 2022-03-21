@@ -311,7 +311,6 @@ export function createMembraneMarshall(
         (typeof self !== 'undefined' && self) ||
         // See https://mathiasbynens.be/notes/globalthis for more details.
         (ReflectDefineProperty(ObjectProto, 'globalThis', {
-            // @ts-ignore: TS doesn't like __proto__ on property descriptors.
             __proto__: null,
             configurable: true,
             get() {
@@ -321,7 +320,7 @@ export function createMembraneMarshall(
                 // eslint-disable-next-line no-restricted-globals
                 return this || self;
             },
-        }),
+        } as PropertyDescriptor),
         globalThis);
     // Install flags to ensure things are installed once per realm.
     let installedErrorPrepareStackTraceFlag = false;
@@ -388,13 +387,12 @@ export function createMembraneMarshall(
                 // This is only really needed for debugging,
                 // it helps to identify the proxy by name
                 ReflectDefineProperty(shadowTarget, 'name', {
-                    // @ts-ignore: TS doesn't like __proto__ on property descriptors.
                     __proto__: null,
                     configurable: true,
                     enumerable: false,
                     value: targetFunctionName,
                     writable: false,
-                });
+                } as PropertyDescriptor);
             }
         } else if (targetTraits & TargetTraits.IsArray) {
             shadowTarget = [];
@@ -1208,8 +1206,7 @@ export function createMembraneMarshall(
             getterPointerOrPrimitive: PointerOrPrimitive,
             setterPointerOrPrimitive: PointerOrPrimitive
         ): PropertyDescriptor {
-            // @ts-ignore: TS doesn't like __proto__ on property descriptors.
-            const safeDesc: PropertyDescriptor = { __proto__: null };
+            const safeDesc = { __proto__: null } as PropertyDescriptor;
             if (configurable !== LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL) {
                 safeDesc.configurable = !!configurable;
             }
@@ -1259,7 +1256,6 @@ export function createMembraneMarshall(
             // with the descriptor from the foreign side and the get/set operation
             // will carry on from there.
             return {
-                // @ts-ignore: TS doesn't like __proto__ on property descriptors.
                 __proto__: null,
                 // We DO explicitly set configurability in the off chance that
                 // the property doesn't exist.
@@ -1276,7 +1272,7 @@ export function createMembraneMarshall(
                     activateLazyOwnPropertyDefinition(target, key, lazyState);
                     ReflectSet(target, key, value);
                 },
-            };
+            } as PropertyDescriptor;
         }
 
         function createPointer(originalTarget: ProxyTarget): () => void {
@@ -2107,23 +2103,21 @@ export function createMembraneMarshall(
                 // Setting the descriptor with only a value entry should not
                 // affect existing descriptor traits.
                 ReflectDefineProperty(receiver, key, {
-                    // @ts-ignore: TS doesn't like __proto__ on property descriptors.
                     __proto__: null,
                     value,
-                });
+                } as PropertyDescriptor);
                 return true;
             }
             // `ReflectDefineProperty()` and `ReflectSet()` both are expected
             // to return `false` when attempting to add a new property if the
             // receiver is not extensible.
             return ReflectDefineProperty(receiver, key, {
-                // @ts-ignore: TS doesn't like __proto__ on property descriptors.
                 __proto__: null,
                 configurable: true,
                 enumerable: true,
                 value,
                 writable: true,
-            });
+            } as PropertyDescriptor);
         }
 
         function pushErrorAcrossBoundary(error: any): any {
