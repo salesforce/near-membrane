@@ -23,7 +23,7 @@
  *    it via `selectedTarget!`.
  */
 
-import { InstrumentationHooks } from './instrumentation';
+import { Instrumentation } from './instrumentation';
 
 type CallablePushTarget = (
     pointer: () => void,
@@ -166,7 +166,7 @@ export type HooksCallback = (
 ) => void;
 export interface HooksOptions {
     distortionCallback?: DistortionCallback;
-    instrumentation?: InstrumentationHooks;
+    instrumentation?: Instrumentation;
 }
 export type Pointer = CallableFunction;
 export type ProxyTarget = CallableFunction | any[] | object;

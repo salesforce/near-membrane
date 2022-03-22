@@ -1,4 +1,4 @@
-import { InstrumentationHooks } from './instrumentation';
+import { Instrumentation } from './instrumentation';
 import {
     createMembraneMarshall,
     CallableDefineProperty,
@@ -23,7 +23,7 @@ interface VirtualEnvironmentOptions {
     // Red connector factory.
     redConnector: ReturnType<typeof createMembraneMarshall>;
     // Instrumentation library object.
-    instrumentation?: InstrumentationHooks;
+    instrumentation?: Instrumentation;
 }
 
 const LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL = Symbol.for(

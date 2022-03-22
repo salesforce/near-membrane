@@ -1,12 +1,12 @@
-export type InstrumentationDataType = object | string | number | boolean;
+export type DataType = boolean | object | number | string;
 
-export interface InstrumentationHooks {
-    startActivity(activityName: string, data?: InstrumentationDataType): Activity;
-    log(data: InstrumentationDataType): void;
-    error(data: InstrumentationDataType): void;
+export interface Instrumentation {
+    startActivity(activityName: string, data?: DataType): Activity;
+    log(data?: DataType): void;
+    error(data?: DataType): void;
 }
 
 export interface Activity {
-    stop(data?: InstrumentationDataType): void;
-    error(data?: InstrumentationDataType): void;
+    stop(data?: DataType): void;
+    error(data?: DataType): void;
 }

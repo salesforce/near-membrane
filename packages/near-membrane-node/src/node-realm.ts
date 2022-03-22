@@ -5,7 +5,7 @@ import {
     getFilteredGlobalOwnKeys,
     linkIntrinsics,
     DistortionCallback,
-    InstrumentationHooks,
+    Instrumentation,
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
 
@@ -14,7 +14,7 @@ import { runInNewContext } from 'vm';
 interface NodeEnvironmentOptions {
     distortionCallback?: DistortionCallback;
     endowments?: PropertyDescriptorMap;
-    instrumentation?: InstrumentationHooks;
+    instrumentation?: Instrumentation;
 }
 
 const TypeErrorCtor = TypeError;

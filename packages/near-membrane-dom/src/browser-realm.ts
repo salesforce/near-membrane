@@ -5,7 +5,7 @@ import {
     getFilteredGlobalOwnKeys,
     linkIntrinsics,
     DistortionCallback,
-    InstrumentationHooks,
+    Instrumentation,
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
 
@@ -53,7 +53,7 @@ interface BrowserEnvironmentOptions {
     distortionCallback?: DistortionCallback;
     endowments?: PropertyDescriptorMap;
     keepAlive?: boolean;
-    instrumentation?: InstrumentationHooks;
+    instrumentation?: Instrumentation;
 }
 
 const createHooksCallback = createMembraneMarshall();
