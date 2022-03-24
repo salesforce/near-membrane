@@ -10,3 +10,6 @@ branches:
       validate-downstream-deps: false
       ignore-downstream-dep-failures: true
       enforce-work-item-for-pr: true
+  master:
+    pull-request:
+    <<: *branch-definition
