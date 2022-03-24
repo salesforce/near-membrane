@@ -103,5 +103,9 @@
       "pre-commit": "lint-staged",
       "commit-msg": "yarn commitlint --edit $1"
     }
+  },
+  "volta": {
+    "node": "16.13.1",
+    "yarn": "1.22.11"
   }
 }
