@@ -1,12 +1,12 @@
-#notifications:
-#  slack:
-#    channel: locker-release
+# notifications:
+#   slack:
+#     channel: locker-release
 branches:
   ~DEFAULT~:
     pull-request: &branch-definition
       auto-start: true
       auto-start-from-forks: false
-      merge-method: disabled # do not auto-merge; we'll do it ourselves
+      merge-method: disabled # Do not auto-merge. We'll do it ourselves.
       validate-downstream-deps: false
       ignore-downstream-dep-failures: true
       enforce-work-item-for-pr: true
