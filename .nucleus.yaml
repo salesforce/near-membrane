@@ -1,6 +1,6 @@
 #notifications:
 #  slack:
-#    channel: lcoker-release
+#    channel: locker-release
 branches:
   ~DEFAULT~:
     pull-request: &branch-definition
