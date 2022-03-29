@@ -1,6 +1,6 @@
 {
   "private": true,
   "name": "@locker/scripts",
-  "version": "0.9.17",
+  "version": "0.9.18",
   "description": "Locker scripts"
 }
