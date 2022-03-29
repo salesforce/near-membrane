@@ -1,3 +1,5 @@
+import { PropertyKeys } from '@locker/near-membrane-base';
+
 const WeakMapCtor = WeakMap;
 const { push: ArrayProtoPush } = Array.prototype;
 const {
@@ -17,7 +19,7 @@ interface CachedBlueReferencesRecord extends Object {
     WindowProto: object;
     WindowPropertiesProto: object;
     EventTargetProto: object;
-    EventTargetProtoOwnKeys: (string | symbol)[];
+    EventTargetProtoOwnKeys: PropertyKeys;
 }
 
 const blueGlobalToRecordMap: WeakMap<typeof globalThis, CachedBlueReferencesRecord> =
@@ -91,8 +93,8 @@ export function getCachedGlobalObjectReferences(
  */
 getCachedGlobalObjectReferences(window);
 
-export function filterWindowKeys(keys: (string | symbol)[]): (string | symbol)[] {
-    const result: (string | symbol)[] = [];
+export function filterWindowKeys(keys: PropertyKeys): PropertyKeys {
+    const result: PropertyKeys = [];
     for (let i = 0, { length } = keys; i < length; i += 1) {
         const key = keys[i];
         if (

@@ -24,6 +24,7 @@
  */
 
 import { Instrumentation } from './instrumentation';
+import { PropertyKey, PropertyKeys } from './types';
 
 type CallablePushTarget = (
     pointer: () => void,
@@ -41,20 +42,20 @@ type CallableConstruct = (
     newTargetPointer: PointerOrPrimitive,
     ...args: PointerOrPrimitive[]
 ) => PointerOrPrimitive;
-type CallableDeleteProperty = (targetPointer: Pointer, key: string | symbol) => boolean;
+type CallableDeleteProperty = (targetPointer: Pointer, key: PropertyKey) => boolean;
 type CallableGet = (
     targetPointer: Pointer,
     targetTraits: number,
-    key: string | symbol,
+    key: PropertyKey,
     receiver: PointerOrPrimitive
 ) => PointerOrPrimitive;
 type CallableGetOwnPropertyDescriptor = (
     targetPointer: Pointer,
-    key: string | symbol,
+    key: PropertyKey,
     foreignCallableDescriptorCallback: CallableDescriptorCallback
 ) => void;
 type CallableGetPrototypeOf = (targetPointer: Pointer) => PointerOrPrimitive;
-type CallableHas = (targetPointer: Pointer, key: string | symbol) => boolean;
+type CallableHas = (targetPointer: Pointer, key: PropertyKey) => boolean;
 type CallableIsExtensible = (targetPointer: Pointer) => boolean;
 type CallableOwnKeys = (
     targetPointer: Pointer,
@@ -63,7 +64,7 @@ type CallableOwnKeys = (
 type CallablePreventExtensions = (targetPointer: Pointer) => number;
 type CallableSet = (
     targetPointer: Pointer,
-    key: string | symbol,
+    key: PropertyKey,
     value: PointerOrPrimitive,
     receiver: PointerOrPrimitive
 ) => boolean;
@@ -80,11 +81,11 @@ type CallableBatchGetPrototypeOfAndOwnPropertyDescriptors = (
 ) => PointerOrPrimitive;
 type CallableBatchGetPrototypeOfWhenHasNoOwnProperty = (
     targetPointer: Pointer,
-    key: string | symbol
+    key: PropertyKey
 ) => PointerOrPrimitive;
 type CallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor = (
     targetPointer: Pointer,
-    key: string | symbol,
+    key: PropertyKey,
     foreignCallableDescriptorCallback: CallableDescriptorCallback
 ) => PointerOrPrimitive;
 type CallableDescriptorCallback = (
@@ -96,7 +97,7 @@ type CallableDescriptorCallback = (
     setPointer: PointerOrPrimitive
 ) => void;
 type CallableDescriptorsCallback = (
-    ...descriptorTuples: [string | symbol, ...Parameters<CallableDescriptorCallback>]
+    ...descriptorTuples: [PropertyKey, ...Parameters<CallableDescriptorCallback>]
 ) => void;
 type CallableNonConfigurableDescriptorCallback = CallableDescriptorCallback;
 type Primitive = bigint | boolean | null | number | string | symbol | undefined;
@@ -105,7 +106,7 @@ type SerializedValue = bigint | boolean | number | string | symbol;
 type ShadowTarget = ProxyTarget;
 export type CallableDefineProperty = (
     targetPointer: Pointer,
-    key: string | symbol,
+    key: PropertyKey,
     configurable: boolean | symbol,
     enumerable: boolean | symbol,
     writable: boolean | symbol,
@@ -115,13 +116,10 @@ export type CallableDefineProperty = (
     foreignCallableNonConfigurableDescriptorCallback?: CallableNonConfigurableDescriptorCallback
 ) => boolean;
 export type CallableEvaluate = (sourceText: string) => PointerOrPrimitive;
-export type CallableGetPropertyValuePointer = (
-    targetPointer: Pointer,
-    key: string | symbol
-) => Pointer;
+export type CallableGetPropertyValuePointer = (targetPointer: Pointer, key: PropertyKey) => Pointer;
 export type CallableInstallLazyDescriptors = (
     targetPointer: Pointer,
-    ...ownKeysAndUnforgeableGlobalThisKeys: (string | symbol)[]
+    ...ownKeysAndUnforgeableGlobalThisKeys: PropertyKeys
 ) => void;
 export type CallableLinkPointers = (targetPointer: Pointer, foreignTargetPointer: Pointer) => void;
 export type CallableSetPrototypeOf = (
@@ -404,7 +402,7 @@ export function createMembraneMarshall(
 
     function createUnforgeableGlobalThisDescriptor(
         target: object,
-        key: string | symbol
+        key: PropertyKey
     ): PropertyDescriptor {
         return {
             configurable: false,
@@ -471,7 +469,7 @@ export function createMembraneMarshall(
         return ReflectApply(StringProtoSlice, brand, [8, -1]);
     }
 
-    function getUnforgeableGlobalThisGetter(key: string | symbol): () => typeof globalThis {
+    function getUnforgeableGlobalThisGetter(key: PropertyKey): () => typeof globalThis {
         let globalThisGetter = keyToGlobalThisGetterRegistry[key];
         if (globalThisGetter === undefined) {
             // Preserve identity continuity of getters.
@@ -481,9 +479,7 @@ export function createMembraneMarshall(
         return globalThisGetter;
     }
 
-    function installPropertyDescriptorMethodWrappers(
-        unforgeableGlobalThisKeys?: (string | symbol)[]
-    ) {
+    function installPropertyDescriptorMethodWrappers(unforgeableGlobalThisKeys?: PropertyKeys) {
         if (installedPropertyDescriptorMethodWrappersFlag) {
             return;
         }
@@ -524,21 +520,21 @@ export function createMembraneMarshall(
             unforgeableGlobalThisKeys.length > 0;
 
         const getFixedDescriptor = shouldFixChromeBug
-            ? (target: any, key: string | symbol): PropertyDescriptor | undefined =>
+            ? (target: any, key: PropertyKey): PropertyDescriptor | undefined =>
                   ReflectApply(ArrayProtoIncludes, unforgeableGlobalThisKeys, [key])
                       ? createUnforgeableGlobalThisDescriptor(target, key)
                       : ReflectGetOwnPropertyDescriptor(target, key)
             : undefined;
 
         const lookupFixedGetter = shouldFixChromeBug
-            ? (target: any, key: string | symbol): (() => any | undefined) =>
+            ? (target: any, key: PropertyKey): (() => any | undefined) =>
                   ReflectApply(ArrayProtoIncludes, unforgeableGlobalThisKeys, [key])
                       ? getUnforgeableGlobalThisGetter(key)
                       : ReflectApply(ObjectProto__lookupGetter__, target, [key])
             : undefined;
 
         const lookupFixedSetter = shouldFixChromeBug
-            ? (target: any, key: string | symbol): (() => any | undefined) =>
+            ? (target: any, key: PropertyKey): (() => any | undefined) =>
                   ReflectApply(ArrayProtoIncludes, unforgeableGlobalThisKeys, [key])
                       ? undefined
                       : ReflectApply(ObjectProto__lookupSetter__, target, [key])
@@ -575,7 +571,7 @@ export function createMembraneMarshall(
             lookupFixedAccessor?: typeof lookupFixedGetter
         ) =>
             new ProxyCtor(originalFunc, {
-                apply(_originalFunc: Function, thisArg: any, args: [key: string | symbol]) {
+                apply(_originalFunc: Function, thisArg: any, args: [key: PropertyKey]) {
                     if (args.length) {
                         const { 0: key } = args;
                         const lazyState = ReflectApply(
@@ -602,7 +598,7 @@ export function createMembraneMarshall(
                 apply(
                     _originalFunc: Function,
                     thisArg: any,
-                    args: [target: object, key: string | symbol]
+                    args: [target: object, key: PropertyKey]
                 ) {
                     if (args.length > 1) {
                         const { 0: target, 1: key } = args;
@@ -1076,7 +1072,7 @@ export function createMembraneMarshall(
 
         function activateLazyOwnPropertyDefinition(
             target: object,
-            key: string | symbol,
+            key: PropertyKey,
             lazyState: object
         ) {
             delete lazyState[key];
@@ -1161,7 +1157,7 @@ export function createMembraneMarshall(
                     (...descriptorTuples) => {
                         const descriptors: PropertyDescriptorMap = {};
                         for (let i = 0, { length } = descriptorTuples; i < length; i += 7) {
-                            const key = descriptorTuples[i] as string | symbol;
+                            const key = descriptorTuples[i] as PropertyKey;
                             (descriptors as any)[key] = createDescriptorFromMeta(
                                 descriptorTuples[i + 1] as boolean | symbol, // configurable
                                 descriptorTuples[i + 2] as boolean | symbol, // enumerable
@@ -1248,7 +1244,7 @@ export function createMembraneMarshall(
 
         function createLazyDescriptor(
             target: object,
-            key: string | symbol,
+            key: PropertyKey,
             lazyState: object
         ): PropertyDescriptor {
             // The role of this descriptor is to serve as a bouncer. When either
@@ -1462,7 +1458,7 @@ export function createMembraneMarshall(
         function lookupForeignDescriptor(
             foreignTargetPointer: Pointer,
             shadowTarget: ShadowTarget,
-            key: string | symbol
+            key: PropertyKey
         ): PropertyDescriptor | undefined {
             let activity: any;
             if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
@@ -2009,7 +2005,7 @@ export function createMembraneMarshall(
 
         function passthruForeignCallableSet(
             foreignTargetPointer: Pointer,
-            key: string | symbol,
+            key: PropertyKey,
             value: any,
             receiver: any
         ): boolean {
@@ -2049,7 +2045,7 @@ export function createMembraneMarshall(
         function passthruForeignTraversedSet(
             foreignTargetPointer: Pointer,
             shadowTarget: ShadowTarget,
-            key: string | symbol,
+            key: PropertyKey,
             value: any,
             receiver: any
         ): boolean {
@@ -2435,7 +2431,7 @@ export function createMembraneMarshall(
             private static hybridGetTrap(
                 this: BoundaryProxyHandler,
                 shadowTarget: ShadowTarget,
-                key: string | symbol,
+                key: PropertyKey,
                 receiver: any
             ): ReturnType<typeof Reflect.get> {
                 const { foreignTargetPointer } = this;
@@ -2487,7 +2483,7 @@ export function createMembraneMarshall(
             private static hybridHasTrap(
                 this: BoundaryProxyHandler,
                 _shadowTarget: ShadowTarget,
-                key: string | symbol
+                key: PropertyKey
             ): ReturnType<typeof Reflect.has> {
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
@@ -2537,7 +2533,7 @@ export function createMembraneMarshall(
             private static passthruDefinePropertyTrap(
                 this: BoundaryProxyHandler,
                 shadowTarget: ShadowTarget,
-                key: string | symbol,
+                key: PropertyKey,
                 unsafePartialDesc: PropertyDescriptor
             ): ReturnType<typeof Reflect.defineProperty> {
                 lastProxyTrapCalled = ProxyHandlerTraps.DefineProperty;
@@ -2599,7 +2595,7 @@ export function createMembraneMarshall(
             private static passthruDeletePropertyTrap(
                 this: BoundaryProxyHandler,
                 _shadowTarget: ShadowTarget,
-                key: string | symbol
+                key: PropertyKey
             ): ReturnType<typeof Reflect.deleteProperty> {
                 lastProxyTrapCalled = ProxyHandlerTraps.DeleteProperty;
                 let activity: any;
@@ -2625,7 +2621,7 @@ export function createMembraneMarshall(
             private static passthruGetTrap(
                 this: BoundaryProxyHandler,
                 _shadowTarget: ShadowTarget,
-                key: string | symbol,
+                key: PropertyKey,
                 receiver: any
             ): ReturnType<typeof Reflect.get> {
                 // Only allow accessing near-membrane symbol values if the
@@ -2720,7 +2716,7 @@ export function createMembraneMarshall(
             private static passthruHasTrap(
                 this: BoundaryProxyHandler,
                 _shadowTarget: ShadowTarget,
-                key: string | symbol
+                key: PropertyKey
             ): ReturnType<typeof Reflect.has> {
                 lastProxyTrapCalled = ProxyHandlerTraps.Has;
                 let activity: any;
@@ -2817,7 +2813,7 @@ export function createMembraneMarshall(
             private static passthruGetOwnPropertyDescriptorTrap(
                 this: BoundaryProxyHandler,
                 shadowTarget: ShadowTarget,
-                key: string | symbol
+                key: PropertyKey
             ): ReturnType<typeof Reflect.getOwnPropertyDescriptor> {
                 lastProxyTrapCalled = ProxyHandlerTraps.GetOwnPropertyDescriptor;
                 let activity: any;
@@ -2940,7 +2936,7 @@ export function createMembraneMarshall(
             private static passthruSetTrap(
                 this: BoundaryProxyHandler,
                 shadowTarget: ShadowTarget,
-                key: string | symbol,
+                key: PropertyKey,
                 value: any,
                 receiver: any
             ): boolean {
@@ -2963,7 +2959,7 @@ export function createMembraneMarshall(
             private static pendingDefinePropertyTrap(
                 this: BoundaryProxyHandler,
                 shadowTarget: ShadowTarget,
-                key: string | symbol,
+                key: PropertyKey,
                 unsafePartialDesc: PropertyDescriptor
             ): ReturnType<typeof Reflect.defineProperty> {
                 this.makeProxyUnambiguous(shadowTarget);
@@ -2973,7 +2969,7 @@ export function createMembraneMarshall(
             private static pendingDeletePropertyTrap(
                 this: BoundaryProxyHandler,
                 shadowTarget: ShadowTarget,
-                key: string | symbol
+                key: PropertyKey
             ): ReturnType<typeof Reflect.deleteProperty> {
                 this.makeProxyUnambiguous(shadowTarget);
                 return this.deleteProperty!(shadowTarget, key);
@@ -2999,7 +2995,7 @@ export function createMembraneMarshall(
             private static pendingSetTrap(
                 this: BoundaryProxyHandler,
                 shadowTarget: ShadowTarget,
-                key: string | symbol,
+                key: PropertyKey,
                 value: any,
                 receiver: any
             ): ReturnType<typeof Reflect.set> {
@@ -3023,7 +3019,7 @@ export function createMembraneMarshall(
             private static staticGetTrap(
                 this: BoundaryProxyHandler,
                 shadowTarget: ShadowTarget,
-                key: string | symbol,
+                key: PropertyKey,
                 receiver: any
             ): ReturnType<typeof Reflect.get> {
                 const result = ReflectGet(shadowTarget, key, receiver);
@@ -3072,7 +3068,7 @@ export function createMembraneMarshall(
             // the foreign realm to access a linkable pointer for a property value.
             // In order to do that, the foreign side must provide a pointer and
             // a key access the value in order to produce a pointer
-            (targetPointer: Pointer, key: string | symbol) => {
+            (targetPointer: Pointer, key: PropertyKey) => {
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
@@ -3208,7 +3204,7 @@ export function createMembraneMarshall(
             // callableDefineProperty
             (
                 targetPointer: Pointer,
-                key: string | symbol,
+                key: PropertyKey,
                 configurable: boolean | symbol,
                 enumerable: boolean | symbol,
                 writable: boolean | symbol,
@@ -3266,7 +3262,7 @@ export function createMembraneMarshall(
                 return result;
             },
             // callableDeleteProperty
-            (targetPointer: Pointer, key: string | symbol): boolean => {
+            (targetPointer: Pointer, key: PropertyKey): boolean => {
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
@@ -3280,7 +3276,7 @@ export function createMembraneMarshall(
             (
                 targetPointer: Pointer,
                 targetTraits: TargetTraits,
-                key: string | symbol,
+                key: PropertyKey,
                 receiverPointerOrPrimitive: PointerOrPrimitive
             ): PointerOrPrimitive => {
                 targetPointer();
@@ -3331,7 +3327,7 @@ export function createMembraneMarshall(
             // callableGetOwnPropertyDescriptor
             (
                 targetPointer: Pointer,
-                key: string | symbol,
+                key: PropertyKey,
                 foreignCallableDescriptorCallback: CallableDescriptorCallback
             ): void => {
                 targetPointer();
@@ -3369,7 +3365,7 @@ export function createMembraneMarshall(
                 return proto ? getTransferablePointer(proto) : proto;
             },
             // callableHas
-            (targetPointer: Pointer, key: string | symbol): boolean => {
+            (targetPointer: Pointer, key: PropertyKey): boolean => {
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
@@ -3400,7 +3396,7 @@ export function createMembraneMarshall(
                 selectedTarget = undefined;
                 let ownKeys;
                 try {
-                    ownKeys = ReflectOwnKeys(target) as (string | symbol)[];
+                    ownKeys = ReflectOwnKeys(target) as PropertyKeys;
                 } catch (error: any) {
                     throw pushErrorAcrossBoundary(error);
                 }
@@ -3427,7 +3423,7 @@ export function createMembraneMarshall(
             // callableSet
             (
                 targetPointer: Pointer,
-                key: string | symbol,
+                key: PropertyKey,
                 valuePointerOrPrimitive: PointerOrPrimitive,
                 receiverPointerOrPrimitive: PointerOrPrimitive
             ): boolean => {
@@ -3494,10 +3490,7 @@ export function createMembraneMarshall(
             // callableInstallErrorPrepareStackTrace
             installErrorPrepareStackTrace,
             // callableInstallLazyDescriptors
-            (
-                targetPointer: Pointer,
-                ...ownKeysAndUnforgeableGlobalThisKeys: (string | symbol)[]
-            ) => {
+            (targetPointer: Pointer, ...ownKeysAndUnforgeableGlobalThisKeys: PropertyKeys) => {
                 const sliceIndex = ReflectApply(
                     ArrayProtoIndexOf,
                     ownKeysAndUnforgeableGlobalThisKeys,
@@ -3660,7 +3653,7 @@ export function createMembraneMarshall(
                 return proto ? getTransferablePointer(proto) : proto;
             },
             // callableBatchGetPrototypeOfWhenHasNoOwnProperty
-            (targetPointer: Pointer, key: string | symbol): PointerOrPrimitive => {
+            (targetPointer: Pointer, key: PropertyKey): PointerOrPrimitive => {
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
@@ -3684,7 +3677,7 @@ export function createMembraneMarshall(
             // callableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
             (
                 targetPointer: Pointer,
-                key: string | symbol,
+                key: PropertyKey,
                 foreignCallableDescriptorCallback: CallableDescriptorCallback
             ): PointerOrPrimitive => {
                 targetPointer();
