@@ -2117,8 +2117,8 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                     activity = startActivity('callableDefineProperty');
                 }
-                const descMeta = getDescriptorMeta(unsafePartialDesc);
                 const { foreignTargetPointer } = this;
+                const descMeta = getDescriptorMeta(unsafePartialDesc);
                 try {
                     return foreignCallableDefineProperty(
                         foreignTargetPointer,
@@ -2792,20 +2792,21 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     } catch (error: any) {
                         throw pushErrorAcrossBoundary(error);
                     }
-                    if (unsafeDesc) {
+                    if (
+                        unsafeDesc &&
+                        ReflectApply(ObjectProtoHasOwnProperty, unsafeDesc, ['configurable']) &&
+                        unsafeDesc.configurable === false
+                    ) {
                         const descMeta = getDescriptorMeta(unsafeDesc);
-                        const { 0: descMeta0 /* configurable */ } = descMeta;
-                        if (descMeta0 === false) {
-                            foreignCallableNonConfigurableDescriptorCallback(
-                                key,
-                                descMeta0, // configurable
-                                descMeta[1], // enumerable
-                                descMeta[2], // writable
-                                descMeta[3], // valuePointer
-                                descMeta[4], // getPointer
-                                descMeta[5] // setPointer
-                            );
-                        }
+                        foreignCallableNonConfigurableDescriptorCallback(
+                            key,
+                            descMeta[0], // configurable
+                            descMeta[1], // enumerable
+                            descMeta[2], // writable
+                            descMeta[3], // valuePointer
+                            descMeta[4], // getPointer
+                            descMeta[5] // setPointer
+                        );
                     }
                 }
                 return result;

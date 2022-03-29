@@ -81,22 +81,15 @@ export class VirtualEnvironment {
             instrumentation,
             // eslint-disable-next-line prefer-object-spread
         } = ObjectAssign({ __proto__: null }, providedOptions);
-        this.blueConnector = blueConnector;
-        this.redConnector = redConnector;
         let blueHooks: Parameters<HooksCallback>;
         let redHooks: Parameters<HooksCallback>;
-
-        const blueExportsCallback: HooksCallback = (...hooks) => {
-            blueHooks = hooks;
-        };
-        const redExportsCallback: HooksCallback = (...hooks) => {
-            redHooks = hooks;
-        };
         // prettier-ignore
         const localConnect = blueConnector(
             'blue',
             SHOULD_NOT_TRAP_MUTATION,
-            blueExportsCallback,
+            (...hooks) => {
+                blueHooks = hooks;
+            },
             {
                 distortionCallback,
                 instrumentation,
@@ -106,51 +99,154 @@ export class VirtualEnvironment {
         const foreignConnect = redConnector(
             'red',
             SHOULD_TRAP_MUTATION,
-            redExportsCallback
+            (...hooks) => {
+                redHooks = hooks;
+            }
         );
-        ReflectApply(localConnect, undefined, redHooks!);
-        ReflectApply(foreignConnect, undefined, blueHooks!);
         const {
             0: blueGlobalThisPointer,
             1: blueGetSelectedTarget,
             2: blueGetTransferableValue,
             3: blueCallableGetPropertyValuePointer,
-            // 4: blueCallableEvaluate,
+            4: blueCallableEvaluate,
             5: blueCallableLinkPointers,
+            6: blueCallablePushTarget,
+            7: blueCallableApply,
+            8: blueCallableConstruct,
+            9: blueCallableDefineProperty,
+            10: blueCallableDeleteProperty,
+            11: blueCallableGet,
+            12: blueCallableGetOwnPropertyDescriptor,
+            13: blueCallableGetPrototypeOf,
+            14: blueCallableHas,
+            15: blueCallableIsExtensible,
+            16: blueCallableOwnKeys,
+            17: blueCallablePreventExtensions,
+            18: blueCallableSet,
+            19: blueCallableSetPrototypeOf,
+            20: blueCallableDebugInfo,
+            21: blueCallableDefineProperties,
+            22: blueCallableGetTargetIntegrityTraits,
+            23: blueCallableGetToStringTagOfTarget,
+            24: blueCallableInstallErrorPrepareStackTrace,
+            25: blueCallableInstallLazyDescriptors,
+            26: blueCallableIsTargetLive,
+            27: blueCallableIsTargetRevoked,
+            28: blueCallableSerializeTarget,
+            29: blueCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
+            30: blueCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
+            31: blueCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
         } = blueHooks!;
+        const {
+            0: redGlobalThisPointer,
+            1: redGetSelectedTarget,
+            2: redGetTransferableValue,
+            3: redCallableGetPropertyValuePointer,
+            4: redCallableEvaluate,
+            5: redCallableLinkPointers,
+            6: redCallablePushTarget,
+            7: redCallableApply,
+            8: redCallableConstruct,
+            9: redCallableDefineProperty,
+            10: redCallableDeleteProperty,
+            11: redCallableGet,
+            12: redCallableGetOwnPropertyDescriptor,
+            13: redCallableGetPrototypeOf,
+            14: redCallableHas,
+            15: redCallableIsExtensible,
+            16: redCallableOwnKeys,
+            17: redCallablePreventExtensions,
+            18: redCallableSet,
+            19: redCallableSetPrototypeOf,
+            20: redCallableDebugInfo,
+            21: redCallableDefineProperties,
+            22: redCallableGetTargetIntegrityTraits,
+            23: redCallableGetToStringTagOfTarget,
+            24: redCallableInstallErrorPrepareStackTrace,
+            25: redCallableInstallLazyDescriptors,
+            26: redCallableIsTargetLive,
+            27: redCallableIsTargetRevoked,
+            28: redCallableSerializeTarget,
+            29: redCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
+            30: redCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
+            31: redCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
+        } = redHooks!;
+        localConnect(
+            redGlobalThisPointer,
+            redGetSelectedTarget,
+            redGetTransferableValue,
+            redCallableGetPropertyValuePointer,
+            redCallableEvaluate,
+            redCallableLinkPointers,
+            redCallablePushTarget,
+            redCallableApply,
+            redCallableConstruct,
+            redCallableDefineProperty,
+            redCallableDeleteProperty,
+            redCallableGet,
+            redCallableGetOwnPropertyDescriptor,
+            redCallableGetPrototypeOf,
+            redCallableHas,
+            redCallableIsExtensible,
+            redCallableOwnKeys,
+            redCallablePreventExtensions,
+            redCallableSet,
+            redCallableSetPrototypeOf,
+            redCallableDebugInfo,
+            redCallableDefineProperties,
+            redCallableGetTargetIntegrityTraits,
+            redCallableGetToStringTagOfTarget,
+            redCallableInstallErrorPrepareStackTrace,
+            redCallableInstallLazyDescriptors,
+            redCallableIsTargetLive,
+            redCallableIsTargetRevoked,
+            redCallableSerializeTarget,
+            redCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
+            redCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
+            redCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
+        );
+        foreignConnect(
+            blueGlobalThisPointer,
+            blueGetSelectedTarget,
+            blueGetTransferableValue,
+            blueCallableGetPropertyValuePointer,
+            blueCallableEvaluate,
+            blueCallableLinkPointers,
+            blueCallablePushTarget,
+            blueCallableApply,
+            blueCallableConstruct,
+            blueCallableDefineProperty,
+            blueCallableDeleteProperty,
+            blueCallableGet,
+            blueCallableGetOwnPropertyDescriptor,
+            blueCallableGetPrototypeOf,
+            blueCallableHas,
+            blueCallableIsExtensible,
+            blueCallableOwnKeys,
+            blueCallablePreventExtensions,
+            blueCallableSet,
+            blueCallableSetPrototypeOf,
+            blueCallableDebugInfo,
+            blueCallableDefineProperties,
+            blueCallableGetTargetIntegrityTraits,
+            blueCallableGetToStringTagOfTarget,
+            blueCallableInstallErrorPrepareStackTrace,
+            blueCallableInstallLazyDescriptors,
+            blueCallableIsTargetLive,
+            blueCallableIsTargetRevoked,
+            blueCallableSerializeTarget,
+            blueCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
+            blueCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
+            blueCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
+        );
+        this.blueConnector = blueConnector;
         this.blueGlobalThisPointer = blueGlobalThisPointer;
         this.blueGetSelectedTarget = blueGetSelectedTarget;
         this.blueGetTransferableValue = blueGetTransferableValue;
         this.blueCallableGetPropertyValuePointer = blueCallableGetPropertyValuePointer;
         this.blueCallableLinkPointers = blueCallableLinkPointers;
-        const {
-            0: redGlobalThisPointer,
-            // 1: redGetSelectedTarget,
-            // 2: redGetTransferableValue,
-            3: redCallableGetPropertyValuePointer,
-            4: redCallableEvaluate,
-            5: redCallableLinkPointers,
-            // 6: redCallablePushTarget,
-            // 7: redCallableApply,
-            // 8: redCallableConstruct,
-            // 9: redCallableDefineProperty,
-            // 10: redCallableDeleteProperty,
-            // 11: redCallableGet,
-            // 12: redCallableGetOwnPropertyDescriptor,
-            // 13: redCallableGetPrototypeOf,
-            // 14: redCallableHas,
-            // 15: redCallableIsExtensible,
-            // 16: redCallableOwnKeys,
-            // 17: redCallablePreventExtensions,
-            // 18: redCallableSet,
-            19: redCallableSetPrototypeOf,
-            // 20: redCallableDebugInfo,
-            21: redCallableDefineProperties,
-            // 22: redCallableGetTargetIntegrityTraits,
-            // 23: redCallableGetToStringTagOfTarget,
-            // 24: redCallableInstallErrorPrepareStackTrace,
-            25: redCallableInstallLazyDescriptors,
-        } = redHooks!;
+
+        this.redConnector = redConnector;
         this.redGlobalThisPointer = redGlobalThisPointer;
         this.redCallableGetPropertyValuePointer = redCallableGetPropertyValuePointer;
         this.redCallableEvaluate = redCallableEvaluate;
