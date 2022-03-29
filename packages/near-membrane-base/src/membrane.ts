@@ -75,7 +75,7 @@ type CallableInstallErrorPrepareStackTrace = () => void;
 type CallableIsTargetLive = (targetPointer: Pointer) => boolean;
 type CallableIsTargetRevoked = (targetPointer: Pointer) => boolean;
 type CallableSerializeTarget = (targetPointer: Pointer) => SerializedValue | undefined;
-type CallableBatchGetPrototypeOfAndOwnPropertyDescriptors = (
+type CallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors = (
     targetPointer: Pointer,
     foreignCallableDescriptorsCallback: CallableDescriptorsCallback
 ) => PointerOrPrimitive;
@@ -89,6 +89,7 @@ type CallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor = (
     foreignCallableDescriptorCallback: CallableDescriptorCallback
 ) => PointerOrPrimitive;
 type CallableDescriptorCallback = (
+    key: PropertyKey,
     configurable: boolean | symbol,
     enumerable: boolean | symbol,
     writable: boolean | symbol,
@@ -97,7 +98,7 @@ type CallableDescriptorCallback = (
     setPointer: PointerOrPrimitive
 ) => void;
 type CallableDescriptorsCallback = (
-    ...descriptorTuples: [PropertyKey, ...Parameters<CallableDescriptorCallback>]
+    ...descriptorTuples: [...Parameters<CallableDescriptorCallback>]
 ) => void;
 type CallableNonConfigurableDescriptorCallback = CallableDescriptorCallback;
 type Primitive = bigint | boolean | null | number | string | symbol | undefined;
@@ -113,8 +114,12 @@ export type CallableDefineProperty = (
     valuePointer: PointerOrPrimitive,
     getPointer: PointerOrPrimitive,
     setPointer: PointerOrPrimitive,
-    foreignCallableNonConfigurableDescriptorCallback?: CallableNonConfigurableDescriptorCallback
+    foreignCallableNonConfigurableDescriptorCallback: CallableNonConfigurableDescriptorCallback
 ) => boolean;
+export type CallableDefineProperties = (
+    targetPointer: Pointer,
+    ...descriptorTuples: [...Parameters<CallableDescriptorCallback>]
+) => void;
 export type CallableEvaluate = (sourceText: string) => PointerOrPrimitive;
 export type CallableGetPropertyValuePointer = (targetPointer: Pointer, key: PropertyKey) => Pointer;
 export type CallableInstallLazyDescriptors = (
@@ -151,6 +156,7 @@ export type HooksCallback = (
     callableSet: CallableSet,
     callableSetPrototypeOf: CallableSetPrototypeOf,
     callableDebugInfo: CallableDebugInfo,
+    callableDefineProperties: CallableDefineProperties,
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableGetToStringTagOfTarget: CallableGetToStringTagOfTarget,
     callableInstallErrorPrepareStackTrace: CallableInstallErrorPrepareStackTrace,
@@ -158,7 +164,7 @@ export type HooksCallback = (
     callableIsTargetLive: CallableIsTargetLive,
     callableIsTargetRevoked: CallableIsTargetRevoked,
     callableSerializeTarget: CallableSerializeTarget,
-    callableBatchGetPrototypeOfAndOwnPropertyDescriptors: CallableBatchGetPrototypeOfAndOwnPropertyDescriptors,
+    callableBatchGetPrototypeOfAndGetOwnPropertyDescriptors: CallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
     callableBatchGetPrototypeOfWhenHasNoOwnProperty: CallableBatchGetPrototypeOfWhenHasNoOwnProperty,
     callableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor: CallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
 ) => void;
@@ -396,18 +402,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         return shadowTarget;
     }
 
-    function createUnforgeableGlobalThisDescriptor(
-        target: object,
-        key: PropertyKey
-    ): PropertyDescriptor {
-        return {
-            configurable: false,
-            enumerable: ReflectApply(ObjectProtoPropertyIsEnumerable, target, [key]),
-            get: getUnforgeableGlobalThisGetter(key),
-            set: undefined,
-        };
-    }
-
     function getTargetTraits(target: object): TargetTraits {
         let targetTraits = TargetTraits.None;
         try {
@@ -455,14 +449,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             }
         }
         return targetIntegrityTraits;
-    }
-
-    function getToStringTagOfTarget(target: ProxyTarget): string {
-        // Section 19.1.3.6: Object.prototype.toString()
-        // https://tc39.github.io/ecma262/#sec-object.prototype.tostring
-        // Step 16: If `Type(tag)` is not `String`, let `tag` be `builtinTag`.
-        const brand = ReflectApply(ObjectProtoToString, target, []);
-        return ReflectApply(StringProtoSlice, brand, [8, -1]);
     }
 
     function getUnforgeableGlobalThisGetter(key: PropertyKey): () => typeof globalThis {
@@ -518,7 +504,14 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         const getFixedDescriptor = shouldFixChromeBug
             ? (target: any, key: PropertyKey): PropertyDescriptor | undefined =>
                   ReflectApply(ArrayProtoIncludes, unforgeableGlobalThisKeys, [key])
-                      ? createUnforgeableGlobalThisDescriptor(target, key)
+                      ? {
+                            configurable: false,
+                            enumerable: ReflectApply(ObjectProtoPropertyIsEnumerable, target, [
+                                key,
+                            ]),
+                            get: getUnforgeableGlobalThisGetter(key),
+                            set: undefined,
+                        }
                       : ReflectGetOwnPropertyDescriptor(target, key)
             : undefined;
 
@@ -804,34 +797,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
           }
         : ((() => {}) as unknown as CallableInstallErrorPrepareStackTrace);
 
-    function isArrayBuffer(value: any): boolean {
-        try {
-            // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
-            // https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.bytelength
-            // Step 2: Perform ? RequireInternalSlot(O, [[ArrayBufferData]]).
-            ReflectApply(ArrayBufferProtoByteLengthGetter, value, []);
-            return true;
-            // eslint-disable-next-line no-empty
-        } catch {}
-        return false;
-    }
-
-    function isRegExp(value: any): boolean {
-        try {
-            // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
-            // https://tc39.es/ecma262/#sec-get-regexp.prototype.source
-            // Step 3: If R does not have an [[OriginalSource]] internal slot, then
-            //     a. If SameValue(R, %RegExp.prototype%) is true, return "(?:)".
-            //     b. Otherwise, throw a TypeError exception.
-            if (value !== RegExpProto) {
-                ReflectApply(RegExpProtoSourceGetter, value, []);
-                return true;
-            }
-            // eslint-disable-next-line no-empty
-        } catch {}
-        return false;
-    }
-
     function isTargetLive(target: ProxyTarget): boolean {
         if (target === ObjectProto) {
             return false;
@@ -844,20 +809,38 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     // then `value` is not likely a prototype object.
                     return true;
                 }
-                let result = false;
                 if (ReflectGetPrototypeOf(target) === null) {
                     // Ensure `value` is not an `Object.prototype` from an iframe.
-                    result = typeof constructor !== 'function' || constructor.prototype !== target;
+                    if (typeof constructor !== 'function' || constructor.prototype !== target) {
+                        return true;
+                    }
                 }
-                if (!result) {
-                    // We only check for typed arrays, array buffers, and regexp here
-                    // since plain arrays are marked as live in the BoundaryProxyHandler
-                    // constructor.
-                    result = ArrayBufferIsView(target) || isArrayBuffer(target) || isRegExp(target);
+                // We only check for typed arrays, array buffers, and regexp here
+                // since plain arrays are marked as live in the BoundaryProxyHandler
+                // constructor.
+                if (ArrayBufferIsView(target)) {
+                    return true;
                 }
-                if (result) {
-                    return result;
-                }
+                try {
+                    // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
+                    // https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.bytelength
+                    // Step 2: Perform ? RequireInternalSlot(O, [[ArrayBufferData]]).
+                    ReflectApply(ArrayBufferProtoByteLengthGetter, target, []);
+                    return true;
+                    // eslint-disable-next-line no-empty
+                } catch {}
+                try {
+                    // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
+                    // https://tc39.es/ecma262/#sec-get-regexp.prototype.source
+                    // Step 3: If R does not have an [[OriginalSource]] internal slot, then
+                    //     a. If SameValue(R, %RegExp.prototype%) is true, return "(?:)".
+                    //     b. Otherwise, throw a TypeError exception.
+                    if (target !== RegExpProto) {
+                        ReflectApply(RegExpProtoSourceGetter, target, []);
+                        return true;
+                    }
+                    // eslint-disable-next-line no-empty
+                } catch {}
             }
             return ReflectApply(ObjectProtoHasOwnProperty, target, [
                 LOCKER_LIVE_VALUE_MARKER_SYMBOL,
@@ -865,15 +848,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             // eslint-disable-next-line no-empty
         } catch {}
         return false;
-    }
-
-    function isTargetRevoked(target: ProxyTarget): boolean {
-        try {
-            isArrayOrThrowForRevoked(target);
-            return false;
-            //  eslint-disable-next-line no-empty
-        } catch {}
-        return true;
     }
 
     function serializeBigIntObject(bigIntObject: BigInt): bigint {
@@ -1058,7 +1032,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         let foreignCallableIsTargetLive: CallableIsTargetLive;
         let foreignCallableIsTargetRevoked: CallableIsTargetRevoked;
         let foreignCallableSerializeTarget: CallableSerializeTarget;
-        let foreignCallableBatchGetPrototypeOfAndOwnPropertyDescriptors: CallableBatchGetPrototypeOfAndOwnPropertyDescriptors;
+        let foreignCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors: CallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors;
         let foreignCallableBatchGetPrototypeOfWhenHasNoOwnProperty: CallableBatchGetPrototypeOfWhenHasNoOwnProperty;
         let foreignCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor: CallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor;
 
@@ -1082,7 +1056,15 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 foreignCallableGetOwnPropertyDescriptor(
                     foreignTargetPointer,
                     key,
-                    (configurable, enumerable, writable, valuePointer, getPointer, setPointer) => {
+                    (
+                        _key,
+                        configurable,
+                        enumerable,
+                        writable,
+                        valuePointer,
+                        getPointer,
+                        setPointer
+                    ) => {
                         safeDesc = createDescriptorFromMeta(
                             configurable,
                             enumerable,
@@ -1144,11 +1126,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         ): void {
             let activity: any;
             if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                activity = startActivity('callableBatchGetPrototypeOfAndOwnPropertyDescriptors');
+                activity = startActivity('callableBatchGetPrototypeOfAndGetOwnPropertyDescriptors');
             }
             let protoPointerOrNull;
             try {
-                protoPointerOrNull = foreignCallableBatchGetPrototypeOfAndOwnPropertyDescriptors(
+                protoPointerOrNull = foreignCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors(
                     foreignTargetPointer,
                     (...descriptorTuples) => {
                         const descriptors: PropertyDescriptorMap = {};
@@ -1317,9 +1299,16 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
         function getDescriptorMeta(
             unsafePartialDesc: PropertyDescriptor
-        ): Parameters<CallableDescriptorCallback> {
-            const safePartialDesc = unsafePartialDesc;
-            ReflectSetPrototypeOf(safePartialDesc, null);
+        ): [
+            configurable: boolean | symbol,
+            enumerable: boolean | symbol,
+            writable: boolean | symbol,
+            valuePointer: PointerOrPrimitive,
+            getPointer: PointerOrPrimitive,
+            setPointer: PointerOrPrimitive
+        ] {
+            // eslint-disable-next-line prefer-object-spread
+            const safePartialDesc = ObjectAssign({ __proto__: null }, unsafePartialDesc);
             const {
                 configurable,
                 enumerable,
@@ -1470,6 +1459,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         foreignTargetPointer,
                         key,
                         (
+                            _key,
                             configurable,
                             enumerable,
                             writable,
@@ -2148,6 +2138,8 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
             ownKeys: ProxyHandler<ShadowTarget>['ownKeys'];
 
+            nonConfigurableDescriptorCallback: CallableNonConfigurableDescriptorCallback;
+
             preventExtensions: ProxyHandler<ShadowTarget>['preventExtensions'];
 
             proxy: ShadowTarget;
@@ -2183,6 +2175,30 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 const { proxy, revoke } = ProxyRevocable(shadowTarget, this);
                 this.foreignTargetPointer = foreignTargetPointer;
                 this.foreignTargetTraits = foreignTargetTraits;
+                this.nonConfigurableDescriptorCallback = (
+                    key,
+                    configurable,
+                    enumerable,
+                    writable,
+                    valuePointer,
+                    getPointer,
+                    setPointer
+                ) => {
+                    // Update the descriptor to non-configurable on the shadow
+                    // target.
+                    ReflectDefineProperty(
+                        shadowTarget,
+                        key,
+                        createDescriptorFromMeta(
+                            configurable,
+                            enumerable,
+                            writable,
+                            valuePointer,
+                            getPointer,
+                            setPointer
+                        )
+                    );
+                };
                 this.proxy = proxy;
                 this.revoke = revoke;
                 this.serializedValue = undefined;
@@ -2528,7 +2544,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
             private static passthruDefinePropertyTrap(
                 this: BoundaryProxyHandler,
-                shadowTarget: ShadowTarget,
+                _shadowTarget: ShadowTarget,
                 key: PropertyKey,
                 unsafePartialDesc: PropertyDescriptor
             ): ReturnType<typeof Reflect.defineProperty> {
@@ -2549,30 +2565,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         descMeta[3], // valuePointer
                         descMeta[4], // getPointer
                         descMeta[5], // setPointer
-                        // foreignCallableNonConfigurableDescriptorCallback
-                        (
-                            configurable,
-                            enumerable,
-                            writable,
-                            valuePointer,
-                            getPointer,
-                            setPointer
-                        ) => {
-                            // Update the descriptor to non-configurable on the
-                            // shadow target.
-                            ReflectDefineProperty(
-                                shadowTarget,
-                                key,
-                                createDescriptorFromMeta(
-                                    configurable,
-                                    enumerable,
-                                    writable,
-                                    valuePointer,
-                                    getPointer,
-                                    setPointer
-                                )
-                            );
-                        }
+                        this.nonConfigurableDescriptorCallback
                     );
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
@@ -2822,6 +2815,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         this.foreignTargetPointer,
                         key,
                         (
+                            _key,
                             configurable,
                             enumerable,
                             writable,
@@ -3207,7 +3201,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 valuePointer: PointerOrPrimitive,
                 getPointer: PointerOrPrimitive,
                 setPointer: PointerOrPrimitive,
-                foreignCallableNonConfigurableDescriptorCallback?: CallableDescriptorCallback
+                foreignCallableNonConfigurableDescriptorCallback: CallableDescriptorCallback
             ): boolean => {
                 targetPointer();
                 const target = selectedTarget!;
@@ -3229,11 +3223,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 } catch (error: any) {
                     throw pushErrorAcrossBoundary(error);
                 }
-                if (
-                    result &&
-                    configurable === false &&
-                    typeof foreignCallableNonConfigurableDescriptorCallback === 'function'
-                ) {
+                if (result && configurable === false) {
                     let unsafeDesc;
                     try {
                         unsafeDesc = ReflectGetOwnPropertyDescriptor(target, key);
@@ -3242,9 +3232,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     }
                     if (unsafeDesc) {
                         const descMeta = getDescriptorMeta(unsafeDesc);
-                        const { 0: descMeta0 } = descMeta;
+                        const { 0: descMeta0 /* configurable */ } = descMeta;
                         if (descMeta0 === false) {
                             foreignCallableNonConfigurableDescriptorCallback(
+                                key,
                                 descMeta0, // configurable
                                 descMeta[1], // enumerable
                                 descMeta[2], // writable
@@ -3305,13 +3296,15 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 ) {
                     try {
                         if (!ReflectHas(target, key)) {
-                            const toStringTag = getToStringTagOfTarget(target);
+                            // Section 19.1.3.6: Object.prototype.toString()
+                            // https://tc39.github.io/ecma262/#sec-object.prototype.tostring
+                            const brand = ReflectApply(ObjectProtoToString, target, []);
                             // The default language toStringTag is "Object".
-                            // If receive "Object" we return `undefined` to
-                            // let the language resolve it naturally without
+                            // If receive "[object Object]" we return `undefined`
+                            // to let the language resolve it naturally without
                             // projecting a value.
-                            if (toStringTag !== 'Object') {
-                                result = toStringTag;
+                            if (brand !== '[object Object]') {
+                                result = ReflectApply(StringProtoSlice, brand, [8, -1]);
                             }
                         }
                     } catch (error: any) {
@@ -3338,6 +3331,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 if (unsafeDesc) {
                     const descMeta = getDescriptorMeta(unsafeDesc);
                     foreignCallableDescriptorCallback(
+                        key,
                         descMeta[0], // configurable
                         descMeta[1], // enumerable
                         descMeta[2], // writable
@@ -3463,6 +3457,32 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             },
             // callableDebugInfo
             debugInfo,
+            // callableDefineProperties
+            (
+                targetPointer: Pointer,
+                ...descriptorTuples: [...Parameters<CallableDescriptorCallback>]
+            ): void => {
+                targetPointer();
+                const target = selectedTarget!;
+                for (let i = 0, { length } = descriptorTuples; i < length; i += 7) {
+                    const key = descriptorTuples[i] as PropertyKey;
+                    // We don't use `ObjectDefineProperties()` here because it
+                    // will throw an exception if it fails to define one of its
+                    // properties.
+                    ReflectDefineProperty(
+                        target,
+                        key,
+                        createDescriptorFromMeta(
+                            descriptorTuples[i + 1] as boolean | symbol, // configurable
+                            descriptorTuples[i + 2] as boolean | symbol, // enumerable
+                            descriptorTuples[i + 3] as boolean | symbol, // writable
+                            descriptorTuples[i + 4] as PointerOrPrimitive, // valuePointer
+                            descriptorTuples[i + 5] as PointerOrPrimitive, // getPointer
+                            descriptorTuples[i + 6] as PointerOrPrimitive // setPointer
+                        )
+                    );
+                }
+            },
             // callableGetTargetIntegrityTraits
             (targetPointer: Pointer): TargetIntegrityTraits => {
                 targetPointer();
@@ -3478,7 +3498,12 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 const target = selectedTarget!;
                 selectedTarget = undefined;
                 try {
-                    return getToStringTagOfTarget(target);
+                    // Section 19.1.3.6: Object.prototype.toString()
+                    // https://tc39.github.io/ecma262/#sec-object.prototype.tostring
+                    const brand = ReflectApply(ObjectProtoToString, target, []);
+                    return brand === '[object Object]'
+                        ? 'Object'
+                        : ReflectApply(StringProtoSlice, brand, [8, -1]);
                 } catch (error: any) {
                     throw pushErrorAcrossBoundary(error);
                 }
@@ -3548,9 +3573,12 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
-                // We don't wrap `isTargetRevoked()` in a try-catch because it
-                // cannot throw.
-                return isTargetRevoked(target);
+                try {
+                    isArrayOrThrowForRevoked(target);
+                    return false;
+                    //  eslint-disable-next-line no-empty
+                } catch {}
+                return true;
             },
             // callableSerializeTarget
             (targetPointer: Pointer): SerializedValue | undefined => {
@@ -3561,7 +3589,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 // cannot throw.
                 return serializeTarget(target);
             },
-            // callableBatchGetPrototypeOfAndOwnPropertyDescriptors
+            // callableBatchGetPrototypeOfAndGetOwnPropertyDescriptors
             (
                 targetPointer: Pointer,
                 foreignCallableDescriptorsCallback: CallableDescriptorsCallback
@@ -3688,6 +3716,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 if (unsafeDesc) {
                     const descMeta = getDescriptorMeta(unsafeDesc);
                     foreignCallableDescriptorCallback(
+                        key,
                         descMeta[0], // configurable
                         descMeta[1], // enumerable
                         descMeta[2], // writable
@@ -3729,16 +3758,17 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 18: callableSet,
                 19: callableSetPrototypeOf,
                 20: callableDebugInfo,
-                21: callableGetTargetIntegrityTraits,
-                22: callableGetToStringTagOfTarget,
-                23: callableInstallErrorPrepareStackTrace,
-                // 24: callableInstallLazyDescriptors,
-                25: callableIsTargetLive,
-                26: callableIsTargetRevoked,
-                27: callableSerializeTarget,
-                28: callableBatchGetPrototypeOfAndOwnPropertyDescriptors,
-                29: callableBatchGetPrototypeOfWhenHasNoOwnProperty,
-                30: callableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
+                // 21: callableDefineProperties,
+                22: callableGetTargetIntegrityTraits,
+                23: callableGetToStringTagOfTarget,
+                24: callableInstallErrorPrepareStackTrace,
+                // 25: callableInstallLazyDescriptors,
+                26: callableIsTargetLive,
+                27: callableIsTargetRevoked,
+                28: callableSerializeTarget,
+                29: callableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
+                30: callableBatchGetPrototypeOfWhenHasNoOwnProperty,
+                31: callableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
             } = hooks;
             foreignCallablePushTarget = callablePushTarget;
             // traps utilities
@@ -3762,8 +3792,8 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             foreignCallableIsTargetLive = callableIsTargetLive;
             foreignCallableIsTargetRevoked = callableIsTargetRevoked;
             foreignCallableSerializeTarget = callableSerializeTarget;
-            foreignCallableBatchGetPrototypeOfAndOwnPropertyDescriptors =
-                callableBatchGetPrototypeOfAndOwnPropertyDescriptors;
+            foreignCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors =
+                callableBatchGetPrototypeOfAndGetOwnPropertyDescriptors;
             foreignCallableBatchGetPrototypeOfWhenHasNoOwnProperty =
                 callableBatchGetPrototypeOfWhenHasNoOwnProperty;
             foreignCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor =

@@ -112,11 +112,6 @@ export default function createVirtualEnvironment(
     } else {
         globalOwnKeys = filterWindowKeys(getFilteredGlobalOwnKeys(globalObjectShape));
     }
-    // Chromium based browsers have a bug that nulls the result of `window`
-    // getters in detached iframes when the property descriptor of `window.window`
-    // is retrieved.
-    // https://bugs.chromium.org/p/chromium/issues/detail?id=1305302
-    const unforgeableGlobalThisKeys = keepAlive ? undefined : unforgeablePoisonedWindowKeys;
     const blueConnector = createHooksCallback;
     const redConnector = createConnector(redWindow.eval);
     // Extract the global references and descriptors before any interference.
@@ -145,7 +140,15 @@ export default function createVirtualEnvironment(
     // window.__proto__.__proto__.__proto__ (aka EventTarget.prototype)
     env.link('__proto__', '__proto__', '__proto__');
     env.remapProto(blueRefs.document, blueRefs.DocumentProto);
-    env.lazyRemap(blueRefs.window, globalOwnKeys, unforgeableGlobalThisKeys);
+    env.lazyRemap(
+        blueRefs.window,
+        globalOwnKeys,
+        // Chromium based browsers have a bug that nulls the result of `window`
+        // getters in detached iframes when the property descriptor of `window.window`
+        // is retrieved.
+        // https://bugs.chromium.org/p/chromium/issues/detail?id=1305302
+        keepAlive ? undefined : unforgeablePoisonedWindowKeys
+    );
     if (endowments) {
         const filteredEndowments = {};
         assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(filteredEndowments, endowments);
