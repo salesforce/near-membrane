@@ -29,7 +29,6 @@ import { PropertyKey, PropertyKeys } from './types';
 type CallablePushTarget = (
     pointer: () => void,
     targetTraits: number,
-    targetFunctionArity: number | undefined,
     targetFunctionName: string | undefined
 ) => Pointer;
 type CallableApply = (
@@ -996,16 +995,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             // removed in minified production builds.
             typeof instrumentation === 'object' && instrumentation !== null;
 
-        const arityToInvokeTrapMakerRegistry = {
-            __proto__: null,
-            0: makeApplyOrConstructTrapForZeroOrMoreArgs,
-            1: makeApplyOrConstructTrapForOneOrMoreArgs,
-            2: makeApplyOrConstructTrapForTwoOrMoreArgs,
-            3: makeApplyOrConstructTrapForThreeOrMoreArgs,
-            4: makeApplyOrConstructTrapForFourOrMoreArgs,
-            n: makeApplyOrConstructTrapForAnyNumberOfArgs,
-        };
-
         const proxyTargetToPointerMap = new WeakMapCtor();
 
         const startActivity: any =
@@ -1094,32 +1083,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             }
         }
 
-        function applyForeignCallableApplyOrConstruct(
-            foreignCallableApplyOrConstruct:
-                | typeof foreignCallableApply
-                | typeof foreignCallableConstruct,
-            foreignTargetPointer: Pointer,
-            transferableThisArgOrNewTarget: PointerOrPrimitive,
-            args: any[]
-        ): PointerOrPrimitive {
-            const combinedArgs = [foreignTargetPointer, transferableThisArgOrNewTarget];
-            const { length } = args;
-            const { length: combinedOffset } = combinedArgs;
-            combinedArgs.length += length;
-            for (let i = 0; i < length; i += 1) {
-                const arg = args[i];
-                const combinedIndex = combinedOffset + i;
-                // Inlining `getTransferableValue()`.
-                combinedArgs[combinedIndex] =
-                    (typeof arg === 'object' && arg !== null) || typeof arg === 'function'
-                        ? getTransferablePointer(arg)
-                        : typeof arg === 'undefined'
-                        ? undefined
-                        : arg;
-            }
-            return ReflectApply(foreignCallableApplyOrConstruct, undefined, combinedArgs);
-        }
-
         function copyForeignOwnPropertyDescriptorsAndPrototypeToShadowTarget(
             foreignTargetPointer: Pointer,
             shadowTarget: ShadowTarget
@@ -1169,6 +1132,147 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 selectedTarget = undefined;
             }
             ReflectSetPrototypeOf(shadowTarget, proto);
+        }
+
+        function createApplyOrConstructTrap(proxyTrapEnum: ProxyHandlerTraps) {
+            const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
+            const activityName = isApplyTrap ? 'callableApply' : 'callableConstruct';
+            const foreignCallableApplyOrConstruct = isApplyTrap
+                ? foreignCallableApply
+                : foreignCallableConstruct;
+            return function applyOrConstructTrap(
+                this: BoundaryProxyHandler,
+                _shadowTarget: ShadowTarget,
+                thisArgOrArgs: any,
+                argsOrNewTarget: any
+            ) {
+                lastProxyTrapCalled = proxyTrapEnum;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity(activityName);
+                }
+                // @ts-ignore: Prevent private property access error.
+                const { foreignTargetPointer } = this;
+                const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
+                const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
+                // Inline getTransferableValue().
+                const transferableThisArgOrNewTarget =
+                    (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
+                    typeof thisArgOrNewTarget === 'function'
+                        ? getTransferablePointer(thisArgOrNewTarget)
+                        : typeof thisArgOrNewTarget === 'undefined'
+                        ? undefined
+                        : thisArgOrNewTarget;
+                const { length } = args;
+                try {
+                    let pointerOrPrimitive: PointerOrPrimitive;
+                    if (length === 0) {
+                        pointerOrPrimitive = foreignCallableApplyOrConstruct(
+                            foreignTargetPointer,
+                            transferableThisArgOrNewTarget
+                        );
+                    } else if (length === 1) {
+                        const { 0: arg0 } = args;
+                        pointerOrPrimitive = foreignCallableApplyOrConstruct(
+                            foreignTargetPointer,
+                            transferableThisArgOrNewTarget,
+                            // Inline getTransferableValue().
+                            (typeof arg0 === 'object' && arg0 !== null) ||
+                                typeof arg0 === 'function'
+                                ? getTransferablePointer(arg0)
+                                : typeof arg0 === 'undefined'
+                                ? undefined
+                                : arg0
+                        );
+                    } else if (length === 2) {
+                        const { 0: arg0, 1: arg1 } = args;
+                        pointerOrPrimitive = foreignCallableApplyOrConstruct(
+                            foreignTargetPointer,
+                            transferableThisArgOrNewTarget,
+                            // Inline getTransferableValue().
+                            (typeof arg0 === 'object' && arg0 !== null) ||
+                                typeof arg0 === 'function'
+                                ? getTransferablePointer(arg0)
+                                : typeof arg0 === 'undefined'
+                                ? undefined
+                                : arg0,
+                            // Inline getTransferableValue().
+                            (typeof arg1 === 'object' && arg1 !== null) ||
+                                typeof arg1 === 'function'
+                                ? getTransferablePointer(arg1)
+                                : typeof arg1 === 'undefined'
+                                ? undefined
+                                : arg1
+                        );
+                    } else if (length === 3) {
+                        const { 0: arg0, 1: arg1, 2: arg2 } = args;
+                        pointerOrPrimitive = foreignCallableApplyOrConstruct(
+                            foreignTargetPointer,
+                            transferableThisArgOrNewTarget,
+                            // Inline getTransferableValue().
+                            (typeof arg0 === 'object' && arg0 !== null) ||
+                                typeof arg0 === 'function'
+                                ? getTransferablePointer(arg0)
+                                : typeof arg0 === 'undefined'
+                                ? undefined
+                                : arg0,
+                            // Inline getTransferableValue().
+                            (typeof arg1 === 'object' && arg1 !== null) ||
+                                typeof arg1 === 'function'
+                                ? getTransferablePointer(arg1)
+                                : typeof arg1 === 'undefined'
+                                ? undefined
+                                : arg1,
+                            // Inline getTransferableValue().
+                            (typeof arg2 === 'object' && arg2 !== null) ||
+                                typeof arg2 === 'function'
+                                ? getTransferablePointer(arg2)
+                                : typeof arg2 === 'undefined'
+                                ? undefined
+                                : arg2
+                        );
+                    } else {
+                        const combinedArgs = [foreignTargetPointer, transferableThisArgOrNewTarget];
+                        const { length: combinedOffset } = combinedArgs;
+                        combinedArgs.length += length;
+                        for (let i = 0; i < length; i += 1) {
+                            const arg = args[i];
+                            const combinedIndex = combinedOffset + i;
+                            // Inlining `getTransferableValue()`.
+                            combinedArgs[combinedIndex] =
+                                (typeof arg === 'object' && arg !== null) ||
+                                typeof arg === 'function'
+                                    ? getTransferablePointer(arg)
+                                    : typeof arg === 'undefined'
+                                    ? undefined
+                                    : arg;
+                        }
+                        pointerOrPrimitive = ReflectApply(
+                            foreignCallableApplyOrConstruct,
+                            undefined,
+                            combinedArgs
+                        );
+                    }
+                    let result: any = pointerOrPrimitive;
+                    if (typeof pointerOrPrimitive === 'function') {
+                        pointerOrPrimitive();
+                        result = selectedTarget;
+                        selectedTarget = undefined;
+                    }
+                    return result;
+                } catch (error: any) {
+                    const errorToThrow = selectedTarget ?? error;
+                    selectedTarget = undefined;
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.error(errorToThrow);
+                    }
+                    throw errorToThrow;
+                } finally {
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
+                }
+            };
         }
 
         // The metadata is the transferable descriptor definition.
@@ -1379,18 +1483,8 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             // The closure works as the implicit WeakMap.
             const targetPointer = createPointer(distortedTarget);
             const targetTraits = getTargetTraits(distortedTarget);
-            let targetFunctionArity: number | undefined;
             let targetFunctionName: string | undefined;
             if (targetTraits & TargetTraits.IsFunction) {
-                const unsafeLengthDesc = ReflectGetOwnPropertyDescriptor(originalTarget, 'length');
-                if (unsafeLengthDesc) {
-                    const safeLengthDesc = unsafeLengthDesc;
-                    ReflectSetPrototypeOf(safeLengthDesc, null);
-                    const { value: safeLengthDescValue } = safeLengthDesc;
-                    if (typeof safeLengthDescValue === 'number') {
-                        targetFunctionArity = safeLengthDescValue;
-                    }
-                }
                 const unsafeNameDesc = DEV_MODE
                     ? ReflectGetOwnPropertyDescriptor(originalTarget, 'name')
                     : undefined;
@@ -1406,7 +1500,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             proxyPointer = foreignCallablePushTarget(
                 targetPointer,
                 targetTraits,
-                targetFunctionArity,
                 targetFunctionName
             );
 
@@ -1515,478 +1608,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 currentObject = ReflectGetPrototypeOf(currentObject);
             }
             return undefined;
-        }
-
-        function makeApplyOrConstructTrapForAnyNumberOfArgs(proxyTrapEnum: ProxyHandlerTraps) {
-            const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = isApplyTrap
-                ? 'callableApplyWithAnyNumberOfArgs'
-                : 'callableConstructWithAnyNumberOfArgs';
-            const foreignCallableApplyOrConstruct = isApplyTrap
-                ? foreignCallableApply
-                : foreignCallableConstruct;
-            return function applyOrConstructTrapForAnyNumberOfArgs(
-                this: BoundaryProxyHandler,
-                _shadowTarget: ShadowTarget,
-                thisArgOrArgs: any,
-                argsOrNewTarget: any
-            ) {
-                lastProxyTrapCalled = proxyTrapEnum;
-                let activity: any;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity(activityName);
-                }
-                // @ts-ignore: Prevent private property access error.
-                const { foreignTargetPointer } = this;
-                const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
-                const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
-                // Inline getTransferableValue().
-                const transferableThisArgOrNewTarget =
-                    (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
-                    typeof thisArgOrNewTarget === 'function'
-                        ? getTransferablePointer(thisArgOrNewTarget)
-                        : typeof thisArgOrNewTarget === 'undefined'
-                        ? undefined
-                        : thisArgOrNewTarget;
-                try {
-                    const pointerOrPrimitive = applyForeignCallableApplyOrConstruct(
-                        foreignCallableApplyOrConstruct,
-                        foreignTargetPointer,
-                        transferableThisArgOrNewTarget,
-                        args
-                    );
-                    let result: any = pointerOrPrimitive;
-                    if (typeof pointerOrPrimitive === 'function') {
-                        pointerOrPrimitive();
-                        result = selectedTarget;
-                        selectedTarget = undefined;
-                    }
-                    return result;
-                } catch (error: any) {
-                    const errorToThrow = selectedTarget ?? error;
-                    selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.error(errorToThrow);
-                    }
-                    throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
-                }
-            };
-        }
-
-        function makeApplyOrConstructTrapForZeroOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
-            const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = isApplyTrap
-                ? 'callableApplyWithZeroOrMoreArgs'
-                : 'callableConstructWithZeroOrMoreArgs';
-            const foreignCallableApplyOrConstruct = isApplyTrap
-                ? foreignCallableApply
-                : foreignCallableConstruct;
-            return function applyOrConstructTrapForZeroOrMoreArgs(
-                this: BoundaryProxyHandler,
-                _shadowTarget: ShadowTarget,
-                thisArgOrArgs: any,
-                argsOrNewTarget: any
-            ) {
-                lastProxyTrapCalled = proxyTrapEnum;
-                let activity: any;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity(activityName);
-                }
-                // @ts-ignore: Prevent private property access error.
-                const { foreignTargetPointer } = this;
-                const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
-                const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
-                // Inline getTransferableValue().
-                const transferableThisArgOrNewTarget =
-                    (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
-                    typeof thisArgOrNewTarget === 'function'
-                        ? getTransferablePointer(thisArgOrNewTarget)
-                        : typeof thisArgOrNewTarget === 'undefined'
-                        ? undefined
-                        : thisArgOrNewTarget;
-                try {
-                    const pointerOrPrimitive =
-                        args.length === 0
-                            ? foreignCallableApplyOrConstruct(
-                                  foreignTargetPointer,
-                                  transferableThisArgOrNewTarget
-                              )
-                            : applyForeignCallableApplyOrConstruct(
-                                  foreignCallableApplyOrConstruct,
-                                  foreignTargetPointer,
-                                  transferableThisArgOrNewTarget,
-                                  args
-                              );
-                    let result: any = pointerOrPrimitive;
-                    if (typeof pointerOrPrimitive === 'function') {
-                        pointerOrPrimitive();
-                        result = selectedTarget;
-                        selectedTarget = undefined;
-                    }
-                    return result;
-                } catch (error: any) {
-                    const errorToThrow = selectedTarget ?? error;
-                    selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.error(errorToThrow);
-                    }
-                    throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
-                }
-            };
-        }
-
-        function makeApplyOrConstructTrapForOneOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
-            const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = isApplyTrap
-                ? 'callableApplyWithOneOrMoreArgs'
-                : 'callableConstructWithOneOrMoreArgs';
-            const foreignCallableApplyOrConstruct = isApplyTrap
-                ? foreignCallableApply
-                : foreignCallableConstruct;
-            return function applyOrConstructTrapForOneOrMoreArgs(
-                this: BoundaryProxyHandler,
-                _shadowTarget: ShadowTarget,
-                thisArgOrArgs: any,
-                argsOrNewTarget: any
-            ) {
-                lastProxyTrapCalled = proxyTrapEnum;
-                let activity: any;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity(activityName);
-                }
-                // @ts-ignore: Prevent private property access error.
-                const { foreignTargetPointer } = this;
-                const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
-                const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
-                // Inline getTransferableValue().
-                const transferableThisArgOrNewTarget =
-                    (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
-                    typeof thisArgOrNewTarget === 'function'
-                        ? getTransferablePointer(thisArgOrNewTarget)
-                        : typeof thisArgOrNewTarget === 'undefined'
-                        ? undefined
-                        : thisArgOrNewTarget;
-                try {
-                    let pointerOrPrimitive: PointerOrPrimitive;
-                    if (args.length === 1) {
-                        const { 0: arg0 } = args;
-                        pointerOrPrimitive = foreignCallableApplyOrConstruct(
-                            foreignTargetPointer,
-                            transferableThisArgOrNewTarget,
-                            // Inline getTransferableValue().
-                            (typeof arg0 === 'object' && arg0 !== null) ||
-                                typeof arg0 === 'function'
-                                ? getTransferablePointer(arg0)
-                                : typeof arg0 === 'undefined'
-                                ? undefined
-                                : arg0
-                        );
-                    } else {
-                        pointerOrPrimitive = applyForeignCallableApplyOrConstruct(
-                            foreignCallableApplyOrConstruct,
-                            foreignTargetPointer,
-                            transferableThisArgOrNewTarget,
-                            args
-                        );
-                    }
-                    let result: any = pointerOrPrimitive;
-                    if (typeof pointerOrPrimitive === 'function') {
-                        pointerOrPrimitive();
-                        result = selectedTarget;
-                        selectedTarget = undefined;
-                    }
-                    return result;
-                } catch (error: any) {
-                    const errorToThrow = selectedTarget ?? error;
-                    selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.error(errorToThrow);
-                    }
-                    throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
-                }
-            };
-        }
-
-        function makeApplyOrConstructTrapForTwoOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
-            const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = isApplyTrap
-                ? 'callableApplyWithTwoOrMoreArgs'
-                : 'callableConstructWithTwoOrMoreArgs';
-            const foreignCallableApplyOrConstruct = isApplyTrap
-                ? foreignCallableApply
-                : foreignCallableConstruct;
-            return function applyOrConstructTrapForTwoOrMoreArgs(
-                this: BoundaryProxyHandler,
-                _shadowTarget: ShadowTarget,
-                thisArgOrArgs: any,
-                argsOrNewTarget: any
-            ) {
-                lastProxyTrapCalled = proxyTrapEnum;
-                let activity: any;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity(activityName);
-                }
-                // @ts-ignore: Prevent private property access error.
-                const { foreignTargetPointer } = this;
-                const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
-                const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
-                // Inline getTransferableValue().
-                const transferableThisArgOrNewTarget =
-                    (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
-                    typeof thisArgOrNewTarget === 'function'
-                        ? getTransferablePointer(thisArgOrNewTarget)
-                        : typeof thisArgOrNewTarget === 'undefined'
-                        ? undefined
-                        : thisArgOrNewTarget;
-                try {
-                    let pointerOrPrimitive: PointerOrPrimitive;
-                    if (args.length === 2) {
-                        const { 0: arg0, 1: arg1 } = args;
-                        pointerOrPrimitive = foreignCallableApplyOrConstruct(
-                            foreignTargetPointer,
-                            transferableThisArgOrNewTarget,
-                            // Inline getTransferableValue().
-                            (typeof arg0 === 'object' && arg0 !== null) ||
-                                typeof arg0 === 'function'
-                                ? getTransferablePointer(arg0)
-                                : typeof arg0 === 'undefined'
-                                ? undefined
-                                : arg0,
-                            // Inline getTransferableValue().
-                            (typeof arg1 === 'object' && arg1 !== null) ||
-                                typeof arg1 === 'function'
-                                ? getTransferablePointer(arg1)
-                                : typeof arg1 === 'undefined'
-                                ? undefined
-                                : arg1
-                        );
-                    } else {
-                        pointerOrPrimitive = applyForeignCallableApplyOrConstruct(
-                            foreignCallableApplyOrConstruct,
-                            foreignTargetPointer,
-                            transferableThisArgOrNewTarget,
-                            args
-                        );
-                    }
-                    let result: any = pointerOrPrimitive;
-                    if (typeof pointerOrPrimitive === 'function') {
-                        pointerOrPrimitive();
-                        result = selectedTarget;
-                        selectedTarget = undefined;
-                    }
-                    return result;
-                } catch (error: any) {
-                    const errorToThrow = selectedTarget ?? error;
-                    selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.error(errorToThrow);
-                    }
-                    throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
-                }
-            };
-        }
-
-        function makeApplyOrConstructTrapForThreeOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
-            const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = isApplyTrap
-                ? 'callableApplyWithThreeOrMoreArgs'
-                : 'callableConstructWithThreeOrMoreArgs';
-            const foreignCallableApplyOrConstruct = isApplyTrap
-                ? foreignCallableApply
-                : foreignCallableConstruct;
-            return function applyOrConstructTrapForThreeOrMoreArgs(
-                this: BoundaryProxyHandler,
-                _shadowTarget: ShadowTarget,
-                thisArgOrArgs: any,
-                argsOrNewTarget: any
-            ) {
-                lastProxyTrapCalled = proxyTrapEnum;
-                let activity: any;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity(activityName);
-                }
-                // @ts-ignore: Prevent private property access error.
-                const { foreignTargetPointer } = this;
-                const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
-                const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
-                // Inline getTransferableValue().
-                const transferableThisArgOrNewTarget =
-                    (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
-                    typeof thisArgOrNewTarget === 'function'
-                        ? getTransferablePointer(thisArgOrNewTarget)
-                        : typeof thisArgOrNewTarget === 'undefined'
-                        ? undefined
-                        : thisArgOrNewTarget;
-                try {
-                    let pointerOrPrimitive: PointerOrPrimitive;
-                    if (args.length === 3) {
-                        const { 0: arg0, 1: arg1, 2: arg2 } = args;
-                        pointerOrPrimitive = foreignCallableApplyOrConstruct(
-                            foreignTargetPointer,
-                            transferableThisArgOrNewTarget,
-                            // Inline getTransferableValue().
-                            (typeof arg0 === 'object' && arg0 !== null) ||
-                                typeof arg0 === 'function'
-                                ? getTransferablePointer(arg0)
-                                : typeof arg0 === 'undefined'
-                                ? undefined
-                                : arg0,
-                            // Inline getTransferableValue().
-                            (typeof arg1 === 'object' && arg1 !== null) ||
-                                typeof arg1 === 'function'
-                                ? getTransferablePointer(arg1)
-                                : typeof arg1 === 'undefined'
-                                ? undefined
-                                : arg1,
-                            // Inline getTransferableValue().
-                            (typeof arg2 === 'object' && arg2 !== null) ||
-                                typeof arg2 === 'function'
-                                ? getTransferablePointer(arg2)
-                                : typeof arg2 === 'undefined'
-                                ? undefined
-                                : arg2
-                        );
-                    } else {
-                        pointerOrPrimitive = applyForeignCallableApplyOrConstruct(
-                            foreignCallableApplyOrConstruct,
-                            foreignTargetPointer,
-                            transferableThisArgOrNewTarget,
-                            args
-                        );
-                    }
-                    let result: any = pointerOrPrimitive;
-                    if (typeof pointerOrPrimitive === 'function') {
-                        pointerOrPrimitive();
-                        result = selectedTarget;
-                        selectedTarget = undefined;
-                    }
-                    return result;
-                } catch (error: any) {
-                    const errorToThrow = selectedTarget ?? error;
-                    selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.error(errorToThrow);
-                    }
-                    throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
-                }
-            };
-        }
-
-        function makeApplyOrConstructTrapForFourOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
-            const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = isApplyTrap
-                ? 'callableApplyWithFourOrMoreArgs'
-                : 'callableConstructWithFourOrMoreArgs';
-            const foreignCallableApplyOrConstruct = isApplyTrap
-                ? foreignCallableApply
-                : foreignCallableConstruct;
-            return function applyOrConstructTrapForFourOrMoreArgs(
-                this: BoundaryProxyHandler,
-                _shadowTarget: ShadowTarget,
-                thisArgOrArgs: any,
-                argsOrNewTarget: any
-            ) {
-                lastProxyTrapCalled = proxyTrapEnum;
-                let activity: any;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity(activityName);
-                }
-                // @ts-ignore: Prevent private property access error.
-                const { foreignTargetPointer } = this;
-                const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
-                const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
-                // Inline getTransferableValue().
-                const transferableThisArgOrNewTarget =
-                    (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
-                    typeof thisArgOrNewTarget === 'function'
-                        ? getTransferablePointer(thisArgOrNewTarget)
-                        : typeof thisArgOrNewTarget === 'undefined'
-                        ? undefined
-                        : thisArgOrNewTarget;
-                try {
-                    let pointerOrPrimitive: PointerOrPrimitive;
-                    if (args.length === 4) {
-                        const { 0: arg0, 1: arg1, 2: arg2, 3: arg3 } = args;
-                        pointerOrPrimitive = foreignCallableApplyOrConstruct(
-                            foreignTargetPointer,
-                            transferableThisArgOrNewTarget,
-                            // Inline getTransferableValue().
-                            (typeof arg0 === 'object' && arg0 !== null) ||
-                                typeof arg0 === 'function'
-                                ? getTransferablePointer(arg0)
-                                : typeof arg0 === 'undefined'
-                                ? undefined
-                                : arg0,
-                            // Inline getTransferableValue().
-                            (typeof arg1 === 'object' && arg1 !== null) ||
-                                typeof arg1 === 'function'
-                                ? getTransferablePointer(arg1)
-                                : typeof arg1 === 'undefined'
-                                ? undefined
-                                : arg1,
-                            // Inline getTransferableValue().
-                            (typeof arg2 === 'object' && arg2 !== null) ||
-                                typeof arg2 === 'function'
-                                ? getTransferablePointer(arg2)
-                                : typeof arg2 === 'undefined'
-                                ? undefined
-                                : arg2,
-                            // Inline getTransferableValue().
-                            (typeof arg3 === 'object' && arg3 !== null) ||
-                                typeof arg3 === 'function'
-                                ? getTransferablePointer(arg3)
-                                : typeof arg3 === 'undefined'
-                                ? undefined
-                                : arg3
-                        );
-                    } else {
-                        pointerOrPrimitive = applyForeignCallableApplyOrConstruct(
-                            foreignCallableApplyOrConstruct,
-                            foreignTargetPointer,
-                            transferableThisArgOrNewTarget,
-                            args
-                        );
-                    }
-                    let result: any = pointerOrPrimitive;
-                    if (typeof pointerOrPrimitive === 'function') {
-                        pointerOrPrimitive();
-                        result = selectedTarget;
-                        selectedTarget = undefined;
-                    }
-                    return result;
-                } catch (error: any) {
-                    const errorToThrow = selectedTarget ?? error;
-                    selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.error(errorToThrow);
-                    }
-                    throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
-                }
-            };
         }
 
         function passthruForeignCallableSet(
@@ -2165,7 +1786,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             constructor(
                 foreignTargetPointer: Pointer,
                 foreignTargetTraits: TargetTraits,
-                foreignTargetFunctionArity: number | undefined,
                 foreignTargetFunctionName: string | undefined
             ) {
                 const shadowTarget = createShadowTarget(
@@ -2205,11 +1825,8 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 this.staticToStringTag = undefined;
                 // Define default traps.
                 if (foreignTargetTraits & TargetTraits.IsFunction) {
-                    const invokeTrapMaker =
-                        arityToInvokeTrapMakerRegistry[foreignTargetFunctionArity as number] ??
-                        arityToInvokeTrapMakerRegistry.n;
-                    this.apply = invokeTrapMaker(ProxyHandlerTraps.Apply);
-                    this.construct = invokeTrapMaker(ProxyHandlerTraps.Construct);
+                    this.apply = createApplyOrConstructTrap(ProxyHandlerTraps.Apply);
+                    this.construct = createApplyOrConstructTrap(ProxyHandlerTraps.Construct);
                 }
                 this.defineProperty = BoundaryProxyHandler.defaultDefinePropertyTrap;
                 this.deleteProperty = BoundaryProxyHandler.defaultDeletePropertyTrap;
@@ -3102,13 +2719,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             (
                 foreignTargetPointer: () => void,
                 foreignTargetTraits: TargetTraits,
-                foreignTargetFunctionArity: number | undefined,
                 foreignTargetFunctionName: string | undefined
             ): Pointer => {
                 const { proxy } = new BoundaryProxyHandler(
                     foreignTargetPointer,
                     foreignTargetTraits,
-                    foreignTargetFunctionArity,
                     foreignTargetFunctionName
                 );
                 ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [
