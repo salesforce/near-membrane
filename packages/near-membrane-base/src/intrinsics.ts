@@ -1,7 +1,7 @@
 import { VirtualEnvironment } from './environment';
 import { PropertyKeys } from './types';
 
-const { includes: ArrayProtoIncludes, push: ArrayProtoPush } = Array.prototype;
+const { includes: ArrayProtoIncludes } = Array.prototype;
 const { assign: ObjectAssign } = Object;
 const { apply: ReflectApply, ownKeys: ReflectOwnKeys } = Reflect;
 
@@ -164,7 +164,7 @@ export function getFilteredGlobalOwnKeys(source: object): PropertyKeys {
         if (
             !ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveIntrinsicObjectNames, [ownKey])
         ) {
-            ReflectApply(ArrayProtoPush, result, [ownKey]);
+            result[result.length] = ownKey;
         }
     }
     return result;
