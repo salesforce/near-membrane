@@ -1,7 +1,7 @@
 import { Instrumentation } from './instrumentation';
 import {
     createMembraneMarshall,
-    CallableDefineProperty,
+    CallableDefineProperties,
     CallableEvaluate,
     CallableGetPropertyValuePointer,
     CallableInstallLazyDescriptors,
@@ -60,9 +60,9 @@ export class VirtualEnvironment {
 
     private redCallableLinkPointers: CallableLinkPointers;
 
-    private redCallableDefineProperty: CallableDefineProperty;
-
     private redCallableSetPrototypeOf: CallableSetPrototypeOf;
+
+    private redCallableDefineProperties: CallableDefineProperties;
 
     private redCallableInstallLazyDescriptors: CallableInstallLazyDescriptors;
 
@@ -78,6 +78,7 @@ export class VirtualEnvironment {
             redConnector,
             distortionCallback,
             instrumentation,
+            // eslint-disable-next-line prefer-object-spread
         } = ObjectAssign({ __proto__: null }, providedOptions);
         this.blueConnector = blueConnector;
         this.redConnector = redConnector;
@@ -131,7 +132,7 @@ export class VirtualEnvironment {
             // 6: redCallablePushTarget,
             // 7: redCallableApply,
             // 8: redCallableConstruct,
-            9: redCallableDefineProperty,
+            // 9: redCallableDefineProperty,
             // 10: redCallableDeleteProperty,
             // 11: redCallableGet,
             // 12: redCallableGetOwnPropertyDescriptor,
@@ -143,17 +144,18 @@ export class VirtualEnvironment {
             // 18: redCallableSet,
             19: redCallableSetPrototypeOf,
             // 20: redCallableDebugInfo,
-            // 21: redCallableGetTargetIntegrityTraits,
-            // 22: redCallableGetToStringTagOfTarget,
-            // 23: redCallableInstallErrorPrepareStackTrace,
-            24: redCallableInstallLazyDescriptors,
+            21: redCallableDefineProperties,
+            // 22: redCallableGetTargetIntegrityTraits,
+            // 23: redCallableGetToStringTagOfTarget,
+            // 24: redCallableInstallErrorPrepareStackTrace,
+            25: redCallableInstallLazyDescriptors,
         } = redHooks!;
         this.redGlobalThisPointer = redGlobalThisPointer;
         this.redCallableGetPropertyValuePointer = redCallableGetPropertyValuePointer;
         this.redCallableEvaluate = redCallableEvaluate;
         this.redCallableLinkPointers = redCallableLinkPointers;
-        this.redCallableDefineProperty = redCallableDefineProperty;
         this.redCallableSetPrototypeOf = redCallableSetPrototypeOf;
+        this.redCallableDefineProperties = redCallableDefineProperties;
         this.redCallableInstallLazyDescriptors = redCallableInstallLazyDescriptors;
     }
 
@@ -176,7 +178,7 @@ export class VirtualEnvironment {
         unforgeableGlobalThisKeys?: PropertyKeys
     ) {
         const targetPointer = this.blueGetTransferableValue(target) as Pointer;
-        const args: any[] = [targetPointer];
+        const args: Parameters<CallableInstallLazyDescriptors> = [targetPointer];
         ReflectApply(ArrayProtoPush, args, ownKeys);
         if (unforgeableGlobalThisKeys?.length) {
             // Use `LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL` to delimit
@@ -199,15 +201,19 @@ export class VirtualEnvironment {
         }
     }
 
-    remap(target: ProxyTarget, safeBlueDescMap: PropertyDescriptorMap) {
-        const ownKeys = ReflectOwnKeys(safeBlueDescMap);
+    remap(target: ProxyTarget, unsafeBlueDescMap: PropertyDescriptorMap) {
+        const ownKeys = ReflectOwnKeys(unsafeBlueDescMap);
         const targetPointer = this.blueGetTransferableValue(target) as Pointer;
+        const args = [targetPointer] as unknown as Parameters<CallableDefineProperties>;
         for (let i = 0, { length } = ownKeys; i < length; i += 1) {
             const ownKey = ownKeys[i];
-            const safeBlueDesc = (safeBlueDescMap as any)[ownKey];
-            // prettier-ignore
-            this.redCallableDefineProperty(
-                targetPointer,
+            const unsafeBlueDesc = (unsafeBlueDescMap as any)[ownKey];
+            // Avoid poisoning by only installing own properties from unsafeBlueDescMap.
+            // We don't use a toSafeDescriptor() style helper since that mutates
+            // the unsafeBlueDesc.
+            // eslint-disable-next-line prefer-object-spread
+            const safeBlueDesc = ObjectAssign({ __proto__: null }, unsafeBlueDesc);
+            ReflectApply(ArrayProtoPush, args, [
                 ownKey,
                 'configurable' in safeBlueDesc
                     ? !!safeBlueDesc.configurable
@@ -222,13 +228,14 @@ export class VirtualEnvironment {
                     ? this.blueGetTransferableValue(safeBlueDesc.value)
                     : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
                 'get' in safeBlueDesc
-                    ? this.blueGetTransferableValue(safeBlueDesc.get) as Pointer
+                    ? (this.blueGetTransferableValue(safeBlueDesc.get) as Pointer)
                     : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
                 'set' in safeBlueDesc
-                    ? this.blueGetTransferableValue(safeBlueDesc.set) as Pointer
-                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
-            );
+                    ? (this.blueGetTransferableValue(safeBlueDesc.set) as Pointer)
+                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+            ]);
         }
+        ReflectApply(this.redCallableDefineProperties, this, args);
     }
 
     remapProto(target: ProxyTarget, proto: object | null) {
