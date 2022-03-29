@@ -33,9 +33,10 @@ const LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL = Symbol.for(
 const SHOULD_TRAP_MUTATION = true;
 const SHOULD_NOT_TRAP_MUTATION = false;
 
+const ArrayCtor = Array;
 const ErrorCtor = Error;
 const ObjectCtor = Object;
-const { push: ArrayProtoPush } = Array.prototype;
+const { push: ArrayProtoPush } = ArrayCtor.prototype;
 const { assign: ObjectAssign } = ObjectCtor;
 const { apply: ReflectApply, ownKeys: ReflectOwnKeys } = Reflect;
 
@@ -183,7 +184,7 @@ export class VirtualEnvironment {
         if (unforgeableGlobalThisKeys?.length) {
             // Use `LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL` to delimit
             // `ownKeys` and `unforgeableGlobalThisKeys`.
-            ReflectApply(ArrayProtoPush, args, [LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL]);
+            args[args.length] = LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
             ReflectApply(ArrayProtoPush, args, unforgeableGlobalThisKeys);
         }
         ReflectApply(this.redCallableInstallLazyDescriptors, undefined, args);
@@ -202,10 +203,14 @@ export class VirtualEnvironment {
     }
 
     remap(target: ProxyTarget, unsafeBlueDescMap: PropertyDescriptorMap) {
-        const ownKeys = ReflectOwnKeys(unsafeBlueDescMap);
         const targetPointer = this.blueGetTransferableValue(target) as Pointer;
-        const args = [targetPointer] as unknown as Parameters<CallableDefineProperties>;
-        for (let i = 0, { length } = ownKeys; i < length; i += 1) {
+        const ownKeys = ReflectOwnKeys(unsafeBlueDescMap);
+        const { length } = ownKeys;
+        const args = new ArrayCtor(
+            1 + length * 7
+        ) as unknown as Parameters<CallableDefineProperties>;
+        args[0] = targetPointer;
+        for (let i = 0, j = 1; i < length; i += 1, j += 7) {
             const ownKey = ownKeys[i];
             const unsafeBlueDesc = (unsafeBlueDescMap as any)[ownKey];
             // Avoid poisoning by only installing own properties from unsafeBlueDescMap.
@@ -213,27 +218,31 @@ export class VirtualEnvironment {
             // the unsafeBlueDesc.
             // eslint-disable-next-line prefer-object-spread
             const safeBlueDesc = ObjectAssign({ __proto__: null }, unsafeBlueDesc);
-            ReflectApply(ArrayProtoPush, args, [
-                ownKey,
+            args[j] = ownKey;
+            args[j + 1] =
                 'configurable' in safeBlueDesc
                     ? !!safeBlueDesc.configurable
-                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
+            args[j + 2] =
                 'enumerable' in safeBlueDesc
                     ? !!safeBlueDesc.enumerable
-                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
+            args[j + 3] =
                 'writable' in safeBlueDesc
                     ? !!safeBlueDesc.writable
-                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
+            args[j + 4] =
                 'value' in safeBlueDesc
                     ? this.blueGetTransferableValue(safeBlueDesc.value)
-                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
+            args[j + 5] =
                 'get' in safeBlueDesc
                     ? (this.blueGetTransferableValue(safeBlueDesc.get) as Pointer)
-                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
+            args[j + 6] =
                 'set' in safeBlueDesc
                     ? (this.blueGetTransferableValue(safeBlueDesc.set) as Pointer)
-                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
-            ]);
+                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
         }
         ReflectApply(this.redCallableDefineProperties, this, args);
     }

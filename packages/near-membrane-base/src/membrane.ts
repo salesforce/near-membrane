@@ -796,59 +796,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
           }
         : ((() => {}) as unknown as CallableInstallErrorPrepareStackTrace);
 
-    function isTargetLive(target: ProxyTarget): boolean {
-        if (target === ObjectProto) {
-            return false;
-        }
-        try {
-            if (typeof target === 'object') {
-                const { constructor } = target;
-                if (constructor === ObjectCtor) {
-                    // If the constructor, own or inherited, points to `Object`
-                    // then `value` is not likely a prototype object.
-                    return true;
-                }
-                if (ReflectGetPrototypeOf(target) === null) {
-                    // Ensure `value` is not an `Object.prototype` from an iframe.
-                    if (typeof constructor !== 'function' || constructor.prototype !== target) {
-                        return true;
-                    }
-                }
-                // We only check for typed arrays, array buffers, and regexp here
-                // since plain arrays are marked as live in the BoundaryProxyHandler
-                // constructor.
-                if (ArrayBufferIsView(target)) {
-                    return true;
-                }
-                try {
-                    // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
-                    // https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.bytelength
-                    // Step 2: Perform ? RequireInternalSlot(O, [[ArrayBufferData]]).
-                    ReflectApply(ArrayBufferProtoByteLengthGetter, target, []);
-                    return true;
-                    // eslint-disable-next-line no-empty
-                } catch {}
-                try {
-                    // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
-                    // https://tc39.es/ecma262/#sec-get-regexp.prototype.source
-                    // Step 3: If R does not have an [[OriginalSource]] internal slot, then
-                    //     a. If SameValue(R, %RegExp.prototype%) is true, return "(?:)".
-                    //     b. Otherwise, throw a TypeError exception.
-                    if (target !== RegExpProto) {
-                        ReflectApply(RegExpProtoSourceGetter, target, []);
-                        return true;
-                    }
-                    // eslint-disable-next-line no-empty
-                } catch {}
-            }
-            return ReflectApply(ObjectProtoHasOwnProperty, target, [
-                LOCKER_LIVE_VALUE_MARKER_SYMBOL,
-            ]);
-            // eslint-disable-next-line no-empty
-        } catch {}
-        return false;
-    }
-
     function serializeBigIntObject(bigIntObject: BigInt): bigint {
         // Section 21.2.3 Properties of the BigInt Prototype Object
         // https://tc39.es/ecma262/#thisbigintvalue
@@ -3179,9 +3126,59 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
-                // We don't wrap `isTargetLive()` in a try-catch because it
-                // cannot throw.
-                return isTargetLive(target);
+                if (target === ObjectProto) {
+                    return false;
+                }
+                try {
+                    if (typeof target === 'object') {
+                        const { constructor } = target;
+                        if (constructor === ObjectCtor) {
+                            // If the constructor, own or inherited, points to `Object`
+                            // then `value` is not likely a prototype object.
+                            return true;
+                        }
+                        if (ReflectGetPrototypeOf(target) === null) {
+                            // Ensure `value` is not an `Object.prototype` from an iframe.
+                            if (
+                                typeof constructor !== 'function' ||
+                                constructor.prototype !== target
+                            ) {
+                                return true;
+                            }
+                        }
+                        // We only check for typed arrays, array buffers, and regexp here
+                        // since plain arrays are marked as live in the BoundaryProxyHandler
+                        // constructor.
+                        if (ArrayBufferIsView(target)) {
+                            return true;
+                        }
+                        try {
+                            // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
+                            // https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.bytelength
+                            // Step 2: Perform ? RequireInternalSlot(O, [[ArrayBufferData]]).
+                            ReflectApply(ArrayBufferProtoByteLengthGetter, target, []);
+                            return true;
+                            // eslint-disable-next-line no-empty
+                        } catch {}
+                        try {
+                            // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
+                            // https://tc39.es/ecma262/#sec-get-regexp.prototype.source
+                            // Step 3: If R does not have an [[OriginalSource]] internal slot, then
+                            //     a. If SameValue(R, %RegExp.prototype%) is true, return "(?:)".
+                            //     b. Otherwise, throw a TypeError exception.
+                            if (target !== RegExpProto) {
+                                ReflectApply(RegExpProtoSourceGetter, target, []);
+                                return true;
+                            }
+                            // eslint-disable-next-line no-empty
+                        } catch {}
+                    }
+                    return ReflectApply(ObjectProtoHasOwnProperty, target, [
+                        LOCKER_LIVE_VALUE_MARKER_SYMBOL,
+                    ]);
+                    // eslint-disable-next-line no-empty
+                } catch {}
+                return false;
             },
             // callableIsTargetRevoked
             (targetPointer: Pointer): boolean => {
@@ -3220,7 +3217,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 }
                 const ownKeys = ReflectOwnKeys(unsafeDescMap);
                 const { length } = ownKeys;
-                const descriptorTuples: any = new ArrayCtor(length * 7);
+                const descriptorTuples = new ArrayCtor(
+                    length * 7
+                ) as unknown as Parameters<CallableDescriptorCallback>;
                 for (let i = 0, j = 0; i < length; i += 1, j += 7) {
                     const ownKey = ownKeys[i];
                     const unsafeDesc = (unsafeDescMap as any)[ownKey];
