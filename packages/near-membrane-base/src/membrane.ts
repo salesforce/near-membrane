@@ -169,14 +169,8 @@ export interface HooksOptions {
 export type Pointer = CallableFunction;
 export type ProxyTarget = CallableFunction | any[] | object;
 
-export const sharedMembraneState = {
-    proxyTargetToLazyPropertyStateMap: new WeakMap(),
-};
 // istanbul ignore next
-export function createMembraneMarshall(
-    isInShadowRealm?: boolean,
-    { proxyTargetToLazyPropertyStateMap } = sharedMembraneState
-) {
+export function createMembraneMarshall(isInShadowRealm?: boolean) {
     /* eslint-disable prefer-object-spread */
     const ArrayCtor = Array;
     const ArrayBufferCtor = ArrayBuffer;
@@ -325,6 +319,8 @@ export function createMembraneMarshall(
     let installedPropertyDescriptorMethodWrappersFlag = false;
     // Lazily populated in `getUnforgeableGlobalThisGetter()`;
     const keyToGlobalThisGetterRegistry = { __proto__: null };
+    // @TODO: Share proxyTargetToLazyPropertyStateMap across realms.
+    const proxyTargetToLazyPropertyStateMap = new WeakMapCtor();
     // eslint-disable-next-line no-shadow
     const enum PreventExtensionsResult {
         None = 0,
