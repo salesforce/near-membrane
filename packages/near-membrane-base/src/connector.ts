@@ -1,4 +1,4 @@
-import { createMembraneMarshall, sharedMembraneState } from './membrane';
+import { createMembraneMarshall } from './membrane';
 
 const TypeErrorCtor = TypeError;
 const WeakMapCtor = WeakMap;
@@ -21,10 +21,7 @@ export function createConnector(evaluator: typeof eval): ReturnType<typeof creat
         evaluator,
     ]);
     if (createHooksCallback === undefined) {
-        createHooksCallback = evaluator(createMembraneMarshallSourceInStrictMode)(
-            true,
-            sharedMembraneState
-        );
+        createHooksCallback = evaluator(createMembraneMarshallSourceInStrictMode)(true);
         ReflectApply(WeakMapProtoSet, evaluatorToCreateHooksCallbackMap, [
             evaluator,
             createHooksCallback,
