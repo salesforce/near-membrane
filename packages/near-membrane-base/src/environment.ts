@@ -14,6 +14,7 @@ import {
     Pointer,
     ProxyTarget,
 } from './membrane';
+import { PropertyKeys } from './types';
 
 interface VirtualEnvironmentOptions {
     // Blue connector factory.
@@ -171,8 +172,8 @@ export class VirtualEnvironment {
 
     lazyRemap(
         target: ProxyTarget,
-        ownKeys: (string | symbol)[],
-        unforgeableGlobalThisKeys?: (string | symbol)[]
+        ownKeys: PropertyKeys,
+        unforgeableGlobalThisKeys?: PropertyKeys
     ) {
         const targetPointer = this.blueGetTransferableValue(target) as Pointer;
         const args: any[] = [targetPointer];
@@ -186,7 +187,7 @@ export class VirtualEnvironment {
         ReflectApply(this.redCallableInstallLazyDescriptors, undefined, args);
     }
 
-    link(...keys: (string | symbol)[]) {
+    link(...keys: PropertyKeys) {
         let bluePointer = this.blueGlobalThisPointer;
         let redPointer = this.redGlobalThisPointer;
         for (let i = 0, { length } = keys; i < length; i += 1) {

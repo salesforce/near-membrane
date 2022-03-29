@@ -6,6 +6,7 @@ import {
     linkIntrinsics,
     DistortionCallback,
     Instrumentation,
+    PropertyKeys,
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
 
@@ -58,7 +59,7 @@ interface BrowserEnvironmentOptions {
 
 const createHooksCallback = createMembraneMarshall();
 
-let defaultGlobalOwnKeys: (string | symbol)[] | null = null;
+let defaultGlobalOwnKeys: PropertyKeys | null = null;
 
 function createDetachableIframe(): HTMLIFrameElement {
     const iframe = ReflectApply(DocumentProtoCreateElement, docRef, [

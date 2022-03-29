@@ -1,4 +1,5 @@
 import { VirtualEnvironment } from './environment';
+import { PropertyKeys } from './types';
 
 const { includes: ArrayProtoIncludes, push: ArrayProtoPush } = Array.prototype;
 const { assign: ObjectAssign } = Object;
@@ -152,8 +153,8 @@ export function assignFilteredGlobalDescriptorsFromPropertyDescriptorMap<
     return descMap;
 }
 
-export function getFilteredGlobalOwnKeys(source: object): (string | symbol)[] {
-    const result: (string | symbol)[] = [];
+export function getFilteredGlobalOwnKeys(source: object): PropertyKeys {
+    const result: PropertyKeys = [];
     const ownKeys = ReflectOwnKeys(source);
     for (let i = 0, { length } = ownKeys; i < length; i += 1) {
         const ownKey = ownKeys[i];
