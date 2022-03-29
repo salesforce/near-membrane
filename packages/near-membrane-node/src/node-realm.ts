@@ -43,7 +43,6 @@ export default function createVirtualEnvironment(
         __proto__: null,
         ...providedOptions,
     } as NodeEnvironmentOptions;
-    const globalOwnKeys = getFilteredGlobalOwnKeys(globalObjectShape);
     const redGlobalThis: typeof globalThis = runInNewContext('globalThis');
     const blueConnector = createHooksCallback;
     const redConnector = createConnector(redGlobalThis.eval);
@@ -54,7 +53,7 @@ export default function createVirtualEnvironment(
         instrumentation,
     });
     linkIntrinsics(env, globalObjectVirtualizationTarget);
-    env.lazyRemap(globalObjectVirtualizationTarget, globalOwnKeys);
+    env.lazyRemap(globalObjectVirtualizationTarget, getFilteredGlobalOwnKeys(globalObjectShape));
     if (endowments) {
         const filteredEndowments = {};
         assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(filteredEndowments, endowments);
