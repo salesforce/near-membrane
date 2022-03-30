@@ -41,33 +41,33 @@ const { assign: ObjectAssign } = ObjectCtor;
 const { apply: ReflectApply, ownKeys: ReflectOwnKeys } = Reflect;
 
 export class VirtualEnvironment {
-    public blueConnector: ReturnType<typeof createMembraneMarshall>;
+    public readonly blueConnector: ReturnType<typeof createMembraneMarshall>;
 
-    public redConnector: ReturnType<typeof createMembraneMarshall>;
+    public readonly redConnector: ReturnType<typeof createMembraneMarshall>;
 
-    private blueCallableGetPropertyValuePointer: CallableGetPropertyValuePointer;
+    private readonly blueCallableGetPropertyValuePointer: CallableGetPropertyValuePointer;
 
-    private blueCallableLinkPointers: CallableLinkPointers;
+    private readonly blueCallableLinkPointers: CallableLinkPointers;
 
-    private blueGetSelectedTarget: GetSelectedTarget;
+    private readonly blueGetSelectedTarget: GetSelectedTarget;
 
-    private blueGetTransferableValue: GetTransferableValue;
+    private readonly blueGetTransferableValue: GetTransferableValue;
 
-    private blueGlobalThisPointer: Pointer;
+    private readonly blueGlobalThisPointer: Pointer;
 
-    private redCallableEvaluate: CallableEvaluate;
+    private readonly redCallableEvaluate: CallableEvaluate;
 
-    private redCallableGetPropertyValuePointer: CallableGetPropertyValuePointer;
+    private readonly redCallableGetPropertyValuePointer: CallableGetPropertyValuePointer;
 
-    private redCallableLinkPointers: CallableLinkPointers;
+    private readonly redCallableLinkPointers: CallableLinkPointers;
 
-    private redCallableSetPrototypeOf: CallableSetPrototypeOf;
+    private readonly redCallableSetPrototypeOf: CallableSetPrototypeOf;
 
-    private redCallableDefineProperties: CallableDefineProperties;
+    private readonly redCallableDefineProperties: CallableDefineProperties;
 
-    private redCallableInstallLazyDescriptors: CallableInstallLazyDescriptors;
+    private readonly redCallableInstallLazyDescriptors: CallableInstallLazyDescriptors;
 
-    private redGlobalThisPointer: Pointer;
+    private readonly redGlobalThisPointer: Pointer;
 
     constructor(providedOptions: VirtualEnvironmentOptions) {
         if (providedOptions === undefined) {
