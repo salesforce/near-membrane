@@ -17,6 +17,13 @@ import {
     unforgeablePoisonedWindowKeys,
 } from './window';
 
+interface BrowserEnvironmentOptions {
+    distortionCallback?: DistortionCallback;
+    endowments?: PropertyDescriptorMap;
+    keepAlive?: boolean;
+    instrumentation?: Instrumentation;
+}
+
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 
 const ObjectCtor = Object;
@@ -49,15 +56,7 @@ const NodeProtoLastChildGetter = ReflectApply(ObjectProto__lookupGetter__, NodeP
     'lastChild',
 ])!;
 const docRef = document;
-
-interface BrowserEnvironmentOptions {
-    distortionCallback?: DistortionCallback;
-    endowments?: PropertyDescriptorMap;
-    keepAlive?: boolean;
-    instrumentation?: Instrumentation;
-}
-
-const createHooksCallback = createMembraneMarshall();
+const blueConnector = createMembraneMarshall();
 
 let defaultGlobalOwnKeys: PropertyKeys | null = null;
 
@@ -77,7 +76,7 @@ function createDetachableIframe(): HTMLIFrameElement {
     return iframe;
 }
 
-export default function createVirtualEnvironment(
+function createIframeVirtualEnvironment(
     globalObjectShape: object | null,
     globalObjectVirtualizationTarget: WindowProxy & typeof globalThis,
     providedOptions?: BrowserEnvironmentOptions
@@ -99,28 +98,20 @@ export default function createVirtualEnvironment(
         // eslint-disable-next-line prefer-object-spread
     } = ObjectAssign({ __proto__: null }, providedOptions);
     const iframe = createDetachableIframe();
-    const {
-        window: redWindow,
-        window: { document: redDocument },
-    } = ReflectApply(HTMLIFrameElementProtoContentWindowGetter, iframe, [])!;
-    let globalOwnKeys;
-    if (globalObjectShape === null) {
-        if (defaultGlobalOwnKeys === null) {
-            defaultGlobalOwnKeys = filterWindowKeys(getFilteredGlobalOwnKeys(redWindow));
-        }
-        globalOwnKeys = defaultGlobalOwnKeys;
-    } else {
-        globalOwnKeys = filterWindowKeys(getFilteredGlobalOwnKeys(globalObjectShape));
+    const redWindow: Window & typeof globalThis = ReflectApply(
+        HTMLIFrameElementProtoContentWindowGetter,
+        iframe,
+        []
+    )!;
+    const shouldUseDefaultGlobalOwnKeys = globalObjectShape === null;
+    if (shouldUseDefaultGlobalOwnKeys && defaultGlobalOwnKeys === null) {
+        defaultGlobalOwnKeys = filterWindowKeys(getFilteredGlobalOwnKeys(redWindow));
     }
-    const blueConnector = createHooksCallback;
-    const redConnector = createConnector(redWindow.eval);
-    // Extract the global references and descriptors before any interference.
     const blueRefs = getCachedGlobalObjectReferences(globalObjectVirtualizationTarget);
-    // Create a new environment.
     const env = new VirtualEnvironment({
         blueConnector,
         distortionCallback,
-        redConnector,
+        redConnector: createConnector(redWindow.eval),
         instrumentation,
     });
     linkIntrinsics(env, globalObjectVirtualizationTarget);
@@ -142,7 +133,9 @@ export default function createVirtualEnvironment(
     env.remapProto(blueRefs.document, blueRefs.DocumentProto);
     env.lazyRemap(
         blueRefs.window,
-        globalOwnKeys,
+        shouldUseDefaultGlobalOwnKeys
+            ? (defaultGlobalOwnKeys as PropertyKeys)
+            : filterWindowKeys(getFilteredGlobalOwnKeys(globalObjectShape)),
         // Chromium based browsers have a bug that nulls the result of `window`
         // getters in detached iframes when the property descriptor of `window.window`
         // is retrieved.
@@ -150,7 +143,7 @@ export default function createVirtualEnvironment(
         keepAlive ? undefined : unforgeablePoisonedWindowKeys
     );
     if (endowments) {
-        const filteredEndowments = {};
+        const filteredEndowments: PropertyDescriptorMap = {};
         assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(filteredEndowments, endowments);
         removeWindowDescriptors(filteredEndowments);
         env.remap(blueRefs.window, filteredEndowments);
@@ -166,6 +159,7 @@ export default function createVirtualEnvironment(
     if (keepAlive) {
         // TODO: Temporary hack to preserve the document reference in Firefox.
         // https://bugzilla.mozilla.org/show_bug.cgi?id=543435
+        const { document: redDocument } = redWindow;
         ReflectApply(DocumentProtoOpen, redDocument, []);
         ReflectApply(DocumentProtoClose, redDocument, []);
     } else {
@@ -173,3 +167,5 @@ export default function createVirtualEnvironment(
     }
     return env;
 }
+
+export default createIframeVirtualEnvironment;
