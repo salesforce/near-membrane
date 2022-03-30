@@ -368,39 +368,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         Revoked = 1 << 4,
     }
 
-    function createShadowTarget(
-        targetTraits: TargetTraits,
-        targetFunctionName: string | undefined
-    ): ShadowTarget {
-        let shadowTarget: ShadowTarget;
-        if (targetTraits & TargetTraits.IsFunction) {
-            // This shadow target is never invoked. It's needed to avoid
-            // proxy trap invariants. Because it's not invoked the code does
-            // not need to be instrumented for code coverage.
-            //
-            // istanbul ignore next
-            shadowTarget =
-                // eslint-disable-next-line func-names
-                targetTraits & TargetTraits.IsArrowFunction ? () => {} : function () {};
-            if (DEV_MODE && typeof targetFunctionName === 'string') {
-                // This is only really needed for debugging,
-                // it helps to identify the proxy by name
-                ReflectDefineProperty(shadowTarget, 'name', {
-                    __proto__: null,
-                    configurable: true,
-                    enumerable: false,
-                    value: targetFunctionName,
-                    writable: false,
-                } as PropertyDescriptor);
-            }
-        } else if (targetTraits & TargetTraits.IsArray) {
-            shadowTarget = [];
-        } else {
-            shadowTarget = {};
-        }
-        return shadowTarget;
-    }
-
     function getUnforgeableGlobalThisGetter(key: PropertyKey): () => typeof globalThis {
         let globalThisGetter = keyToGlobalThisGetterRegistry[key];
         if (globalThisGetter === undefined) {
@@ -1661,11 +1628,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
             ownKeys: ProxyHandler<ShadowTarget>['ownKeys'];
 
-            nonConfigurableDescriptorCallback: CallableNonConfigurableDescriptorCallback;
-
             preventExtensions: ProxyHandler<ShadowTarget>['preventExtensions'];
-
-            proxy: ShadowTarget;
 
             revoke: () => void;
 
@@ -1673,30 +1636,60 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
             setPrototypeOf: ProxyHandler<ShadowTarget>['setPrototypeOf'];
 
-            serializedValue: string | undefined;
-
-            staticToStringTag: string | undefined;
-
             // The membrane color help developers identify which side of the
             // membrane they are debugging.
             readonly color = color;
 
+            readonly proxy: ShadowTarget;
+
+            private serializedValue: string | undefined;
+
+            private staticToStringTag: string | undefined;
+
             private readonly foreignTargetPointer: Pointer;
 
             private readonly foreignTargetTraits = TargetTraits.None;
+
+            private readonly nonConfigurableDescriptorCallback: CallableNonConfigurableDescriptorCallback;
+
+            private readonly shadowTarget: ProxyTarget;
 
             constructor(
                 foreignTargetPointer: Pointer,
                 foreignTargetTraits: TargetTraits,
                 foreignTargetFunctionName: string | undefined
             ) {
-                const shadowTarget = createShadowTarget(
-                    foreignTargetTraits,
-                    foreignTargetFunctionName
-                );
+                let shadowTarget: ShadowTarget;
+                const isForeignTargetArray = foreignTargetTraits & TargetTraits.IsArray;
+                const isForeignTargetFunction = foreignTargetTraits & TargetTraits.IsFunction;
+                if (isForeignTargetFunction) {
+                    // This shadow target is never invoked. It's needed to avoid
+                    // proxy trap invariants. Because it's not invoked the code
+                    // does not need to be instrumented for code coverage.
+                    //
+                    // istanbul ignore next
+                    shadowTarget =
+                        foreignTargetTraits & TargetTraits.IsArrowFunction
+                            ? () => {}
+                            : function () {};
+                    if (DEV_MODE && typeof foreignTargetFunctionName === 'string') {
+                        // This is only really needed for debugging,
+                        // it helps to identify the proxy by name
+                        ReflectDefineProperty(shadowTarget, 'name', {
+                            __proto__: null,
+                            value: foreignTargetFunctionName,
+                        } as PropertyDescriptor);
+                    }
+                } else if (isForeignTargetArray) {
+                    shadowTarget = [];
+                } else {
+                    shadowTarget = {};
+                }
                 const { proxy, revoke } = ProxyRevocable(shadowTarget, this);
                 this.foreignTargetPointer = foreignTargetPointer;
                 this.foreignTargetTraits = foreignTargetTraits;
+                // Define in the BoundaryProxyHandler constructor so it is bound
+                // to the BoundaryProxyHandler instance.
                 this.nonConfigurableDescriptorCallback = (
                     key,
                     configurable,
@@ -1709,7 +1702,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     // Update the descriptor to non-configurable on the shadow
                     // target.
                     ReflectDefineProperty(
-                        shadowTarget,
+                        this.shadowTarget,
                         key,
                         createDescriptorFromMeta(
                             configurable,
@@ -1724,9 +1717,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 this.proxy = proxy;
                 this.revoke = revoke;
                 this.serializedValue = undefined;
+                this.shadowTarget = shadowTarget;
                 this.staticToStringTag = undefined;
-                // Define default traps.
-                if (foreignTargetTraits & TargetTraits.IsFunction) {
+                // Define traps.
+                if (isForeignTargetFunction) {
                     this.apply = createApplyOrConstructTrap(ProxyHandlerTraps.Apply);
                     this.construct = createApplyOrConstructTrap(ProxyHandlerTraps.Construct);
                 }
@@ -1746,7 +1740,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     revoke();
                 }
                 if (trapMutations) {
-                    if (foreignTargetTraits & TargetTraits.IsArray) {
+                    if (isForeignTargetArray) {
                         this.makeProxyLive();
                     }
                 } else {
@@ -1790,8 +1784,24 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 ObjectFreeze(this);
             }
 
-            private makeProxyStatic(shadowTarget: ShadowTarget) {
-                const { foreignTargetPointer } = this;
+            private makeProxyStatic() {
+                // Reset all traps except apply and construct for static proxies
+                // since the proxy target is the shadow target and all operations
+                // are going to be applied to it rather than the real target.
+                this.defineProperty = BoundaryProxyHandler.staticDefinePropertyTrap;
+                this.deleteProperty = BoundaryProxyHandler.staticDeletePropertyTrap;
+                this.get = BoundaryProxyHandler.staticGetTrap;
+                this.getOwnPropertyDescriptor =
+                    BoundaryProxyHandler.staticGetOwnPropertyDescriptorTrap;
+                this.getPrototypeOf = BoundaryProxyHandler.staticGetPrototypeOfTrap;
+                this.has = BoundaryProxyHandler.staticHasTrap;
+                this.isExtensible = BoundaryProxyHandler.staticIsExtensibleTrap;
+                this.ownKeys = BoundaryProxyHandler.staticOwnKeysTrap;
+                this.preventExtensions = BoundaryProxyHandler.staticPreventExtensionsTrap;
+                this.set = BoundaryProxyHandler.staticSetTrap;
+                this.setPrototypeOf = BoundaryProxyHandler.staticSetPrototypeOfTrap;
+
+                const { foreignTargetPointer, shadowTarget } = this;
                 let targetIntegrityTraits;
                 {
                     let activity: any;
@@ -1806,6 +1816,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         activity.stop();
                     }
                     if (targetIntegrityTraits & TargetIntegrityTraits.Revoked) {
+                        // Future optimization: Hoping proxies with frozen
+                        // handlers can be faster.
+                        ObjectFreeze(this);
                         // the target is a revoked proxy, in which case we revoke
                         // this proxy as well.
                         this.revoke();
@@ -1831,6 +1844,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         activity.stop();
                     }
                     if (shouldRevoke) {
+                        // Future optimization: Hoping proxies with frozen
+                        // handlers can be faster.
+                        ObjectFreeze(this);
                         this.revoke();
                         return;
                     }
@@ -1875,26 +1891,12 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         foreignTargetPointer
                     );
                 }
-                // Reset all traps except apply and construct for static proxies
-                // since the proxy target is the shadow target and all operations
-                // are going to be applied to it rather than the real target.
-                this.defineProperty = BoundaryProxyHandler.staticDefinePropertyTrap;
-                this.deleteProperty = BoundaryProxyHandler.staticDeletePropertyTrap;
-                this.get = BoundaryProxyHandler.staticGetTrap;
-                this.getOwnPropertyDescriptor =
-                    BoundaryProxyHandler.staticGetOwnPropertyDescriptorTrap;
-                this.getPrototypeOf = BoundaryProxyHandler.staticGetPrototypeOfTrap;
-                this.has = BoundaryProxyHandler.staticHasTrap;
-                this.isExtensible = BoundaryProxyHandler.staticIsExtensibleTrap;
-                this.ownKeys = BoundaryProxyHandler.staticOwnKeysTrap;
-                this.preventExtensions = BoundaryProxyHandler.staticPreventExtensionsTrap;
-                this.set = BoundaryProxyHandler.staticSetTrap;
-                this.setPrototypeOf = BoundaryProxyHandler.staticSetPrototypeOfTrap;
-                // Future optimization: Hoping proxies with frozen handlers can be faster.
+                // Future optimization: Hoping proxies with frozen handlers can
+                // be faster.
                 ObjectFreeze(this);
             }
 
-            private makeProxyUnambiguous(shadowTarget: ShadowTarget) {
+            private makeProxyUnambiguous() {
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                     activity = startActivity('callableIsTargetLive');
@@ -1908,7 +1910,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 if (shouldMakeProxyLive) {
                     this.makeProxyLive();
                 } else {
-                    this.makeProxyStatic(shadowTarget);
+                    this.makeProxyStatic();
                 }
             }
 
@@ -1961,11 +1963,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
             private static hybridGetTrap(
                 this: BoundaryProxyHandler,
-                shadowTarget: ShadowTarget,
+                _shadowTarget: ShadowTarget,
                 key: PropertyKey,
                 receiver: any
             ): ReturnType<typeof Reflect.get> {
-                const { foreignTargetPointer } = this;
+                const { foreignTargetPointer, shadowTarget } = this;
                 const safeDesc = lookupForeignDescriptor(foreignTargetPointer, shadowTarget, key);
                 if (safeDesc) {
                     const { get: getter, value: localValue } = safeDesc;
@@ -2257,9 +2259,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
             private static passthruIsExtensibleTrap(
                 this: BoundaryProxyHandler,
-                shadowTarget: ShadowTarget
+                _shadowTarget: ShadowTarget
             ): ReturnType<typeof Reflect.isExtensible> {
                 lastProxyTrapCalled = ProxyHandlerTraps.IsExtensible;
+                const { shadowTarget } = this;
                 // Check if already locked.
                 if (ReflectIsExtensible(shadowTarget)) {
                     let activity: any;
@@ -2320,7 +2323,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
             private static passthruGetOwnPropertyDescriptorTrap(
                 this: BoundaryProxyHandler,
-                shadowTarget: ShadowTarget,
+                _shadowTarget: ShadowTarget,
                 key: PropertyKey
             ): ReturnType<typeof Reflect.getOwnPropertyDescriptor> {
                 lastProxyTrapCalled = ProxyHandlerTraps.GetOwnPropertyDescriptor;
@@ -2353,7 +2356,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                             if (safeDesc.configurable === false) {
                                 // Update the descriptor to non-configurable on
                                 // the shadow target.
-                                ReflectDefineProperty(shadowTarget, key, safeDesc);
+                                ReflectDefineProperty(this.shadowTarget, key, safeDesc);
                             }
                         }
                     );
@@ -2374,9 +2377,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
             private static passthruPreventExtensionsTrap(
                 this: BoundaryProxyHandler,
-                shadowTarget: ShadowTarget
+                _shadowTarget: ShadowTarget
             ): ReturnType<typeof Reflect.preventExtensions> {
                 lastProxyTrapCalled = ProxyHandlerTraps.PreventExtensions;
+                const { shadowTarget } = this;
                 if (ReflectIsExtensible(shadowTarget)) {
                     let activity: any;
                     if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
@@ -2444,7 +2448,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
             private static passthruSetTrap(
                 this: BoundaryProxyHandler,
-                shadowTarget: ShadowTarget,
+                _shadowTarget: ShadowTarget,
                 key: PropertyKey,
                 value: any,
                 receiver: any
@@ -2456,7 +2460,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                       passthruForeignCallableSet(foreignTargetPointer, key, value, receiver)
                     : passthruForeignTraversedSet(
                           foreignTargetPointer,
-                          shadowTarget,
+                          this.shadowTarget,
                           key,
                           value,
                           receiver
@@ -2471,7 +2475,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 key: PropertyKey,
                 unsafePartialDesc: PropertyDescriptor
             ): ReturnType<typeof Reflect.defineProperty> {
-                this.makeProxyUnambiguous(shadowTarget);
+                this.makeProxyUnambiguous();
                 return this.defineProperty!(shadowTarget, key, unsafePartialDesc);
             }
 
@@ -2480,7 +2484,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 shadowTarget: ShadowTarget,
                 key: PropertyKey
             ): ReturnType<typeof Reflect.deleteProperty> {
-                this.makeProxyUnambiguous(shadowTarget);
+                this.makeProxyUnambiguous();
                 return this.deleteProperty!(shadowTarget, key);
             }
 
@@ -2488,7 +2492,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 this: BoundaryProxyHandler,
                 shadowTarget: ShadowTarget
             ): ReturnType<typeof Reflect.preventExtensions> {
-                this.makeProxyUnambiguous(shadowTarget);
+                this.makeProxyUnambiguous();
                 return this.preventExtensions!(shadowTarget);
             }
 
@@ -2497,7 +2501,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 shadowTarget: ShadowTarget,
                 proto: object | null
             ): ReturnType<typeof Reflect.setPrototypeOf> {
-                this.makeProxyUnambiguous(shadowTarget);
+                this.makeProxyUnambiguous();
                 return this.setPrototypeOf!(shadowTarget, proto);
             }
 
@@ -2508,7 +2512,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 value: any,
                 receiver: any
             ): ReturnType<typeof Reflect.set> {
-                this.makeProxyUnambiguous(shadowTarget);
+                this.makeProxyUnambiguous();
                 return this.set!(shadowTarget, key, value, receiver);
             }
 
@@ -2527,10 +2531,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
              */
             private static staticGetTrap(
                 this: BoundaryProxyHandler,
-                shadowTarget: ShadowTarget,
+                _shadowTarget: ShadowTarget,
                 key: PropertyKey,
                 receiver: any
             ): ReturnType<typeof Reflect.get> {
+                const { shadowTarget } = this;
                 const result = ReflectGet(shadowTarget, key, receiver);
                 if (
                     result === undefined &&
