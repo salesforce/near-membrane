@@ -100,8 +100,8 @@ type CallableDescriptorsCallback = (
     ...descriptorTuples: [...Parameters<CallableDescriptorCallback>]
 ) => void;
 type CallableNonConfigurableDescriptorCallback = CallableDescriptorCallback;
-type Primitive = bigint | boolean | null | number | string | symbol | undefined;
 type PointerOrPrimitive = Pointer | Primitive;
+type Primitive = bigint | boolean | null | number | string | symbol | undefined;
 type SerializedValue = bigint | boolean | number | string | symbol;
 type ShadowTarget = ProxyTarget;
 export type CallableDefineProperty = (
