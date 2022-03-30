@@ -401,55 +401,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         return shadowTarget;
     }
 
-    function getTargetTraits(target: object): TargetTraits {
-        let targetTraits = TargetTraits.None;
-        try {
-            if (isArrayOrThrowForRevoked(target)) {
-                targetTraits |= TargetTraits.IsArray;
-                return targetTraits;
-            }
-        } catch {
-            targetTraits |= TargetTraits.Revoked;
-            return targetTraits;
-        }
-        if (typeof target === 'function') {
-            targetTraits |= TargetTraits.IsFunction;
-            // Detect arrow functions.
-            if (!('prototype' in target)) {
-                targetTraits |= TargetTraits.IsArrowFunction;
-            }
-            return targetTraits;
-        }
-        targetTraits |= TargetTraits.IsObject;
-        return targetTraits;
-    }
-
-    function getTargetIntegrityTraits(target: object): TargetIntegrityTraits {
-        let targetIntegrityTraits = TargetIntegrityTraits.None;
-        // A target may be a proxy that is revoked or throws in its
-        // "isExtensible" trap.
-        try {
-            if (ObjectIsFrozen(target)) {
-                targetIntegrityTraits |=
-                    TargetIntegrityTraits.IsFrozen &
-                    TargetIntegrityTraits.IsSealed &
-                    TargetIntegrityTraits.IsNotExtensible;
-            } else if (ObjectIsSealed(target)) {
-                targetIntegrityTraits |=
-                    TargetIntegrityTraits.IsSealed & TargetIntegrityTraits.IsNotExtensible;
-            } else if (!ReflectIsExtensible(target)) {
-                targetIntegrityTraits |= TargetIntegrityTraits.IsNotExtensible;
-            }
-        } catch {
-            try {
-                isArrayOrThrowForRevoked(target);
-            } catch {
-                targetIntegrityTraits |= TargetIntegrityTraits.Revoked;
-            }
-        }
-        return targetIntegrityTraits;
-    }
-
     function getUnforgeableGlobalThisGetter(key: PropertyKey): () => typeof globalThis {
         let globalThisGetter = keyToGlobalThisGetterRegistry[key];
         if (globalThisGetter === undefined) {
@@ -1414,38 +1365,47 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             if (proxyPointer) {
                 return proxyPointer;
             }
-            let distortedTarget: ProxyTarget | undefined;
-            try {
-                distortedTarget = distortionCallback(originalTarget);
-            } finally {
-                // If a distortion entry is found, it must be a valid proxy target.
-                if (
-                    distortedTarget !== originalTarget &&
-                    typeof distortedTarget !== typeof originalTarget
-                ) {
-                    // eslint-disable-next-line no-unsafe-finally
-                    throw new TypeErrorCtor(`Invalid distortion ${originalTarget}.`);
-                }
+            const distortedTarget: ProxyTarget = distortionCallback(originalTarget);
+            // If a distortion entry is found, it must be a valid proxy target.
+            if (
+                distortedTarget !== originalTarget &&
+                typeof distortedTarget !== typeof originalTarget
+            ) {
+                // eslint-disable-next-line no-unsafe-finally
+                throw new TypeErrorCtor(`Invalid distortion ${originalTarget}.`);
             }
-            // The closure works as the implicit WeakMap.
-            const targetPointer = createPointer(distortedTarget);
-            const targetTraits = getTargetTraits(distortedTarget);
             let targetFunctionName: string | undefined;
-            if (targetTraits & TargetTraits.IsFunction) {
-                const unsafeNameDesc = DEV_MODE
-                    ? ReflectGetOwnPropertyDescriptor(originalTarget, 'name')
-                    : undefined;
-                if (unsafeNameDesc) {
-                    const safeNameDesc = unsafeNameDesc;
-                    ReflectSetPrototypeOf(safeNameDesc, null);
-                    const { value: safeNameDescValue } = safeNameDesc;
-                    if (typeof safeNameDescValue === 'string') {
-                        targetFunctionName = safeNameDescValue;
-                    }
+            let targetTraits = TargetTraits.IsObject;
+            try {
+                if (isArrayOrThrowForRevoked(distortedTarget)) {
+                    targetTraits = TargetTraits.IsArray;
                 }
+            } catch {
+                targetTraits = TargetTraits.Revoked;
+            }
+            if (typeof distortedTarget === 'function') {
+                targetTraits = TargetTraits.IsFunction;
+                // Detect arrow functions.
+                try {
+                    if (!('prototype' in distortedTarget)) {
+                        targetTraits |= TargetTraits.IsArrowFunction;
+                    }
+                    const unsafeNameDesc = DEV_MODE
+                        ? ReflectGetOwnPropertyDescriptor(originalTarget, 'name')
+                        : undefined;
+                    if (unsafeNameDesc) {
+                        const safeNameDesc = unsafeNameDesc;
+                        ReflectSetPrototypeOf(safeNameDesc, null);
+                        const { value: safeNameDescValue } = safeNameDesc;
+                        if (typeof safeNameDescValue === 'string') {
+                            targetFunctionName = safeNameDescValue;
+                        }
+                    }
+                    // eslint-disable-next-line no-empty
+                } catch {}
             }
             proxyPointer = foreignCallablePushTarget(
-                targetPointer,
+                createPointer(distortedTarget),
                 targetTraits,
                 targetFunctionName
             );
@@ -1672,13 +1632,8 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
         function pushErrorAcrossBoundary(error: any): any {
             // Inline getTransferableValue().
-            const foreignErrorPointer =
-                (typeof error === 'object' && error !== null) || typeof error === 'function'
-                    ? getTransferablePointer(error)
-                    : typeof error === 'undefined'
-                    ? undefined
-                    : error;
-            if (typeof foreignErrorPointer === 'function') {
+            if ((typeof error === 'object' && error !== null) || typeof error === 'function') {
+                const foreignErrorPointer = getTransferablePointer(error);
                 foreignErrorPointer();
             }
             return error;
@@ -2626,7 +2581,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
-                return createPointer(target[key] as ProxyTarget);
+                return createPointer(target?.[key] as ProxyTarget);
             },
             // callableEvaluate
             (sourceText: string): PointerOrPrimitive => {
@@ -3051,9 +3006,33 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
-                // We don't wrap `getTargetIntegrityTraits()` in a try-catch
-                // because it cannot throw.
-                return getTargetIntegrityTraits(target);
+                // A target may be a proxy that is revoked or throws in its
+                // "isExtensible" trap.
+                try {
+                    if (!ReflectIsExtensible(target)) {
+                        if (ObjectIsFrozen(target)) {
+                            return (
+                                TargetIntegrityTraits.IsFrozen &
+                                TargetIntegrityTraits.IsSealed &
+                                TargetIntegrityTraits.IsNotExtensible
+                            );
+                        }
+                        if (ObjectIsSealed(target)) {
+                            return (
+                                TargetIntegrityTraits.IsSealed &
+                                TargetIntegrityTraits.IsNotExtensible
+                            );
+                        }
+                        return TargetIntegrityTraits.IsNotExtensible;
+                    }
+                } catch {
+                    try {
+                        isArrayOrThrowForRevoked(target);
+                    } catch {
+                        return TargetIntegrityTraits.Revoked;
+                    }
+                }
+                return TargetIntegrityTraits.None;
             },
             // callableGetToStringTagOfTarget
             (targetPointer: Pointer): string => {
@@ -3075,6 +3054,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             installErrorPrepareStackTrace,
             // callableInstallLazyDescriptors
             (targetPointer: Pointer, ...ownKeysAndUnforgeableGlobalThisKeys: PropertyKeys) => {
+                if (!isInShadowRealm) {
+                    return;
+                }
                 const sliceIndex = ReflectApply(
                     ArrayProtoIndexOf,
                     ownKeysAndUnforgeableGlobalThisKeys,
@@ -3095,10 +3077,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         [sliceIndex + 1]
                     );
                 }
-                if (!isInShadowRealm) {
-                    return;
-                }
-                installPropertyDescriptorMethodWrappers(unforgeableGlobalThisKeys);
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
@@ -3121,6 +3099,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         createLazyDescriptor(target, ownKey, lazyState)
                     );
                 }
+                installPropertyDescriptorMethodWrappers(unforgeableGlobalThisKeys);
             },
             // callableIsTargetLive
             (targetPointer: Pointer): boolean => {
@@ -3296,17 +3275,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
-                let result;
-                try {
-                    result = ReflectApply(ObjectProtoHasOwnProperty, target, [key]);
-                } catch (error: any) {
-                    throw pushErrorAcrossBoundary(error);
-                }
-                if (result) {
-                    return result;
-                }
                 let proto;
                 try {
+                    if (ReflectApply(ObjectProtoHasOwnProperty, target, [key])) {
+                        return true;
+                    }
                     proto = ReflectGetPrototypeOf(target);
                 } catch (error: any) {
                     throw pushErrorAcrossBoundary(error);
