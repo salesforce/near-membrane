@@ -378,6 +378,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         return globalThisGetter;
     }
 
+    function identity<T>(value: T): T {
+        return value;
+    }
+
     function installPropertyDescriptorMethodWrappers(unforgeableGlobalThisKeys?: PropertyKeys) {
         if (installedPropertyDescriptorMethodWrappersFlag) {
             return;
@@ -849,7 +853,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         providedOptions?: HooksOptions
     ): HooksCallback {
         const {
-            distortionCallback = (o: ProxyTarget) => o,
+            distortionCallback = identity,
             instrumentation,
             // eslint-disable-next-line prefer-object-spread
         } = ObjectAssign({ __proto__: null }, providedOptions);
@@ -1219,7 +1223,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         }
 
         function createPointer(originalTarget: ProxyTarget): () => void {
-            // assert: originalTarget is a ProxyTarget
             const pointer = (): void => {
                 // assert: selectedTarget is undefined
                 selectedTarget = originalTarget;
@@ -1231,6 +1234,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             }
             return pointer;
         }
+
         const debugInfo = LOCKER_UNMINIFIED_FLAG
             ? (...args: Parameters<typeof console.info>): boolean => {
                   if (!isInShadowRealm && LOCKER_DEBUG_MODE_FLAG === undefined) {
@@ -1376,7 +1380,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 targetTraits,
                 targetFunctionName
             );
-
             // The WeakMap is populated with the original target rather then the
             // distorted one while the pointer always uses the distorted one.
             // TODO: This mechanism poses another issue, which is that the return
@@ -1388,15 +1391,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             // because it means auditing the code.
             ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [originalTarget, proxyPointer]);
             return proxyPointer;
-        }
-
-        function getTransferableValue(value: any): PointerOrPrimitive {
-            if ((typeof value === 'object' && value !== null) || typeof value === 'function') {
-                return getTransferablePointer(value);
-            }
-            // Internationally ignoring the case of (typeof document.all === 'undefined')
-            // because in the reserve membrane, you never get one of those exotic objects.
-            return typeof value === 'undefined' ? undefined : value;
         }
 
         function lockShadowTarget(shadowTarget: ShadowTarget, foreignTargetPointer: Pointer): void {
@@ -2577,7 +2571,15 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 return result;
             },
             // getTransferableValue
-            getTransferableValue,
+            (value: any): PointerOrPrimitive => {
+                if ((typeof value === 'object' && value !== null) || typeof value === 'function') {
+                    return getTransferablePointer(value);
+                }
+                // Internationally ignoring the case of
+                // typeof document.all === 'undefined' because in the reserve
+                // membrane, you never get one of those exotic objects.
+                return typeof value === 'undefined' ? undefined : value;
+            },
             // callableGetPropertyValuePointer: this callable function allows
             // the foreign realm to access a linkable pointer for a property value.
             // In order to do that, the foreign side must provide a pointer and
@@ -2988,13 +2990,12 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 targetPointer();
                 const target = selectedTarget!;
                 for (let i = 0, { length } = descriptorTuples; i < length; i += 7) {
-                    const key = descriptorTuples[i] as PropertyKey;
                     // We don't use `ObjectDefineProperties()` here because it
                     // will throw an exception if it fails to define one of its
                     // properties.
                     ReflectDefineProperty(
                         target,
-                        key,
+                        descriptorTuples[i] as PropertyKey,
                         createDescriptorFromMeta(
                             descriptorTuples[i + 1] as boolean | symbol, // configurable
                             descriptorTuples[i + 2] as boolean | symbol, // enumerable
