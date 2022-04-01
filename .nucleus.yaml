@@ -12,6 +12,6 @@ branches:
       validate-downstream-deps: false
       ignore-downstream-dep-failures: true
 # Only needed in the future for release and patch branches.
-#  somebranch:
-#    pull-request:
-#    <<: *branch-definition
+#   somebranch:
+#     pull-request:
+#     <<: *branch-definition
