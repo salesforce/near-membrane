@@ -793,11 +793,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
     function serializeTargetByBrand(target: ProxyTarget): SerializedValue | undefined {
         const brand = ReflectApply(ObjectProtoToString, target, []);
         switch (brand) {
-            // The brand(s) below represent boxed primitives of `ESGlobalKeys`
-            // in packages/near-membrane-base/src/intrinsics.ts which are not
-            // remapped or reflective.
-            case '[object BigInt]':
-                return SUPPORTS_BIG_INT ? serializeBooleanObject(target as any) : undefined;
+            // The brand checks below represent boxed primitives of
+            // `ESGlobalKeys` in packages/near-membrane-base/src/intrinsics.ts
+            // which are not remapped or reflective.
             case '[object Boolean]':
                 return serializeBooleanObject(target as any);
             case '[object Number]':
@@ -806,22 +804,44 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 return serializeRegExp(target as any);
             case '[object String]':
                 return serializeStringObject(target as any);
-            case '[object Symbol]':
-                return serializeSymbolObject(target as any);
+            case '[object Object]':
+                try {
+                    // Symbol.prototype[@@toStringTag] is defined by default so
+                    // must have been removed.
+                    // https://tc39.es/ecma262/#sec-symbol.prototype-@@tostringtag
+                    return serializeSymbolObject(target as any);
+                    // eslint-disable-next-line no-empty
+                } catch {}
+                if (SUPPORTS_BIG_INT) {
+                    // BigInt.prototype[@@toStringTag] is defined by default so
+                    // must have been removed.
+                    // https://tc39.es/ecma262/#sec-bigint.prototype-@@tostringtag
+                    try {
+                        return serializeBigIntObject(target as any);
+                        // eslint-disable-next-line no-empty
+                    } catch {}
+                }
+            // eslint-disable-next-line no-fallthrough
             default:
                 return undefined;
         }
     }
 
     function serializeTargetByTrialAndError(target: ProxyTarget): SerializedValue | undefined {
+        // The serialization attempts below represent boxed primitives of
+        // `ESGlobalKeys` in packages/near-membrane-base/src/intrinsics.ts
+        // which are not remapped or reflective.
         try {
-            // Symbol.prototype[@@toStringTag] is defined by default so make it
-            // the first serialization attempt.
+            // Symbol.prototype[@@toStringTag] is defined by default so
+            // attempted before others.
             // https://tc39.es/ecma262/#sec-symbol.prototype-@@tostringtag
             return serializeSymbolObject(target as any);
             // eslint-disable-next-line no-empty
         } catch {}
         if (SUPPORTS_BIG_INT) {
+            // BigInt.prototype[@@toStringTag] is defined by default so
+            // attempted before others.
+            // https://tc39.es/ecma262/#sec-bigint.prototype-@@tostringtag
             try {
                 return serializeBigIntObject(target as any);
                 // eslint-disable-next-line no-empty

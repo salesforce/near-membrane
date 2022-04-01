@@ -333,13 +333,13 @@ describe('@@lockerNearMembraneSerializedValue', () => {
         // eslint-disable-next-line no-new-wrappers
         takeInside(customizeToStringTag(new Number(0)));
         // prettier-ignore
-        takeInside(customizeToStringTag(/outsideFrozenRegExpLiteral/img));
+        takeInside(customizeToStringTag(/outsideRegExpLiteral/img));
         // eslint-disable-next-line prefer-regex-literals
-        takeInside(new RegExp('outsideFrozenRegExpObject', 'img'));
+        takeInside(new RegExp('outsideRegExp', 'img'));
         // eslint-disable-next-line no-new-wrappers
-        takeInside(customizeToStringTag(new String('outsideFrozenStringObject')));
-        takeInside(customizeToStringTag(Object(Symbol('outsideFrozenSymbolObject'))));
-        takeInside(customizeToStringTag(['outsideFrozenArray']));
+        takeInside(customizeToStringTag(new String('outsideStringObject')));
+        takeInside(customizeToStringTag(Object(Symbol('outsideSymbolObject'))));
+        takeInside(customizeToStringTag(['outsideArray']));
 
         env.evaluate(`
             const { toStringTag: TO_STRING_TAG_SYMBOL } = Symbol;
@@ -363,29 +363,127 @@ describe('@@lockerNearMembraneSerializedValue', () => {
             takeOutside(customizeToStringTag(new Boolean(false)), false);
             takeOutside(customizeToStringTag(new Number(0)), 0);
             takeOutside(
-                customizeToStringTag(/insideFrozenRegExpLiteral/ysu),
+                customizeToStringTag(/insideRegExpLiteral/ysu),
                 JSON.stringify({
                     flags: 'suy',
-                    source: 'insideFrozenRegExpLiteral',
+                    source: 'insideRegExpLiteral',
                 })
             );
             takeOutside(
                 customizeToStringTag(
-                    new RegExp('insideFrozenRegExpObject', 'ysu')
+                    new RegExp('insideRegExpObject', 'ysu')
                 ),
                 JSON.stringify({
                     flags: 'suy',
-                    source: 'insideFrozenRegExpObject',
+                    source: 'insideRegExpObject',
                 })
             );
-            takeOutside(customizeToStringTag(new String('insideFrozenString')), 'insideFrozenString');
-            const symbol = Symbol('insideFrozenSymbol');
+            takeOutside(customizeToStringTag(new String('insideString')), 'insideString');
+            const symbol = Symbol('insideSymbol');
             takeOutside(customizeToStringTag(Object(symbol)), symbol);
-            takeOutside(customizeToStringTag(['insideFrozenArray']), undefined);
+            takeOutside(customizeToStringTag(['insideArray']), undefined);
         `);
     });
 
-    it('should not be detectable when customized', () => {
+    it('should be detectable with no Symbol.toStringTag value', () => {
+        expect.assertions(10);
+
+        // eslint-disable-next-line no-unused-vars
+        let takeInside;
+        const env = createVirtualEnvironment(window, window, {
+            endowments: Object.getOwnPropertyDescriptors({
+                expect,
+                exposeTakeInside(func) {
+                    takeInside = func;
+                },
+                takeOutside(insideValue, expectedSerialized) {
+                    // Test blue proxies.
+                    // To unlock the near-membrane symbol gate first perform a has()
+                    // trap check.
+                    expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue).toBe(false);
+                    // Next, perform a get() trap call.
+                    expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
+                        expectedSerialized
+                    );
+                    // Performing a get() trap call without first performing a has()
+                    // trap check will produce `undefined`.
+                    expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
+                        undefined
+                    );
+                },
+            }),
+        });
+
+        env.evaluate(`
+            const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = Symbol.for(
+                '@@lockerNearMembraneSerializedValue'
+            );
+
+            exposeTakeInside(function takeInside(outsideValue) {
+                // Test red proxies.
+                expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in outsideValue).toBe(false);
+                expect(outsideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(undefined);
+            });
+        `);
+
+        const BigIntProtoSymbolToStringTagDescriptor = Reflect.getOwnPropertyDescriptor(
+            BigInt.prototype,
+            TO_STRING_TAG_SYMBOL
+        );
+        const SymbolProtoSymbolToStringTagDescriptor = Reflect.getOwnPropertyDescriptor(
+            Symbol.prototype,
+            TO_STRING_TAG_SYMBOL
+        );
+        delete BigInt.prototype[TO_STRING_TAG_SYMBOL];
+        delete Symbol.prototype[TO_STRING_TAG_SYMBOL];
+
+        // Test red proxies.
+        takeInside(Object(BigInt(0x1fffffffffffff)));
+        takeInside(Object(Symbol('outsideSymbolObject')));
+
+        Reflect.defineProperty(
+            BigInt.prototype,
+            TO_STRING_TAG_SYMBOL,
+            BigIntProtoSymbolToStringTagDescriptor
+        );
+        Reflect.defineProperty(
+            Symbol.prototype,
+            TO_STRING_TAG_SYMBOL,
+            SymbolProtoSymbolToStringTagDescriptor
+        );
+
+        env.evaluate(`
+            const { toStringTag: TO_STRING_TAG_SYMBOL } = Symbol;
+            const BigIntProtoSymbolToStringTagDescriptor = Reflect.getOwnPropertyDescriptor(
+                BigInt.prototype,
+                TO_STRING_TAG_SYMBOL
+            );
+            const SymbolProtoSymbolToStringTagDescriptor = Reflect.getOwnPropertyDescriptor(
+                Symbol.prototype,
+                TO_STRING_TAG_SYMBOL
+            );
+            delete BigInt.prototype[TO_STRING_TAG_SYMBOL];
+            delete Symbol.prototype[TO_STRING_TAG_SYMBOL];
+
+            // Test blue proxies.
+            takeOutside(Object(BigInt(0x1fffffffffffff)), BigInt(0x1fffffffffffff));
+            const symbol = Symbol('insideSymbol');
+            takeOutside(Object(symbol), symbol);
+
+            Reflect.defineProperty(
+                BigInt.prototype,
+                TO_STRING_TAG_SYMBOL,
+                BigIntProtoSymbolToStringTagDescriptor
+            );
+            Reflect.defineProperty(
+                Symbol.prototype,
+                TO_STRING_TAG_SYMBOL,
+                SymbolProtoSymbolToStringTagDescriptor
+            );
+        `);
+    });
+
+    it('should not be detectable with custom @@lockerNearMembraneSerializedValue value', () => {
         expect.assertions(36);
 
         // eslint-disable-next-line no-unused-vars
@@ -435,7 +533,7 @@ describe('@@lockerNearMembraneSerializedValue', () => {
 
         const outsideBooleanFalseObjectSymbolValue = 'outsideBooleanFalseObject';
         // eslint-disable-next-line no-new-wrappers
-        const outsideBooleanFalseObject = new Boolean(true);
+        const outsideBooleanFalseObject = new Boolean(false);
         outsideBooleanFalseObject[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL] =
             outsideBooleanFalseObjectSymbolValue;
         takeInside(outsideBooleanFalseObject, outsideBooleanFalseObjectSymbolValue);
@@ -501,7 +599,7 @@ describe('@@lockerNearMembraneSerializedValue', () => {
 
             const insideBooleanFalseObjectSymbolValue = 'insideBooleanFalseObject';
             // eslint-disable-next-line no-new-wrappers
-            const insideBooleanFalseObject = new Boolean(true);
+            const insideBooleanFalseObject = new Boolean(false);
             insideBooleanFalseObject[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL] =
                 insideBooleanFalseObjectSymbolValue;
             takeOutside(insideBooleanFalseObject, insideBooleanFalseObjectSymbolValue);
