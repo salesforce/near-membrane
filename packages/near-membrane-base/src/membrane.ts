@@ -183,6 +183,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
     const ObjectCtor = Object;
     const ProxyCtor = Proxy;
     const ReflectRef = Reflect;
+    const RegExpCtor = RegExp;
     const SymbolCtor = Symbol;
     const TypeErrorCtor = TypeError;
     const WeakMapCtor = WeakMap;
@@ -276,8 +277,12 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
     const { stringify: JSONStringify } = JSON;
     const { valueOf: NumberProtoValueOf } = Number.prototype;
     const { revocable: ProxyRevocable } = ProxyCtor;
-    const { prototype: RegExpProto } = RegExp;
-    const { exec: RegExpProtoExec, toString: RegExProtoToString } = RegExpProto;
+    const { prototype: RegExpProto } = RegExpCtor;
+    const {
+        exec: RegExpProtoExec,
+        test: RegExpProtoTest,
+        toString: RegExProtoToString,
+    } = RegExpProto;
     // Edge 15 does not support RegExp.prototype.flags.
     // https://caniuse.com/mdn-javascript_builtins_regexp_flags
     const RegExpProtoFlagsGetter =
@@ -290,8 +295,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         'source',
     ])!;
     const {
-        endsWith: StringProtoEndsWith,
-        includes: StringProtoIncludes,
+        replace: StringProtoReplace,
         slice: StringProtoSlice,
         valueOf: StringProtoValueOf,
     } = String.prototype;
@@ -322,6 +326,19 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
     // Install flags to ensure things are installed once per realm.
     let installedErrorPrepareStackTraceFlag = false;
     let installedPropertyDescriptorMethodWrappersFlag = false;
+    // A regexp to detect call sites containing LOCKER_IDENTIFIER_MARKER.
+    const lockerFunctionNameMarkerRegExp = new RegExpCtor(
+        `${
+            // Escape regexp special characters in LOCKER_IDENTIFIER_MARKER.
+            ReflectApply(StringProtoReplace, LOCKER_IDENTIFIER_MARKER, [
+                /[\\^$.*+?()[\]{}|]/g,
+                '\\$&',
+            ])
+            // Function name references in call sites also contain
+            // the name of the class they belong to,
+            // e.g. myClassName.myFunctionName.
+        }(?=\\.|$)`
+    );
     // Lazily populated in `getUnforgeableGlobalThisGetter()`;
     const keyToGlobalThisGetterRegistry = { __proto__: null };
     // @TODO: Share proxyTargetToLazyPropertyStateMap across realms.
@@ -663,7 +680,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                       if (
                           typeof funcName === 'string' &&
                           funcName !== 'eval' &&
-                          ReflectApply(StringProtoEndsWith, funcName, [LOCKER_IDENTIFIER_MARKER])
+                          ReflectApply(RegExpProtoTest, lockerFunctionNameMarkerRegExp, [funcName])
                       ) {
                           isMarked = true;
                       }
@@ -671,8 +688,8 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                           const evalOrigin = ReflectApply(CallSiteProtoGetEvalOrigin, callSite, []);
                           if (
                               typeof evalOrigin === 'string' &&
-                              ReflectApply(StringProtoIncludes, evalOrigin, [
-                                  LOCKER_IDENTIFIER_MARKER,
+                              ReflectApply(RegExpProtoTest, lockerFunctionNameMarkerRegExp, [
+                                  evalOrigin,
                               ])
                           ) {
                               isMarked = true;
