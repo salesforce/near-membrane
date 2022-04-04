@@ -4,7 +4,7 @@ import {
     CallableDefineProperties,
     CallableEvaluate,
     CallableGetPropertyValuePointer,
-    CallableInstallLazyDescriptors,
+    CallableInstallLazyPropertyDescriptors,
     CallableLinkPointers,
     CallableSetPrototypeOf,
     DistortionCallback,
@@ -65,7 +65,7 @@ export class VirtualEnvironment {
 
     private readonly redCallableDefineProperties: CallableDefineProperties;
 
-    private readonly redCallableInstallLazyDescriptors: CallableInstallLazyDescriptors;
+    private readonly redCallableInstallLazyPropertyDescriptors: CallableInstallLazyPropertyDescriptors;
 
     private readonly redGlobalThisPointer: Pointer;
 
@@ -126,16 +126,18 @@ export class VirtualEnvironment {
             19: blueCallableSetPrototypeOf,
             20: blueCallableDebugInfo,
             21: blueCallableDefineProperties,
-            22: blueCallableGetTargetIntegrityTraits,
-            23: blueCallableGetToStringTagOfTarget,
-            24: blueCallableInstallErrorPrepareStackTrace,
-            25: blueCallableInstallLazyDescriptors,
-            26: blueCallableIsTargetLive,
-            27: blueCallableIsTargetRevoked,
-            28: blueCallableSerializeTarget,
-            29: blueCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
-            30: blueCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
-            31: blueCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
+            22: blueCallableGetLazyPropertyDescriptorStateByTarget,
+            23: blueCallableGetTargetIntegrityTraits,
+            24: blueCallableGetToStringTagOfTarget,
+            25: blueCallableInstallErrorPrepareStackTrace,
+            26: blueCallableInstallLazyPropertyDescriptors,
+            27: blueCallableIsTargetLive,
+            28: blueCallableIsTargetRevoked,
+            29: blueCallableSerializeTarget,
+            30: blueCallableSetLazyPropertyDescriptorStateByTarget,
+            31: blueCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
+            32: blueCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
+            33: blueCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
         } = blueHooks!;
         const {
             0: redGlobalThisPointer,
@@ -160,16 +162,18 @@ export class VirtualEnvironment {
             19: redCallableSetPrototypeOf,
             20: redCallableDebugInfo,
             21: redCallableDefineProperties,
-            22: redCallableGetTargetIntegrityTraits,
-            23: redCallableGetToStringTagOfTarget,
-            24: redCallableInstallErrorPrepareStackTrace,
-            25: redCallableInstallLazyDescriptors,
-            26: redCallableIsTargetLive,
-            27: redCallableIsTargetRevoked,
-            28: redCallableSerializeTarget,
-            29: redCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
-            30: redCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
-            31: redCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
+            22: redCallableGetLazyPropertyDescriptorStateByTarget,
+            23: redCallableGetTargetIntegrityTraits,
+            24: redCallableGetToStringTagOfTarget,
+            25: redCallableInstallErrorPrepareStackTrace,
+            26: redCallableInstallLazyPropertyDescriptors,
+            27: redCallableIsTargetLive,
+            28: redCallableIsTargetRevoked,
+            29: redCallableSerializeTarget,
+            30: redCallableSetLazyPropertyDescriptorStateByTarget,
+            31: redCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
+            32: redCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
+            33: redCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
         } = redHooks!;
         localConnect(
             redGlobalThisPointer,
@@ -194,13 +198,15 @@ export class VirtualEnvironment {
             redCallableSetPrototypeOf,
             redCallableDebugInfo,
             redCallableDefineProperties,
+            redCallableGetLazyPropertyDescriptorStateByTarget,
             redCallableGetTargetIntegrityTraits,
             redCallableGetToStringTagOfTarget,
             redCallableInstallErrorPrepareStackTrace,
-            redCallableInstallLazyDescriptors,
+            redCallableInstallLazyPropertyDescriptors,
             redCallableIsTargetLive,
             redCallableIsTargetRevoked,
             redCallableSerializeTarget,
+            redCallableSetLazyPropertyDescriptorStateByTarget,
             redCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
             redCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
             redCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
@@ -228,13 +234,15 @@ export class VirtualEnvironment {
             blueCallableSetPrototypeOf,
             blueCallableDebugInfo,
             blueCallableDefineProperties,
+            blueCallableGetLazyPropertyDescriptorStateByTarget,
             blueCallableGetTargetIntegrityTraits,
             blueCallableGetToStringTagOfTarget,
             blueCallableInstallErrorPrepareStackTrace,
-            blueCallableInstallLazyDescriptors,
+            blueCallableInstallLazyPropertyDescriptors,
             blueCallableIsTargetLive,
             blueCallableIsTargetRevoked,
             blueCallableSerializeTarget,
+            blueCallableSetLazyPropertyDescriptorStateByTarget,
             blueCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
             blueCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
             blueCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
@@ -253,7 +261,7 @@ export class VirtualEnvironment {
         this.redCallableLinkPointers = redCallableLinkPointers;
         this.redCallableSetPrototypeOf = redCallableSetPrototypeOf;
         this.redCallableDefineProperties = redCallableDefineProperties;
-        this.redCallableInstallLazyDescriptors = redCallableInstallLazyDescriptors;
+        this.redCallableInstallLazyPropertyDescriptors = redCallableInstallLazyPropertyDescriptors;
     }
 
     evaluate(sourceText: string): any {
@@ -275,7 +283,7 @@ export class VirtualEnvironment {
         unforgeableGlobalThisKeys?: PropertyKeys
     ) {
         const targetPointer = this.blueGetTransferableValue(target) as Pointer;
-        const args: Parameters<CallableInstallLazyDescriptors> = [targetPointer];
+        const args: Parameters<CallableInstallLazyPropertyDescriptors> = [targetPointer];
         ReflectApply(ArrayProtoPush, args, ownKeys);
         if (unforgeableGlobalThisKeys?.length) {
             // Use `LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL` to delimit
@@ -283,7 +291,7 @@ export class VirtualEnvironment {
             args[args.length] = LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
             ReflectApply(ArrayProtoPush, args, unforgeableGlobalThisKeys);
         }
-        ReflectApply(this.redCallableInstallLazyDescriptors, undefined, args);
+        ReflectApply(this.redCallableInstallLazyPropertyDescriptors, undefined, args);
     }
 
     link(...keys: PropertyKeys) {
