@@ -704,8 +704,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
         const proxyTargetToPointerMap = new WeakMapCtor();
 
-        const startActivity: any =
-            LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG && instrumentation!.startActivity;
+        const startActivity: any = LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG
+            ? instrumentation!.startActivity
+            : undefined;
 
         let foreignCallablePushTarget: CallablePushTarget;
         let foreignCallableApply: CallableApply;
@@ -1140,7 +1141,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             };
         }
 
-        // The metadata is the transferable descriptor definition.
         function createDescriptorFromMeta(
             configurable: boolean | symbol,
             enumerable: boolean | symbol,
@@ -1151,13 +1151,13 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         ): PropertyDescriptor {
             const safeDesc = { __proto__: null } as PropertyDescriptor;
             if (configurable !== LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL) {
-                safeDesc.configurable = !!configurable;
+                safeDesc.configurable = configurable as boolean;
             }
             if (enumerable !== LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL) {
-                safeDesc.enumerable = !!enumerable;
+                safeDesc.enumerable = enumerable as boolean;
             }
             if (writable !== LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL) {
-                safeDesc.writable = !!writable;
+                safeDesc.writable = writable as boolean;
             }
             if (getterPointerOrPrimitive !== LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL) {
                 let getter: any = getterPointerOrPrimitive;
@@ -1265,65 +1265,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   return false;
               }
             : ((() => false) as unknown as CallableDebugInfo);
-
-        function getDescriptorMeta(
-            unsafePartialDesc: PropertyDescriptor
-        ): [
-            configurable: boolean | symbol,
-            enumerable: boolean | symbol,
-            writable: boolean | symbol,
-            valuePointer: PointerOrPrimitive,
-            getPointer: PointerOrPrimitive,
-            setPointer: PointerOrPrimitive
-        ] {
-            // eslint-disable-next-line prefer-object-spread
-            const safePartialDesc = ObjectAssign({ __proto__: null }, unsafePartialDesc);
-            const {
-                configurable,
-                enumerable,
-                writable,
-                value,
-                get: getter,
-                set: setter,
-            } = safePartialDesc;
-            return [
-                'configurable' in safePartialDesc
-                    ? !!configurable
-                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
-                'enumerable' in safePartialDesc
-                    ? !!enumerable
-                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
-                'writable' in safePartialDesc
-                    ? !!writable
-                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
-                'value' in safePartialDesc
-                    ? // Inline getTransferableValue().
-                      (typeof value === 'object' && value !== null) || typeof value === 'function'
-                        ? getTransferablePointer(value)
-                        : typeof value === 'undefined'
-                        ? undefined
-                        : value
-                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
-                'get' in safePartialDesc
-                    ? // Inline getTransferableValue().
-                      (typeof getter === 'object' && getter !== null) ||
-                      typeof getter === 'function'
-                        ? getTransferablePointer(getter)
-                        : typeof getter === 'undefined'
-                        ? undefined
-                        : getter
-                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
-                'set' in safePartialDesc
-                    ? // Inline getTransferableValue().
-                      (typeof setter === 'object' && setter !== null) ||
-                      typeof setter === 'function'
-                        ? getTransferablePointer(setter)
-                        : typeof setter === 'undefined'
-                        ? undefined
-                        : setter
-                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
-            ];
-        }
 
         function getTransferablePointer(originalTarget: ProxyTarget): Pointer {
             let proxyPointer = ReflectApply(WeakMapProtoGet, proxyTargetToPointerMap, [
@@ -1436,7 +1377,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             //     window.__lookupSetter__('window');
             //
             // We side step issues with `console` by mapping it to the the blue
-            // realm's `console`. Since we're already wrapping property descriptor methods
+            // realm's `console`. Since we're already wrapping property descriptor
             // methods to activate lazy descriptors we use the wrapper to workaround
             // the `window` getter nulling bug.
             const shouldFixChromeBug =
@@ -2341,18 +2282,55 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                     activity = startActivity('callableDefineProperty');
                 }
-                const { foreignTargetPointer } = this;
-                const descMeta = getDescriptorMeta(unsafePartialDesc);
+                // eslint-disable-next-line prefer-object-spread
+                const safePartialDesc = ObjectAssign({ __proto__: null }, unsafePartialDesc);
+                const { value, get: getter, set: setter } = safePartialDesc;
+                const valuePointer =
+                    'value' in safePartialDesc
+                        ? // Inline getTransferableValue().
+                          (typeof value === 'object' && value !== null) ||
+                          typeof value === 'function'
+                            ? getTransferablePointer(value)
+                            : typeof value === 'undefined'
+                            ? undefined
+                            : value
+                        : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
+                const getPointer =
+                    'get' in safePartialDesc
+                        ? // Inline getTransferableValue().
+                          (typeof getter === 'object' && getter !== null) ||
+                          typeof getter === 'function'
+                            ? getTransferablePointer(getter)
+                            : typeof getter === 'undefined'
+                            ? undefined
+                            : getter
+                        : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
+                const setPointer =
+                    'set' in safePartialDesc
+                        ? // Inline getTransferableValue().
+                          (typeof setter === 'object' && setter !== null) ||
+                          typeof setter === 'function'
+                            ? getTransferablePointer(setter)
+                            : typeof setter === 'undefined'
+                            ? undefined
+                            : setter
+                        : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
                 try {
                     return foreignCallableDefineProperty(
-                        foreignTargetPointer,
+                        this.foreignTargetPointer,
                         key,
-                        descMeta[0], // configurable
-                        descMeta[1], // enumerable
-                        descMeta[2], // writable
-                        descMeta[3], // valuePointer
-                        descMeta[4], // getPointer
-                        descMeta[5], // setPointer
+                        'configurable' in safePartialDesc
+                            ? !!safePartialDesc.configurable
+                            : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                        'enumerable' in safePartialDesc
+                            ? !!safePartialDesc.enumerable
+                            : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                        'writable' in safePartialDesc
+                            ? !!safePartialDesc.writable
+                            : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                        valuePointer,
+                        getPointer,
+                        setPointer,
                         this.nonConfigurableDescriptorCallback
                     );
                 } catch (error: any) {
@@ -3031,15 +3009,47 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         ReflectApply(ObjectProtoHasOwnProperty, unsafeDesc, ['configurable']) &&
                         unsafeDesc.configurable === false
                     ) {
-                        const descMeta = getDescriptorMeta(unsafeDesc);
+                        // eslint-disable-next-line prefer-object-spread
+                        const safeDesc = ObjectAssign({ __proto__: null }, unsafeDesc);
+                        const { value, get: getter, set: setter } = safeDesc;
                         foreignCallableNonConfigurableDescriptorCallback(
                             key,
-                            descMeta[0], // configurable
-                            descMeta[1], // enumerable
-                            descMeta[2], // writable
-                            descMeta[3], // valuePointer
-                            descMeta[4], // getPointer
-                            descMeta[5] // setPointer
+                            'configurable' in safeDesc
+                                ? (safeDesc.configurable as boolean)
+                                : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                            'enumerable' in safeDesc
+                                ? (safeDesc.enumerable as boolean)
+                                : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                            'writable' in safeDesc
+                                ? (safeDesc.writable as boolean)
+                                : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                            'value' in safeDesc
+                                ? // Inline getTransferableValue().
+                                  (typeof value === 'object' && value !== null) ||
+                                  typeof value === 'function'
+                                    ? getTransferablePointer(value)
+                                    : typeof value === 'undefined'
+                                    ? undefined
+                                    : value
+                                : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                            'get' in safeDesc
+                                ? // Inline getTransferableValue().
+                                  (typeof getter === 'object' && getter !== null) ||
+                                  typeof getter === 'function'
+                                    ? getTransferablePointer(getter)
+                                    : typeof getter === 'undefined'
+                                    ? undefined
+                                    : getter
+                                : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                            'set' in safeDesc
+                                ? // Inline getTransferableValue().
+                                  (typeof setter === 'object' && setter !== null) ||
+                                  typeof setter === 'function'
+                                    ? getTransferablePointer(setter)
+                                    : typeof setter === 'undefined'
+                                    ? undefined
+                                    : setter
+                                : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
                         );
                     }
                 }
@@ -3126,15 +3136,47 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     throw pushErrorAcrossBoundary(error);
                 }
                 if (unsafeDesc) {
-                    const descMeta = getDescriptorMeta(unsafeDesc);
+                    // eslint-disable-next-line prefer-object-spread
+                    const safeDesc = ObjectAssign({ __proto__: null }, unsafeDesc);
+                    const { value, get: getter, set: setter } = safeDesc;
                     foreignCallableDescriptorCallback(
                         key,
-                        descMeta[0], // configurable
-                        descMeta[1], // enumerable
-                        descMeta[2], // writable
-                        descMeta[3], // valuePointer
-                        descMeta[4], // getPointer
-                        descMeta[5] // setPointer
+                        'configurable' in safeDesc
+                            ? (safeDesc.configurable as boolean)
+                            : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                        'enumerable' in safeDesc
+                            ? (safeDesc.enumerable as boolean)
+                            : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                        'writable' in safeDesc
+                            ? (safeDesc.writable as boolean)
+                            : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                        'value' in safeDesc
+                            ? // Inline getTransferableValue().
+                              (typeof value === 'object' && value !== null) ||
+                              typeof value === 'function'
+                                ? getTransferablePointer(value)
+                                : typeof value === 'undefined'
+                                ? undefined
+                                : value
+                            : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                        'get' in safeDesc
+                            ? // Inline getTransferableValue().
+                              (typeof getter === 'object' && getter !== null) ||
+                              typeof getter === 'function'
+                                ? getTransferablePointer(getter)
+                                : typeof getter === 'undefined'
+                                ? undefined
+                                : getter
+                            : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                        'set' in safeDesc
+                            ? // Inline getTransferableValue().
+                              (typeof setter === 'object' && setter !== null) ||
+                              typeof setter === 'function'
+                                ? getTransferablePointer(setter)
+                                : typeof setter === 'undefined'
+                                ? undefined
+                                : setter
+                            : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
                     );
                 }
             },
@@ -3515,28 +3557,21 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 for (let i = 0, j = 0; i < length; i += 1, j += 7) {
                     const ownKey = ownKeys[i];
                     const unsafeDesc = (unsafeDescMap as any)[ownKey];
-                    const safeDesc = unsafeDesc;
-                    ReflectSetPrototypeOf(safeDesc, null);
-                    const {
-                        configurable,
-                        enumerable,
-                        writable,
-                        value,
-                        get: getter,
-                        set: setter,
-                    } = safeDesc;
+                    // eslint-disable-next-line prefer-object-spread
+                    const safeDesc = ObjectAssign({ __proto__: null }, unsafeDesc);
+                    const { value, get: getter, set: setter } = safeDesc;
                     descriptorTuples[j] = ownKey;
                     descriptorTuples[j + 1] =
                         'configurable' in safeDesc
-                            ? !!configurable
+                            ? (safeDesc.configurable as boolean)
                             : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
                     descriptorTuples[j + 2] =
                         'enumerable' in safeDesc
-                            ? !!enumerable
+                            ? (safeDesc.enumerable as boolean)
                             : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
                     descriptorTuples[j + 3] =
                         'writable' in safeDesc
-                            ? !!writable
+                            ? (safeDesc.writable as boolean)
                             : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
                     descriptorTuples[j + 4] =
                         'value' in safeDesc
@@ -3614,15 +3649,47 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     throw pushErrorAcrossBoundary(error);
                 }
                 if (unsafeDesc) {
-                    const descMeta = getDescriptorMeta(unsafeDesc);
+                    // eslint-disable-next-line prefer-object-spread
+                    const safeDesc = ObjectAssign({ __proto__: null }, unsafeDesc);
+                    const { value, get: getter, set: setter } = safeDesc;
                     foreignCallableDescriptorCallback(
                         key,
-                        descMeta[0], // configurable
-                        descMeta[1], // enumerable
-                        descMeta[2], // writable
-                        descMeta[3], // valuePointer
-                        descMeta[4], // getPointer
-                        descMeta[5] // setPointer
+                        'configurable' in safeDesc
+                            ? (safeDesc.configurable as boolean)
+                            : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                        'enumerable' in safeDesc
+                            ? (safeDesc.enumerable as boolean)
+                            : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                        'writable' in safeDesc
+                            ? (safeDesc.writable as boolean)
+                            : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                        'value' in safeDesc
+                            ? // Inline getTransferableValue().
+                              (typeof value === 'object' && value !== null) ||
+                              typeof value === 'function'
+                                ? getTransferablePointer(value)
+                                : typeof value === 'undefined'
+                                ? undefined
+                                : value
+                            : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                        'get' in safeDesc
+                            ? // Inline getTransferableValue().
+                              (typeof getter === 'object' && getter !== null) ||
+                              typeof getter === 'function'
+                                ? getTransferablePointer(getter)
+                                : typeof getter === 'undefined'
+                                ? undefined
+                                : getter
+                            : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                        'set' in safeDesc
+                            ? // Inline getTransferableValue().
+                              (typeof setter === 'object' && setter !== null) ||
+                              typeof setter === 'function'
+                                ? getTransferablePointer(setter)
+                                : typeof setter === 'undefined'
+                                ? undefined
+                                : setter
+                            : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
                     );
                     return undefined;
                 }

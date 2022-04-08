@@ -155,6 +155,7 @@ export function assignFilteredGlobalDescriptorsFromPropertyDescriptorMap<
 
 export function getFilteredGlobalOwnKeys(source: object): PropertyKeys {
     const result: PropertyKeys = [];
+    let resultOffset = 0;
     const ownKeys = ReflectOwnKeys(source);
     for (let i = 0, { length } = ownKeys; i < length; i += 1) {
         const ownKey = ownKeys[i];
@@ -164,7 +165,7 @@ export function getFilteredGlobalOwnKeys(source: object): PropertyKeys {
         if (
             !ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveIntrinsicObjectNames, [ownKey])
         ) {
-            result[result.length] = ownKey;
+            result[resultOffset++] = ownKey;
         }
     }
     return result;
