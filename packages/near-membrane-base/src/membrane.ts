@@ -184,14 +184,21 @@ export interface HooksOptions {
 export type Pointer = CallableFunction;
 export type ProxyTarget = CallableFunction | any[] | object;
 
+const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMap.prototype;
+const { apply: ReflectApply } = Reflect;
 const proxyTargetToLazyPropertyDescriptorStateByTargetMap = new WeakMap();
 
 function getLazyPropertyDescriptorStateByTarget(target: ProxyTarget): object | undefined {
-    return proxyTargetToLazyPropertyDescriptorStateByTargetMap.get(target);
+    return ReflectApply(WeakMapProtoGet, proxyTargetToLazyPropertyDescriptorStateByTargetMap, [
+        target,
+    ]);
 }
 
 function setLazyPropertyDescriptorStateByTarget(target: ProxyTarget, state: object) {
-    proxyTargetToLazyPropertyDescriptorStateByTargetMap.set(target, state);
+    ReflectApply(WeakMapProtoSet, proxyTargetToLazyPropertyDescriptorStateByTargetMap, [
+        target,
+        state,
+    ]);
 }
 
 // istanbul ignore next
@@ -263,6 +270,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         toString: ObjectProtoToString,
     } = ObjectProto as any;
     const {
+        // eslint-disable-next-line @typescript-eslint/no-shadow, no-shadow
         apply: ReflectApply,
         construct: ReflectConstruct,
         defineProperty: ReflectDefineProperty,
@@ -320,6 +328,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         valueOf: StringProtoValueOf,
     } = String.prototype;
     const { valueOf: SymbolProtoValueOf } = SymbolCtor.prototype;
+    // eslint-disable-next-line @typescript-eslint/no-shadow, no-shadow
     const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMapCtor.prototype;
     const consoleRef = console;
     const { info: consoleInfoRef } = consoleRef;
@@ -516,7 +525,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   ErrorCtor.stackTraceLimit = LOCKER_STACK_TRACE_LIMIT;
               }
           }
-        : ((() => {}) as unknown as CallableInstallErrorPrepareStackTrace);
+        : (noop as unknown as CallableInstallErrorPrepareStackTrace);
+
+    function noop() {
+        // No-operation.
+    }
 
     function serializeBigIntObject(bigIntObject: BigInt): bigint {
         // Section 21.2.3 Properties of the BigInt Prototype Object
@@ -1189,35 +1202,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             return safeDesc;
         }
 
-        function createLazyPropertyDescriptor(
-            target: object,
-            key: PropertyKey,
-            state: object
-        ): PropertyDescriptor {
-            // The role of this descriptor is to serve as a bouncer. When either
-            // a getter or a setter is invoked the descriptor will be replaced
-            // with the descriptor from the foreign side and the get/set operation
-            // will carry on from there.
-            return {
-                __proto__: null,
-                // We DO explicitly set configurability in the off chance that
-                // the property doesn't exist.
-                configurable: true,
-                // We DON'T explicitly set enumerability to defer to the
-                // enumerability of the existing property. In the off chance the
-                // the property doesn't exist the property will be defined as
-                // non-enumerable.
-                get(): any {
-                    activateLazyOwnPropertyDefinition(target, key, state);
-                    return ReflectGet(target, key);
-                },
-                set(value: any) {
-                    activateLazyOwnPropertyDefinition(target, key, state);
-                    ReflectSet(target, key, value);
-                },
-            } as PropertyDescriptor;
-        }
-
         function createPointer(originalTarget: ProxyTarget): () => void {
             const pointer = (): void => {
                 // assert: selectedTarget is undefined
@@ -1230,41 +1214,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             }
             return pointer;
         }
-
-        const debugInfo = LOCKER_UNMINIFIED_FLAG
-            ? (...args: Parameters<typeof console.info>): boolean => {
-                  if (!isInShadowRealm && LOCKER_DEBUG_MODE_FLAG === undefined) {
-                      LOCKER_DEBUG_MODE_FLAG = ReflectApply(
-                          ObjectProtoHasOwnProperty,
-                          globalThisRef,
-                          [LOCKER_DEBUG_MODE_SYMBOL]
-                      );
-                      if (LOCKER_DEBUG_MODE_FLAG) {
-                          try {
-                              installErrorPrepareStackTrace();
-                              foreignCallableInstallErrorPrepareStackTrace();
-                              // eslint-disable-next-line no-empty
-                          } catch {}
-                      }
-                  }
-                  if (LOCKER_DEBUG_MODE_FLAG) {
-                      for (let i = 0, { length } = args; i < length; i += 1) {
-                          const pointerOrPrimitive: PointerOrPrimitive = args[i];
-                          if (typeof pointerOrPrimitive === 'function') {
-                              pointerOrPrimitive();
-                              args[i] = selectedTarget;
-                              selectedTarget = undefined;
-                          }
-                      }
-                      try {
-                          ReflectApply(consoleInfoRef, consoleRef, args);
-                          // eslint-disable-next-line no-empty
-                      } catch {}
-                      return true;
-                  }
-                  return false;
-              }
-            : ((() => false) as unknown as CallableDebugInfo);
 
         function getTransferablePointer(originalTarget: ProxyTarget): Pointer {
             let proxyPointer = ReflectApply(WeakMapProtoGet, proxyTargetToPointerMap, [
@@ -2804,10 +2753,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         }
         ReflectSetPrototypeOf(BoundaryProxyHandler.prototype, null);
 
-        // future optimization: hoping proxies with frozen handlers can be faster
+        // Future optimization: Hoping proxies with frozen handlers can be faster.
         ObjectFreeze(BoundaryProxyHandler.prototype);
 
-        // exporting callable hooks for a foreign realm
+        // Export callable hooks to a foreign realm.
         foreignCallableHooksCallback(
             // globalThisPointer
             // When crossing, should be mapped to the foreign globalThis
@@ -3295,7 +3244,40 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 }
             },
             // callableDebugInfo
-            debugInfo,
+            LOCKER_UNMINIFIED_FLAG && !isInShadowRealm
+                ? (...args: Parameters<typeof console.info>): boolean => {
+                      if (LOCKER_DEBUG_MODE_FLAG === undefined) {
+                          LOCKER_DEBUG_MODE_FLAG = ReflectApply(
+                              ObjectProtoHasOwnProperty,
+                              globalThisRef,
+                              [LOCKER_DEBUG_MODE_SYMBOL]
+                          );
+                          if (LOCKER_DEBUG_MODE_FLAG) {
+                              try {
+                                  installErrorPrepareStackTrace();
+                                  foreignCallableInstallErrorPrepareStackTrace();
+                                  // eslint-disable-next-line no-empty
+                              } catch {}
+                          }
+                      }
+                      if (LOCKER_DEBUG_MODE_FLAG) {
+                          for (let i = 0, { length } = args; i < length; i += 1) {
+                              const pointerOrPrimitive: PointerOrPrimitive = args[i];
+                              if (typeof pointerOrPrimitive === 'function') {
+                                  pointerOrPrimitive();
+                                  args[i] = selectedTarget;
+                                  selectedTarget = undefined;
+                              }
+                          }
+                          try {
+                              ReflectApply(consoleInfoRef, consoleRef, args);
+                              // eslint-disable-next-line no-empty
+                          } catch {}
+                          return true;
+                      }
+                      return false;
+                  }
+                : ((() => false) as unknown as CallableDebugInfo),
             // callableDefineProperties
             (
                 targetPointer: Pointer,
@@ -3387,60 +3369,94 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             // callableInstallErrorPrepareStackTrace
             installErrorPrepareStackTrace,
             // callableInstallLazyDescriptors
-            (targetPointer: Pointer, ...ownKeysAndUnforgeableGlobalThisKeys: PropertyKeys) => {
-                if (!isInShadowRealm) {
-                    return;
-                }
-                const sliceIndex = ReflectApply(
-                    ArrayProtoIndexOf,
-                    ownKeysAndUnforgeableGlobalThisKeys,
-                    [LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL]
-                );
-                let ownKeys;
-                let unforgeableGlobalThisKeys;
-                if (sliceIndex === -1) {
-                    ownKeys = ownKeysAndUnforgeableGlobalThisKeys;
-                } else {
-                    ownKeys = ReflectApply(ArrayProtoSlice, ownKeysAndUnforgeableGlobalThisKeys, [
-                        0,
-                        sliceIndex,
-                    ]);
-                    unforgeableGlobalThisKeys = ReflectApply(
-                        ArrayProtoSlice,
-                        ownKeysAndUnforgeableGlobalThisKeys,
-                        [sliceIndex + 1]
-                    );
-                }
-                targetPointer();
-                const target = selectedTarget!;
-                selectedTarget = undefined;
-                const foreignTarget = getTransferablePointer(target);
-                const lazyPropertyDescriptorStatePointer =
-                    foreignCallableGetLazyPropertyDescriptorStateByTarget(foreignTarget);
-                let lazyPropertyDescriptorState: any = lazyPropertyDescriptorStatePointer;
-                if (typeof lazyPropertyDescriptorStatePointer === 'function') {
-                    lazyPropertyDescriptorStatePointer();
-                    lazyPropertyDescriptorState = selectedTarget;
-                    selectedTarget = undefined;
-                }
-                if (lazyPropertyDescriptorState === undefined) {
-                    lazyPropertyDescriptorState = { __proto__: null };
-                    foreignCallableSetLazyPropertyDescriptorStateByTarget(
-                        foreignTarget,
-                        getTransferablePointer(lazyPropertyDescriptorState)
-                    );
-                }
-                for (let i = 0, { length } = ownKeys; i < length; i += 1) {
-                    const ownKey = ownKeys[i];
-                    lazyPropertyDescriptorState[ownKey] = true;
-                    ReflectDefineProperty(
-                        target,
-                        ownKey,
-                        createLazyPropertyDescriptor(target, ownKey, lazyPropertyDescriptorState)
-                    );
-                }
-                installPropertyDescriptorMethodWrappers(unforgeableGlobalThisKeys);
-            },
+            isInShadowRealm
+                ? (
+                      targetPointer: Pointer,
+                      ...ownKeysAndUnforgeableGlobalThisKeys: PropertyKeys
+                  ) => {
+                      const sliceIndex = ReflectApply(
+                          ArrayProtoIndexOf,
+                          ownKeysAndUnforgeableGlobalThisKeys,
+                          [LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL]
+                      );
+                      let ownKeys;
+                      let unforgeableGlobalThisKeys;
+                      if (sliceIndex === -1) {
+                          ownKeys = ownKeysAndUnforgeableGlobalThisKeys;
+                      } else {
+                          ownKeys = ReflectApply(
+                              ArrayProtoSlice,
+                              ownKeysAndUnforgeableGlobalThisKeys,
+                              [0, sliceIndex]
+                          );
+                          unforgeableGlobalThisKeys = ReflectApply(
+                              ArrayProtoSlice,
+                              ownKeysAndUnforgeableGlobalThisKeys,
+                              [sliceIndex + 1]
+                          );
+                      }
+                      targetPointer();
+                      const target = selectedTarget!;
+                      selectedTarget = undefined;
+                      const foreignTarget = getTransferablePointer(target);
+                      const lazyPropertyDescriptorStatePointer =
+                          foreignCallableGetLazyPropertyDescriptorStateByTarget(foreignTarget);
+                      let lazyPropertyDescriptorState: any = lazyPropertyDescriptorStatePointer;
+                      if (typeof lazyPropertyDescriptorStatePointer === 'function') {
+                          lazyPropertyDescriptorStatePointer();
+                          lazyPropertyDescriptorState = selectedTarget;
+                          selectedTarget = undefined;
+                      }
+                      if (lazyPropertyDescriptorState === undefined) {
+                          lazyPropertyDescriptorState = { __proto__: null };
+                          foreignCallableSetLazyPropertyDescriptorStateByTarget(
+                              foreignTarget,
+                              getTransferablePointer(lazyPropertyDescriptorState)
+                          );
+                      }
+                      for (let i = 0, { length } = ownKeys; i < length; i += 1) {
+                          const ownKey = ownKeys[i];
+                          lazyPropertyDescriptorState[ownKey] = true;
+                          ReflectDefineProperty(
+                              target,
+                              ownKey,
+                              // The role of this descriptor is to serve as a
+                              // bouncer. When either a getter or a setter is
+                              // invoked the descriptor will be replaced with
+                              // the descriptor from the foreign side and the
+                              // get/set operation will carry on from there.
+                              {
+                                  __proto__: null,
+                                  // We DO explicitly set configurability in the
+                                  // off chance that the property doesn't exist.
+                                  configurable: true,
+                                  // We DON'T explicitly set enumerability to
+                                  // defer to the enumerability of the existing
+                                  // property. In the off chance the property
+                                  // doesn't exist the property will be defined
+                                  // as non-enumerable.
+                                  get(): any {
+                                      activateLazyOwnPropertyDefinition(
+                                          target,
+                                          ownKey,
+                                          lazyPropertyDescriptorState
+                                      );
+                                      return ReflectGet(target, ownKey);
+                                  },
+                                  set(value: any) {
+                                      activateLazyOwnPropertyDefinition(
+                                          target,
+                                          ownKey,
+                                          lazyPropertyDescriptorState
+                                      );
+                                      ReflectSet(target, ownKey, value);
+                                  },
+                              } as PropertyDescriptor
+                          );
+                      }
+                      installPropertyDescriptorMethodWrappers(unforgeableGlobalThisKeys);
+                  }
+                : (noop as unknown as CallableInstallLazyPropertyDescriptors),
             // callableIsTargetLive
             (targetPointer: Pointer): boolean => {
                 targetPointer();
