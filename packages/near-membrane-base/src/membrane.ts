@@ -1194,8 +1194,8 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
                 const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
                 const { length } = args;
-                const combinedArgs = new ArrayCtor(length + 2);
                 let combinedOffset = 2;
+                const combinedArgs = new ArrayCtor(length + combinedOffset);
                 combinedArgs[0] = foreignTargetPointer;
                 try {
                     combinedArgs[1] =
