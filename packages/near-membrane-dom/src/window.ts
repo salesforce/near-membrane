@@ -1,7 +1,6 @@
 import { PropertyKeys } from '@locker/near-membrane-base';
 
 const WeakMapCtor = WeakMap;
-const { push: ArrayProtoPush } = Array.prototype;
 const {
     apply: ReflectApply,
     getPrototypeOf: ReflectGetPrototypeOf,
@@ -95,6 +94,7 @@ getCachedGlobalObjectReferences(window);
 
 export function filterWindowKeys(keys: PropertyKeys): PropertyKeys {
     const result: PropertyKeys = [];
+    let resultOffset = 0;
     for (let i = 0, { length } = keys; i < length; i += 1) {
         const key = keys[i];
         if (
@@ -106,7 +106,7 @@ export function filterWindowKeys(keys: PropertyKeys): PropertyKeys {
             // Remove other browser specific unforgeables.
             key !== 'chrome'
         ) {
-            ReflectApply(ArrayProtoPush, result, [key]);
+            result[resultOffset++] = key;
         }
     }
     return result;
