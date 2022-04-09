@@ -110,7 +110,7 @@ describe('VirtualEnvironment', () => {
         });
     });
 
-    describe('VirtualEnvironment.prototype.remap', () => {
+    describe('VirtualEnvironment.prototype.remapProperties', () => {
         it('does not skip index-like properties', () => {
             expect.assertions(1);
 
@@ -124,7 +124,7 @@ describe('VirtualEnvironment', () => {
             ve.link('globalThis');
 
             const redValue = {};
-            ve.remap(redValue, Object.getOwnPropertyDescriptors({ 0: 'foo' }));
+            ve.remapProperties(redValue, Object.getOwnPropertyDescriptors({ 0: 'foo' }));
 
             expect(Object.getOwnPropertyNames(redValue)).toEqual(['0']);
         });
@@ -145,7 +145,7 @@ describe('VirtualEnvironment', () => {
                 value: 0,
                 configurable: false,
             });
-            ve.remap(redValue, Object.getOwnPropertyDescriptors({ a: 1 }));
+            ve.remapProperties(redValue, Object.getOwnPropertyDescriptors({ a: 1 }));
 
             expect(redValue.a).toBe(0);
         });
@@ -171,7 +171,7 @@ describe('VirtualEnvironment', () => {
                 },
             });
             ve.link('globalThis');
-            ve.remap(globalThis, {
+            ve.remapProperties(globalThis, {
                 b: {
                     get() {
                         count += 1;
@@ -198,7 +198,7 @@ describe('VirtualEnvironment', () => {
                 redConnector,
             });
             ve.link('globalThis');
-            ve.remap(globalThis, {
+            ve.remapProperties(globalThis, {
                 c: {
                     get() {
                         // This WILL be reached, but only until the setter is called

@@ -2,7 +2,9 @@ import createVirtualEnvironment from '../node-realm';
 
 class ExoticObject {
     constructor(source) {
-        Object.assign(this, source);
+        if (source) {
+            Object.defineProperties(this, Object.getOwnPropertyDescriptors(source));
+        }
     }
 }
 
