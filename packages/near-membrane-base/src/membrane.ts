@@ -184,22 +184,7 @@ export interface HooksOptions {
 export type Pointer = CallableFunction;
 export type ProxyTarget = CallableFunction | any[] | object;
 
-const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMap.prototype;
-const { apply: ReflectApply } = Reflect;
 const proxyTargetToLazyPropertyDescriptorStateByTargetMap = new WeakMap();
-
-function getLazyPropertyDescriptorStateByTarget(target: ProxyTarget): object | undefined {
-    return ReflectApply(WeakMapProtoGet, proxyTargetToLazyPropertyDescriptorStateByTargetMap, [
-        target,
-    ]);
-}
-
-function setLazyPropertyDescriptorStateByTarget(target: ProxyTarget, state: object) {
-    ReflectApply(WeakMapProtoSet, proxyTargetToLazyPropertyDescriptorStateByTargetMap, [
-        target,
-        state,
-    ]);
-}
 
 // istanbul ignore next
 export function createMembraneMarshall(isInShadowRealm?: boolean) {
@@ -2861,8 +2846,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     return getTransferablePointer(value);
                 }
                 // Internationally ignoring the case of
-                // typeof document.all === 'undefined' because in the reserve
+                // `typeof document.all === 'undefined'` because in the reserve
                 // membrane, you never get one of those exotic objects.
+                // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
                 return typeof value === 'undefined' ? undefined : value;
             },
             // callableGetPropertyValuePointer: this callable function allows
@@ -3393,18 +3380,24 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 }
             },
             // callableGetLazyPropertyDescriptorStateByTarget
-            (targetPointer: Pointer) => {
-                targetPointer();
-                const target = selectedTarget!;
-                selectedTarget = undefined;
-                let state;
-                try {
-                    state = getLazyPropertyDescriptorStateByTarget(target);
-                } catch (error: any) {
-                    throw pushErrorAcrossBoundary(error);
-                }
-                return state ? getTransferablePointer(state) : state;
-            },
+            !isInShadowRealm
+                ? (targetPointer: Pointer) => {
+                      targetPointer();
+                      const target = selectedTarget!;
+                      selectedTarget = undefined;
+                      let state;
+                      try {
+                          state = ReflectApply(
+                              WeakMapProtoGet,
+                              proxyTargetToLazyPropertyDescriptorStateByTargetMap,
+                              [target]
+                          );
+                      } catch (error: any) {
+                          throw pushErrorAcrossBoundary(error);
+                      }
+                      return state ? getTransferablePointer(state) : state;
+                  }
+                : (noop as unknown as CallableGetLazyPropertyDescriptorStateByTarget),
             // callableGetTargetIntegrityTraits
             (targetPointer: Pointer): TargetIntegrityTraits => {
                 targetPointer();
@@ -3626,19 +3619,25 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 return serializeTarget(target);
             },
             // callableSetLazyPropertyDescriptorStateByTarget
-            (targetPointer: Pointer, statePointer: Pointer) => {
-                targetPointer();
-                const target = selectedTarget!;
-                selectedTarget = undefined;
-                statePointer();
-                const state = selectedTarget!;
-                selectedTarget = undefined;
-                try {
-                    setLazyPropertyDescriptorStateByTarget(target, state);
-                } catch (error: any) {
-                    throw pushErrorAcrossBoundary(error);
-                }
-            },
+            !isInShadowRealm
+                ? (targetPointer: Pointer, statePointer: Pointer) => {
+                      targetPointer();
+                      const target = selectedTarget!;
+                      selectedTarget = undefined;
+                      statePointer();
+                      const state = selectedTarget!;
+                      selectedTarget = undefined;
+                      try {
+                          ReflectApply(
+                              WeakMapProtoSet,
+                              proxyTargetToLazyPropertyDescriptorStateByTargetMap,
+                              [target, state]
+                          );
+                      } catch (error: any) {
+                          throw pushErrorAcrossBoundary(error);
+                      }
+                  }
+                : (noop as unknown as CallableSetLazyPropertyDescriptorStateByTarget),
             // callableBatchGetPrototypeOfAndGetOwnPropertyDescriptors
             (
                 targetPointer: Pointer,
