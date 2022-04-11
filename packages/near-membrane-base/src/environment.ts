@@ -277,7 +277,7 @@ export class VirtualEnvironment {
         }
     }
 
-    lazyRemap(
+    lazyRemapProperties(
         target: ProxyTarget,
         ownKeys: PropertyKeys,
         unforgeableGlobalThisKeys?: PropertyKeys
@@ -306,7 +306,7 @@ export class VirtualEnvironment {
         }
     }
 
-    remap(target: ProxyTarget, unsafeBlueDescMap: PropertyDescriptorMap) {
+    remapProperties(target: ProxyTarget, unsafeBlueDescMap: PropertyDescriptorMap) {
         const targetPointer = this.blueGetTransferableValue(target) as Pointer;
         const ownKeys = ReflectOwnKeys(unsafeBlueDescMap);
         const { length } = ownKeys;
