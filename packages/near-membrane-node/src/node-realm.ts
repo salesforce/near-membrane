@@ -53,11 +53,14 @@ export default function createVirtualEnvironment(
         instrumentation,
     });
     linkIntrinsics(env, globalObjectVirtualizationTarget);
-    env.lazyRemap(globalObjectVirtualizationTarget, getFilteredGlobalOwnKeys(globalObjectShape));
+    env.lazyRemapProperties(
+        globalObjectVirtualizationTarget,
+        getFilteredGlobalOwnKeys(globalObjectShape)
+    );
     if (endowments) {
         const filteredEndowments = {};
         assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(filteredEndowments, endowments);
-        env.remap(globalObjectVirtualizationTarget, filteredEndowments);
+        env.remapProperties(globalObjectVirtualizationTarget, filteredEndowments);
     }
     return env;
 }

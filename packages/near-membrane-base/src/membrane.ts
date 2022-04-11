@@ -42,6 +42,17 @@ type CallableConstruct = (
     newTargetPointer: PointerOrPrimitive,
     ...args: PointerOrPrimitive[]
 ) => PointerOrPrimitive;
+type CallableDefineProperty = (
+    targetPointer: Pointer,
+    key: PropertyKey,
+    configurable: boolean | symbol,
+    enumerable: boolean | symbol,
+    writable: boolean | symbol,
+    valuePointer: PointerOrPrimitive,
+    getPointer: PointerOrPrimitive,
+    setPointer: PointerOrPrimitive,
+    foreignCallableNonConfigurableDescriptorCallback: CallableNonConfigurableDescriptorCallback
+) => boolean;
 type CallableDeleteProperty = (targetPointer: Pointer, key: PropertyKey) => boolean;
 type CallableGet = (
     targetPointer: Pointer,
@@ -112,17 +123,6 @@ type PointerOrPrimitive = Pointer | Primitive;
 type Primitive = bigint | boolean | null | number | string | symbol | undefined;
 type SerializedValue = bigint | boolean | number | string | symbol;
 type ShadowTarget = ProxyTarget;
-export type CallableDefineProperty = (
-    targetPointer: Pointer,
-    key: PropertyKey,
-    configurable: boolean | symbol,
-    enumerable: boolean | symbol,
-    writable: boolean | symbol,
-    valuePointer: PointerOrPrimitive,
-    getPointer: PointerOrPrimitive,
-    setPointer: PointerOrPrimitive,
-    foreignCallableNonConfigurableDescriptorCallback: CallableNonConfigurableDescriptorCallback
-) => boolean;
 export type CallableDefineProperties = (
     targetPointer: Pointer,
     ...descriptorTuples: [...Parameters<CallableDescriptorCallback>]
@@ -397,6 +397,14 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         Revoked = 1 << 4,
     }
 
+    function alwaysFalse() {
+        return false;
+    }
+
+    function alwaysNone() {
+        return 0;
+    }
+
     function getUnforgeableGlobalThisGetter(key: PropertyKey): () => typeof globalThis {
         let globalThisGetter = keyToGlobalThisGetterRegistry[key];
         if (globalThisGetter === undefined) {
@@ -575,17 +583,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         //     a. Let s be value.[[SymbolData]].
         //     b. Assert: Type(s) is Symbol.
         return ReflectApply(SymbolProtoValueOf, symbolObject, []);
-    }
-
-    function serializeTarget(target: ProxyTarget): SerializedValue | undefined {
-        try {
-            return ReflectHas(target, TO_STRING_TAG_SYMBOL)
-                ? serializeTargetByTrialAndError(target)
-                : // Fast path.
-                  serializeTargetByBrand(target);
-            // eslint-disable-next-line no-empty
-        } catch {}
-        return undefined;
     }
 
     function serializeTargetByBrand(target: ProxyTarget): SerializedValue | undefined {
@@ -886,8 +883,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
                             typeof thisArgOrNewTarget === 'function'
                             ? getTransferablePointer(thisArgOrNewTarget)
-                            : typeof thisArgOrNewTarget === 'undefined'
-                            ? undefined
                             : thisArgOrNewTarget
                     );
                     let result: any = pointerOrPrimitive;
@@ -955,13 +950,19 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
                             typeof thisArgOrNewTarget === 'function'
                             ? getTransferablePointer(thisArgOrNewTarget)
-                            : typeof thisArgOrNewTarget === 'undefined'
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof thisArgOrNewTarget === 'undefined'
                             ? undefined
                             : thisArgOrNewTarget,
                         // Inline getTransferableValue().
                         (typeof arg0 === 'object' && arg0 !== null) || typeof arg0 === 'function'
                             ? getTransferablePointer(arg0)
-                            : typeof arg0 === 'undefined'
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof arg0 === 'undefined'
                             ? undefined
                             : arg0
                     );
@@ -1030,19 +1031,28 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
                             typeof thisArgOrNewTarget === 'function'
                             ? getTransferablePointer(thisArgOrNewTarget)
-                            : typeof thisArgOrNewTarget === 'undefined'
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof thisArgOrNewTarget === 'undefined'
                             ? undefined
                             : thisArgOrNewTarget,
                         // Inline getTransferableValue().
                         (typeof arg0 === 'object' && arg0 !== null) || typeof arg0 === 'function'
                             ? getTransferablePointer(arg0)
-                            : typeof arg0 === 'undefined'
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof arg0 === 'undefined'
                             ? undefined
                             : arg0,
                         // Inline getTransferableValue().
                         (typeof arg1 === 'object' && arg1 !== null) || typeof arg1 === 'function'
                             ? getTransferablePointer(arg1)
-                            : typeof arg1 === 'undefined'
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof arg1 === 'undefined'
                             ? undefined
                             : arg1
                     );
@@ -1111,25 +1121,37 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
                             typeof thisArgOrNewTarget === 'function'
                             ? getTransferablePointer(thisArgOrNewTarget)
-                            : typeof thisArgOrNewTarget === 'undefined'
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof thisArgOrNewTarget === 'undefined'
                             ? undefined
                             : thisArgOrNewTarget,
                         // Inline getTransferableValue().
                         (typeof arg0 === 'object' && arg0 !== null) || typeof arg0 === 'function'
                             ? getTransferablePointer(arg0)
-                            : typeof arg0 === 'undefined'
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof arg0 === 'undefined'
                             ? undefined
                             : arg0,
                         // Inline getTransferableValue().
                         (typeof arg1 === 'object' && arg1 !== null) || typeof arg1 === 'function'
                             ? getTransferablePointer(arg1)
-                            : typeof arg1 === 'undefined'
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof arg1 === 'undefined'
                             ? undefined
                             : arg1,
                         // Inline getTransferableValue().
                         (typeof arg2 === 'object' && arg2 !== null) || typeof arg2 === 'function'
                             ? getTransferablePointer(arg2)
-                            : typeof arg2 === 'undefined'
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof arg2 === 'undefined'
                             ? undefined
                             : arg2
                     );
@@ -1187,7 +1209,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
                         typeof thisArgOrNewTarget === 'function'
                             ? getTransferablePointer(thisArgOrNewTarget)
-                            : typeof thisArgOrNewTarget === 'undefined'
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof thisArgOrNewTarget === 'undefined'
                             ? undefined
                             : thisArgOrNewTarget;
                     for (let i = 0; i < length; i += 1) {
@@ -1196,7 +1221,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         combinedArgs[combinedOffset++] =
                             (typeof arg === 'object' && arg !== null) || typeof arg === 'function'
                                 ? getTransferablePointer(arg)
-                                : typeof arg === 'undefined'
+                                : // Intentionally ignoring `document.all`.
+                                // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                                // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                                typeof arg === 'undefined'
                                 ? undefined
                                 : arg;
                     }
@@ -1275,7 +1303,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             return safeDesc;
         }
 
-        function createPointer(originalTarget: ProxyTarget): () => void {
+        function createPointer(originalTarget: ProxyTarget | undefined): () => void {
             const pointer = (): void => {
                 // assert: selectedTarget is undefined
                 selectedTarget = originalTarget;
@@ -1723,8 +1751,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             const transferableValue =
                 (typeof value === 'object' && value !== null) || typeof value === 'function'
                     ? getTransferablePointer(value)
-                    : typeof value === 'undefined'
-                    ? undefined
                     : value;
             const transferableReceiver = getTransferablePointer(receiver);
             try {
@@ -2313,7 +2339,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                           (typeof value === 'object' && value !== null) ||
                           typeof value === 'function'
                             ? getTransferablePointer(value)
-                            : typeof value === 'undefined'
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof value === 'undefined'
                             ? undefined
                             : value
                         : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
@@ -2323,8 +2352,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                           (typeof getter === 'object' && getter !== null) ||
                           typeof getter === 'function'
                             ? getTransferablePointer(getter)
-                            : typeof getter === 'undefined'
-                            ? undefined
                             : getter
                         : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
                 const setPointer =
@@ -2333,8 +2360,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                           (typeof setter === 'object' && setter !== null) ||
                           typeof setter === 'function'
                             ? getTransferablePointer(setter)
-                            : typeof setter === 'undefined'
-                            ? undefined
                             : setter
                         : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
                 try {
@@ -2426,8 +2451,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     (typeof receiver === 'object' && receiver !== null) ||
                     typeof receiver === 'function'
                         ? getTransferablePointer(receiver)
-                        : typeof receiver === 'undefined'
-                        ? undefined
                         : receiver;
                 try {
                     const pointerOrPrimitive = foreignCallableGet(
@@ -2721,8 +2744,17 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 receiver: any
             ): boolean {
                 lastProxyTrapCalled = ProxyHandlerTraps.Set;
-                const { foreignTargetPointer } = this;
-                return this.proxy === receiver
+                const { foreignTargetPointer, proxy } = this;
+                // Intentionally ignoring `document.all`.
+                // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                if (typeof value === 'undefined') {
+                    value = undefined;
+                }
+                if (typeof receiver === 'undefined') {
+                    receiver = proxy;
+                }
+                return proxy === receiver
                     ? // Fast path.
                       passthruForeignCallableSet(foreignTargetPointer, key, value, receiver)
                     : passthruForeignTraversedSet(
@@ -2835,19 +2867,19 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             // When crossing, should be mapped to the foreign globalThis
             createPointer(globalThisRef),
             // getSelectedTarget
-            (): any => {
-                const result = selectedTarget;
-                selectedTarget = undefined;
-                return result;
-            },
+            !isInShadowRealm
+                ? (): any => {
+                      const result = selectedTarget;
+                      selectedTarget = undefined;
+                      return result;
+                  }
+                : (noop as unknown as GetSelectedTarget),
             // getTransferableValue
             (value: any): PointerOrPrimitive => {
                 if ((typeof value === 'object' && value !== null) || typeof value === 'function') {
                     return getTransferablePointer(value);
                 }
-                // Internationally ignoring the case of
-                // `typeof document.all === 'undefined'` because in the reserve
-                // membrane, you never get one of those exotic objects.
+                // Intentionally ignoring `document.all`.
                 // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
                 // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
                 return typeof value === 'undefined' ? undefined : value;
@@ -2860,23 +2892,27 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
-                return createPointer(target?.[key] as ProxyTarget);
+                const value = target?.[key];
+                // Intentionally ignoring `document.all`.
+                // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                return createPointer(typeof value === 'undefined' ? undefined : value);
             },
             // callableEvaluate
-            (sourceText: string): PointerOrPrimitive => {
-                try {
-                    const result = localEval(sourceText);
-                    // Inline getTransferableValue().
-                    return (typeof result === 'object' && result !== null) ||
-                        typeof result === 'function'
-                        ? getTransferablePointer(result)
-                        : typeof result === 'undefined'
-                        ? undefined
-                        : result;
-                } catch (error: any) {
-                    throw pushErrorAcrossBoundary(error);
-                }
-            },
+            isInShadowRealm
+                ? (sourceText: string): PointerOrPrimitive => {
+                      try {
+                          const result = localEval(sourceText);
+                          // Inline getTransferableValue().
+                          return (typeof result === 'object' && result !== null) ||
+                              typeof result === 'function'
+                              ? getTransferablePointer(result)
+                              : result;
+                      } catch (error: any) {
+                          throw pushErrorAcrossBoundary(error);
+                      }
+                  }
+                : (noop as unknown as CallableEvaluate),
             // callableLinkPointers: this callable function allows the foreign
             // realm to define a linkage between two values across the membrane.
             (targetPointer: Pointer, newPointer: Pointer) => {
@@ -2948,7 +2984,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 return (typeof result === 'object' && result !== null) ||
                     typeof result === 'function'
                     ? getTransferablePointer(result)
-                    : typeof result === 'undefined'
+                    : // Intentionally ignoring `document.all`.
+                    // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                    // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                    typeof result === 'undefined'
                     ? undefined
                     : result;
             },
@@ -2985,7 +3024,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 return (typeof result === 'object' && result !== null) ||
                     typeof result === 'function'
                     ? getTransferablePointer(result)
-                    : typeof result === 'undefined'
+                    : // Intentionally ignoring `document.all`.
+                    // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                    // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                    typeof result === 'undefined'
                     ? undefined
                     : result;
             },
@@ -3052,8 +3094,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                                   (typeof value === 'object' && value !== null) ||
                                   typeof value === 'function'
                                     ? getTransferablePointer(value)
-                                    : typeof value === 'undefined'
-                                    ? undefined
                                     : value
                                 : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
                             'get' in safeDesc
@@ -3061,8 +3101,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                                   (typeof getter === 'object' && getter !== null) ||
                                   typeof getter === 'function'
                                     ? getTransferablePointer(getter)
-                                    : typeof getter === 'undefined'
-                                    ? undefined
                                     : getter
                                 : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
                             'set' in safeDesc
@@ -3070,8 +3108,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                                   (typeof setter === 'object' && setter !== null) ||
                                   typeof setter === 'function'
                                     ? getTransferablePointer(setter)
-                                    : typeof setter === 'undefined'
-                                    ? undefined
                                     : setter
                                 : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
                         );
@@ -3119,7 +3155,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 ) {
                     return getTransferablePointer(result);
                 }
-                result = typeof result === 'undefined' ? undefined : result;
                 if (
                     result === undefined &&
                     key === TO_STRING_TAG_SYMBOL &&
@@ -3142,7 +3177,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         throw pushErrorAcrossBoundary(error);
                     }
                 }
-                return result;
+                // Intentionally ignoring `document.all`.
+                // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                return typeof result === 'undefined' ? undefined : result;
             },
             // callableGetOwnPropertyDescriptor
             (
@@ -3179,7 +3217,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                               (typeof value === 'object' && value !== null) ||
                               typeof value === 'function'
                                 ? getTransferablePointer(value)
-                                : typeof value === 'undefined'
+                                : // Intentionally ignoring `document.all`.
+                                // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                                // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                                typeof value === 'undefined'
                                 ? undefined
                                 : value
                             : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
@@ -3188,8 +3229,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                               (typeof getter === 'object' && getter !== null) ||
                               typeof getter === 'function'
                                 ? getTransferablePointer(getter)
-                                : typeof getter === 'undefined'
-                                ? undefined
                                 : getter
                             : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
                         'set' in safeDesc
@@ -3197,8 +3236,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                               (typeof setter === 'object' && setter !== null) ||
                               typeof setter === 'function'
                                 ? getTransferablePointer(setter)
-                                : typeof setter === 'undefined'
-                                ? undefined
                                 : setter
                             : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
                     );
@@ -3214,6 +3251,12 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     proto = ReflectGetPrototypeOf(target);
                 } catch (error: any) {
                     throw pushErrorAcrossBoundary(error);
+                }
+                // Intentionally ignoring `document.all`.
+                // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                if (typeof proto === 'undefined') {
+                    return null;
                 }
                 return proto ? getTransferablePointer(proto) : proto;
             },
@@ -3354,31 +3397,33 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   }
                 : ((() => false) as unknown as CallableDebugInfo),
             // callableDefineProperties
-            (
-                targetPointer: Pointer,
-                ...descriptorTuples: [...Parameters<CallableDescriptorCallback>]
-            ): void => {
-                targetPointer();
-                const target = selectedTarget!;
-                selectedTarget = undefined;
-                for (let i = 0, { length } = descriptorTuples; i < length; i += 7) {
-                    // We don't use `ObjectDefineProperties()` here because it
-                    // will throw an exception if it fails to define one of its
-                    // properties.
-                    ReflectDefineProperty(
-                        target,
-                        descriptorTuples[i] as PropertyKey,
-                        createDescriptorFromMeta(
-                            descriptorTuples[i + 1] as boolean | symbol, // configurable
-                            descriptorTuples[i + 2] as boolean | symbol, // enumerable
-                            descriptorTuples[i + 3] as boolean | symbol, // writable
-                            descriptorTuples[i + 4] as PointerOrPrimitive, // valuePointer
-                            descriptorTuples[i + 5] as PointerOrPrimitive, // getPointer
-                            descriptorTuples[i + 6] as PointerOrPrimitive // setPointer
-                        )
-                    );
-                }
-            },
+            isInShadowRealm
+                ? (
+                      targetPointer: Pointer,
+                      ...descriptorTuples: [...Parameters<CallableDescriptorCallback>]
+                  ): void => {
+                      targetPointer();
+                      const target = selectedTarget!;
+                      selectedTarget = undefined;
+                      for (let i = 0, { length } = descriptorTuples; i < length; i += 7) {
+                          // We don't use `ObjectDefineProperties()` here because it
+                          // will throw an exception if it fails to define one of its
+                          // properties.
+                          ReflectDefineProperty(
+                              target,
+                              descriptorTuples[i] as PropertyKey,
+                              createDescriptorFromMeta(
+                                  descriptorTuples[i + 1] as boolean | symbol, // configurable
+                                  descriptorTuples[i + 2] as boolean | symbol, // enumerable
+                                  descriptorTuples[i + 3] as boolean | symbol, // writable
+                                  descriptorTuples[i + 4] as PointerOrPrimitive, // valuePointer
+                                  descriptorTuples[i + 5] as PointerOrPrimitive, // getPointer
+                                  descriptorTuples[i + 6] as PointerOrPrimitive // setPointer
+                              )
+                          );
+                      }
+                  }
+                : (noop as unknown as CallableDefineProperties),
             // callableGetLazyPropertyDescriptorStateByTarget
             !isInShadowRealm
                 ? (targetPointer: Pointer) => {
@@ -3399,38 +3444,40 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   }
                 : (noop as unknown as CallableGetLazyPropertyDescriptorStateByTarget),
             // callableGetTargetIntegrityTraits
-            (targetPointer: Pointer): TargetIntegrityTraits => {
-                targetPointer();
-                const target = selectedTarget!;
-                selectedTarget = undefined;
-                // A target may be a proxy that is revoked or throws in its
-                // "isExtensible" trap.
-                try {
-                    if (!ReflectIsExtensible(target)) {
-                        if (ObjectIsFrozen(target)) {
-                            return (
-                                TargetIntegrityTraits.IsFrozen &
-                                TargetIntegrityTraits.IsSealed &
-                                TargetIntegrityTraits.IsNotExtensible
-                            );
-                        }
-                        if (ObjectIsSealed(target)) {
-                            return (
-                                TargetIntegrityTraits.IsSealed &
-                                TargetIntegrityTraits.IsNotExtensible
-                            );
-                        }
-                        return TargetIntegrityTraits.IsNotExtensible;
-                    }
-                } catch {
-                    try {
-                        isArrayOrThrowForRevoked(target);
-                    } catch {
-                        return TargetIntegrityTraits.Revoked;
-                    }
-                }
-                return TargetIntegrityTraits.None;
-            },
+            !isInShadowRealm
+                ? (targetPointer: Pointer): TargetIntegrityTraits => {
+                      targetPointer();
+                      const target = selectedTarget!;
+                      selectedTarget = undefined;
+                      // A target may be a proxy that is revoked or throws in its
+                      // "isExtensible" trap.
+                      try {
+                          if (!ReflectIsExtensible(target)) {
+                              if (ObjectIsFrozen(target)) {
+                                  return (
+                                      TargetIntegrityTraits.IsFrozen &
+                                      TargetIntegrityTraits.IsSealed &
+                                      TargetIntegrityTraits.IsNotExtensible
+                                  );
+                              }
+                              if (ObjectIsSealed(target)) {
+                                  return (
+                                      TargetIntegrityTraits.IsSealed &
+                                      TargetIntegrityTraits.IsNotExtensible
+                                  );
+                              }
+                              return TargetIntegrityTraits.IsNotExtensible;
+                          }
+                      } catch {
+                          try {
+                              isArrayOrThrowForRevoked(target);
+                          } catch {
+                              return TargetIntegrityTraits.Revoked;
+                          }
+                      }
+                      return TargetIntegrityTraits.None;
+                  }
+                : (alwaysNone as unknown as CallableGetTargetIntegrityTraits),
             // callableGetToStringTagOfTarget
             (targetPointer: Pointer): string => {
                 targetPointer();
@@ -3539,85 +3586,96 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   }
                 : (noop as unknown as CallableInstallLazyPropertyDescriptors),
             // callableIsTargetLive
-            (targetPointer: Pointer): boolean => {
-                targetPointer();
-                const target = selectedTarget!;
-                selectedTarget = undefined;
-                if (target === ObjectProto) {
-                    return false;
-                }
-                try {
-                    if (typeof target === 'object') {
-                        const { constructor } = target;
-                        if (constructor === ObjectCtor) {
-                            // If the constructor, own or inherited, points to `Object`
-                            // then `value` is not likely a prototype object.
-                            return true;
-                        }
-                        if (ReflectGetPrototypeOf(target) === null) {
-                            // Ensure `value` is not an `Object.prototype` from an iframe.
-                            if (
-                                typeof constructor !== 'function' ||
-                                constructor.prototype !== target
-                            ) {
-                                return true;
-                            }
-                        }
-                        // We only check for typed arrays, array buffers, and regexp here
-                        // since plain arrays are marked as live in the BoundaryProxyHandler
-                        // constructor.
-                        if (ArrayBufferIsView(target)) {
-                            return true;
-                        }
-                        try {
-                            // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
-                            // https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.bytelength
-                            // Step 2: Perform ? RequireInternalSlot(O, [[ArrayBufferData]]).
-                            ReflectApply(ArrayBufferProtoByteLengthGetter, target, []);
-                            return true;
-                            // eslint-disable-next-line no-empty
-                        } catch {}
-                        try {
-                            // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
-                            // https://tc39.es/ecma262/#sec-get-regexp.prototype.source
-                            // Step 3: If R does not have an [[OriginalSource]] internal slot, then
-                            //     a. If SameValue(R, %RegExp.prototype%) is true, return "(?:)".
-                            //     b. Otherwise, throw a TypeError exception.
-                            if (target !== RegExpProto) {
-                                ReflectApply(RegExpProtoSourceGetter, target, []);
-                                return true;
-                            }
-                            // eslint-disable-next-line no-empty
-                        } catch {}
-                    }
-                    return ReflectApply(ObjectProtoHasOwnProperty, target, [
-                        LOCKER_LIVE_VALUE_MARKER_SYMBOL,
-                    ]);
-                    // eslint-disable-next-line no-empty
-                } catch {}
-                return false;
-            },
+            !isInShadowRealm
+                ? (targetPointer: Pointer): boolean => {
+                      targetPointer();
+                      const target = selectedTarget!;
+                      selectedTarget = undefined;
+                      if (target === ObjectProto) {
+                          return false;
+                      }
+                      try {
+                          if (typeof target === 'object') {
+                              const { constructor } = target;
+                              if (constructor === ObjectCtor) {
+                                  // If the constructor, own or inherited, points to `Object`
+                                  // then `value` is not likely a prototype object.
+                                  return true;
+                              }
+                              if (ReflectGetPrototypeOf(target) === null) {
+                                  // Ensure `value` is not an `Object.prototype` from an iframe.
+                                  if (
+                                      typeof constructor !== 'function' ||
+                                      constructor.prototype !== target
+                                  ) {
+                                      return true;
+                                  }
+                              }
+                              // We only check for typed arrays, array buffers, and regexp here
+                              // since plain arrays are marked as live in the BoundaryProxyHandler
+                              // constructor.
+                              if (ArrayBufferIsView(target)) {
+                                  return true;
+                              }
+                              try {
+                                  // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
+                                  // https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.bytelength
+                                  // Step 2: Perform ? RequireInternalSlot(O, [[ArrayBufferData]]).
+                                  ReflectApply(ArrayBufferProtoByteLengthGetter, target, []);
+                                  return true;
+                                  // eslint-disable-next-line no-empty
+                              } catch {}
+                              try {
+                                  // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
+                                  // https://tc39.es/ecma262/#sec-get-regexp.prototype.source
+                                  // Step 3: If R does not have an [[OriginalSource]] internal slot, then
+                                  //     a. If SameValue(R, %RegExp.prototype%) is true, return "(?:)".
+                                  //     b. Otherwise, throw a TypeError exception.
+                                  if (target !== RegExpProto) {
+                                      ReflectApply(RegExpProtoSourceGetter, target, []);
+                                      return true;
+                                  }
+                                  // eslint-disable-next-line no-empty
+                              } catch {}
+                          }
+                          return ReflectApply(ObjectProtoHasOwnProperty, target, [
+                              LOCKER_LIVE_VALUE_MARKER_SYMBOL,
+                          ]);
+                          // eslint-disable-next-line no-empty
+                      } catch {}
+                      return false;
+                  }
+                : (alwaysFalse as unknown as CallableIsTargetLive),
             // callableIsTargetRevoked
-            (targetPointer: Pointer): boolean => {
-                targetPointer();
-                const target = selectedTarget!;
-                selectedTarget = undefined;
-                try {
-                    isArrayOrThrowForRevoked(target);
-                    return false;
-                    //  eslint-disable-next-line no-empty
-                } catch {}
-                return true;
-            },
+            !isInShadowRealm
+                ? (targetPointer: Pointer): boolean => {
+                      targetPointer();
+                      const target = selectedTarget!;
+                      selectedTarget = undefined;
+                      try {
+                          isArrayOrThrowForRevoked(target);
+                          return false;
+                          //  eslint-disable-next-line no-empty
+                      } catch {}
+                      return true;
+                  }
+                : (alwaysFalse as unknown as CallableIsTargetRevoked),
             // callableSerializeTarget
-            (targetPointer: Pointer): SerializedValue | undefined => {
-                targetPointer();
-                const target = selectedTarget!;
-                selectedTarget = undefined;
-                // We don't wrap `serializeTarget()` in a try-catch because it
-                // cannot throw.
-                return serializeTarget(target);
-            },
+            isInShadowRealm
+                ? (targetPointer: Pointer): SerializedValue | undefined => {
+                      targetPointer();
+                      const target = selectedTarget!;
+                      selectedTarget = undefined;
+                      try {
+                          return ReflectHas(target, TO_STRING_TAG_SYMBOL)
+                              ? serializeTargetByTrialAndError(target)
+                              : // Fast path.
+                                serializeTargetByBrand(target);
+                          // eslint-disable-next-line no-empty
+                      } catch {}
+                      return undefined;
+                  }
+                : (noop as unknown as CallableSerializeTarget),
             // callableSetLazyPropertyDescriptorStateByTarget
             !isInShadowRealm
                 ? (targetPointer: Pointer, statePointer: Pointer) => {
@@ -3682,8 +3740,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                               (typeof value === 'object' && value !== null) ||
                               typeof value === 'function'
                                 ? getTransferablePointer(value)
-                                : typeof value === 'undefined'
-                                ? undefined
                                 : value
                             : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
                     descriptorTuples[j + 5] =
@@ -3692,8 +3748,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                               (typeof getter === 'object' && getter !== null) ||
                               typeof getter === 'function'
                                 ? getTransferablePointer(getter)
-                                : typeof getter === 'undefined'
-                                ? undefined
                                 : getter
                             : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
                     descriptorTuples[j + 6] =
@@ -3702,8 +3756,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                               (typeof setter === 'object' && setter !== null) ||
                               typeof setter === 'function'
                                 ? getTransferablePointer(setter)
-                                : typeof setter === 'undefined'
-                                ? undefined
                                 : setter
                             : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
                 }
@@ -3771,7 +3823,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                               (typeof value === 'object' && value !== null) ||
                               typeof value === 'function'
                                 ? getTransferablePointer(value)
-                                : typeof value === 'undefined'
+                                : // Intentionally ignoring `document.all`.
+                                // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                                // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                                typeof value === 'undefined'
                                 ? undefined
                                 : value
                             : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
@@ -3780,8 +3835,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                               (typeof getter === 'object' && getter !== null) ||
                               typeof getter === 'function'
                                 ? getTransferablePointer(getter)
-                                : typeof getter === 'undefined'
-                                ? undefined
                                 : getter
                             : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
                         'set' in safeDesc
@@ -3789,8 +3842,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                               (typeof setter === 'object' && setter !== null) ||
                               typeof setter === 'function'
                                 ? getTransferablePointer(setter)
-                                : typeof setter === 'undefined'
-                                ? undefined
                                 : setter
                             : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
                     );

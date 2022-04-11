@@ -131,7 +131,7 @@ function createIframeVirtualEnvironment(
     // window.__proto__.__proto__.__proto__ (aka EventTarget.prototype)
     env.link('__proto__', '__proto__', '__proto__');
     env.remapProto(blueRefs.document, blueRefs.DocumentProto);
-    env.lazyRemap(
+    env.lazyRemapProperties(
         blueRefs.window,
         shouldUseDefaultGlobalOwnKeys
             ? (defaultGlobalOwnKeys as PropertyKeys)
@@ -146,11 +146,11 @@ function createIframeVirtualEnvironment(
         const filteredEndowments: PropertyDescriptorMap = {};
         assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(filteredEndowments, endowments);
         removeWindowDescriptors(filteredEndowments);
-        env.remap(blueRefs.window, filteredEndowments);
+        env.remapProperties(blueRefs.window, filteredEndowments);
     }
     // We intentionally skip remapping Window.prototype because there is nothing
     // in it that needs to be remapped.
-    env.lazyRemap(blueRefs.EventTargetProto, blueRefs.EventTargetProtoOwnKeys);
+    env.lazyRemapProperties(blueRefs.EventTargetProto, blueRefs.EventTargetProtoOwnKeys);
     // We don't remap `blueRefs.WindowPropertiesProto` because it is "magical"
     // in that it provides access to elements by id.
     //

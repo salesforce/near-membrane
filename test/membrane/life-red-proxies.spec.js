@@ -4,7 +4,9 @@ const LOCKER_LIVE_VALUE_MARKER_SYMBOL = Symbol.for('@@lockerLiveValue');
 
 class ExoticObject {
     constructor(source) {
-        Object.assign(this, source);
+        if (source) {
+            Object.defineProperties(this, Object.getOwnPropertyDescriptors(source));
+        }
     }
 }
 
