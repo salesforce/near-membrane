@@ -883,6 +883,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
                             typeof thisArgOrNewTarget === 'function'
                             ? getTransferablePointer(thisArgOrNewTarget)
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof thisArgOrNewTarget === 'undefined'
+                            ? undefined
                             : thisArgOrNewTarget
                     );
                     let result: any = pointerOrPrimitive;
