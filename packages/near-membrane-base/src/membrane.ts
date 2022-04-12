@@ -3827,6 +3827,12 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 } catch (error: any) {
                     throw pushErrorAcrossBoundary(error);
                 }
+                // Intentionally ignoring `document.all`.
+                // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                if (typeof proto === 'undefined') {
+                    return null;
+                }
                 return proto ? getTransferablePointer(proto) : proto;
             },
             // callableBatchGetPrototypeOfWhenHasNoOwnProperty
@@ -3842,6 +3848,12 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     proto = ReflectGetPrototypeOf(target);
                 } catch (error: any) {
                     throw pushErrorAcrossBoundary(error);
+                }
+                // Intentionally ignoring `document.all`.
+                // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                if (typeof proto === 'undefined') {
+                    return null;
                 }
                 return proto ? getTransferablePointer(proto) : proto;
             },
@@ -3909,6 +3921,12 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     proto = ReflectGetPrototypeOf(target);
                 } catch (error: any) {
                     throw pushErrorAcrossBoundary(error);
+                }
+                // Intentionally ignoring `document.all`.
+                // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                if (typeof proto === 'undefined') {
+                    return null;
                 }
                 return proto ? getTransferablePointer(proto) : proto;
             }
