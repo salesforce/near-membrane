@@ -353,8 +353,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             // e.g. myClassName.myFunctionName.
         }(?=\\.|$)`
     );
-    // Lazily populated in `getUnforgeableGlobalThisGetter()`;
-    const keyToGlobalThisGetterRegistry = { __proto__: null };
     // eslint-disable-next-line no-shadow
     const enum PreventExtensionsResult {
         None = 0,
@@ -403,16 +401,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
     function alwaysNone() {
         return 0;
-    }
-
-    function getUnforgeableGlobalThisGetter(key: PropertyKey): () => typeof globalThis {
-        let globalThisGetter = keyToGlobalThisGetterRegistry[key];
-        if (globalThisGetter === undefined) {
-            // Preserve identity continuity of getters.
-            globalThisGetter = ReflectApply(FunctionProtoBind, () => globalThisRef, []);
-            keyToGlobalThisGetterRegistry[key] = globalThisGetter;
-        }
-        return globalThisGetter;
     }
 
     function identity<T>(value: T): T {
@@ -524,142 +512,153 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         // No-operation.
     }
 
-    function serializeBigIntObject(bigIntObject: BigInt): bigint {
-        // Section 21.2.3 Properties of the BigInt Prototype Object
-        // https://tc39.es/ecma262/#thisbigintvalue
-        // Step 2: If Type(value) is Object and value has a [[BigIntData]] internal slot, then
-        //     a. Assert: Type(value.[[BigIntData]]) is BigInt.
-        return ReflectApply(BigIntProtoValueOf!, bigIntObject, []);
-    }
+    const serializeBigIntObject = isInShadowRealm
+        ? (bigIntObject: BigInt): bigint =>
+              // Section 21.2.3 Properties of the BigInt Prototype Object
+              // https://tc39.es/ecma262/#thisbigintvalue
+              // Step 2: If Type(value) is Object and value has a [[BigIntData]] internal slot, then
+              //     a. Assert: Type(value.[[BigIntData]]) is BigInt.
+              ReflectApply(BigIntProtoValueOf!, bigIntObject, [])
+        : (noop as () => undefined);
 
-    function serializeBooleanObject(booleanObject: Boolean): boolean {
-        // Section 20.3.3 Properties of the Boolean Prototype Object
-        // https://tc39.es/ecma262/#thisbooleanvalue
-        // Step 2: If Type(value) is Object and value has a [[BooleanData]] internal slot, then
-        //     a. Let b be value.[[BooleanData]].
-        //     b. Assert: Type(b) is Boolean.
-        return ReflectApply(BooleanProtoValueOf, booleanObject, []);
-    }
+    const serializeBooleanObject = isInShadowRealm
+        ? (booleanObject: Boolean): boolean =>
+              // Section 20.3.3 Properties of the Boolean Prototype Object
+              // https://tc39.es/ecma262/#thisbooleanvalue
+              // Step 2: If Type(value) is Object and value has a [[BooleanData]] internal slot, then
+              //     a. Let b be value.[[BooleanData]].
+              //     b. Assert: Type(b) is Boolean.
+              ReflectApply(BooleanProtoValueOf, booleanObject, [])
+        : (noop as () => undefined);
 
-    function serializeNumberObject(numberObject: Number): number {
-        // 21.1.3 Properties of the Number Prototype Object
-        // https://tc39.es/ecma262/#thisnumbervalue
-        // Step 2: If Type(value) is Object and value has a [[NumberData]] internal slot, then
-        //     a. Let n be value.[[NumberData]].
-        //     b. Assert: Type(n) is Number.
-        return ReflectApply(NumberProtoValueOf, numberObject, []);
-    }
+    const serializeNumberObject = isInShadowRealm
+        ? (numberObject: Number): number =>
+              // 21.1.3 Properties of the Number Prototype Object
+              // https://tc39.es/ecma262/#thisnumbervalue
+              // Step 2: If Type(value) is Object and value has a [[NumberData]] internal slot, then
+              //     a. Let n be value.[[NumberData]].
+              //     b. Assert: Type(n) is Number.
+              ReflectApply(NumberProtoValueOf, numberObject, [])
+        : (noop as () => undefined);
 
-    function serializeRegExp(value: any): string | undefined {
-        // 22.2.5.12 get RegExp.prototype.source
-        // https://tc39.es/ecma262/#sec-get-regexp.prototype.source
-        // Step 3: If R does not have an [[OriginalSource]] internal slot, then
-        //     a. If SameValue(R, %RegExp.prototype%) is true, return "(?:)".
-        //     b. Otherwise, throw a TypeError exception.
-        if (value !== RegExpProto) {
-            const source = ReflectApply(RegExpProtoSourceGetter, value, []);
-            return JSONStringify({
-                __proto__: null,
-                flags: ReflectApply(RegExpProtoFlagsGetter, value, []),
-                source,
-            });
-        }
-        return undefined;
-    }
+    const serializeRegExp = isInShadowRealm
+        ? (value: any): string | undefined => {
+              // 22.2.5.12 get RegExp.prototype.source
+              // https://tc39.es/ecma262/#sec-get-regexp.prototype.source
+              // Step 3: If R does not have an [[OriginalSource]] internal slot, then
+              //     a. If SameValue(R, %RegExp.prototype%) is true, return "(?:)".
+              //     b. Otherwise, throw a TypeError exception.
+              if (value !== RegExpProto) {
+                  const source = ReflectApply(RegExpProtoSourceGetter, value, []);
+                  return JSONStringify({
+                      __proto__: null,
+                      flags: ReflectApply(RegExpProtoFlagsGetter, value, []),
+                      source,
+                  });
+              }
+              return undefined;
+          }
+        : (noop as () => undefined);
 
-    function serializeStringObject(stringObject: String): string {
-        // 22.1.3 Properties of the String Prototype Object
-        // https://tc39.es/ecma262/#thisstringvalue
-        // Step 2: If Type(value) is Object and value has a [[StringData]] internal slot, then
-        //     a. Let s be value.[[StringData]].
-        //     b. Assert: Type(s) is String.
-        return ReflectApply(StringProtoValueOf, stringObject, []);
-    }
+    const serializeStringObject = isInShadowRealm
+        ? (stringObject: String): string =>
+              // 22.1.3 Properties of the String Prototype Object
+              // https://tc39.es/ecma262/#thisstringvalue
+              // Step 2: If Type(value) is Object and value has a [[StringData]] internal slot, then
+              //     a. Let s be value.[[StringData]].
+              //     b. Assert: Type(s) is String.
+              ReflectApply(StringProtoValueOf, stringObject, [])
+        : (noop as () => undefined);
 
-    function serializeSymbolObject(symbolObject: Symbol): symbol {
-        // 20.4.3 Properties of the Symbol Prototype Object
-        // https://tc39.es/ecma262/#thissymbolvalue
-        // Step 2: If Type(value) is Object and value has a [[SymbolData]] internal slot, then
-        //     a. Let s be value.[[SymbolData]].
-        //     b. Assert: Type(s) is Symbol.
-        return ReflectApply(SymbolProtoValueOf, symbolObject, []);
-    }
+    const serializeSymbolObject = isInShadowRealm
+        ? (symbolObject: Symbol): symbol =>
+              // 20.4.3 Properties of the Symbol Prototype Object
+              // https://tc39.es/ecma262/#thissymbolvalue
+              // Step 2: If Type(value) is Object and value has a [[SymbolData]] internal slot, then
+              //     a. Let s be value.[[SymbolData]].
+              //     b. Assert: Type(s) is Symbol.
+              ReflectApply(SymbolProtoValueOf, symbolObject, [])
+        : (noop as () => undefined);
 
-    function serializeTargetByBrand(target: ProxyTarget): SerializedValue | undefined {
-        const brand = ReflectApply(ObjectProtoToString, target, []);
-        switch (brand) {
-            // The brand checks below represent boxed primitives of
-            // `ESGlobalKeys` in packages/near-membrane-base/src/intrinsics.ts
-            // which are not remapped or reflective.
-            case '[object Boolean]':
-                return serializeBooleanObject(target as any);
-            case '[object Number]':
-                return serializeNumberObject(target as any);
-            case '[object RegExp]':
-                return serializeRegExp(target as any);
-            case '[object String]':
-                return serializeStringObject(target as any);
-            case '[object Object]':
-                try {
-                    // Symbol.prototype[@@toStringTag] is defined by default so
-                    // must have been removed.
-                    // https://tc39.es/ecma262/#sec-symbol.prototype-@@tostringtag
-                    return serializeSymbolObject(target as any);
-                    // eslint-disable-next-line no-empty
-                } catch {}
-                if (SUPPORTS_BIG_INT) {
-                    // BigInt.prototype[@@toStringTag] is defined by default so
-                    // must have been removed.
-                    // https://tc39.es/ecma262/#sec-bigint.prototype-@@tostringtag
-                    try {
-                        return serializeBigIntObject(target as any);
-                        // eslint-disable-next-line no-empty
-                    } catch {}
-                }
-            // eslint-disable-next-line no-fallthrough
-            default:
-                return undefined;
-        }
-    }
+    const serializeTargetByBrand = isInShadowRealm
+        ? (target: ProxyTarget): SerializedValue | undefined => {
+              const brand = ReflectApply(ObjectProtoToString, target, []);
+              switch (brand) {
+                  // The brand checks below represent boxed primitives of
+                  // `ESGlobalKeys` in packages/near-membrane-base/src/intrinsics.ts
+                  // which are not remapped or reflective.
+                  case '[object Boolean]':
+                      return serializeBooleanObject(target as any);
+                  case '[object Number]':
+                      return serializeNumberObject(target as any);
+                  case '[object RegExp]':
+                      return serializeRegExp(target as any);
+                  case '[object String]':
+                      return serializeStringObject(target as any);
+                  case '[object Object]':
+                      try {
+                          // Symbol.prototype[@@toStringTag] is defined by default so
+                          // must have been removed.
+                          // https://tc39.es/ecma262/#sec-symbol.prototype-@@tostringtag
+                          return serializeSymbolObject(target as any);
+                          // eslint-disable-next-line no-empty
+                      } catch {}
+                      if (SUPPORTS_BIG_INT) {
+                          // BigInt.prototype[@@toStringTag] is defined by default so
+                          // must have been removed.
+                          // https://tc39.es/ecma262/#sec-bigint.prototype-@@tostringtag
+                          try {
+                              return serializeBigIntObject(target as any);
+                              // eslint-disable-next-line no-empty
+                          } catch {}
+                      }
+                  // eslint-disable-next-line no-fallthrough
+                  default:
+                      return undefined;
+              }
+          }
+        : (noop as () => undefined);
 
-    function serializeTargetByTrialAndError(target: ProxyTarget): SerializedValue | undefined {
-        // The serialization attempts below represent boxed primitives of
-        // `ESGlobalKeys` in packages/near-membrane-base/src/intrinsics.ts
-        // which are not remapped or reflective.
-        try {
-            // Symbol.prototype[@@toStringTag] is defined by default so
-            // attempted before others.
-            // https://tc39.es/ecma262/#sec-symbol.prototype-@@tostringtag
-            return serializeSymbolObject(target as any);
-            // eslint-disable-next-line no-empty
-        } catch {}
-        if (SUPPORTS_BIG_INT) {
-            // BigInt.prototype[@@toStringTag] is defined by default so
-            // attempted before others.
-            // https://tc39.es/ecma262/#sec-bigint.prototype-@@tostringtag
-            try {
-                return serializeBigIntObject(target as any);
-                // eslint-disable-next-line no-empty
-            } catch {}
-        }
-        try {
-            return serializeBooleanObject(target as any);
-            // eslint-disable-next-line no-empty
-        } catch {}
-        try {
-            return serializeNumberObject(target as any);
-            // eslint-disable-next-line no-empty
-        } catch {}
-        try {
-            return serializeRegExp(target as any);
-            // eslint-disable-next-line no-empty
-        } catch {}
-        try {
-            return serializeStringObject(target as any);
-            // eslint-disable-next-line no-empty
-        } catch {}
-        return undefined;
-    }
+    const serializeTargetByTrialAndError = isInShadowRealm
+        ? (target: ProxyTarget): SerializedValue | undefined => {
+              // The serialization attempts below represent boxed primitives of
+              // `ESGlobalKeys` in packages/near-membrane-base/src/intrinsics.ts
+              // which are not remapped or reflective.
+              try {
+                  // Symbol.prototype[@@toStringTag] is defined by default so
+                  // attempted before others.
+                  // https://tc39.es/ecma262/#sec-symbol.prototype-@@tostringtag
+                  return serializeSymbolObject(target as any);
+                  // eslint-disable-next-line no-empty
+              } catch {}
+              if (SUPPORTS_BIG_INT) {
+                  // BigInt.prototype[@@toStringTag] is defined by default so
+                  // attempted before others.
+                  // https://tc39.es/ecma262/#sec-bigint.prototype-@@tostringtag
+                  try {
+                      return serializeBigIntObject(target as any);
+                      // eslint-disable-next-line no-empty
+                  } catch {}
+              }
+              try {
+                  return serializeBooleanObject(target as any);
+                  // eslint-disable-next-line no-empty
+              } catch {}
+              try {
+                  return serializeNumberObject(target as any);
+                  // eslint-disable-next-line no-empty
+              } catch {}
+              try {
+                  return serializeRegExp(target as any);
+                  // eslint-disable-next-line no-empty
+              } catch {}
+              try {
+                  return serializeStringObject(target as any);
+                  // eslint-disable-next-line no-empty
+              } catch {}
+              return undefined;
+          }
+        : (noop as () => undefined);
 
     return function createHooksCallback(
         color: string,
@@ -1340,32 +1339,34 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             return pointer;
         }
 
-        function getLazyPropertyDescriptorStateByTarget(target: ProxyTarget): object | undefined {
-            let state: any = ReflectApply(
-                WeakMapProtoGet,
-                localProxyTargetToLazyPropertyDescriptorStateByTargetMap,
-                [target]
-            );
-            if (state === undefined) {
-                const statePointerOrUndefined =
-                    foreignCallableGetLazyPropertyDescriptorStateByTarget(
-                        getTransferablePointer(target)
-                    );
-                if (typeof statePointerOrUndefined === 'function') {
-                    statePointerOrUndefined();
-                    state = selectedTarget;
-                    selectedTarget = undefined;
-                    if (state) {
-                        ReflectApply(
-                            WeakMapProtoSet,
-                            localProxyTargetToLazyPropertyDescriptorStateByTargetMap,
-                            [target, state]
-                        );
-                    }
-                }
-            }
-            return state;
-        }
+        const getLazyPropertyDescriptorStateByTarget = isInShadowRealm
+            ? (target: ProxyTarget): object | undefined => {
+                  let state: any = ReflectApply(
+                      WeakMapProtoGet,
+                      localProxyTargetToLazyPropertyDescriptorStateByTargetMap,
+                      [target]
+                  );
+                  if (state === undefined) {
+                      const statePointerOrUndefined =
+                          foreignCallableGetLazyPropertyDescriptorStateByTarget(
+                              getTransferablePointer(target)
+                          );
+                      if (typeof statePointerOrUndefined === 'function') {
+                          statePointerOrUndefined();
+                          state = selectedTarget;
+                          selectedTarget = undefined;
+                          if (state) {
+                              ReflectApply(
+                                  WeakMapProtoSet,
+                                  localProxyTargetToLazyPropertyDescriptorStateByTargetMap,
+                                  [target, state]
+                              );
+                          }
+                      }
+                  }
+                  return state;
+              }
+            : noop;
 
         function getTransferablePointer(originalTarget: ProxyTarget): Pointer {
             let proxyPointer = ReflectApply(WeakMapProtoGet, proxyTargetToPointerMap, [
@@ -1445,224 +1446,257 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             return proxyPointer;
         }
 
-        function installPropertyDescriptorMethodWrappers(unforgeableGlobalThisKeys?: PropertyKeys) {
-            if (installedPropertyDescriptorMethodWrappersFlag) {
-                return;
-            }
-            installedPropertyDescriptorMethodWrappersFlag = true;
-            // We wrap property descriptor methods to activate lazy descriptors
-            // and/or workaround browser bugs. The following methods are wrapped:
-            //   Object.getOwnPropertyDescriptors()
-            //   Object.getOwnPropertyDescriptor()
-            //   Reflect.defineProperty()
-            //   Reflect.getOwnPropertyDescriptor()
-            //   Object.prototype.__defineGetter__()
-            //   Object.prototype.__defineSetter__()
-            //   Object.prototype.__lookupGetter__()
-            //   Object.prototype.__lookupSetter__()
-            //
-            // Chromium based browsers have a bug that nulls the result of `window`
-            // getters in detached iframes when the property descriptor of `window.window`
-            // is retrieved.
-            // https://bugs.chromium.org/p/chromium/issues/detail?id=1305302
-            //
-            // Methods may be poisoned when they interact with the `window` object
-            // and retrieve property descriptors, like 'window', that contain the
-            // `window` object itself. The following built-in methods are susceptible
-            // to this issue:
-            //     console.log(window);
-            //     Object.getOwnPropertyDescriptors(window);
-            //     Object.getOwnPropertyDescriptor(window, 'window');
-            //     Reflect.getOwnPropertyDescriptor(window, 'window');
-            //     window.__lookupGetter__('window');
-            //     window.__lookupSetter__('window');
-            //
-            // We side step issues with `console` by mapping it to the the blue
-            // realm's `console`. Since we're already wrapping property descriptor
-            // methods to activate lazy descriptors we use the wrapper to workaround
-            // the `window` getter nulling bug.
-            const shouldFixChromeBug =
-                isArrayOrThrowForRevoked(unforgeableGlobalThisKeys) &&
-                unforgeableGlobalThisKeys.length > 0;
+        const installPropertyDescriptorMethodWrappers = isInShadowRealm
+            ? (unforgeableGlobalThisKeys?: PropertyKeys) => {
+                  if (installedPropertyDescriptorMethodWrappersFlag) {
+                      return;
+                  }
+                  installedPropertyDescriptorMethodWrappersFlag = true;
+                  // We wrap property descriptor methods to activate lazy
+                  // descriptors and/or workaround browser bugs. The following
+                  // methods are wrapped:
+                  //   Object.getOwnPropertyDescriptors()
+                  //   Object.getOwnPropertyDescriptor()
+                  //   Reflect.defineProperty()
+                  //   Reflect.getOwnPropertyDescriptor()
+                  //   Object.prototype.__defineGetter__()
+                  //   Object.prototype.__defineSetter__()
+                  //   Object.prototype.__lookupGetter__()
+                  //   Object.prototype.__lookupSetter__()
+                  //
+                  // Chromium based browsers have a bug that nulls the result
+                  // of `window` getters in detached iframes when the property
+                  // descriptor of `window.window` is retrieved.
+                  // https://bugs.chromium.org/p/chromium/issues/detail?id=1305302
+                  //
+                  // Methods may be poisoned when they interact with the `window`
+                  // object and retrieve property descriptors, like 'window',
+                  // that contain the `window` object itself. The following
+                  // built-in methods are susceptible to this issue:
+                  //     console.log(window);
+                  //     Object.getOwnPropertyDescriptors(window);
+                  //     Object.getOwnPropertyDescriptor(window, 'window');
+                  //     Reflect.getOwnPropertyDescriptor(window, 'window');
+                  //     window.__lookupGetter__('window');
+                  //     window.__lookupSetter__('window');
+                  //
+                  // We side step issues with `console` by mapping it to the the
+                  // blue realm's `console`. Since we're already wrapping property
+                  // descriptor methods to activate lazy descriptors we use the
+                  // wrapper to workaround the `window` getter nulling bug.
+                  const shouldFixChromeBug =
+                      isArrayOrThrowForRevoked(unforgeableGlobalThisKeys) &&
+                      unforgeableGlobalThisKeys.length > 0;
 
-            const getFixedDescriptor = shouldFixChromeBug
-                ? (target: any, key: PropertyKey): PropertyDescriptor | undefined =>
-                      ReflectApply(ArrayProtoIncludes, unforgeableGlobalThisKeys, [key])
-                          ? {
-                                configurable: false,
-                                enumerable: ReflectApply(ObjectProtoPropertyIsEnumerable, target, [
-                                    key,
-                                ]),
-                                get: getUnforgeableGlobalThisGetter(key),
-                                set: undefined,
+                  // Lazily populated by `getUnforgeableGlobalThisGetter()`;
+                  const keyToGlobalThisGetterRegistry = shouldFixChromeBug
+                      ? { __proto__: null }
+                      : undefined;
+
+                  const getFixedDescriptor = shouldFixChromeBug
+                      ? (target: any, key: PropertyKey): PropertyDescriptor | undefined =>
+                            ReflectApply(ArrayProtoIncludes, unforgeableGlobalThisKeys, [key])
+                                ? {
+                                      configurable: false,
+                                      enumerable: ReflectApply(
+                                          ObjectProtoPropertyIsEnumerable,
+                                          target,
+                                          [key]
+                                      ),
+                                      get: getUnforgeableGlobalThisGetter!(key),
+                                      set: undefined,
+                                  }
+                                : ReflectGetOwnPropertyDescriptor(target, key)
+                      : undefined;
+
+                  const getUnforgeableGlobalThisGetter = shouldFixChromeBug
+                      ? (key: PropertyKey): (() => typeof globalThis) => {
+                            let globalThisGetter = keyToGlobalThisGetterRegistry![key];
+                            if (globalThisGetter === undefined) {
+                                // Preserve identity continuity of getters.
+                                globalThisGetter = ReflectApply(
+                                    FunctionProtoBind,
+                                    () => globalThisRef,
+                                    []
+                                );
+                                keyToGlobalThisGetterRegistry![key] = globalThisGetter;
                             }
-                          : ReflectGetOwnPropertyDescriptor(target, key)
-                : undefined;
-
-            const lookupFixedGetter = shouldFixChromeBug
-                ? (target: any, key: PropertyKey): (() => any | undefined) =>
-                      ReflectApply(ArrayProtoIncludes, unforgeableGlobalThisKeys, [key])
-                          ? getUnforgeableGlobalThisGetter(key)
-                          : ReflectApply(ObjectProto__lookupGetter__, target, [key])
-                : undefined;
-
-            const lookupFixedSetter = shouldFixChromeBug
-                ? (target: any, key: PropertyKey): (() => any | undefined) =>
-                      ReflectApply(ArrayProtoIncludes, unforgeableGlobalThisKeys, [key])
-                          ? undefined
-                          : ReflectApply(ObjectProto__lookupSetter__, target, [key])
-                : undefined;
-
-            const wrapDefineAccessOrProperty = (originalFunc: Function) => {
-                const { length: originalFuncLength } = originalFunc;
-                // `__defineGetter__()` and `__defineSetter__()` have function
-                // lengths of 2 while `Reflect.defineProperty()` has a function
-                // length of 3.
-                const useThisArgAsTarget = originalFuncLength === 2;
-                return new ProxyCtor(originalFunc, {
-                    apply(_originalFunc: Function, thisArg: any, args: any[]) {
-                        if (args.length >= originalFuncLength) {
-                            const target = useThisArgAsTarget ? thisArg : args[0];
-                            const key = useThisArgAsTarget ? args[0] : args[1];
-                            const state = getLazyPropertyDescriptorStateByTarget(target);
-                            if (state?.[key]) {
-                                // Activate the descriptor by triggering its getter.
-                                ReflectGet(target, key);
-                            }
+                            return globalThisGetter;
                         }
-                        return ReflectApply(originalFunc, thisArg, args);
-                    },
-                });
-            };
+                      : undefined;
 
-            const wrapLookupAccessor = (
-                originalFunc: typeof ObjectProto__lookupGetter__,
-                lookupFixedAccessor?: typeof lookupFixedGetter
-            ) =>
-                new ProxyCtor(originalFunc, {
-                    apply(_originalFunc: Function, thisArg: any, args: [key: PropertyKey]) {
-                        if (args.length) {
-                            const { 0: key } = args;
-                            const state = getLazyPropertyDescriptorStateByTarget(thisArg);
-                            if (state?.[key]) {
-                                // Activate the descriptor by triggering its getter.
-                                ReflectGet(thisArg, key);
-                            }
-                            if (shouldFixChromeBug && thisArg === globalThisRef) {
-                                return lookupFixedAccessor!(thisArg, key);
-                            }
-                        }
-                        return ReflectApply(originalFunc, thisArg, args);
-                    },
-                }) as typeof Reflect.getOwnPropertyDescriptor;
+                  const lookupFixedGetter = shouldFixChromeBug
+                      ? (target: any, key: PropertyKey): (() => any | undefined) =>
+                            ReflectApply(ArrayProtoIncludes, unforgeableGlobalThisKeys, [key])
+                                ? getUnforgeableGlobalThisGetter!(key)
+                                : ReflectApply(ObjectProto__lookupGetter__, target, [key])
+                      : undefined;
 
-            const wrapGetOwnPropertyDescriptor = (
-                originalFunc: typeof Reflect.getOwnPropertyDescriptor
-            ) =>
-                new ProxyCtor(originalFunc, {
-                    apply(
-                        _originalFunc: Function,
-                        thisArg: any,
-                        args: [target: object, key: PropertyKey]
-                    ) {
-                        if (args.length > 1) {
-                            const { 0: target, 1: key } = args;
-                            const state = getLazyPropertyDescriptorStateByTarget(target);
-                            if (state?.[key]) {
-                                // Activate the descriptor by triggering its getter.
-                                ReflectGet(target, key);
-                            }
-                            if (shouldFixChromeBug && target === globalThisRef) {
-                                return getFixedDescriptor!(target, key);
-                            }
-                        }
-                        return ReflectApply(originalFunc, thisArg, args);
-                    },
-                }) as typeof Reflect.getOwnPropertyDescriptor;
+                  const lookupFixedSetter = shouldFixChromeBug
+                      ? (target: any, key: PropertyKey): (() => any | undefined) =>
+                            ReflectApply(ArrayProtoIncludes, unforgeableGlobalThisKeys, [key])
+                                ? undefined
+                                : ReflectApply(ObjectProto__lookupSetter__, target, [key])
+                      : undefined;
 
-            const wrapGetOwnPropertyDescriptors = (
-                originalFunc: typeof Object.getOwnPropertyDescriptors
-            ) =>
-                new ProxyCtor(originalFunc, {
-                    apply(
-                        _originalFunc: Function,
-                        thisArg: any,
-                        args: Parameters<typeof Object.getOwnPropertyDescriptors>
-                    ) {
-                        if (!args.length) {
-                            // Defer to native method to throw exception.
-                            return ReflectApply(originalFunc, thisArg, args);
-                        }
-                        const { 0: target } = args as any[];
-                        const state = getLazyPropertyDescriptorStateByTarget(target);
-                        const isFixingChromeBug = target === globalThisRef && shouldFixChromeBug;
-                        const unsafeDescMap = isFixingChromeBug
-                            ? // Create an empty property descriptor map to populate
-                              // with curated descriptors.
-                              ({} as PropertyDescriptorMap)
-                            : // Since this is not a global object it is safe to
-                              // use the native method.
-                              ReflectApply(originalFunc, thisArg, args);
-                        if (!isFixingChromeBug && state === undefined) {
-                            // Exit early if the target is not a global object and
-                            // there are no lazy descriptors.
-                            return unsafeDescMap;
-                        }
-                        const ownKeys = ReflectOwnKeys(isFixingChromeBug ? target : unsafeDescMap);
-                        for (let i = 0, { length } = ownKeys; i < length; i += 1) {
-                            const ownKey = ownKeys[i];
-                            const isLazyProp = !!state?.[ownKey];
-                            if (isLazyProp) {
-                                // Activate the descriptor by triggering its getter.
-                                ReflectGet(target, ownKey);
-                            }
-                            if (isLazyProp || isFixingChromeBug) {
-                                const unsafeDesc = isFixingChromeBug
-                                    ? getFixedDescriptor!(target, ownKey)
-                                    : ReflectGetOwnPropertyDescriptor(target, ownKey);
-                                // Update the descriptor map entry.
-                                if (unsafeDesc) {
-                                    unsafeDescMap[ownKey] = unsafeDesc;
-                                } else if (!isFixingChromeBug) {
-                                    delete unsafeDescMap[ownKey];
-                                }
-                            }
-                        }
-                        return unsafeDescMap;
-                    },
-                }) as typeof Object.getOwnPropertyDescriptors;
+                  const wrapDefineAccessOrProperty = (originalFunc: Function) => {
+                      const { length: originalFuncLength } = originalFunc;
+                      // `__defineGetter__()` and `__defineSetter__()` have
+                      // function lengths of 2 while `Reflect.defineProperty()`
+                      // has a function length of 3.
+                      const useThisArgAsTarget = originalFuncLength === 2;
+                      return new ProxyCtor(originalFunc, {
+                          apply(_originalFunc: Function, thisArg: any, args: any[]) {
+                              if (args.length >= originalFuncLength) {
+                                  const target = useThisArgAsTarget ? thisArg : args[0];
+                                  const key = useThisArgAsTarget ? args[0] : args[1];
+                                  const state = getLazyPropertyDescriptorStateByTarget(target);
+                                  if (state?.[key]) {
+                                      // Activate the descriptor by triggering
+                                      // its getter.
+                                      ReflectGet(target, key);
+                                  }
+                              }
+                              return ReflectApply(originalFunc, thisArg, args);
+                          },
+                      });
+                  };
 
-            ReflectRef.defineProperty = wrapDefineAccessOrProperty(
-                ReflectDefineProperty
-            ) as typeof Reflect.defineProperty;
-            ReflectRef.getOwnPropertyDescriptor = wrapGetOwnPropertyDescriptor(
-                ReflectGetOwnPropertyDescriptor
-            );
-            ObjectCtor.getOwnPropertyDescriptor = wrapGetOwnPropertyDescriptor(
-                ObjectGetOwnPropertyDescriptor
-            );
-            ObjectCtor.getOwnPropertyDescriptors = wrapGetOwnPropertyDescriptors(
-                ObjectGetOwnPropertyDescriptors
-            );
-            // eslint-disable-next-line @typescript-eslint/naming-convention, no-restricted-properties, no-underscore-dangle
-            (ObjectProto as any).__defineGetter__ = wrapDefineAccessOrProperty(
-                ObjectProto__defineGetter__
-            );
-            // eslint-disable-next-line @typescript-eslint/naming-convention, no-restricted-properties, no-underscore-dangle
-            (ObjectProto as any).__defineSetter__ = wrapDefineAccessOrProperty(
-                ObjectProto__defineSetter__
-            );
-            // eslint-disable-next-line @typescript-eslint/naming-convention, no-underscore-dangle
-            (ObjectProto as any).__lookupGetter__ = wrapLookupAccessor(
-                ObjectProto__lookupGetter__,
-                lookupFixedGetter
-            );
-            // eslint-disable-next-line @typescript-eslint/naming-convention, no-underscore-dangle
-            (ObjectProto as any).__lookupSetter__ = wrapLookupAccessor(
-                ObjectProto__lookupSetter__,
-                lookupFixedSetter
-            );
-        }
+                  const wrapLookupAccessor = (
+                      originalFunc: typeof ObjectProto__lookupGetter__,
+                      lookupFixedAccessor?: typeof lookupFixedGetter
+                  ) =>
+                      new ProxyCtor(originalFunc, {
+                          apply(_originalFunc: Function, thisArg: any, args: [key: PropertyKey]) {
+                              if (args.length) {
+                                  const { 0: key } = args;
+                                  const state = getLazyPropertyDescriptorStateByTarget(thisArg);
+                                  if (state?.[key]) {
+                                      // Activate the descriptor by triggering
+                                      // its getter.
+                                      ReflectGet(thisArg, key);
+                                  }
+                                  if (shouldFixChromeBug && thisArg === globalThisRef) {
+                                      return lookupFixedAccessor!(thisArg, key);
+                                  }
+                              }
+                              return ReflectApply(originalFunc, thisArg, args);
+                          },
+                      }) as typeof Reflect.getOwnPropertyDescriptor;
+
+                  const wrapGetOwnPropertyDescriptor = (
+                      originalFunc: typeof Reflect.getOwnPropertyDescriptor
+                  ) =>
+                      new ProxyCtor(originalFunc, {
+                          apply(
+                              _originalFunc: Function,
+                              thisArg: any,
+                              args: [target: object, key: PropertyKey]
+                          ) {
+                              if (args.length > 1) {
+                                  const { 0: target, 1: key } = args;
+                                  const state = getLazyPropertyDescriptorStateByTarget(target);
+                                  if (state?.[key]) {
+                                      // Activate the descriptor by triggering
+                                      // its getter.
+                                      ReflectGet(target, key);
+                                  }
+                                  if (shouldFixChromeBug && target === globalThisRef) {
+                                      return getFixedDescriptor!(target, key);
+                                  }
+                              }
+                              return ReflectApply(originalFunc, thisArg, args);
+                          },
+                      }) as typeof Reflect.getOwnPropertyDescriptor;
+
+                  const wrapGetOwnPropertyDescriptors = (
+                      originalFunc: typeof Object.getOwnPropertyDescriptors
+                  ) =>
+                      new ProxyCtor(originalFunc, {
+                          apply(
+                              _originalFunc: Function,
+                              thisArg: any,
+                              args: Parameters<typeof Object.getOwnPropertyDescriptors>
+                          ) {
+                              if (!args.length) {
+                                  // Defer to native method to throw exception.
+                                  return ReflectApply(originalFunc, thisArg, args);
+                              }
+                              const { 0: target } = args as any[];
+                              const state = getLazyPropertyDescriptorStateByTarget(target);
+                              const isFixingChromeBug =
+                                  target === globalThisRef && shouldFixChromeBug;
+                              const unsafeDescMap = isFixingChromeBug
+                                  ? // Create an empty property descriptor map
+                                    // to populate with curated descriptors.
+                                    ({} as PropertyDescriptorMap)
+                                  : // Since this is not a global object it is
+                                    // safe to use the native method.
+                                    ReflectApply(originalFunc, thisArg, args);
+                              if (!isFixingChromeBug && state === undefined) {
+                                  // Exit early if the target is not a global
+                                  // object and there are no lazy descriptors.
+                                  return unsafeDescMap;
+                              }
+                              const ownKeys = ReflectOwnKeys(
+                                  isFixingChromeBug ? target : unsafeDescMap
+                              );
+                              for (let i = 0, { length } = ownKeys; i < length; i += 1) {
+                                  const ownKey = ownKeys[i];
+                                  const isLazyProp = !!state?.[ownKey];
+                                  if (isLazyProp) {
+                                      // Activate the descriptor by triggering
+                                      // its getter.
+                                      ReflectGet(target, ownKey);
+                                  }
+                                  if (isLazyProp || isFixingChromeBug) {
+                                      const unsafeDesc = isFixingChromeBug
+                                          ? getFixedDescriptor!(target, ownKey)
+                                          : ReflectGetOwnPropertyDescriptor(target, ownKey);
+                                      // Update the descriptor map entry.
+                                      if (unsafeDesc) {
+                                          unsafeDescMap[ownKey] = unsafeDesc;
+                                      } else if (!isFixingChromeBug) {
+                                          delete unsafeDescMap[ownKey];
+                                      }
+                                  }
+                              }
+                              return unsafeDescMap;
+                          },
+                      }) as typeof Object.getOwnPropertyDescriptors;
+
+                  ReflectRef.defineProperty = wrapDefineAccessOrProperty(
+                      ReflectDefineProperty
+                  ) as typeof Reflect.defineProperty;
+                  ReflectRef.getOwnPropertyDescriptor = wrapGetOwnPropertyDescriptor(
+                      ReflectGetOwnPropertyDescriptor
+                  );
+                  ObjectCtor.getOwnPropertyDescriptor = wrapGetOwnPropertyDescriptor(
+                      ObjectGetOwnPropertyDescriptor
+                  );
+                  ObjectCtor.getOwnPropertyDescriptors = wrapGetOwnPropertyDescriptors(
+                      ObjectGetOwnPropertyDescriptors
+                  );
+                  // eslint-disable-next-line @typescript-eslint/naming-convention, no-restricted-properties, no-underscore-dangle
+                  (ObjectProto as any).__defineGetter__ = wrapDefineAccessOrProperty(
+                      ObjectProto__defineGetter__
+                  );
+                  // eslint-disable-next-line @typescript-eslint/naming-convention, no-restricted-properties, no-underscore-dangle
+                  (ObjectProto as any).__defineSetter__ = wrapDefineAccessOrProperty(
+                      ObjectProto__defineSetter__
+                  );
+                  // eslint-disable-next-line @typescript-eslint/naming-convention, no-underscore-dangle
+                  (ObjectProto as any).__lookupGetter__ = wrapLookupAccessor(
+                      ObjectProto__lookupGetter__,
+                      lookupFixedGetter
+                  );
+                  // eslint-disable-next-line @typescript-eslint/naming-convention, no-underscore-dangle
+                  (ObjectProto as any).__lookupSetter__ = wrapLookupAccessor(
+                      ObjectProto__lookupSetter__,
+                      lookupFixedSetter
+                  );
+              }
+            : noop;
 
         function lockShadowTarget(shadowTarget: ShadowTarget, foreignTargetPointer: Pointer): void {
             copyForeignOwnPropertyDescriptorsAndPrototypeToShadowTarget(
@@ -1871,17 +1905,19 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             return error;
         }
 
-        function setLazyPropertyDescriptorStateByTarget(target: ProxyTarget, state: object) {
-            ReflectApply(
-                WeakMapProtoSet,
-                localProxyTargetToLazyPropertyDescriptorStateByTargetMap,
-                [target, state]
-            );
-            foreignCallableSetLazyPropertyDescriptorStateByTarget(
-                getTransferablePointer(target),
-                getTransferablePointer(state)
-            );
-        }
+        const setLazyPropertyDescriptorStateByTarget = isInShadowRealm
+            ? (target: ProxyTarget, state: object) => {
+                  ReflectApply(
+                      WeakMapProtoSet,
+                      localProxyTargetToLazyPropertyDescriptorStateByTargetMap,
+                      [target, state]
+                  );
+                  foreignCallableSetLazyPropertyDescriptorStateByTarget(
+                      getTransferablePointer(target),
+                      getTransferablePointer(state)
+                  );
+              }
+            : noop;
 
         class BoundaryProxyHandler implements ProxyHandler<ShadowTarget> {
             // public fields
@@ -2460,9 +2496,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 nearMembraneSymbolFlag &&= lastProxyTrapCalled === ProxyHandlerTraps.Has;
                 lastProxyTrapCalled = ProxyHandlerTraps.Get;
                 if (nearMembraneSymbolFlag) {
-                    // Exit without performing a [[Get]] for near-membrane symbols
-                    // because we know when the nearMembraneSymbolFlag is
-                    // open that there is no shadowed symbol value.
+                    // Exit without performing a [[Get]] for near-membrane
+                    // symbols because we know when the nearMembraneSymbolFlag
+                    // is on that there is no shadowed symbol value.
                     if (key === LOCKER_NEAR_MEMBRANE_SYMBOL) {
                         return true;
                     }
