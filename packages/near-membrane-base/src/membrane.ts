@@ -119,6 +119,10 @@ type CallableDescriptorsCallback = (
     ...descriptorTuples: [...Parameters<CallableDescriptorCallback>]
 ) => void;
 type CallableNonConfigurableDescriptorCallback = CallableDescriptorCallback;
+interface HooksOptions {
+    distortionCallback?: DistortionCallback;
+    instrumentation?: Instrumentation;
+}
 type PointerOrPrimitive = Pointer | Primitive;
 type Primitive = bigint | boolean | null | number | string | symbol | undefined;
 type SerializedValue = bigint | boolean | number | string | symbol;
@@ -177,10 +181,6 @@ export type HooksCallback = (
     callableBatchGetPrototypeOfWhenHasNoOwnProperty: CallableBatchGetPrototypeOfWhenHasNoOwnProperty,
     callableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor: CallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
 ) => void;
-export interface HooksOptions {
-    distortionCallback?: DistortionCallback;
-    instrumentation?: Instrumentation;
-}
 export type Pointer = CallableFunction;
 export type ProxyTarget = CallableFunction | any[] | object;
 
@@ -397,10 +397,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
     function alwaysFalse() {
         return false;
-    }
-
-    function alwaysNone() {
-        return 0;
     }
 
     function identity<T>(value: T): T {
@@ -662,7 +658,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
     return function createHooksCallback(
         color: string,
-        trapMutations: boolean,
         foreignCallableHooksCallback: HooksCallback,
         providedOptions?: HooksOptions
     ): HooksCallback {
@@ -676,7 +671,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             // In the future we can preface the LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG
             // definition with a LOCKER_UNMINIFIED_FLAG check to have instrumentation
             // removed in minified production builds.
-            typeof instrumentation === 'object' && instrumentation !== null;
+            !isInShadowRealm && typeof instrumentation === 'object' && instrumentation !== null;
 
         const arityToApplyTrapNameRegistry: any = {
             // Populated in the returned connector function below.
@@ -736,59 +731,46 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         let nearMembraneSymbolFlag = false;
         let selectedTarget: undefined | ProxyTarget;
 
-        function activateLazyOwnPropertyDefinition(
-            target: object,
-            key: PropertyKey,
-            state: object
-        ) {
-            state[key] = false;
-            let activity: any;
-            if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                activity = startActivity('callableGetOwnPropertyDescriptor');
-            }
-            const foreignTargetPointer = getTransferablePointer(target);
-            let safeDesc;
-            try {
-                foreignCallableGetOwnPropertyDescriptor(
-                    foreignTargetPointer,
-                    key,
-                    (
-                        _key,
-                        configurable,
-                        enumerable,
-                        writable,
-                        valuePointer,
-                        getPointer,
-                        setPointer
-                    ) => {
-                        safeDesc = createDescriptorFromMeta(
-                            configurable,
-                            enumerable,
-                            writable,
-                            valuePointer,
-                            getPointer,
-                            setPointer
-                        );
-                    }
-                );
-            } catch (error: any) {
-                const errorToThrow = selectedTarget ?? error;
-                selectedTarget = undefined;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity.error(errorToThrow);
-                }
-                throw errorToThrow;
-            } finally {
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity.stop();
-                }
-            }
-            if (safeDesc) {
-                ReflectDefineProperty(target, key, safeDesc);
-            } else {
-                delete target[key];
-            }
-        }
+        const activateLazyOwnPropertyDefinition = isInShadowRealm
+            ? (target: object, key: PropertyKey, state: object) => {
+                  state[key] = false;
+                  const foreignTargetPointer = getTransferablePointer(target);
+                  let safeDesc;
+                  try {
+                      foreignCallableGetOwnPropertyDescriptor(
+                          foreignTargetPointer,
+                          key,
+                          (
+                              _key,
+                              configurable,
+                              enumerable,
+                              writable,
+                              valuePointer,
+                              getPointer,
+                              setPointer
+                          ) => {
+                              safeDesc = createDescriptorFromMeta(
+                                  configurable,
+                                  enumerable,
+                                  writable,
+                                  valuePointer,
+                                  getPointer,
+                                  setPointer
+                              );
+                          }
+                      );
+                  } catch (error: any) {
+                      const errorToThrow = selectedTarget ?? error;
+                      selectedTarget = undefined;
+                      throw errorToThrow;
+                  }
+                  if (safeDesc) {
+                      ReflectDefineProperty(target, key, safeDesc);
+                  } else {
+                      delete target[key];
+                  }
+              }
+            : noop;
 
         function copyForeignOwnPropertyDescriptorsAndPrototypeToShadowTarget(
             foreignTargetPointer: Pointer,
@@ -1375,7 +1357,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             if (proxyPointer) {
                 return proxyPointer;
             }
-            const distortedTarget: ProxyTarget = distortionCallback(originalTarget);
+            const distortedTarget: ProxyTarget = isInShadowRealm
+                ? originalTarget
+                : distortionCallback(originalTarget);
             // If a distortion entry is found, it must be a valid proxy target.
             if (
                 distortedTarget !== originalTarget &&
@@ -1480,10 +1464,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   //     window.__lookupGetter__('window');
                   //     window.__lookupSetter__('window');
                   //
-                  // We side step issues with `console` by mapping it to the the
-                  // blue realm's `console`. Since we're already wrapping property
-                  // descriptor methods to activate lazy descriptors we use the
-                  // wrapper to workaround the `window` getter nulling bug.
+                  // We side step issues with `console` by mapping it to the
+                  // primary realm's `console`. Since we're already wrapping
+                  // property descriptor methods to activate lazy descriptors
+                  // we use the wrapper to workaround the `window` getter
+                  // nulling bug.
                   const shouldFixChromeBug =
                       isArrayOrThrowForRevoked(unforgeableGlobalThisKeys) &&
                       unforgeableGlobalThisKeys.length > 0;
@@ -1513,12 +1498,14 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                       ? (key: PropertyKey): (() => typeof globalThis) => {
                             let globalThisGetter = keyToGlobalThisGetterRegistry![key];
                             if (globalThisGetter === undefined) {
-                                // Preserve identity continuity of getters.
+                                // Use `FunctionProtoBind` to make the getter
+                                // look native.
                                 globalThisGetter = ReflectApply(
                                     FunctionProtoBind,
-                                    () => globalThisRef,
+                                    unboundGlobalThisGetter,
                                     []
                                 );
+                                // Preserve identity continuity of getters.
                                 keyToGlobalThisGetterRegistry![key] = globalThisGetter;
                             }
                             return globalThisGetter;
@@ -1537,6 +1524,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                             ReflectApply(ArrayProtoIncludes, unforgeableGlobalThisKeys, [key])
                                 ? undefined
                                 : ReflectApply(ObjectProto__lookupSetter__, target, [key])
+                      : undefined;
+
+                  const unboundGlobalThisGetter = shouldFixChromeBug
+                      ? () => globalThisRef
                       : undefined;
 
                   const wrapDefineAccessOrProperty = (originalFunc: Function) => {
@@ -2057,7 +2048,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 if (foreignTargetTraits & TargetTraits.Revoked) {
                     revoke();
                 }
-                if (trapMutations) {
+                if (isInShadowRealm) {
                     if (isForeignTargetArray) {
                         this.makeProxyLive();
                     }
@@ -2088,7 +2079,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 }
             }
 
-            // Internal utilities:
+            // Internal shadow realm side utilities:
 
             private makeProxyLive() {
                 // Replace pending traps with live traps that can work with the
@@ -2120,28 +2111,18 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 this.setPrototypeOf = BoundaryProxyHandler.staticSetPrototypeOfTrap;
 
                 const { foreignTargetPointer, shadowTarget } = this;
-                let targetIntegrityTraits;
-                {
-                    let activity: any;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity = startActivity('callableGetTargetIntegrityTraits');
-                    }
-                    // We don't wrap `foreignCallableGetTargetIntegrityTraits()`
-                    // in a try-catch because it cannot throw.
-                    targetIntegrityTraits =
-                        foreignCallableGetTargetIntegrityTraits(foreignTargetPointer);
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
-                    if (targetIntegrityTraits & TargetIntegrityTraits.Revoked) {
-                        // Future optimization: Hoping proxies with frozen
-                        // handlers can be faster.
-                        ObjectFreeze(this);
-                        // the target is a revoked proxy, in which case we revoke
-                        // this proxy as well.
-                        this.revoke();
-                        return;
-                    }
+                // We don't wrap `foreignCallableGetTargetIntegrityTraits()`
+                // in a try-catch because it cannot throw.
+                const targetIntegrityTraits =
+                    foreignCallableGetTargetIntegrityTraits(foreignTargetPointer);
+                if (targetIntegrityTraits & TargetIntegrityTraits.Revoked) {
+                    // Future optimization: Hoping proxies with frozen
+                    // handlers can be faster.
+                    ObjectFreeze(this);
+                    // the target is a revoked proxy, in which case we revoke
+                    // this proxy as well.
+                    this.revoke();
+                    return;
                 }
                 // A proxy can revoke itself when traps are triggered and break
                 // the membrane, therefore we need protection.
@@ -2151,17 +2132,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         shadowTarget
                     );
                 } catch {
-                    let activity: any;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity = startActivity('callableIsTargetRevoked');
-                    }
                     // We don't wrap `foreignCallableIsTargetRevoked()` in a
                     // try-catch because it cannot throw.
-                    const shouldRevoke = foreignCallableIsTargetRevoked(foreignTargetPointer);
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
-                    if (shouldRevoke) {
+                    if (foreignCallableIsTargetRevoked(foreignTargetPointer)) {
                         // Future optimization: Hoping proxies with frozen
                         // handlers can be faster.
                         ObjectFreeze(this);
@@ -2173,18 +2146,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     this.foreignTargetTraits & TargetTraits.IsObject &&
                     !ReflectHas(shadowTarget, TO_STRING_TAG_SYMBOL)
                 ) {
-                    let activity: any;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity = startActivity('callableGetToStringTagOfTarget');
-                    }
                     let toStringTag = 'Object';
                     try {
                         toStringTag = foreignCallableGetToStringTagOfTarget(foreignTargetPointer);
                         // eslint-disable-next-line no-empty
                     } catch {}
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
                     // The default language toStringTag is "Object". If receive
                     // "Object" we return `undefined` to let the language resolve
                     // it naturally without projecting a value.
@@ -2215,17 +2181,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             }
 
             private makeProxyUnambiguous() {
-                let activity: any;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('callableIsTargetLive');
-                }
                 // We don't wrap `foreignCallableIsTargetLive()` in a try-catch
                 // because it cannot throw.
-                const shouldMakeProxyLive = foreignCallableIsTargetLive(this.foreignTargetPointer);
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity.stop();
-                }
-                if (shouldMakeProxyLive) {
+                if (foreignCallableIsTargetLive(this.foreignTargetPointer)) {
                     this.makeProxyLive();
                 } else {
                     this.makeProxyStatic();
@@ -2234,152 +2192,121 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
             // Logic implementation of all traps.
 
-            // Default traps:
-
-            // Pending traps are only needed if the membrane traps mutations to
-            // avoid mutation operations on the other side of the membrane.
-            private static defaultDefinePropertyTrap = trapMutations
-                ? BoundaryProxyHandler.pendingDefinePropertyTrap
-                : BoundaryProxyHandler.passthruDefinePropertyTrap;
-
-            private static defaultDeletePropertyTrap = trapMutations
-                ? BoundaryProxyHandler.pendingDeletePropertyTrap
-                : BoundaryProxyHandler.passthruDeletePropertyTrap;
-
-            private static defaultGetOwnPropertyDescriptorTrap =
-                BoundaryProxyHandler.passthruGetOwnPropertyDescriptorTrap;
-
-            private static defaultGetPrototypeOfTrap =
-                BoundaryProxyHandler.passthruGetPrototypeOfTrap;
-
-            private static defaultGetTrap = trapMutations
-                ? BoundaryProxyHandler.hybridGetTrap
-                : BoundaryProxyHandler.passthruGetTrap;
-
-            private static defaultHasTrap = trapMutations
-                ? BoundaryProxyHandler.hybridHasTrap
-                : BoundaryProxyHandler.passthruHasTrap;
-
-            private static defaultIsExtensibleTrap = BoundaryProxyHandler.passthruIsExtensibleTrap;
-
-            private static defaultOwnKeysTrap = BoundaryProxyHandler.passthruOwnKeysTrap;
-
-            private static defaultPreventExtensionsTrap = trapMutations
-                ? BoundaryProxyHandler.pendingPreventExtensionsTrap
-                : BoundaryProxyHandler.passthruPreventExtensionsTrap;
-
-            private static defaultSetTrap = trapMutations
-                ? BoundaryProxyHandler.pendingSetTrap
-                : BoundaryProxyHandler.passthruSetTrap;
-
-            private static defaultSetPrototypeOfTrap = trapMutations
-                ? BoundaryProxyHandler.pendingSetPrototypeOfTrap
-                : BoundaryProxyHandler.passthruSetPrototypeOfTrap;
-
             // Hybrid traps:
             // (traps that operate on their shadowTarget, proxy, and foreignTargetPointer):
 
-            private static hybridGetTrap(
-                this: BoundaryProxyHandler,
-                _shadowTarget: ShadowTarget,
-                key: PropertyKey,
-                receiver: any
-            ): ReturnType<typeof Reflect.get> {
-                const { foreignTargetPointer, shadowTarget } = this;
-                const safeDesc = lookupForeignDescriptor(foreignTargetPointer, shadowTarget, key);
-                if (safeDesc) {
-                    const { get: getter, value: localValue } = safeDesc;
-                    if (getter) {
-                        // Even though the getter function exists, we can't use
-                        // `ReflectGet()` because there might be a distortion for
-                        // that getter function, in which case we must resolve
-                        // the local getter and call it instead.
-                        return ReflectApply(getter, receiver, []);
-                    }
-                    return localValue;
-                }
-                if (
-                    key === TO_STRING_TAG_SYMBOL &&
-                    this.foreignTargetTraits & TargetTraits.IsObject
-                ) {
-                    let activity: any;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity = startActivity('callableGetToStringTagOfTarget');
-                    }
-                    let toStringTag;
-                    try {
-                        toStringTag = foreignCallableGetToStringTagOfTarget(foreignTargetPointer);
-                    } catch (error: any) {
-                        const errorToThrow = selectedTarget ?? error;
-                        selectedTarget = undefined;
-                        if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                            activity.error(errorToThrow);
-                        }
-                        throw errorToThrow;
-                    } finally {
-                        if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                            activity.stop();
-                        }
-                    }
-                    // The default language toStringTag is "Object". If receive
-                    // "Object" we return `undefined` to let the language resolve
-                    // it naturally without projecting a value.
-                    if (toStringTag !== 'Object') {
-                        return toStringTag;
-                    }
-                }
-                return undefined;
-            }
+            private static hybridGetTrap = isInShadowRealm
+                ? function (
+                      this: BoundaryProxyHandler,
+                      _shadowTarget: ShadowTarget,
+                      key: PropertyKey,
+                      receiver: any
+                  ): ReturnType<typeof Reflect.get> {
+                      const { foreignTargetPointer, shadowTarget } = this;
+                      const safeDesc = lookupForeignDescriptor(
+                          foreignTargetPointer,
+                          shadowTarget,
+                          key
+                      );
+                      if (safeDesc) {
+                          const { get: getter, value: localValue } = safeDesc;
+                          if (getter) {
+                              // Even though the getter function exists, we can't use
+                              // `ReflectGet()` because there might be a distortion for
+                              // that getter function, in which case we must resolve
+                              // the local getter and call it instead.
+                              return ReflectApply(getter, receiver, []);
+                          }
+                          return localValue;
+                      }
+                      if (
+                          key === TO_STRING_TAG_SYMBOL &&
+                          this.foreignTargetTraits & TargetTraits.IsObject
+                      ) {
+                          let activity: any;
+                          if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                              activity = startActivity('callableGetToStringTagOfTarget');
+                          }
+                          let toStringTag;
+                          try {
+                              toStringTag =
+                                  foreignCallableGetToStringTagOfTarget(foreignTargetPointer);
+                          } catch (error: any) {
+                              const errorToThrow = selectedTarget ?? error;
+                              selectedTarget = undefined;
+                              if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                                  activity.error(errorToThrow);
+                              }
+                              throw errorToThrow;
+                          } finally {
+                              if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                                  activity.stop();
+                              }
+                          }
+                          // The default language toStringTag is "Object". If receive
+                          // "Object" we return `undefined` to let the language resolve
+                          // it naturally without projecting a value.
+                          if (toStringTag !== 'Object') {
+                              return toStringTag;
+                          }
+                      }
+                      return undefined;
+                  }
+                : (noop as typeof Reflect.get);
 
-            private static hybridHasTrap(
-                this: BoundaryProxyHandler,
-                _shadowTarget: ShadowTarget,
-                key: PropertyKey
-            ): ReturnType<typeof Reflect.has> {
-                let activity: any;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('callableBatchGetPrototypeOfWhenHasNoOwnProperty');
-                }
-                let trueOrProtoPointerOrNull;
-                try {
-                    trueOrProtoPointerOrNull =
-                        foreignCallableBatchGetPrototypeOfWhenHasNoOwnProperty(
-                            this.foreignTargetPointer,
-                            key
-                        );
-                } catch (error: any) {
-                    const errorToThrow = selectedTarget ?? error;
-                    selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.error(errorToThrow);
-                    }
-                    throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
-                }
-                if (trueOrProtoPointerOrNull === true) {
-                    return true;
-                }
-                // Avoiding calling the has trap for any proto chain operation,
-                // instead we implement the regular logic here in this trap.
-                let currentObject: any;
-                if (typeof trueOrProtoPointerOrNull === 'function') {
-                    trueOrProtoPointerOrNull();
-                    currentObject = selectedTarget;
-                    selectedTarget = undefined;
-                } else {
-                    currentObject = trueOrProtoPointerOrNull;
-                }
-                while (currentObject) {
-                    if (ReflectApply(ObjectProtoHasOwnProperty, currentObject, [key])) {
-                        return true;
-                    }
-                    currentObject = ReflectGetPrototypeOf(currentObject);
-                }
-                return false;
-            }
+            private static hybridHasTrap = isInShadowRealm
+                ? function (
+                      this: BoundaryProxyHandler,
+                      _shadowTarget: ShadowTarget,
+                      key: PropertyKey
+                  ): ReturnType<typeof Reflect.has> {
+                      let activity: any;
+                      if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                          activity = startActivity(
+                              'callableBatchGetPrototypeOfWhenHasNoOwnProperty'
+                          );
+                      }
+                      let trueOrProtoPointerOrNull;
+                      try {
+                          trueOrProtoPointerOrNull =
+                              foreignCallableBatchGetPrototypeOfWhenHasNoOwnProperty(
+                                  this.foreignTargetPointer,
+                                  key
+                              );
+                      } catch (error: any) {
+                          const errorToThrow = selectedTarget ?? error;
+                          selectedTarget = undefined;
+                          if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                              activity.error(errorToThrow);
+                          }
+                          throw errorToThrow;
+                      } finally {
+                          if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                              activity.stop();
+                          }
+                      }
+                      if (trueOrProtoPointerOrNull === true) {
+                          return true;
+                      }
+                      // Avoiding calling the has trap for any proto chain operation,
+                      // instead we implement the regular logic here in this trap.
+                      let currentObject: any;
+                      if (typeof trueOrProtoPointerOrNull === 'function') {
+                          trueOrProtoPointerOrNull();
+                          currentObject = selectedTarget;
+                          selectedTarget = undefined;
+                      } else {
+                          currentObject = trueOrProtoPointerOrNull;
+                      }
+                      while (currentObject) {
+                          if (ReflectApply(ObjectProtoHasOwnProperty, currentObject, [key])) {
+                              return true;
+                          }
+                          currentObject = ReflectGetPrototypeOf(currentObject);
+                      }
+                      return false;
+                  }
+                : (alwaysFalse as typeof Reflect.has);
 
             // Passthru traps:
 
@@ -2836,93 +2763,167 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
             // Pending traps:
 
-            private static pendingDefinePropertyTrap(
-                this: BoundaryProxyHandler,
-                shadowTarget: ShadowTarget,
-                key: PropertyKey,
-                unsafePartialDesc: PropertyDescriptor
-            ): ReturnType<typeof Reflect.defineProperty> {
-                this.makeProxyUnambiguous();
-                return this.defineProperty!(shadowTarget, key, unsafePartialDesc);
-            }
+            private static pendingDefinePropertyTrap = isInShadowRealm
+                ? function (
+                      this: BoundaryProxyHandler,
+                      shadowTarget: ShadowTarget,
+                      key: PropertyKey,
+                      unsafePartialDesc: PropertyDescriptor
+                  ): ReturnType<typeof Reflect.defineProperty> {
+                      this.makeProxyUnambiguous();
+                      return this.defineProperty!(shadowTarget, key, unsafePartialDesc);
+                  }
+                : (alwaysFalse as typeof Reflect.defineProperty);
 
-            private static pendingDeletePropertyTrap(
-                this: BoundaryProxyHandler,
-                shadowTarget: ShadowTarget,
-                key: PropertyKey
-            ): ReturnType<typeof Reflect.deleteProperty> {
-                this.makeProxyUnambiguous();
-                return this.deleteProperty!(shadowTarget, key);
-            }
+            private static pendingDeletePropertyTrap = isInShadowRealm
+                ? function (
+                      this: BoundaryProxyHandler,
+                      shadowTarget: ShadowTarget,
+                      key: PropertyKey
+                  ): ReturnType<typeof Reflect.deleteProperty> {
+                      this.makeProxyUnambiguous();
+                      return this.deleteProperty!(shadowTarget, key);
+                  }
+                : (alwaysFalse as typeof Reflect.deleteProperty);
 
-            private static pendingPreventExtensionsTrap(
-                this: BoundaryProxyHandler,
-                shadowTarget: ShadowTarget
-            ): ReturnType<typeof Reflect.preventExtensions> {
-                this.makeProxyUnambiguous();
-                return this.preventExtensions!(shadowTarget);
-            }
+            private static pendingPreventExtensionsTrap = isInShadowRealm
+                ? function (
+                      this: BoundaryProxyHandler,
+                      shadowTarget: ShadowTarget
+                  ): ReturnType<typeof Reflect.preventExtensions> {
+                      this.makeProxyUnambiguous();
+                      return this.preventExtensions!(shadowTarget);
+                  }
+                : (alwaysFalse as typeof Reflect.preventExtensions);
 
-            private static pendingSetPrototypeOfTrap(
-                this: BoundaryProxyHandler,
-                shadowTarget: ShadowTarget,
-                proto: object | null
-            ): ReturnType<typeof Reflect.setPrototypeOf> {
-                this.makeProxyUnambiguous();
-                return this.setPrototypeOf!(shadowTarget, proto);
-            }
+            private static pendingSetPrototypeOfTrap = isInShadowRealm
+                ? function (
+                      this: BoundaryProxyHandler,
+                      shadowTarget: ShadowTarget,
+                      proto: object | null
+                  ): ReturnType<typeof Reflect.setPrototypeOf> {
+                      this.makeProxyUnambiguous();
+                      return this.setPrototypeOf!(shadowTarget, proto);
+                  }
+                : (alwaysFalse as typeof Reflect.setPrototypeOf);
 
-            private static pendingSetTrap(
-                this: BoundaryProxyHandler,
-                shadowTarget: ShadowTarget,
-                key: PropertyKey,
-                value: any,
-                receiver: any
-            ): ReturnType<typeof Reflect.set> {
-                this.makeProxyUnambiguous();
-                return this.set!(shadowTarget, key, value, receiver);
-            }
+            private static pendingSetTrap = isInShadowRealm
+                ? function (
+                      this: BoundaryProxyHandler,
+                      shadowTarget: ShadowTarget,
+                      key: PropertyKey,
+                      value: any,
+                      receiver: any
+                  ): ReturnType<typeof Reflect.set> {
+                      this.makeProxyUnambiguous();
+                      return this.set!(shadowTarget, key, value, receiver);
+                  }
+                : (alwaysFalse as typeof Reflect.set);
 
             //  Static traps:
 
-            private static staticDefinePropertyTrap = ReflectDefineProperty;
+            private static staticDefinePropertyTrap = isInShadowRealm
+                ? ReflectDefineProperty
+                : (alwaysFalse as typeof Reflect.defineProperty);
 
-            private static staticDeletePropertyTrap = ReflectDeleteProperty;
+            private static staticDeletePropertyTrap = isInShadowRealm
+                ? ReflectDeleteProperty
+                : (alwaysFalse as typeof Reflect.deleteProperty);
 
-            private static staticGetOwnPropertyDescriptorTrap = ReflectGetOwnPropertyDescriptor;
+            private static staticGetOwnPropertyDescriptorTrap = isInShadowRealm
+                ? ReflectGetOwnPropertyDescriptor
+                : (noop as typeof Reflect.getOwnPropertyDescriptor);
 
-            private static staticGetPrototypeOfTrap = ReflectGetPrototypeOf;
+            private static staticGetPrototypeOfTrap = isInShadowRealm
+                ? ReflectGetPrototypeOf
+                : ((() => null) as typeof Reflect.getPrototypeOf);
 
-            private static staticGetTrap(
-                this: BoundaryProxyHandler,
-                _shadowTarget: ShadowTarget,
-                key: PropertyKey,
-                receiver: any
-            ): ReturnType<typeof Reflect.get> {
-                const { shadowTarget } = this;
-                const result = ReflectGet(shadowTarget, key, receiver);
-                if (
-                    result === undefined &&
-                    key === TO_STRING_TAG_SYMBOL &&
-                    this.foreignTargetTraits & TargetTraits.IsObject &&
-                    !ReflectHas(shadowTarget, key)
-                ) {
-                    return this.staticToStringTag;
-                }
-                return result;
-            }
+            private static staticGetTrap = isInShadowRealm
+                ? function (
+                      this: BoundaryProxyHandler,
+                      _shadowTarget: ShadowTarget,
+                      key: PropertyKey,
+                      receiver: any
+                  ): ReturnType<typeof Reflect.get> {
+                      const { shadowTarget } = this;
+                      const result = ReflectGet(shadowTarget, key, receiver);
+                      if (
+                          result === undefined &&
+                          key === TO_STRING_TAG_SYMBOL &&
+                          this.foreignTargetTraits & TargetTraits.IsObject &&
+                          !ReflectHas(shadowTarget, key)
+                      ) {
+                          return this.staticToStringTag;
+                      }
+                      return result;
+                  }
+                : (noop as typeof Reflect.get);
 
-            private static staticHasTrap = ReflectHas;
+            private static staticHasTrap = isInShadowRealm
+                ? ReflectHas
+                : (alwaysFalse as typeof Reflect.has);
 
-            private static staticIsExtensibleTrap = ReflectIsExtensible;
+            private static staticIsExtensibleTrap = isInShadowRealm
+                ? ReflectIsExtensible
+                : (alwaysFalse as typeof Reflect.isExtensible);
 
-            private static staticOwnKeysTrap = ReflectOwnKeys;
+            private static staticOwnKeysTrap = isInShadowRealm
+                ? ReflectOwnKeys
+                : ((() => []) as typeof Reflect.ownKeys);
 
-            private static staticPreventExtensionsTrap = ReflectPreventExtensions;
+            private static staticPreventExtensionsTrap = isInShadowRealm
+                ? ReflectPreventExtensions
+                : (alwaysFalse as typeof Reflect.preventExtensions);
 
-            private static staticSetPrototypeOfTrap = ReflectSetPrototypeOf;
+            private static staticSetPrototypeOfTrap = isInShadowRealm
+                ? ReflectSetPrototypeOf
+                : (alwaysFalse as typeof Reflect.setPrototypeOf);
 
-            private static staticSetTrap = ReflectSet;
+            private static staticSetTrap = isInShadowRealm
+                ? ReflectSet
+                : (alwaysFalse as typeof Reflect.set);
+
+            // Default traps:
+
+            // Pending traps are needed for the shadow realm side of the membrane
+            // to avoid leaking mutation operations on the primary realm side.
+            private static defaultDefinePropertyTrap = isInShadowRealm
+                ? BoundaryProxyHandler.pendingDefinePropertyTrap
+                : BoundaryProxyHandler.passthruDefinePropertyTrap;
+
+            private static defaultDeletePropertyTrap = isInShadowRealm
+                ? BoundaryProxyHandler.pendingDeletePropertyTrap
+                : BoundaryProxyHandler.passthruDeletePropertyTrap;
+
+            private static defaultGetOwnPropertyDescriptorTrap =
+                BoundaryProxyHandler.passthruGetOwnPropertyDescriptorTrap;
+
+            private static defaultGetPrototypeOfTrap =
+                BoundaryProxyHandler.passthruGetPrototypeOfTrap;
+
+            private static defaultGetTrap = isInShadowRealm
+                ? BoundaryProxyHandler.hybridGetTrap
+                : BoundaryProxyHandler.passthruGetTrap;
+
+            private static defaultHasTrap = isInShadowRealm
+                ? BoundaryProxyHandler.hybridHasTrap
+                : BoundaryProxyHandler.passthruHasTrap;
+
+            private static defaultIsExtensibleTrap = BoundaryProxyHandler.passthruIsExtensibleTrap;
+
+            private static defaultOwnKeysTrap = BoundaryProxyHandler.passthruOwnKeysTrap;
+
+            private static defaultPreventExtensionsTrap = isInShadowRealm
+                ? BoundaryProxyHandler.pendingPreventExtensionsTrap
+                : BoundaryProxyHandler.passthruPreventExtensionsTrap;
+
+            private static defaultSetTrap = isInShadowRealm
+                ? BoundaryProxyHandler.pendingSetTrap
+                : BoundaryProxyHandler.passthruSetTrap;
+
+            private static defaultSetPrototypeOfTrap = isInShadowRealm
+                ? BoundaryProxyHandler.pendingSetPrototypeOfTrap
+                : BoundaryProxyHandler.passthruSetPrototypeOfTrap;
         }
         ReflectSetPrototypeOf(BoundaryProxyHandler.prototype, null);
 
@@ -3553,7 +3554,8 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                       }
                       return TargetIntegrityTraits.None;
                   }
-                : (alwaysNone as unknown as CallableGetTargetIntegrityTraits),
+                : ((() =>
+                      TargetIntegrityTraits.None) as unknown as CallableGetTargetIntegrityTraits),
             // callableGetToStringTagOfTarget
             (targetPointer: Pointer): string => {
                 targetPointer();
