@@ -13,7 +13,7 @@ describe('document.all', () => {
         `);
     });
     it('should disable the feature entirely inside the sandbox', () => {
-        expect.assertions(31);
+        expect.assertions(33);
 
         Object.defineProperties(window, {
             allGetter: {
@@ -34,30 +34,54 @@ describe('document.all', () => {
 
         const env = createVirtualEnvironment(window, window, {
             endowments: {
+                callOutsideWithZeroArgs: {
+                    value: (func) => func.call(document.all),
+                },
                 callOutsideWithOneArg: {
-                    value: (func) => func(document.all),
+                    value: (func) => func.call(document.all, document.all),
                 },
                 callOutsideWithTwoArgs: {
-                    value: (func) => func(document.all, document.all),
+                    value: (func) => func.call(document.all, document.all, document.all),
                 },
                 callOutsideWithThreeArgs: {
-                    value: (func) => func(document.all, document.all, document.all),
+                    value: (func) =>
+                        func.call(document.all, document.all, document.all, document.all),
                 },
                 callOutsideWithFourArgs: {
-                    value: (func) => func(document.all, document.all, document.all, document.all),
+                    value: (func) =>
+                        func.call(
+                            document.all,
+                            document.all,
+                            document.all,
+                            document.all,
+                            document.all
+                        ),
+                },
+                constructOutsideWithZeroArgsAndNewTarget: {
+                    value: (func) => {
+                        expect(() => Reflect.construct(func, [], document.all)).toThrowError(
+                            TypeError
+                        );
+                    },
                 },
                 constructOutsideWithOneArg: {
-                    value: (func) => new func(document.all),
+                    value: (func) => Reflect.construct(func, [document.all]),
                 },
                 constructOutsideWithTwoArgs: {
-                    value: (func) => new func(document.all, document.all),
+                    value: (func) => Reflect.construct(func, [document.all, document.all]),
                 },
                 constructOutsideWithThreeArgs: {
-                    value: (func) => new func(document.all, document.all, document.all),
+                    value: (func) =>
+                        Reflect.construct(func, [document.all, document.all, document.all]),
                 },
                 constructOutsideWithFourArgs: {
                     value: (func) =>
-                        new func(document.all, document.all, document.all, document.all),
+                        Reflect.construct(func, [
+                            document.all,
+                            document.all,
+                            document.all,
+                            document.all,
+                        ]),
                 },
                 defineOutside: {
                     value: (object) => {
@@ -95,6 +119,8 @@ describe('document.all', () => {
         });
 
         env.evaluate(`
+            'use strict';
+
             class ExoticObject {
                 constructor(source) {
                     if (source) {
@@ -125,30 +151,56 @@ describe('document.all', () => {
             const getter = DocumentProtoAllDesc?.get ?? (() => {});
             expect(Reflect.apply(getter, document, [])).toBeUndefined();
 
-            callOutsideWithOneArg((arg0) => {
-                expect(arg0).toBeUndefined();
+            callOutsideWithZeroArgs(function () {
+                expect(this).toBeUndefined();
             });
-            callOutsideWithTwoArgs((arg0, arg1) => {
-                expect([arg0, arg1]).toEqual([undefined, undefined]);
+            callOutsideWithOneArg(function (arg0) {
+                expect([this, arg0]).toEqual([undefined, undefined]);
             });
-            callOutsideWithThreeArgs((arg0, arg1, arg2) => {
-                expect([arg0, arg1, arg2]).toEqual([undefined, undefined, undefined]);
+            callOutsideWithTwoArgs(function (arg0, arg1) {
+                expect([this, arg0, arg1]).toEqual([undefined, undefined, undefined]);
             });
-            callOutsideWithFourArgs((arg0, arg1, arg2, arg3) => {
-                expect([arg0, arg1, arg2, arg3]).toEqual([undefined, undefined, undefined, undefined]);
+            callOutsideWithThreeArgs(function (arg0, arg1, arg2) {
+                expect([this, arg0, arg1, arg2]).toEqual([
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                ]);
+            });
+            callOutsideWithFourArgs(function (arg0, arg1, arg2, arg3) {
+                expect([this, arg0, arg1, arg2, arg3]).toEqual([
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                ]);
             });
 
-            constructOutsideWithOneArg(function (arg0) {
-                expect(arg0).toBeUndefined();
+            constructOutsideWithZeroArgsAndNewTarget(function Ctor() {});
+            constructOutsideWithOneArg(function Ctor(arg0) {
+                expect([new.target, arg0]).toEqual([Ctor, undefined]);
             });
-            constructOutsideWithTwoArgs(function (arg0, arg1) {
-                expect([arg0, arg1]).toEqual([undefined, undefined]);
+            constructOutsideWithTwoArgs(function Ctor(arg0, arg1) {
+                expect([new.target, arg0, arg1]).toEqual([Ctor, undefined, undefined]);
             });
-            constructOutsideWithThreeArgs(function (arg0, arg1, arg2) {
-                expect([arg0, arg1, arg2]).toEqual([undefined, undefined, undefined]);
+            constructOutsideWithThreeArgs(function Ctor(arg0, arg1, arg2) {
+                expect([new.target, arg0, arg1, arg2]).toEqual([
+                    Ctor,
+                    undefined,
+                    undefined,
+                    undefined,
+                ]);
             });
-            constructOutsideWithFourArgs(function (arg0, arg1, arg2, arg3) {
-                expect([arg0, arg1, arg2, arg3]).toEqual([undefined, undefined, undefined, undefined]);
+            constructOutsideWithFourArgs(function Ctor(arg0, arg1, arg2, arg3) {
+                expect([new.target, arg0, arg1, arg2, arg3]).toEqual([
+                    Ctor,
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                ]);
             });
 
             const plainObjectForDefineProperty = {};
