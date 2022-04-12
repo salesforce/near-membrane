@@ -30,9 +30,6 @@ interface VirtualEnvironmentOptions {
 const LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL = Symbol.for(
     '@@lockerNearMembraneUndefinedValue'
 );
-const SHOULD_TRAP_MUTATION = true;
-const SHOULD_NOT_TRAP_MUTATION = false;
-
 const ArrayCtor = Array;
 const ErrorCtor = Error;
 const ObjectCtor = Object;
@@ -41,10 +38,6 @@ const { assign: ObjectAssign } = ObjectCtor;
 const { apply: ReflectApply, ownKeys: ReflectOwnKeys } = Reflect;
 
 export class VirtualEnvironment {
-    public readonly blueConnector: ReturnType<typeof createMembraneMarshall>;
-
-    public readonly redConnector: ReturnType<typeof createMembraneMarshall>;
-
     private readonly blueCallableGetPropertyValuePointer: CallableGetPropertyValuePointer;
 
     private readonly blueCallableLinkPointers: CallableLinkPointers;
@@ -82,25 +75,14 @@ export class VirtualEnvironment {
             // eslint-disable-next-line prefer-object-spread
         } = ObjectAssign({ __proto__: null }, providedOptions);
         let blueHooks: Parameters<HooksCallback>;
-        let redHooks: Parameters<HooksCallback>;
-        // prettier-ignore
-        const localConnect = blueConnector(
+        const blueConnect = blueConnector(
             'blue',
-            SHOULD_NOT_TRAP_MUTATION,
             (...hooks) => {
                 blueHooks = hooks;
             },
             {
                 distortionCallback,
                 instrumentation,
-            }
-        );
-        // prettier-ignore
-        const foreignConnect = redConnector(
-            'red',
-            SHOULD_TRAP_MUTATION,
-            (...hooks) => {
-                redHooks = hooks;
             }
         );
         const {
@@ -139,6 +121,10 @@ export class VirtualEnvironment {
             32: blueCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
             33: blueCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
         } = blueHooks!;
+        let redHooks: Parameters<HooksCallback>;
+        const redConnect = redConnector('red', (...hooks) => {
+            redHooks = hooks;
+        });
         const {
             0: redGlobalThisPointer,
             1: redGetSelectedTarget,
@@ -175,7 +161,7 @@ export class VirtualEnvironment {
             32: redCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
             33: redCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
         } = redHooks!;
-        localConnect(
+        blueConnect(
             redGlobalThisPointer,
             redGetSelectedTarget,
             redGetTransferableValue,
@@ -211,7 +197,7 @@ export class VirtualEnvironment {
             redCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
             redCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
         );
-        foreignConnect(
+        redConnect(
             blueGlobalThisPointer,
             blueGetSelectedTarget,
             blueGetTransferableValue,
@@ -247,14 +233,12 @@ export class VirtualEnvironment {
             blueCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
             blueCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
         );
-        this.blueConnector = blueConnector;
         this.blueGlobalThisPointer = blueGlobalThisPointer;
         this.blueGetSelectedTarget = blueGetSelectedTarget;
         this.blueGetTransferableValue = blueGetTransferableValue;
         this.blueCallableGetPropertyValuePointer = blueCallableGetPropertyValuePointer;
         this.blueCallableLinkPointers = blueCallableLinkPointers;
 
-        this.redConnector = redConnector;
         this.redGlobalThisPointer = redGlobalThisPointer;
         this.redCallableGetPropertyValuePointer = redCallableGetPropertyValuePointer;
         this.redCallableEvaluate = redCallableEvaluate;
