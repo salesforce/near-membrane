@@ -126,27 +126,23 @@ const ESGlobalsAndReflectiveIntrinsicObjectNames = [
 
 export function assignFilteredGlobalDescriptorsFromPropertyDescriptorMap<
     T extends PropertyDescriptorMap
->(descMap: T, source?: PropertyDescriptorMap, sourceForDesc = source): T {
-    if (source) {
-        const ownKeys = ReflectOwnKeys(source);
-        for (let i = 0, { length } = ownKeys; i < length; i += 1) {
-            const ownKey = ownKeys[i];
-            // Avoid overriding ECMAScript global names that correspond to
-            // global intrinsics. This guarantee that those entries will be
-            // ignored if present in the source property descriptor map.
-            if (
-                !ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveIntrinsicObjectNames, [
-                    ownKey,
-                ])
-            ) {
-                const unsafeDesc = (sourceForDesc as any)[ownKey];
-                if (unsafeDesc) {
-                    // Avoid poisoning by only installing own properties from
-                    // unsafeDesc. We don't use a toSafeDescriptor() style helper
-                    // since that mutates the unsafeBlueDesc.
-                    // eslint-disable-next-line prefer-object-spread
-                    (descMap as any)[ownKey] = ObjectAssign({ __proto__: null }, unsafeDesc);
-                }
+>(descMap: T, source: PropertyDescriptorMap): T {
+    const ownKeys = ReflectOwnKeys(source);
+    for (let i = 0, { length } = ownKeys; i < length; i += 1) {
+        const ownKey = ownKeys[i];
+        // Avoid overriding ECMAScript global names that correspond to
+        // global intrinsics. This guarantee that those entries will be
+        // ignored if present in the source property descriptor map.
+        if (
+            !ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveIntrinsicObjectNames, [ownKey])
+        ) {
+            const unsafeDesc = (source as any)[ownKey];
+            if (unsafeDesc) {
+                // Avoid poisoning by only installing own properties from
+                // unsafeDesc. We don't use a toSafeDescriptor() style helper
+                // since that mutates the unsafeBlueDesc.
+                // eslint-disable-next-line prefer-object-spread
+                (descMap as any)[ownKey] = ObjectAssign({ __proto__: null }, unsafeDesc);
             }
         }
     }
