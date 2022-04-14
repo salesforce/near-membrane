@@ -680,6 +680,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             1: undefined,
             2: undefined,
             3: undefined,
+            4: undefined,
             n: undefined,
         };
 
@@ -690,6 +691,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             1: undefined,
             2: undefined,
             3: undefined,
+            4: undefined,
             n: undefined,
         };
 
@@ -1174,6 +1176,116 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             };
         }
 
+        function createApplyOrConstructTrapForFourOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
+            const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
+            const activityName = isApplyTrap
+                ? 'callableApplyWithFourOrMoreArgs'
+                : 'callableConstructWithFourOrMoreArgs';
+            const arityToApplyOrConstructTrapRegistry = isApplyTrap
+                ? arityToApplyTrapNameRegistry
+                : arityToConstructTrapRegistry;
+            const foreignCallableApplyOrConstruct = isApplyTrap
+                ? foreignCallableApply
+                : foreignCallableConstruct;
+            return function applyOrConstructTrapForTwoOrMoreArgs(
+                this: BoundaryProxyHandler,
+                shadowTarget: ShadowTarget,
+                thisArgOrArgs: any,
+                argsOrNewTarget: any
+            ) {
+                lastProxyTrapCalled = proxyTrapEnum;
+                const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
+                const { length } = args;
+                if (length !== 4) {
+                    return ReflectApply(
+                        arityToApplyOrConstructTrapRegistry[length] ??
+                            arityToApplyOrConstructTrapRegistry.n,
+                        this,
+                        [shadowTarget, thisArgOrArgs, argsOrNewTarget]
+                    );
+                }
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity(activityName);
+                }
+                // @ts-ignore: Prevent private property access error.
+                const { foreignTargetPointer } = this;
+                const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
+                try {
+                    const { 0: arg0, 1: arg1, 2: arg2, 3: arg3 } = args;
+                    const pointerOrPrimitive = foreignCallableApplyOrConstruct(
+                        foreignTargetPointer,
+                        // Inline getTransferableValue().
+                        (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
+                            typeof thisArgOrNewTarget === 'function'
+                            ? getTransferablePointer(thisArgOrNewTarget)
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof thisArgOrNewTarget === 'undefined'
+                            ? undefined
+                            : thisArgOrNewTarget,
+                        // Inline getTransferableValue().
+                        (typeof arg0 === 'object' && arg0 !== null) || typeof arg0 === 'function'
+                            ? getTransferablePointer(arg0)
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof arg0 === 'undefined'
+                            ? undefined
+                            : arg0,
+                        // Inline getTransferableValue().
+                        (typeof arg1 === 'object' && arg1 !== null) || typeof arg1 === 'function'
+                            ? getTransferablePointer(arg1)
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof arg1 === 'undefined'
+                            ? undefined
+                            : arg1,
+                        // Inline getTransferableValue().
+                        (typeof arg2 === 'object' && arg2 !== null) || typeof arg2 === 'function'
+                            ? getTransferablePointer(arg2)
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof arg2 === 'undefined'
+                            ? undefined
+                            : arg2,
+                        // Inline getTransferableValue().
+                        (typeof arg3 === 'object' && arg3 !== null) || typeof arg3 === 'function'
+                            ? getTransferablePointer(arg3)
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof arg3 === 'undefined'
+                            ? undefined
+                            : arg3
+                    );
+                    let result: any;
+                    if (typeof pointerOrPrimitive === 'function') {
+                        pointerOrPrimitive();
+                        result = selectedTarget;
+                        selectedTarget = undefined;
+                    } else {
+                        result = pointerOrPrimitive;
+                    }
+                    return result;
+                } catch (error: any) {
+                    const errorToThrow = selectedTarget ?? error;
+                    selectedTarget = undefined;
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.error(errorToThrow);
+                    }
+                    throw errorToThrow;
+                } finally {
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.stop();
+                    }
+                }
+            };
+        }
+
         function createApplyOrConstructTrapForAnyNumberOfArgs(proxyTrapEnum: ProxyHandlerTraps) {
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
             const activityName = isApplyTrap
@@ -1379,29 +1491,28 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 targetTraits = TargetTraits.Revoked;
             }
             if (typeof distortedTarget === 'function') {
+                targetFunctionArity = 0;
                 targetTraits = TargetTraits.IsFunction;
                 // Detect arrow functions.
                 try {
                     if (!('prototype' in distortedTarget)) {
                         targetTraits |= TargetTraits.IsArrowFunction;
                     }
-                    const unsafeLengthDesc = ReflectGetOwnPropertyDescriptor(
+                    const safeLengthDesc = ReflectGetOwnPropertyDescriptor(
                         originalTarget,
                         'length'
                     );
-                    if (unsafeLengthDesc) {
-                        const safeLengthDesc = unsafeLengthDesc;
+                    if (safeLengthDesc) {
                         ReflectSetPrototypeOf(safeLengthDesc, null);
                         const { value: safeLengthDescValue } = safeLengthDesc;
                         if (typeof safeLengthDescValue === 'number') {
                             targetFunctionArity = safeLengthDescValue;
                         }
                     }
-                    const unsafeNameDesc = DEV_MODE
+                    const safeNameDesc = DEV_MODE
                         ? ReflectGetOwnPropertyDescriptor(originalTarget, 'name')
                         : undefined;
-                    if (unsafeNameDesc) {
-                        const safeNameDesc = unsafeNameDesc;
+                    if (safeNameDesc) {
                         ReflectSetPrototypeOf(safeNameDesc, null);
                         const { value: safeNameDescValue } = safeNameDesc;
                         if (typeof safeNameDescValue === 'string') {
@@ -1765,9 +1876,8 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 currentObject = protoPointerOrNull;
             }
             while (currentObject) {
-                const unsafeDesc = ReflectGetOwnPropertyDescriptor(currentObject, key);
-                if (unsafeDesc) {
-                    safeDesc = unsafeDesc;
+                safeDesc = ReflectGetOwnPropertyDescriptor(currentObject, key);
+                if (safeDesc) {
                     ReflectSetPrototypeOf(safeDesc, null);
                     return safeDesc;
                 }
@@ -1844,7 +1954,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     return false;
                 }
             }
-            let safeReceiverDesc: PropertyDescriptor | undefined;
             // Exit early if receiver is not object like.
             if (
                 receiver === null ||
@@ -1852,12 +1961,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             ) {
                 return false;
             }
-            const unsafeReceiverDesc = ReflectGetOwnPropertyDescriptor(receiver, key);
-            if (unsafeReceiverDesc) {
-                safeReceiverDesc = unsafeReceiverDesc;
-                ReflectSetPrototypeOf(safeReceiverDesc, null);
-            }
+            const safeReceiverDesc = ReflectGetOwnPropertyDescriptor(receiver, key);
             if (safeReceiverDesc) {
+                ReflectSetPrototypeOf(safeReceiverDesc, null);
                 // Exit early for accessor descriptors or non-writable data
                 // descriptors.
                 if (
@@ -2321,8 +2427,8 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                     activity = startActivity('callableDefineProperty');
                 }
-                // eslint-disable-next-line prefer-object-spread
-                const safePartialDesc = ObjectAssign({ __proto__: null }, unsafePartialDesc);
+                const safePartialDesc = unsafePartialDesc;
+                ReflectSetPrototypeOf(safePartialDesc, null);
                 const { value, get: getter, set: setter } = safePartialDesc;
                 const valuePointer =
                     'value' in safePartialDesc
@@ -3133,53 +3239,48 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     throw pushErrorAcrossBoundary(error);
                 }
                 if (result && configurable === false) {
-                    let unsafeDesc;
+                    let safeDesc;
                     try {
-                        unsafeDesc = ReflectGetOwnPropertyDescriptor(target, key);
+                        safeDesc = ReflectGetOwnPropertyDescriptor(target, key);
                     } catch (error: any) {
                         throw pushErrorAcrossBoundary(error);
                     }
-                    if (
-                        unsafeDesc &&
-                        ReflectApply(ObjectProtoHasOwnProperty, unsafeDesc, ['configurable']) &&
-                        unsafeDesc.configurable === false
-                    ) {
-                        // eslint-disable-next-line prefer-object-spread
-                        const safeDesc = ObjectAssign({ __proto__: null }, unsafeDesc);
-                        const { value, get: getter, set: setter } = safeDesc;
-                        foreignCallableNonConfigurableDescriptorCallback(
-                            key,
-                            'configurable' in safeDesc
-                                ? (safeDesc.configurable as boolean)
-                                : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
-                            'enumerable' in safeDesc
-                                ? (safeDesc.enumerable as boolean)
-                                : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
-                            'writable' in safeDesc
-                                ? (safeDesc.writable as boolean)
-                                : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
-                            'value' in safeDesc
-                                ? // Inline getTransferableValue().
-                                  (typeof value === 'object' && value !== null) ||
-                                  typeof value === 'function'
-                                    ? getTransferablePointer(value)
-                                    : value
-                                : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
-                            'get' in safeDesc
-                                ? // Inline getTransferableValue().
-                                  (typeof getter === 'object' && getter !== null) ||
-                                  typeof getter === 'function'
-                                    ? getTransferablePointer(getter)
-                                    : getter
-                                : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
-                            'set' in safeDesc
-                                ? // Inline getTransferableValue().
-                                  (typeof setter === 'object' && setter !== null) ||
-                                  typeof setter === 'function'
-                                    ? getTransferablePointer(setter)
-                                    : setter
-                                : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
-                        );
+                    if (safeDesc) {
+                        ReflectSetPrototypeOf(safeDesc, null);
+                        if (safeDesc.configurable === false) {
+                            const { value, get: getter, set: setter } = safeDesc;
+                            foreignCallableNonConfigurableDescriptorCallback(
+                                key,
+                                false, // configurable
+                                'enumerable' in safeDesc
+                                    ? (safeDesc.enumerable as boolean)
+                                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                                'writable' in safeDesc
+                                    ? (safeDesc.writable as boolean)
+                                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                                'value' in safeDesc
+                                    ? // Inline getTransferableValue().
+                                      (typeof value === 'object' && value !== null) ||
+                                      typeof value === 'function'
+                                        ? getTransferablePointer(value)
+                                        : value
+                                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                                'get' in safeDesc
+                                    ? // Inline getTransferableValue().
+                                      (typeof getter === 'object' && getter !== null) ||
+                                      typeof getter === 'function'
+                                        ? getTransferablePointer(getter)
+                                        : getter
+                                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
+                                'set' in safeDesc
+                                    ? // Inline getTransferableValue().
+                                      (typeof setter === 'object' && setter !== null) ||
+                                      typeof setter === 'function'
+                                        ? getTransferablePointer(setter)
+                                        : setter
+                                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
+                            );
+                        }
                     }
                 }
                 return result;
@@ -3262,15 +3363,14 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
-                let unsafeDesc;
+                let safeDesc;
                 try {
-                    unsafeDesc = ReflectGetOwnPropertyDescriptor(target, key);
+                    safeDesc = ReflectGetOwnPropertyDescriptor(target, key);
                 } catch (error: any) {
                     throw pushErrorAcrossBoundary(error);
                 }
-                if (unsafeDesc) {
-                    // eslint-disable-next-line prefer-object-spread
-                    const safeDesc = ObjectAssign({ __proto__: null }, unsafeDesc);
+                if (safeDesc) {
+                    ReflectSetPrototypeOf(safeDesc, null);
                     const { value, get: getter, set: setter } = safeDesc;
                     foreignCallableDescriptorCallback(
                         key,
@@ -3776,9 +3876,8 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 ) as unknown as Parameters<CallableDescriptorCallback>;
                 for (let i = 0, j = 0; i < length; i += 1, j += 7) {
                     const ownKey = ownKeys[i];
-                    const unsafeDesc = (unsafeDescMap as any)[ownKey];
-                    // eslint-disable-next-line prefer-object-spread
-                    const safeDesc = ObjectAssign({ __proto__: null }, unsafeDesc);
+                    const safeDesc = (unsafeDescMap as any)[ownKey];
+                    ReflectSetPrototypeOf(safeDesc, null);
                     const { value, get: getter, set: setter } = safeDesc;
                     descriptorTuples[j] = ownKey;
                     descriptorTuples[j + 1] =
@@ -3868,15 +3967,14 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
-                let unsafeDesc;
+                let safeDesc;
                 try {
-                    unsafeDesc = ReflectGetOwnPropertyDescriptor(target, key);
+                    safeDesc = ReflectGetOwnPropertyDescriptor(target, key);
                 } catch (error: any) {
                     throw pushErrorAcrossBoundary(error);
                 }
-                if (unsafeDesc) {
-                    // eslint-disable-next-line prefer-object-spread
-                    const safeDesc = ObjectAssign({ __proto__: null }, unsafeDesc);
+                if (safeDesc) {
+                    ReflectSetPrototypeOf(safeDesc, null);
                     const { value, get: getter, set: setter } = safeDesc;
                     foreignCallableDescriptorCallback(
                         key,
@@ -4014,6 +4112,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             arityToApplyTrapNameRegistry[3] = createApplyOrConstructTrapForThreeOrMoreArgs(
                 ProxyHandlerTraps.Apply
             );
+            arityToApplyTrapNameRegistry[4] = createApplyOrConstructTrapForFourOrMoreArgs(
+                ProxyHandlerTraps.Apply
+            );
             arityToApplyTrapNameRegistry.n = createApplyOrConstructTrapForAnyNumberOfArgs(
                 ProxyHandlerTraps.Apply
             );
@@ -4027,6 +4128,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 ProxyHandlerTraps.Construct
             );
             arityToConstructTrapRegistry[3] = createApplyOrConstructTrapForThreeOrMoreArgs(
+                ProxyHandlerTraps.Construct
+            );
+            arityToConstructTrapRegistry[4] = createApplyOrConstructTrapForFourOrMoreArgs(
                 ProxyHandlerTraps.Construct
             );
             arityToConstructTrapRegistry.n = createApplyOrConstructTrapForAnyNumberOfArgs(
