@@ -13,7 +13,7 @@ describe('document.all', () => {
         `);
     });
     it('should disable the feature entirely inside the sandbox', () => {
-        expect.assertions(33);
+        expect.assertions(35);
 
         Object.defineProperties(window, {
             allGetter: {
@@ -57,6 +57,17 @@ describe('document.all', () => {
                             document.all
                         ),
                 },
+                callOutsideWithFiveArgs: {
+                    value: (func) =>
+                        func.call(
+                            document.all,
+                            document.all,
+                            document.all,
+                            document.all,
+                            document.all,
+                            document.all
+                        ),
+                },
                 constructOutsideWithZeroArgsAndNewTarget: {
                     value: (func) => {
                         expect(() => Reflect.construct(func, [], document.all)).toThrowError(
@@ -77,6 +88,16 @@ describe('document.all', () => {
                 constructOutsideWithFourArgs: {
                     value: (func) =>
                         Reflect.construct(func, [
+                            document.all,
+                            document.all,
+                            document.all,
+                            document.all,
+                        ]),
+                },
+                constructOutsideWithFiveArgs: {
+                    value: (func) =>
+                        Reflect.construct(func, [
+                            document.all,
                             document.all,
                             document.all,
                             document.all,
@@ -177,6 +198,16 @@ describe('document.all', () => {
                     undefined,
                 ]);
             });
+            callOutsideWithFiveArgs(function (arg0, arg1, arg2, arg3, arg4) {
+                expect([this, arg0, arg1, arg2, arg3, arg4]).toEqual([
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                ]);
+            });
 
             constructOutsideWithZeroArgsAndNewTarget(function Ctor() {});
             constructOutsideWithOneArg(function Ctor(arg0) {
@@ -196,6 +227,16 @@ describe('document.all', () => {
             constructOutsideWithFourArgs(function Ctor(arg0, arg1, arg2, arg3) {
                 expect([new.target, arg0, arg1, arg2, arg3]).toEqual([
                     Ctor,
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                ]);
+            });
+            constructOutsideWithFourArgs(function Ctor(arg0, arg1, arg2, arg3, arg4) {
+                expect([new.target, arg0, arg1, arg2, arg3, arg4]).toEqual([
+                    Ctor,
+                    undefined,
                     undefined,
                     undefined,
                     undefined,
