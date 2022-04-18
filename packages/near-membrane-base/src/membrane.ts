@@ -146,12 +146,12 @@ export type DistortionCallback = (target: ProxyTarget) => ProxyTarget;
 export type GetSelectedTarget = () => any;
 export type GetTransferableValue = (value: any) => PointerOrPrimitive;
 export type HooksCallback = (
-    globalThisPointer: Pointer,
-    getSelectedTarget: GetSelectedTarget,
-    getTransferableValue: GetTransferableValue,
-    callableGetPropertyValuePointer: CallableGetPropertyValuePointer,
-    callableEvaluate: CallableEvaluate,
-    callableLinkPointers: CallableLinkPointers,
+    globalThisPointer: Pointer | undefined,
+    getSelectedTarget: GetSelectedTarget | undefined,
+    getTransferableValue: GetTransferableValue | undefined,
+    callableGetPropertyValuePointer: CallableGetPropertyValuePointer | undefined,
+    callableEvaluate: CallableEvaluate | undefined,
+    callableLinkPointers: CallableLinkPointers | undefined,
     callablePushTarget: CallablePushTarget,
     callableApply: CallableApply,
     callableConstruct: CallableConstruct,
@@ -167,12 +167,12 @@ export type HooksCallback = (
     callableSet: CallableSet,
     callableSetPrototypeOf: CallableSetPrototypeOf,
     callableDebugInfo: CallableDebugInfo,
-    callableDefineProperties: CallableDefineProperties,
+    callableDefineProperties: CallableDefineProperties | undefined,
     callableGetLazyPropertyDescriptorStateByTarget: CallableGetLazyPropertyDescriptorStateByTarget,
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableGetToStringTagOfTarget: CallableGetToStringTagOfTarget,
     callableInstallErrorPrepareStackTrace: CallableInstallErrorPrepareStackTrace,
-    callableInstallLazyPropertyDescriptors: CallableInstallLazyPropertyDescriptors,
+    callableInstallLazyPropertyDescriptors: CallableInstallLazyPropertyDescriptors | undefined,
     callableIsTargetLive: CallableIsTargetLive,
     callableIsTargetRevoked: CallableIsTargetRevoked,
     callableSerializeTarget: CallableSerializeTarget,
@@ -674,25 +674,23 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             !isInShadowRealm && typeof instrumentation === 'object' && instrumentation !== null;
 
         const arityToApplyTrapNameRegistry: any = {
-            // Populated in the returned connector function below.
             __proto__: null,
-            0: undefined,
-            1: undefined,
-            2: undefined,
-            3: undefined,
-            4: undefined,
-            n: undefined,
+            0: 'applyTrapForZeroOrMoreArgs',
+            1: 'applyTrapForOneOrMoreArgs',
+            2: 'applyTrapForTwoOrMoreArgs',
+            3: 'applyTrapForThreeOrMoreArgs',
+            4: 'applyTrapForFourOrMoreArgs',
+            n: 'applyTrapForAnyNumberOfArgs',
         };
 
-        const arityToConstructTrapRegistry: any = {
-            // Populated in the returned connector function below.
+        const arityToConstructTrapNameRegistry: any = {
             __proto__: null,
-            0: undefined,
-            1: undefined,
-            2: undefined,
-            3: undefined,
-            4: undefined,
-            n: undefined,
+            0: 'constructTrapForZeroOrMoreArgs',
+            1: 'constructTrapForOneOrMoreArgs',
+            2: 'constructTrapForTwoOrMoreArgs',
+            3: 'constructTrapForThreeOrMoreArgs',
+            4: 'constructTrapForFourOrMoreArgs',
+            n: 'constructTrapForAnyNumberOfArgs',
         };
 
         const localProxyTargetToLazyPropertyDescriptorStateByTargetMap = new WeakMapCtor();
@@ -832,9 +830,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             const activityName = isApplyTrap
                 ? 'callableApplyWithZeroOrMoreArgs'
                 : 'callableConstructWithZeroOrMoreArgs';
-            const arityToApplyOrConstructTrapRegistry = isApplyTrap
+            const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
-                : arityToConstructTrapRegistry;
+                : arityToConstructTrapNameRegistry;
             const foreignCallableApplyOrConstruct = isApplyTrap
                 ? foreignCallableApply
                 : foreignCallableConstruct;
@@ -848,12 +846,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
                 const { length } = args;
                 if (length !== 0) {
-                    return ReflectApply(
-                        arityToApplyOrConstructTrapRegistry[length] ??
-                            arityToApplyOrConstructTrapRegistry.n,
-                        this,
-                        [shadowTarget, thisArgOrArgs, argsOrNewTarget]
-                    );
+                    return this[
+                        arityToApplyOrConstructTrapNameRegistry[length] ??
+                            arityToApplyOrConstructTrapNameRegistry.n
+                    ](shadowTarget, thisArgOrArgs, argsOrNewTarget);
                 }
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
@@ -905,9 +901,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             const activityName = isApplyTrap
                 ? 'callableApplyWithOneOrMoreArgs'
                 : 'callableConstructWithOneOrMoreArgs';
-            const arityToApplyOrConstructTrapRegistry = isApplyTrap
+            const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
-                : arityToConstructTrapRegistry;
+                : arityToConstructTrapNameRegistry;
             const foreignCallableApplyOrConstruct = isApplyTrap
                 ? foreignCallableApply
                 : foreignCallableConstruct;
@@ -921,12 +917,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
                 const { length } = args;
                 if (length !== 1) {
-                    return ReflectApply(
-                        arityToApplyOrConstructTrapRegistry[length] ??
-                            arityToApplyOrConstructTrapRegistry.n,
-                        this,
-                        [shadowTarget, thisArgOrArgs, argsOrNewTarget]
-                    );
+                    return this[
+                        arityToApplyOrConstructTrapNameRegistry[length] ??
+                            arityToApplyOrConstructTrapNameRegistry.n
+                    ](shadowTarget, thisArgOrArgs, argsOrNewTarget);
                 }
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
@@ -988,9 +982,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             const activityName = isApplyTrap
                 ? 'callableApplyWithTwoOrMoreArgs'
                 : 'callableConstructWithTwoOrMoreArgs';
-            const arityToApplyOrConstructTrapRegistry = isApplyTrap
+            const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
-                : arityToConstructTrapRegistry;
+                : arityToConstructTrapNameRegistry;
             const foreignCallableApplyOrConstruct = isApplyTrap
                 ? foreignCallableApply
                 : foreignCallableConstruct;
@@ -1004,12 +998,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
                 const { length } = args;
                 if (length !== 2) {
-                    return ReflectApply(
-                        arityToApplyOrConstructTrapRegistry[length] ??
-                            arityToApplyOrConstructTrapRegistry.n,
-                        this,
-                        [shadowTarget, thisArgOrArgs, argsOrNewTarget]
-                    );
+                    return this[
+                        arityToApplyOrConstructTrapNameRegistry[length] ??
+                            arityToApplyOrConstructTrapNameRegistry.n
+                    ](shadowTarget, thisArgOrArgs, argsOrNewTarget);
                 }
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
@@ -1080,9 +1072,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             const activityName = isApplyTrap
                 ? 'callableApplyWithThreeOrMoreArgs'
                 : 'callableConstructWithThreeOrMoreArgs';
-            const arityToApplyOrConstructTrapRegistry = isApplyTrap
+            const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
-                : arityToConstructTrapRegistry;
+                : arityToConstructTrapNameRegistry;
             const foreignCallableApplyOrConstruct = isApplyTrap
                 ? foreignCallableApply
                 : foreignCallableConstruct;
@@ -1096,12 +1088,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
                 const { length } = args;
                 if (length !== 3) {
-                    return ReflectApply(
-                        arityToApplyOrConstructTrapRegistry[length] ??
-                            arityToApplyOrConstructTrapRegistry.n,
-                        this,
-                        [shadowTarget, thisArgOrArgs, argsOrNewTarget]
-                    );
+                    return this[
+                        arityToApplyOrConstructTrapNameRegistry[length] ??
+                            arityToApplyOrConstructTrapNameRegistry.n
+                    ](shadowTarget, thisArgOrArgs, argsOrNewTarget);
                 }
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
@@ -1181,9 +1171,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             const activityName = isApplyTrap
                 ? 'callableApplyWithFourOrMoreArgs'
                 : 'callableConstructWithFourOrMoreArgs';
-            const arityToApplyOrConstructTrapRegistry = isApplyTrap
+            const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
-                : arityToConstructTrapRegistry;
+                : arityToConstructTrapNameRegistry;
             const foreignCallableApplyOrConstruct = isApplyTrap
                 ? foreignCallableApply
                 : foreignCallableConstruct;
@@ -1197,12 +1187,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
                 const { length } = args;
                 if (length !== 4) {
-                    return ReflectApply(
-                        arityToApplyOrConstructTrapRegistry[length] ??
-                            arityToApplyOrConstructTrapRegistry.n,
-                        this,
-                        [shadowTarget, thisArgOrArgs, argsOrNewTarget]
-                    );
+                    return this[
+                        arityToApplyOrConstructTrapNameRegistry[length] ??
+                            arityToApplyOrConstructTrapNameRegistry.n
+                    ](shadowTarget, thisArgOrArgs, argsOrNewTarget);
                 }
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
@@ -1301,15 +1289,16 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 argsOrNewTarget: any
             ) {
                 lastProxyTrapCalled = proxyTrapEnum;
-                let activity: any;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity(activityName);
-                }
+
                 // @ts-ignore: Prevent private property access error.
                 const { foreignTargetPointer } = this;
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
-                const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
                 const { length } = args;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity(`${activityName} (args count: ${length})`);
+                }
+                const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
                 let combinedOffset = 2;
                 const combinedArgs = new ArrayCtor(length + combinedOffset);
                 combinedArgs[0] = foreignTargetPointer;
@@ -2065,23 +2054,60 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
             setPrototypeOf: ProxyHandler<ShadowTarget>['setPrototypeOf'];
 
-            // The membrane color help developers identify which side of the
-            // membrane they are debugging.
-            readonly color = color;
-
             readonly proxy: ShadowTarget;
 
             private serializedValue: string | undefined;
 
             private staticToStringTag: string | undefined;
 
+            // The membrane color help developers identify which side of the
+            // membrane they are debugging.
+            // @ts-ignore: Prevent 'has no initializer and is not definitely assigned in the constructor' error.
+            private readonly color: string;
+
             private readonly foreignTargetPointer: Pointer;
 
-            private readonly foreignTargetTraits = TargetTraits.None;
+            private readonly foreignTargetTraits: TargetTraits;
 
             private readonly nonConfigurableDescriptorCallback: CallableNonConfigurableDescriptorCallback;
 
             private readonly shadowTarget: ProxyTarget;
+
+            // @ts-ignore: Prevent 'is declared but its value is never read' error.
+            private readonly applyTrapForZeroOrMoreArgs: ProxyHandler<ShadowTarget>['apply'];
+
+            // @ts-ignore: Prevent 'is declared but its value is never read' error.
+            private readonly applyTrapForOneOrMoreArgs: ProxyHandler<ShadowTarget>['apply'];
+
+            // @ts-ignore: Prevent 'is declared but its value is never read' error.
+            private readonly applyTrapForTwoOrMoreArgs: ProxyHandler<ShadowTarget>['apply'];
+
+            // @ts-ignore: Prevent 'is declared but its value is never read' error.
+            private readonly applyTrapForThreeOrMoreArgs: ProxyHandler<ShadowTarget>['apply'];
+
+            // @ts-ignore: Prevent 'is declared but its value is never read' error.
+            private readonly applyTrapForFourOrMoreArgs: ProxyHandler<ShadowTarget>['apply'];
+
+            // @ts-ignore: Prevent 'is declared but its value is never read' error.
+            private readonly applyTrapForAnyNumberOfArgs: ProxyHandler<ShadowTarget>['apply'];
+
+            // @ts-ignore: Prevent 'is declared but its value is never read' error.
+            private readonly constructTrapForZeroOrMoreArgs: ProxyHandler<ShadowTarget>['construct'];
+
+            // @ts-ignore: Prevent 'is declared but its value is never read' error.
+            private readonly constructTrapForOneOrMoreArgs: ProxyHandler<ShadowTarget>['construct'];
+
+            // @ts-ignore: Prevent 'is declared but its value is never read' error.
+            private readonly constructTrapForTwoOrMoreArgs: ProxyHandler<ShadowTarget>['construct'];
+
+            // @ts-ignore: Prevent 'is declared but its value is never read' error.
+            private readonly constructTrapForThreeOrMoreArgs: ProxyHandler<ShadowTarget>['construct'];
+
+            // @ts-ignore: Prevent 'is declared but its value is never read' error.
+            private readonly constructTrapForFourOrMoreArgs: ProxyHandler<ShadowTarget>['construct'];
+
+            // @ts-ignore: Prevent 'is declared but its value is never read' error.
+            private readonly constructTrapForAnyNumberOfArgs: ProxyHandler<ShadowTarget>['construct'];
 
             constructor(
                 foreignTargetPointer: Pointer,
@@ -2152,11 +2178,16 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 // Define traps.
                 if (isForeignTargetFunction) {
                     this.apply =
-                        arityToApplyTrapNameRegistry[foreignTargetFunctionArity as number] ??
-                        arityToApplyTrapNameRegistry.n;
+                        this[
+                            arityToApplyTrapNameRegistry[foreignTargetFunctionArity as number] ??
+                                arityToApplyTrapNameRegistry.n
+                        ];
                     this.construct =
-                        arityToConstructTrapRegistry[foreignTargetFunctionArity as number] ??
-                        arityToConstructTrapRegistry.n;
+                        this[
+                            arityToConstructTrapNameRegistry[
+                                foreignTargetFunctionArity as number
+                            ] ?? arityToConstructTrapNameRegistry.n
+                        ];
                 }
                 this.defineProperty = BoundaryProxyHandler.defaultDefinePropertyTrap;
                 this.deleteProperty = BoundaryProxyHandler.defaultDeletePropertyTrap;
@@ -3054,11 +3085,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 ? BoundaryProxyHandler.pendingSetPrototypeOfTrap
                 : BoundaryProxyHandler.passthruSetPrototypeOfTrap;
         }
-        ReflectSetPrototypeOf(BoundaryProxyHandler.prototype, null);
-
-        // Future optimization: Hoping proxies with frozen handlers can be faster.
-        ObjectFreeze(BoundaryProxyHandler.prototype);
-
         // Export callable hooks to a foreign realm.
         foreignCallableHooksCallback(
             // globalThisPointer
@@ -4049,111 +4075,92 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 return proto ? getTransferablePointer(proto) : proto;
             }
         );
+        let foreignCallablesHooked = false;
         return (...hooks: Parameters<HooksCallback>) => {
-            const {
+            if (foreignCallablesHooked) {
+                return;
+            }
+            foreignCallablesHooked = true;
+            ({
                 // 0: globalThisPointer,
                 // 1: getSelectedTarget,
                 // 2: getTransferableValue,
                 // 3: callableGetPropertyValuePointer,
                 // 4: callableEvaluate,
                 // 5: callableLinkPointers,
-                6: callablePushTarget,
-                7: callableApply,
-                8: callableConstruct,
-                9: callableDefineProperty,
-                10: callableDeleteProperty,
-                11: callableGet,
-                12: callableGetOwnPropertyDescriptor,
-                13: callableGetPrototypeOf,
-                14: callableHas,
-                15: callableIsExtensible,
-                16: callableOwnKeys,
-                17: callablePreventExtensions,
-                18: callableSet,
-                19: callableSetPrototypeOf,
-                20: callableDebugInfo,
+                6: foreignCallablePushTarget,
+                7: foreignCallableApply,
+                8: foreignCallableConstruct,
+                9: foreignCallableDefineProperty,
+                10: foreignCallableDeleteProperty,
+                11: foreignCallableGet,
+                12: foreignCallableGetOwnPropertyDescriptor,
+                13: foreignCallableGetPrototypeOf,
+                14: foreignCallableHas,
+                15: foreignCallableIsExtensible,
+                16: foreignCallableOwnKeys,
+                17: foreignCallablePreventExtensions,
+                18: foreignCallableSet,
+                19: foreignCallableSetPrototypeOf,
+                20: foreignCallableDebugInfo,
                 // 21: callableDefineProperties,
-                22: callableGetLazyPropertyDescriptorStateByTarget,
-                23: callableGetTargetIntegrityTraits,
-                24: callableGetToStringTagOfTarget,
-                25: callableInstallErrorPrepareStackTrace,
+                22: foreignCallableGetLazyPropertyDescriptorStateByTarget,
+                23: foreignCallableGetTargetIntegrityTraits,
+                24: foreignCallableGetToStringTagOfTarget,
+                25: foreignCallableInstallErrorPrepareStackTrace,
                 // 26: callableInstallLazyPropertyDescriptors,
-                27: callableIsTargetLive,
-                28: callableIsTargetRevoked,
-                29: callableSerializeTarget,
-                30: callableSetLazyPropertyDescriptorStateByTarget,
-                31: callableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
-                32: callableBatchGetPrototypeOfWhenHasNoOwnProperty,
-                33: callableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
-            } = hooks;
-            foreignCallablePushTarget = callablePushTarget;
-            foreignCallableApply = callableApply;
-            foreignCallableConstruct = callableConstruct;
-            foreignCallableDefineProperty = callableDefineProperty;
-            foreignCallableDeleteProperty = callableDeleteProperty;
-            foreignCallableGet = callableGet;
-            foreignCallableGetOwnPropertyDescriptor = callableGetOwnPropertyDescriptor;
-            foreignCallableGetPrototypeOf = callableGetPrototypeOf;
-            foreignCallableHas = callableHas;
-            foreignCallableIsExtensible = callableIsExtensible;
-            foreignCallableOwnKeys = callableOwnKeys;
-            foreignCallablePreventExtensions = callablePreventExtensions;
-            foreignCallableSet = callableSet;
-            foreignCallableSetPrototypeOf = callableSetPrototypeOf;
-            foreignCallableDebugInfo = callableDebugInfo;
-            foreignCallableGetLazyPropertyDescriptorStateByTarget =
-                callableGetLazyPropertyDescriptorStateByTarget;
-            foreignCallableGetTargetIntegrityTraits = callableGetTargetIntegrityTraits;
-            foreignCallableGetToStringTagOfTarget = callableGetToStringTagOfTarget;
-            foreignCallableInstallErrorPrepareStackTrace = callableInstallErrorPrepareStackTrace;
-            foreignCallableIsTargetLive = callableIsTargetLive;
-            foreignCallableIsTargetRevoked = callableIsTargetRevoked;
-            foreignCallableSerializeTarget = callableSerializeTarget;
-            foreignCallableSetLazyPropertyDescriptorStateByTarget =
-                callableSetLazyPropertyDescriptorStateByTarget;
-            foreignCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors =
-                callableBatchGetPrototypeOfAndGetOwnPropertyDescriptors;
-            foreignCallableBatchGetPrototypeOfWhenHasNoOwnProperty =
-                callableBatchGetPrototypeOfWhenHasNoOwnProperty;
-            foreignCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor =
-                callableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor;
-
-            arityToApplyTrapNameRegistry[0] = createApplyOrConstructTrapForZeroOrMoreArgs(
-                ProxyHandlerTraps.Apply
-            );
-            arityToApplyTrapNameRegistry[1] = createApplyOrConstructTrapForOneOrMoreArgs(
-                ProxyHandlerTraps.Apply
-            );
-            arityToApplyTrapNameRegistry[2] = createApplyOrConstructTrapForTwoOrMoreArgs(
-                ProxyHandlerTraps.Apply
-            );
-            arityToApplyTrapNameRegistry[3] = createApplyOrConstructTrapForThreeOrMoreArgs(
-                ProxyHandlerTraps.Apply
-            );
-            arityToApplyTrapNameRegistry[4] = createApplyOrConstructTrapForFourOrMoreArgs(
-                ProxyHandlerTraps.Apply
-            );
-            arityToApplyTrapNameRegistry.n = createApplyOrConstructTrapForAnyNumberOfArgs(
-                ProxyHandlerTraps.Apply
-            );
-            arityToConstructTrapRegistry[0] = createApplyOrConstructTrapForZeroOrMoreArgs(
-                ProxyHandlerTraps.Construct
-            );
-            arityToConstructTrapRegistry[1] = createApplyOrConstructTrapForOneOrMoreArgs(
-                ProxyHandlerTraps.Construct
-            );
-            arityToConstructTrapRegistry[2] = createApplyOrConstructTrapForTwoOrMoreArgs(
-                ProxyHandlerTraps.Construct
-            );
-            arityToConstructTrapRegistry[3] = createApplyOrConstructTrapForThreeOrMoreArgs(
-                ProxyHandlerTraps.Construct
-            );
-            arityToConstructTrapRegistry[4] = createApplyOrConstructTrapForFourOrMoreArgs(
-                ProxyHandlerTraps.Construct
-            );
-            arityToConstructTrapRegistry.n = createApplyOrConstructTrapForAnyNumberOfArgs(
-                ProxyHandlerTraps.Construct
-            );
+                27: foreignCallableIsTargetLive,
+                28: foreignCallableIsTargetRevoked,
+                29: foreignCallableSerializeTarget,
+                30: foreignCallableSetLazyPropertyDescriptorStateByTarget,
+                31: foreignCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
+                32: foreignCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
+                33: foreignCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
+            } = hooks);
+            const { prototype: BoundaryProxyHandlerProto } = BoundaryProxyHandler;
+            // @ts-ignore: Prevent read-only property error.
+            BoundaryProxyHandlerProto.applyTrapForZeroOrMoreArgs =
+                createApplyOrConstructTrapForZeroOrMoreArgs(ProxyHandlerTraps.Apply);
+            // @ts-ignore: Prevent read-only property error.
+            BoundaryProxyHandlerProto.applyTrapForOneOrMoreArgs =
+                createApplyOrConstructTrapForOneOrMoreArgs(ProxyHandlerTraps.Apply);
+            // @ts-ignore: Prevent read-only property error.
+            BoundaryProxyHandlerProto.applyTrapForTwoOrMoreArgs =
+                createApplyOrConstructTrapForTwoOrMoreArgs(ProxyHandlerTraps.Apply);
+            // @ts-ignore: Prevent read-only property error.
+            BoundaryProxyHandlerProto.applyTrapForThreeOrMoreArgs =
+                createApplyOrConstructTrapForThreeOrMoreArgs(ProxyHandlerTraps.Apply);
+            // @ts-ignore: Prevent read-only property error.
+            BoundaryProxyHandlerProto.applyTrapForFourOrMoreArgs =
+                createApplyOrConstructTrapForFourOrMoreArgs(ProxyHandlerTraps.Apply);
+            // @ts-ignore: Prevent read-only property error.
+            BoundaryProxyHandlerProto.applyTrapForAnyNumberOfArgs =
+                createApplyOrConstructTrapForAnyNumberOfArgs(ProxyHandlerTraps.Apply);
+            // @ts-ignore: Prevent read-only property error.
+            BoundaryProxyHandlerProto.constructTrapForZeroOrMoreArgs =
+                createApplyOrConstructTrapForZeroOrMoreArgs(ProxyHandlerTraps.Construct);
+            // @ts-ignore: Prevent read-only property error.
+            BoundaryProxyHandlerProto.constructTrapForOneOrMoreArgs =
+                createApplyOrConstructTrapForOneOrMoreArgs(ProxyHandlerTraps.Construct);
+            // @ts-ignore: Prevent read-only property error.
+            BoundaryProxyHandlerProto.constructTrapForTwoOrMoreArgs =
+                createApplyOrConstructTrapForTwoOrMoreArgs(ProxyHandlerTraps.Construct);
+            // @ts-ignore: Prevent read-only property error.
+            BoundaryProxyHandlerProto.constructTrapForThreeOrMoreArgs =
+                createApplyOrConstructTrapForThreeOrMoreArgs(ProxyHandlerTraps.Construct);
+            // @ts-ignore: Prevent read-only property error.
+            BoundaryProxyHandlerProto.constructTrapForFourOrMoreArgs =
+                createApplyOrConstructTrapForFourOrMoreArgs(ProxyHandlerTraps.Construct);
+            // @ts-ignore: Prevent read-only property error.
+            BoundaryProxyHandlerProto.constructTrapForAnyNumberOfArgs =
+                createApplyOrConstructTrapForAnyNumberOfArgs(ProxyHandlerTraps.Construct);
+            if (DEV_MODE) {
+                // @ts-ignore: Prevent read-only property error.
+                BoundaryProxyHandlerProto.color = color;
+            }
+            ReflectSetPrototypeOf(BoundaryProxyHandlerProto, null);
+            // Future optimization: Hoping proxies with frozen handlers can be faster.
+            ObjectFreeze(BoundaryProxyHandlerProto);
         };
     };
     /* eslint-enable prefer-object-spread */

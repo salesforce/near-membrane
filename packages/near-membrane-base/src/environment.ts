@@ -90,7 +90,7 @@ export class VirtualEnvironment {
             1: blueGetSelectedTarget,
             2: blueGetTransferableValue,
             3: blueCallableGetPropertyValuePointer,
-            4: blueCallableEvaluate,
+            // 4: blueCallableEvaluate,
             5: blueCallableLinkPointers,
             6: blueCallablePushTarget,
             7: blueCallableApply,
@@ -107,12 +107,12 @@ export class VirtualEnvironment {
             18: blueCallableSet,
             19: blueCallableSetPrototypeOf,
             20: blueCallableDebugInfo,
-            21: blueCallableDefineProperties,
+            // 21: blueCallableDefineProperties,
             22: blueCallableGetLazyPropertyDescriptorStateByTarget,
             23: blueCallableGetTargetIntegrityTraits,
             24: blueCallableGetToStringTagOfTarget,
             25: blueCallableInstallErrorPrepareStackTrace,
-            26: blueCallableInstallLazyPropertyDescriptors,
+            // 26: blueCallableInstallLazyPropertyDescriptors,
             27: blueCallableIsTargetLive,
             28: blueCallableIsTargetRevoked,
             29: blueCallableSerializeTarget,
@@ -127,8 +127,8 @@ export class VirtualEnvironment {
         });
         const {
             0: redGlobalThisPointer,
-            1: redGetSelectedTarget,
-            2: redGetTransferableValue,
+            // 1: redGetSelectedTarget,
+            // 2: redGetTransferableValue,
             3: redCallableGetPropertyValuePointer,
             4: redCallableEvaluate,
             5: redCallableLinkPointers,
@@ -162,12 +162,12 @@ export class VirtualEnvironment {
             33: redCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
         } = redHooks!;
         blueConnect(
-            redGlobalThisPointer,
-            redGetSelectedTarget,
-            redGetTransferableValue,
-            redCallableGetPropertyValuePointer,
-            redCallableEvaluate,
-            redCallableLinkPointers,
+            undefined, // redGlobalThisPointer,
+            undefined, // redGetSelectedTarget,
+            undefined, // redGetTransferableValue,
+            undefined, // redCallableGetPropertyValuePointer,
+            undefined, // redCallableEvaluate,
+            undefined, // redCallableLinkPointers,
             redCallablePushTarget,
             redCallableApply,
             redCallableConstruct,
@@ -183,12 +183,12 @@ export class VirtualEnvironment {
             redCallableSet,
             redCallableSetPrototypeOf,
             redCallableDebugInfo,
-            redCallableDefineProperties,
+            undefined, // redCallableDefineProperties,
             redCallableGetLazyPropertyDescriptorStateByTarget,
             redCallableGetTargetIntegrityTraits,
             redCallableGetToStringTagOfTarget,
             redCallableInstallErrorPrepareStackTrace,
-            redCallableInstallLazyPropertyDescriptors,
+            undefined, // redCallableInstallLazyPropertyDescriptors,
             redCallableIsTargetLive,
             redCallableIsTargetRevoked,
             redCallableSerializeTarget,
@@ -198,12 +198,12 @@ export class VirtualEnvironment {
             redCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
         );
         redConnect(
-            blueGlobalThisPointer,
-            blueGetSelectedTarget,
-            blueGetTransferableValue,
-            blueCallableGetPropertyValuePointer,
-            blueCallableEvaluate,
-            blueCallableLinkPointers,
+            undefined, // blueGlobalThisPointer,
+            undefined, // blueGetSelectedTarget,
+            undefined, // blueGetTransferableValue,
+            undefined, // blueCallableGetPropertyValuePointer,
+            undefined, // blueCallableEvaluate,
+            undefined, // blueCallableLinkPointers,
             blueCallablePushTarget,
             blueCallableApply,
             blueCallableConstruct,
@@ -219,12 +219,12 @@ export class VirtualEnvironment {
             blueCallableSet,
             blueCallableSetPrototypeOf,
             blueCallableDebugInfo,
-            blueCallableDefineProperties,
+            undefined, // blueCallableDefineProperties,
             blueCallableGetLazyPropertyDescriptorStateByTarget,
             blueCallableGetTargetIntegrityTraits,
             blueCallableGetToStringTagOfTarget,
             blueCallableInstallErrorPrepareStackTrace,
-            blueCallableInstallLazyPropertyDescriptors,
+            undefined, // blueCallableInstallLazyPropertyDescriptors,
             blueCallableIsTargetLive,
             blueCallableIsTargetRevoked,
             blueCallableSerializeTarget,
@@ -233,19 +233,19 @@ export class VirtualEnvironment {
             blueCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
             blueCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
         );
-        this.blueGlobalThisPointer = blueGlobalThisPointer;
-        this.blueGetSelectedTarget = blueGetSelectedTarget;
-        this.blueGetTransferableValue = blueGetTransferableValue;
-        this.blueCallableGetPropertyValuePointer = blueCallableGetPropertyValuePointer;
-        this.blueCallableLinkPointers = blueCallableLinkPointers;
+        this.blueGlobalThisPointer = blueGlobalThisPointer!;
+        this.blueGetSelectedTarget = blueGetSelectedTarget!;
+        this.blueGetTransferableValue = blueGetTransferableValue!;
+        this.blueCallableGetPropertyValuePointer = blueCallableGetPropertyValuePointer!;
+        this.blueCallableLinkPointers = blueCallableLinkPointers!;
 
-        this.redGlobalThisPointer = redGlobalThisPointer;
-        this.redCallableGetPropertyValuePointer = redCallableGetPropertyValuePointer;
-        this.redCallableEvaluate = redCallableEvaluate;
-        this.redCallableLinkPointers = redCallableLinkPointers;
+        this.redGlobalThisPointer = redGlobalThisPointer!;
+        this.redCallableGetPropertyValuePointer = redCallableGetPropertyValuePointer!;
+        this.redCallableEvaluate = redCallableEvaluate!;
+        this.redCallableLinkPointers = redCallableLinkPointers!;
         this.redCallableSetPrototypeOf = redCallableSetPrototypeOf;
-        this.redCallableDefineProperties = redCallableDefineProperties;
-        this.redCallableInstallLazyPropertyDescriptors = redCallableInstallLazyPropertyDescriptors;
+        this.redCallableDefineProperties = redCallableDefineProperties!;
+        this.redCallableInstallLazyPropertyDescriptors = redCallableInstallLazyPropertyDescriptors!;
     }
 
     evaluate(sourceText: string): any {
