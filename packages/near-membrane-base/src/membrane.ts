@@ -172,7 +172,7 @@ export type HooksCallback = (
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableGetToStringTagOfTarget: CallableGetToStringTagOfTarget,
     callableInstallErrorPrepareStackTrace: CallableInstallErrorPrepareStackTrace,
-    callableInstallLazyDescriptors: CallableInstallLazyPropertyDescriptors,
+    callableInstallLazyPropertyDescriptors: CallableInstallLazyPropertyDescriptors,
     callableIsTargetLive: CallableIsTargetLive,
     callableIsTargetRevoked: CallableIsTargetRevoked,
     callableSerializeTarget: CallableSerializeTarget,
@@ -1385,24 +1385,20 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 safeDesc.writable = writable as boolean;
             }
             if (getterPointerOrPrimitive !== LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL) {
-                let getter: any;
+                let getter: (() => any) | undefined;
                 if (typeof getterPointerOrPrimitive === 'function') {
                     getterPointerOrPrimitive();
-                    getter = selectedTarget;
+                    getter = selectedTarget as () => any;
                     selectedTarget = undefined;
-                } else {
-                    getter = getterPointerOrPrimitive;
                 }
                 safeDesc.get = getter;
             }
             if (setterPointerOrPrimitive !== LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL) {
-                let setter: any;
+                let setter: ((value: any) => void) | undefined;
                 if (typeof setterPointerOrPrimitive === 'function') {
                     setterPointerOrPrimitive();
-                    setter = selectedTarget;
+                    setter = selectedTarget as (value: any) => void;
                     selectedTarget = undefined;
-                } else {
-                    setter = setterPointerOrPrimitive;
                 }
                 safeDesc.set = setter;
             }
@@ -1651,12 +1647,17 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                           apply(_originalFunc: Function, thisArg: any, args: any[]) {
                               if (args.length >= originalFuncLength) {
                                   const target = useThisArgAsTarget ? thisArg : args[0];
-                                  const key = useThisArgAsTarget ? args[0] : args[1];
-                                  const state = getLazyPropertyDescriptorStateByTarget(target);
-                                  if (state?.[key]) {
-                                      // Activate the descriptor by triggering
-                                      // its getter.
-                                      ReflectGet(target, key);
+                                  if (
+                                      (typeof target === 'object' && target !== null) ||
+                                      typeof target === 'function'
+                                  ) {
+                                      const key = useThisArgAsTarget ? args[0] : args[1];
+                                      const state = getLazyPropertyDescriptorStateByTarget(target);
+                                      if (state?.[key]) {
+                                          // Activate the descriptor by triggering
+                                          // its getter.
+                                          ReflectGet(target, key);
+                                      }
                                   }
                               }
                               return ReflectApply(originalFunc, thisArg, args);
@@ -1670,7 +1671,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   ) =>
                       new ProxyCtor(originalFunc, {
                           apply(_originalFunc: Function, thisArg: any, args: [key: PropertyKey]) {
-                              if (args.length) {
+                              if (
+                                  args.length &&
+                                  ((typeof thisArg === 'object' && thisArg !== null) ||
+                                      typeof thisArg === 'function')
+                              ) {
                                   const { 0: key } = args;
                                   const state = getLazyPropertyDescriptorStateByTarget(thisArg);
                                   if (state?.[key]) {
@@ -1697,14 +1702,19 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                           ) {
                               if (args.length > 1) {
                                   const { 0: target, 1: key } = args;
-                                  const state = getLazyPropertyDescriptorStateByTarget(target);
-                                  if (state?.[key]) {
-                                      // Activate the descriptor by triggering
-                                      // its getter.
-                                      ReflectGet(target, key);
-                                  }
-                                  if (shouldFixChromeBug && target === globalThisRef) {
-                                      return getFixedDescriptor!(target, key);
+                                  if (
+                                      (typeof target === 'object' && target !== null) ||
+                                      typeof target === 'function'
+                                  ) {
+                                      const state = getLazyPropertyDescriptorStateByTarget(target);
+                                      if (state?.[key]) {
+                                          // Activate the descriptor by triggering
+                                          // its getter.
+                                          ReflectGet(target, key);
+                                      }
+                                      if (shouldFixChromeBug && target === globalThisRef) {
+                                          return getFixedDescriptor!(target, key);
+                                      }
                                   }
                               }
                               return ReflectApply(originalFunc, thisArg, args);
@@ -1720,11 +1730,18 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                               thisArg: any,
                               args: Parameters<typeof Object.getOwnPropertyDescriptors>
                           ) {
-                              if (!args.length) {
+                              const target: ProxyTarget = args.length
+                                  ? (args[0] as any)
+                                  : undefined;
+                              if (
+                                  !(
+                                      (typeof target === 'object' && target !== null) ||
+                                      typeof target === 'function'
+                                  )
+                              ) {
                                   // Defer to native method to throw exception.
                                   return ReflectApply(originalFunc, thisArg, args);
                               }
-                              const { 0: target } = args as any[];
                               const state = getLazyPropertyDescriptorStateByTarget(target);
                               const isFixingChromeBug =
                                   target === globalThisRef && shouldFixChromeBug;
@@ -1956,8 +1973,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             }
             // Exit early if receiver is not object like.
             if (
-                receiver === null ||
-                (typeof receiver !== 'function' && typeof receiver !== 'object')
+                !(
+                    (typeof receiver === 'object' && receiver !== null) ||
+                    typeof receiver === 'function'
+                )
             ) {
                 return false;
             }
@@ -2152,9 +2171,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 this.setPrototypeOf = BoundaryProxyHandler.defaultSetPrototypeOfTrap;
                 this.set = BoundaryProxyHandler.defaultSetTrap;
                 if (foreignTargetTraits & TargetTraits.Revoked) {
-                    revoke();
-                }
-                if (isInShadowRealm) {
+                    // Future optimization: Hoping proxies with frozen handlers
+                    // can be faster.
+                    ObjectFreeze(this);
+                    this.revoke();
+                } else if (isInShadowRealm) {
                     if (isForeignTargetArray) {
                         this.makeProxyLive();
                     }
@@ -2195,7 +2216,8 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 this.preventExtensions = BoundaryProxyHandler.passthruPreventExtensionsTrap;
                 this.set = BoundaryProxyHandler.passthruSetTrap;
                 this.setPrototypeOf = BoundaryProxyHandler.passthruSetPrototypeOfTrap;
-                // Future optimization: Hoping proxies with frozen handlers can be faster.
+                // Future optimization: Hoping proxies with frozen handlers can
+                // be faster.
                 ObjectFreeze(this);
             }
 
@@ -2317,10 +2339,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                       if (safeDesc) {
                           const { get: getter, value: localValue } = safeDesc;
                           if (getter) {
-                              // Even though the getter function exists, we can't use
-                              // `ReflectGet()` because there might be a distortion for
-                              // that getter function, in which case we must resolve
-                              // the local getter and call it instead.
+                              // Even though the getter function exists,
+                              // we can't use `ReflectGet()` because there
+                              // might be a distortion for that getter function,
+                              // in which case we must resolve the local getter
+                              // and call it instead.
                               return ReflectApply(getter, receiver, []);
                           }
                           return localValue;
@@ -3334,9 +3357,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 ) {
                     try {
                         if (!ReflectHas(target, key)) {
-                            // Section 19.1.3.6: Object.prototype.toString()
+                            // Section 19.1.3.6 Object.prototype.toString()
                             // https://tc39.github.io/ecma262/#sec-object.prototype.tostring
-                            const brand = ReflectApply(ObjectProtoToString, target, []);
+                            const brand = ReflectApply(ObjectProtoToString, target, []) as string;
                             // The default language toStringTag is "Object".
                             // If receive "[object Object]" we return `undefined`
                             // to let the language resolve it naturally without
@@ -3463,7 +3486,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 selectedTarget = undefined;
                 let ownKeys;
                 try {
-                    ownKeys = ReflectOwnKeys(target) as PropertyKeys;
+                    ownKeys = ReflectOwnKeys(target);
                 } catch (error: any) {
                     throw pushErrorAcrossBoundary(error);
                 }
@@ -3479,11 +3502,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     if (ReflectPreventExtensions(target)) {
                         result = PreventExtensionsResult.True;
                     }
+                    if (result & PreventExtensionsResult.False && ReflectIsExtensible(target)) {
+                        result |= PreventExtensionsResult.Extensible;
+                    }
                 } catch (error: any) {
                     throw pushErrorAcrossBoundary(error);
-                }
-                if (result & PreventExtensionsResult.False && ReflectIsExtensible(target)) {
-                    result |= PreventExtensionsResult.Extensible;
                 }
                 return result;
             },
@@ -3520,7 +3543,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 }
             },
             // callableSetPrototypeOf
-            (targetPointer: Pointer, protoPointerOrNull: Pointer | null): boolean => {
+            (targetPointer: Pointer, protoPointerOrNull: Pointer | null = null): boolean => {
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
@@ -3607,16 +3630,13 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                       targetPointer();
                       const target = selectedTarget!;
                       selectedTarget = undefined;
-                      let state;
-                      try {
-                          state = ReflectApply(
-                              WeakMapProtoGet,
-                              proxyTargetToLazyPropertyDescriptorStateByTargetMap,
-                              [target]
-                          );
-                      } catch (error: any) {
-                          throw pushErrorAcrossBoundary(error);
-                      }
+                      // We don't wrap the `WeakMapProtoGet` call in a try-catch
+                      // because we know `target` is an object.
+                      const state = ReflectApply(
+                          WeakMapProtoGet,
+                          proxyTargetToLazyPropertyDescriptorStateByTargetMap,
+                          [target]
+                      );
                       return state ? getTransferablePointer(state) : state;
                   }
                 : (noop as unknown as CallableGetLazyPropertyDescriptorStateByTarget),
@@ -3662,7 +3682,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 const target = selectedTarget!;
                 selectedTarget = undefined;
                 try {
-                    // Section 19.1.3.6: Object.prototype.toString()
+                    // Section 19.1.3.6 Object.prototype.toString()
                     // https://tc39.github.io/ecma262/#sec-object.prototype.tostring
                     const brand = ReflectApply(ObjectProtoToString, target, []);
                     return brand === '[object Object]'
@@ -3674,7 +3694,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             },
             // callableInstallErrorPrepareStackTrace
             installErrorPrepareStackTrace,
-            // callableInstallLazyDescriptors
+            // callableInstallLazyPropertyDescriptors
             isInShadowRealm
                 ? (
                       targetPointer: Pointer,
@@ -3844,15 +3864,13 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                       statePointer();
                       const state = selectedTarget!;
                       selectedTarget = undefined;
-                      try {
-                          ReflectApply(
-                              WeakMapProtoSet,
-                              proxyTargetToLazyPropertyDescriptorStateByTargetMap,
-                              [target, state]
-                          );
-                      } catch (error: any) {
-                          throw pushErrorAcrossBoundary(error);
-                      }
+                      // We don't wrap the `WeakMapProtoSet` call in a try-catch
+                      // because we know `target` is an object.
+                      ReflectApply(
+                          WeakMapProtoSet,
+                          proxyTargetToLazyPropertyDescriptorStateByTargetMap,
+                          [target, state]
+                      );
                   }
                 : (noop as unknown as CallableSetLazyPropertyDescriptorStateByTarget),
             // callableBatchGetPrototypeOfAndGetOwnPropertyDescriptors
@@ -4059,7 +4077,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 23: callableGetTargetIntegrityTraits,
                 24: callableGetToStringTagOfTarget,
                 25: callableInstallErrorPrepareStackTrace,
-                // 26: callableInstallLazyDescriptors,
+                // 26: callableInstallLazyPropertyDescriptors,
                 27: callableIsTargetLive,
                 28: callableIsTargetRevoked,
                 29: callableSerializeTarget,
