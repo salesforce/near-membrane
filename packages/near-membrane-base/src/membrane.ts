@@ -781,7 +781,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         ): void {
             let activity: any;
             if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                activity = startActivity('callableBatchGetPrototypeOfAndGetOwnPropertyDescriptors');
+                activity = startActivity(
+                    'copyForeignOwnPropertyDescriptorsAndPrototypeToShadowTarget'
+                );
             }
             let protoPointerOrNull;
             try {
@@ -812,10 +814,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     activity.error(errorToThrow);
                 }
                 throw errorToThrow;
-            } finally {
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity.stop();
-                }
             }
             let proto: any;
             if (typeof protoPointerOrNull === 'function') {
@@ -826,13 +824,16 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 proto = null;
             }
             ReflectSetPrototypeOf(shadowTarget, proto);
+            if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                activity.stop();
+            }
         }
 
         function createApplyOrConstructTrapForZeroOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = isApplyTrap
-                ? 'callableApplyWithZeroOrMoreArgs'
-                : 'callableConstructWithZeroOrMoreArgs';
+            const activityName = `[Native Reflect.${
+                isApplyTrap ? 'apply' : 'construct'
+            }(args count: 0)]`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
                 : arityToConstructTrapNameRegistry;
@@ -861,6 +862,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 // @ts-ignore: Prevent private property access error.
                 const { foreignTargetPointer } = this;
                 const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
+                let result: any;
                 try {
                     const pointerOrPrimitive = foreignCallableApplyOrConstruct(
                         foreignTargetPointer,
@@ -875,7 +877,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                             ? undefined
                             : thisArgOrNewTarget
                     );
-                    let result: any;
                     if (typeof pointerOrPrimitive === 'function') {
                         pointerOrPrimitive();
                         result = selectedTarget;
@@ -883,7 +884,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     } else {
                         result = pointerOrPrimitive;
                     }
-                    return result;
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
@@ -891,19 +891,19 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
                 }
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
+                }
+                return result;
             };
         }
 
         function createApplyOrConstructTrapForOneOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = isApplyTrap
-                ? 'callableApplyWithOneOrMoreArgs'
-                : 'callableConstructWithOneOrMoreArgs';
+            const activityName = `[Native Reflect.${
+                isApplyTrap ? 'apply' : 'construct'
+            }(args count: 1)]`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
                 : arityToConstructTrapNameRegistry;
@@ -932,6 +932,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 // @ts-ignore: Prevent private property access error.
                 const { foreignTargetPointer } = this;
                 const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
+                let result: any;
                 try {
                     const { 0: arg0 } = args;
                     const pointerOrPrimitive = foreignCallableApplyOrConstruct(
@@ -956,7 +957,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                             ? undefined
                             : arg0
                     );
-                    let result: any;
                     if (typeof pointerOrPrimitive === 'function') {
                         pointerOrPrimitive();
                         result = selectedTarget;
@@ -964,7 +964,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     } else {
                         result = pointerOrPrimitive;
                     }
-                    return result;
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
@@ -972,19 +971,19 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
                 }
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
+                }
+                return result;
             };
         }
 
         function createApplyOrConstructTrapForTwoOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = isApplyTrap
-                ? 'callableApplyWithTwoOrMoreArgs'
-                : 'callableConstructWithTwoOrMoreArgs';
+            const activityName = `[Native Reflect.${
+                isApplyTrap ? 'apply' : 'construct'
+            }(args count: 2)]`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
                 : arityToConstructTrapNameRegistry;
@@ -1013,6 +1012,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 // @ts-ignore: Prevent private property access error.
                 const { foreignTargetPointer } = this;
                 const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
+                let result: any;
                 try {
                     const { 0: arg0, 1: arg1 } = args;
                     const pointerOrPrimitive = foreignCallableApplyOrConstruct(
@@ -1046,7 +1046,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                             ? undefined
                             : arg1
                     );
-                    let result: any;
                     if (typeof pointerOrPrimitive === 'function') {
                         pointerOrPrimitive();
                         result = selectedTarget;
@@ -1054,7 +1053,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     } else {
                         result = pointerOrPrimitive;
                     }
-                    return result;
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
@@ -1062,19 +1060,19 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
                 }
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
+                }
+                return result;
             };
         }
 
         function createApplyOrConstructTrapForThreeOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = isApplyTrap
-                ? 'callableApplyWithThreeOrMoreArgs'
-                : 'callableConstructWithThreeOrMoreArgs';
+            const activityName = `[Native Reflect.${
+                isApplyTrap ? 'apply' : 'construct'
+            }(args count: 3)]`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
                 : arityToConstructTrapNameRegistry;
@@ -1103,6 +1101,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 // @ts-ignore: Prevent private property access error.
                 const { foreignTargetPointer } = this;
                 const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
+                let result: any;
                 try {
                     const { 0: arg0, 1: arg1, 2: arg2 } = args;
                     const pointerOrPrimitive = foreignCallableApplyOrConstruct(
@@ -1145,7 +1144,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                             ? undefined
                             : arg2
                     );
-                    let result: any;
                     if (typeof pointerOrPrimitive === 'function') {
                         pointerOrPrimitive();
                         result = selectedTarget;
@@ -1153,7 +1151,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     } else {
                         result = pointerOrPrimitive;
                     }
-                    return result;
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
@@ -1161,19 +1158,19 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
                 }
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
+                }
+                return result;
             };
         }
 
         function createApplyOrConstructTrapForFourOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = isApplyTrap
-                ? 'callableApplyWithFourOrMoreArgs'
-                : 'callableConstructWithFourOrMoreArgs';
+            const activityName = `[Native Reflect.${
+                isApplyTrap ? 'apply' : 'construct'
+            }(args count: 4)]`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
                 : arityToConstructTrapNameRegistry;
@@ -1202,6 +1199,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 // @ts-ignore: Prevent private property access error.
                 const { foreignTargetPointer } = this;
                 const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
+                let result: any;
                 try {
                     const { 0: arg0, 1: arg1, 2: arg2, 3: arg3 } = args;
                     const pointerOrPrimitive = foreignCallableApplyOrConstruct(
@@ -1253,7 +1251,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                             ? undefined
                             : arg3
                     );
-                    let result: any;
                     if (typeof pointerOrPrimitive === 'function') {
                         pointerOrPrimitive();
                         result = selectedTarget;
@@ -1261,7 +1258,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     } else {
                         result = pointerOrPrimitive;
                     }
-                    return result;
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
@@ -1269,19 +1265,17 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
                 }
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
+                }
+                return result;
             };
         }
 
         function createApplyOrConstructTrapForAnyNumberOfArgs(proxyTrapEnum: ProxyHandlerTraps) {
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = isApplyTrap
-                ? 'callableApplyWithAnyNumberOfArgs'
-                : 'callableConstructWithAnyNumberOfArgs';
+            const nativeMethodName = isApplyTrap ? 'apply' : 'construct';
             const foreignCallableApplyOrConstruct = isApplyTrap
                 ? foreignCallableApply
                 : foreignCallableConstruct;
@@ -1299,12 +1293,15 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 const { length } = args;
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity(`${activityName} (args count: ${length})`);
+                    activity = startActivity(
+                        `[Native Reflect.${nativeMethodName}(args count: ${length})]`
+                    );
                 }
                 const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
                 let combinedOffset = 2;
                 const combinedArgs = new ArrayCtor(length + combinedOffset);
                 combinedArgs[0] = foreignTargetPointer;
+                let result: any;
                 try {
                     combinedArgs[1] =
                         (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
@@ -1334,7 +1331,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         undefined,
                         combinedArgs
                     );
-                    let result: any;
                     if (typeof pointerOrPrimitive === 'function') {
                         pointerOrPrimitive();
                         result = selectedTarget;
@@ -1342,7 +1338,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     } else {
                         result = pointerOrPrimitive;
                     }
-                    return result;
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
@@ -1350,11 +1345,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
                 }
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
+                }
+                return result;
             };
         }
 
@@ -1824,9 +1819,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         ): PropertyDescriptor | undefined {
             let activity: any;
             if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                activity = startActivity(
-                    'callableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor'
-                );
+                activity = startActivity('lookupForeignDescriptor');
             }
             let protoPointerOrNull;
             let safeDesc;
@@ -1866,33 +1859,31 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     activity.error(errorToThrow);
                 }
                 throw errorToThrow;
-            } finally {
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity.stop();
+            }
+            if (safeDesc === undefined) {
+                // Avoiding calling the has trap for any proto chain operation,
+                // instead we implement the regular logic here in this trap.
+                let currentObject: any;
+                if (typeof protoPointerOrNull === 'function') {
+                    protoPointerOrNull();
+                    currentObject = selectedTarget;
+                    selectedTarget = undefined;
+                } else {
+                    currentObject = protoPointerOrNull;
+                }
+                while (currentObject) {
+                    safeDesc = ReflectGetOwnPropertyDescriptor(currentObject, key);
+                    if (safeDesc) {
+                        ReflectSetPrototypeOf(safeDesc, null);
+                        break;
+                    }
+                    currentObject = ReflectGetPrototypeOf(currentObject);
                 }
             }
-            if (safeDesc) {
-                return safeDesc;
+            if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                activity.stop();
             }
-            // Avoiding calling the has trap for any proto chain operation,
-            // instead we implement the regular logic here in this trap.
-            let currentObject: any;
-            if (typeof protoPointerOrNull === 'function') {
-                protoPointerOrNull();
-                currentObject = selectedTarget;
-                selectedTarget = undefined;
-            } else {
-                currentObject = protoPointerOrNull;
-            }
-            while (currentObject) {
-                safeDesc = ReflectGetOwnPropertyDescriptor(currentObject, key);
-                if (safeDesc) {
-                    ReflectSetPrototypeOf(safeDesc, null);
-                    return safeDesc;
-                }
-                currentObject = ReflectGetPrototypeOf(currentObject);
-            }
-            return undefined;
+            return safeDesc;
         }
 
         function passthruForeignCallableSet(
@@ -1903,7 +1894,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         ): boolean {
             let activity: any;
             if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                activity = startActivity('callableSet');
+                activity = startActivity('[Native Reflect.set]');
             }
             // Inline getTransferableValue().
             const transferableValue =
@@ -1911,8 +1902,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     ? getTransferablePointer(value)
                     : value;
             const transferableReceiver = getTransferablePointer(receiver);
+            let result = false;
             try {
-                return foreignCallableSet(
+                result = foreignCallableSet(
                     foreignTargetPointer,
                     key,
                     transferableValue,
@@ -1925,11 +1917,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     activity.error(errorToThrow);
                 }
                 throw errorToThrow;
-            } finally {
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity.stop();
-                }
             }
+            if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                activity.stop();
+            }
+            return result;
         }
 
         function passthruForeignTraversedSet(
@@ -1939,6 +1931,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             value: any,
             receiver: any
         ): boolean {
+            let activity: any;
+            if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                activity = startActivity('passthruForeignTraversedSet');
+            }
+            let result: boolean | undefined;
             const safeDesc = lookupForeignDescriptor(foreignTargetPointer, shadowTarget, key);
             // Following the specification steps for
             // OrdinarySetWithOwnDescriptor ( O, P, V, Receiver, ownDesc ).
@@ -1955,24 +1952,26 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         ReflectApply(setter, receiver, [value]);
                         // If there is a setter, it either throw or we can assume
                         // the value was set.
-                        return true;
+                        result = true;
+                    } else {
+                        result = false;
                     }
-                    return false;
-                }
-                if (safeDesc.writable === false) {
-                    return false;
+                } else if (safeDesc.writable === false) {
+                    result = false;
                 }
             }
             // Exit early if receiver is not object like.
             if (
+                result === undefined &&
                 !(
                     (typeof receiver === 'object' && receiver !== null) ||
                     typeof receiver === 'function'
                 )
             ) {
-                return false;
+                result = false;
             }
-            const safeReceiverDesc = ReflectGetOwnPropertyDescriptor(receiver, key);
+            const safeReceiverDesc =
+                result === undefined ? ReflectGetOwnPropertyDescriptor(receiver, key) : undefined;
             if (safeReceiverDesc) {
                 ReflectSetPrototypeOf(safeReceiverDesc, null);
                 // Exit early for accessor descriptors or non-writable data
@@ -1982,26 +1981,32 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     'set' in safeReceiverDesc ||
                     safeReceiverDesc.writable === false
                 ) {
-                    return false;
+                    result = false;
+                } else {
+                    // Setting the descriptor with only a value entry should not
+                    // affect existing descriptor traits.
+                    ReflectDefineProperty(receiver, key, {
+                        __proto__: null,
+                        value,
+                    } as PropertyDescriptor);
+                    result = true;
                 }
-                // Setting the descriptor with only a value entry should not
-                // affect existing descriptor traits.
-                ReflectDefineProperty(receiver, key, {
+            } else if (result === undefined) {
+                // `ReflectDefineProperty()` and `ReflectSet()` both are expected
+                // to return `false` when attempting to add a new property if the
+                // receiver is not extensible.
+                result = ReflectDefineProperty(receiver, key, {
                     __proto__: null,
+                    configurable: true,
+                    enumerable: true,
                     value,
+                    writable: true,
                 } as PropertyDescriptor);
-                return true;
             }
-            // `ReflectDefineProperty()` and `ReflectSet()` both are expected
-            // to return `false` when attempting to add a new property if the
-            // receiver is not extensible.
-            return ReflectDefineProperty(receiver, key, {
-                __proto__: null,
-                configurable: true,
-                enumerable: true,
-                value,
-                writable: true,
-            } as PropertyDescriptor);
+            if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                activity.stop();
+            }
+            return result;
         }
 
         function pushErrorAcrossBoundary(error: any): any {
@@ -2364,12 +2369,17 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                       key: PropertyKey,
                       receiver: any
                   ): ReturnType<typeof Reflect.get> {
+                      let activity: any;
+                      if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                          activity = startActivity('hybridGetTrap');
+                      }
                       const { foreignTargetPointer, shadowTarget } = this;
                       const safeDesc = lookupForeignDescriptor(
                           foreignTargetPointer,
                           shadowTarget,
                           key
                       );
+                      let result: any;
                       if (safeDesc) {
                           const { get: getter, value: localValue } = safeDesc;
                           if (getter) {
@@ -2378,18 +2388,14 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                               // might be a distortion for that getter function,
                               // in which case we must resolve the local getter
                               // and call it instead.
-                              return ReflectApply(getter, receiver, []);
+                              result = ReflectApply(getter, receiver, []);
+                          } else {
+                              result = localValue;
                           }
-                          return localValue;
-                      }
-                      if (
+                      } else if (
                           key === TO_STRING_TAG_SYMBOL &&
                           this.foreignTargetTraits & TargetTraits.IsObject
                       ) {
-                          let activity: any;
-                          if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                              activity = startActivity('callableGetToStringTagOfTarget');
-                          }
                           let toStringTag;
                           try {
                               toStringTag =
@@ -2401,19 +2407,18 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                                   activity.error(errorToThrow);
                               }
                               throw errorToThrow;
-                          } finally {
-                              if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                                  activity.stop();
-                              }
                           }
                           // The default language toStringTag is "Object". If receive
                           // "Object" we return `undefined` to let the language resolve
                           // it naturally without projecting a value.
                           if (toStringTag !== 'Object') {
-                              return toStringTag;
+                              result = toStringTag;
                           }
                       }
-                      return undefined;
+                      if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                          activity.stop();
+                      }
+                      return result;
                   }
                 : (noop as typeof Reflect.get);
 
@@ -2425,9 +2430,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   ): ReturnType<typeof Reflect.has> {
                       let activity: any;
                       if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                          activity = startActivity(
-                              'callableBatchGetPrototypeOfWhenHasNoOwnProperty'
-                          );
+                          activity = startActivity('hybridHasTrap');
                       }
                       let trueOrProtoPointerOrNull;
                       try {
@@ -2443,31 +2446,33 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                               activity.error(errorToThrow);
                           }
                           throw errorToThrow;
-                      } finally {
-                          if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                              activity.stop();
-                          }
                       }
+                      let result = false;
                       if (trueOrProtoPointerOrNull === true) {
-                          return true;
-                      }
-                      // Avoiding calling the has trap for any proto chain operation,
-                      // instead we implement the regular logic here in this trap.
-                      let currentObject: any;
-                      if (typeof trueOrProtoPointerOrNull === 'function') {
-                          trueOrProtoPointerOrNull();
-                          currentObject = selectedTarget;
-                          selectedTarget = undefined;
+                          result = true;
                       } else {
-                          currentObject = trueOrProtoPointerOrNull;
-                      }
-                      while (currentObject) {
-                          if (ReflectApply(ObjectProtoHasOwnProperty, currentObject, [key])) {
-                              return true;
+                          // Avoiding calling the has trap for any proto chain operation,
+                          // instead we implement the regular logic here in this trap.
+                          let currentObject: any;
+                          if (typeof trueOrProtoPointerOrNull === 'function') {
+                              trueOrProtoPointerOrNull();
+                              currentObject = selectedTarget;
+                              selectedTarget = undefined;
+                          } else {
+                              currentObject = trueOrProtoPointerOrNull;
                           }
-                          currentObject = ReflectGetPrototypeOf(currentObject);
+                          while (currentObject) {
+                              if (ReflectApply(ObjectProtoHasOwnProperty, currentObject, [key])) {
+                                  result = true;
+                                  break;
+                              }
+                              currentObject = ReflectGetPrototypeOf(currentObject);
+                          }
                       }
-                      return false;
+                      if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                          activity.stop();
+                      }
+                      return result;
                   }
                 : (alwaysFalse as typeof Reflect.has);
 
@@ -2482,7 +2487,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 lastProxyTrapCalled = ProxyHandlerTraps.DefineProperty;
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('callableDefineProperty');
+                    activity = startActivity('[Native Reflect.defineProperty]');
                 }
                 const safePartialDesc = unsafePartialDesc;
                 ReflectSetPrototypeOf(safePartialDesc, null);
@@ -2516,8 +2521,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                             ? getTransferablePointer(setter)
                             : setter
                         : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
+                let result = false;
                 try {
-                    return foreignCallableDefineProperty(
+                    result = foreignCallableDefineProperty(
                         this.foreignTargetPointer,
                         key,
                         'configurable' in safePartialDesc
@@ -2541,11 +2547,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
                 }
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
+                }
+                return result;
             }
 
             private static passthruDeletePropertyTrap(
@@ -2556,10 +2562,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 lastProxyTrapCalled = ProxyHandlerTraps.DeleteProperty;
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('callableDeleteProperty');
+                    activity = startActivity('[Native Reflect.deleteProperty]');
                 }
+                let result = false;
                 try {
-                    return foreignCallableDeleteProperty(this.foreignTargetPointer, key);
+                    result = foreignCallableDeleteProperty(this.foreignTargetPointer, key);
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
@@ -2567,11 +2574,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
                 }
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
+                }
+                return result;
             }
 
             private static passthruGetTrap(
@@ -2598,7 +2605,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 }
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('callableGet');
+                    activity = startActivity('[Native Reflect.get]');
                 }
                 // Inline getTransferableValue().
                 const transferableReceiver =
@@ -2606,6 +2613,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     typeof receiver === 'function'
                         ? getTransferablePointer(receiver)
                         : receiver;
+                let result: any;
                 try {
                     const pointerOrPrimitive = foreignCallableGet(
                         this.foreignTargetPointer,
@@ -2613,7 +2621,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         key,
                         transferableReceiver
                     );
-                    let result: any;
                     if (typeof pointerOrPrimitive === 'function') {
                         pointerOrPrimitive();
                         result = selectedTarget;
@@ -2621,7 +2628,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     } else {
                         result = pointerOrPrimitive;
                     }
-                    return result;
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
@@ -2629,11 +2635,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
                 }
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
+                }
+                return result;
             }
 
             private static passthruGetPrototypeOfTrap(
@@ -2643,7 +2649,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 lastProxyTrapCalled = ProxyHandlerTraps.GetPrototypeOf;
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('callableGetPrototypeOf');
+                    activity = startActivity('[Native Reflect.getPrototypeOf]');
                 }
                 let protoPointerOrNull;
                 try {
@@ -2655,10 +2661,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
                 }
                 let proto: any;
                 if (typeof protoPointerOrNull === 'function') {
@@ -2667,6 +2669,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     selectedTarget = undefined;
                 } else {
                     proto = null;
+                }
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
                 }
                 return proto as object | null;
             }
@@ -2679,7 +2684,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 lastProxyTrapCalled = ProxyHandlerTraps.Has;
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('callableHas');
+                    activity = startActivity('[Native Reflect.has]');
                 }
                 let result;
                 try {
@@ -2691,10 +2696,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
                 }
                 // The near-membrane symbol flag is on if the symbol does not
                 // exist on the object or its [[Prototype]].
@@ -2702,6 +2703,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     !result &&
                     (key === LOCKER_NEAR_MEMBRANE_SYMBOL ||
                         key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL);
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
+                }
                 return result;
             }
 
@@ -2710,17 +2714,18 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 _shadowTarget: ShadowTarget
             ): ReturnType<typeof Reflect.isExtensible> {
                 lastProxyTrapCalled = ProxyHandlerTraps.IsExtensible;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity('[Native Reflect.isExtensible]');
+                }
                 const { shadowTarget } = this;
+                let result = false;
                 // Check if already locked.
                 if (ReflectIsExtensible(shadowTarget)) {
-                    let activity: any;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity = startActivity('callableIsExtensible');
-                    }
                     const { foreignTargetPointer } = this;
                     try {
                         if (foreignCallableIsExtensible(foreignTargetPointer)) {
-                            return true;
+                            result = true;
                         }
                     } catch (error: any) {
                         const errorToThrow = selectedTarget ?? error;
@@ -2729,14 +2734,15 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                             activity.error(errorToThrow);
                         }
                         throw errorToThrow;
-                    } finally {
-                        if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                            activity.stop();
-                        }
                     }
-                    lockShadowTarget(shadowTarget, foreignTargetPointer);
+                    if (!result) {
+                        lockShadowTarget(shadowTarget, foreignTargetPointer);
+                    }
                 }
-                return false;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
+                }
+                return result;
             }
 
             private static passthruOwnKeysTrap(
@@ -2746,7 +2752,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 lastProxyTrapCalled = ProxyHandlerTraps.OwnKeys;
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('callableOwnKeys');
+                    activity = startActivity('[Native Reflect.ownKeys]');
                 }
                 let ownKeys: ReturnType<typeof Reflect.ownKeys>;
                 try {
@@ -2760,10 +2766,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
+                }
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
                 }
                 // @ts-ignore: Prevent used before assignment error.
                 return ownKeys || [];
@@ -2777,7 +2782,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 lastProxyTrapCalled = ProxyHandlerTraps.GetOwnPropertyDescriptor;
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('callableGetOwnPropertyDescriptor');
+                    activity = startActivity('[Native Reflect.getOwnPropertyDescriptor]');
                 }
                 let safeDesc: PropertyDescriptor | undefined;
                 try {
@@ -2815,10 +2820,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
+                }
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
                 }
                 return safeDesc;
             }
@@ -2828,16 +2832,17 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 _shadowTarget: ShadowTarget
             ): ReturnType<typeof Reflect.preventExtensions> {
                 lastProxyTrapCalled = ProxyHandlerTraps.PreventExtensions;
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity('[Native Reflect.preventExtensions]');
+                }
                 const { shadowTarget } = this;
+                let result = true;
                 if (ReflectIsExtensible(shadowTarget)) {
-                    let activity: any;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity = startActivity('callablePreventExtensions');
-                    }
                     const { foreignTargetPointer } = this;
-                    let result;
+                    let resultEnum: PreventExtensionsResult;
                     try {
-                        result = foreignCallablePreventExtensions(foreignTargetPointer);
+                        resultEnum = foreignCallablePreventExtensions(foreignTargetPointer);
                     } catch (error: any) {
                         const errorToThrow = selectedTarget ?? error;
                         selectedTarget = undefined;
@@ -2845,23 +2850,23 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                             activity.error(errorToThrow);
                         }
                         throw errorToThrow;
-                    } finally {
-                        if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                            activity.stop();
-                        }
                     }
-                    if (result & PreventExtensionsResult.False) {
-                        if (!(result & PreventExtensionsResult.Extensible)) {
+                    if (resultEnum & PreventExtensionsResult.False) {
+                        if (!(resultEnum & PreventExtensionsResult.Extensible)) {
                             // If the target is a proxy manually created, it might
                             // reject the preventExtension call, in which case we
                             // should not attempt to lock down the shadow target.
                             lockShadowTarget(shadowTarget, foreignTargetPointer);
                         }
-                        return false;
+                        result = false;
+                    } else {
+                        lockShadowTarget(shadowTarget, foreignTargetPointer);
                     }
-                    lockShadowTarget(shadowTarget, foreignTargetPointer);
                 }
-                return true;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
+                }
+                return result;
             }
 
             private static passthruSetPrototypeOfTrap(
@@ -2872,11 +2877,12 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 lastProxyTrapCalled = ProxyHandlerTraps.SetPrototypeOf;
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('callableSetPrototypeOf');
+                    activity = startActivity('[Native Reflect.setPrototypeOf]');
                 }
                 const transferableProto = proto ? getTransferablePointer(proto) : proto;
+                let result = false;
                 try {
-                    return foreignCallableSetPrototypeOf(
+                    result = foreignCallableSetPrototypeOf(
                         this.foreignTargetPointer,
                         transferableProto
                     );
@@ -2887,11 +2893,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
-                } finally {
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.stop();
-                    }
                 }
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
+                }
+                return result;
             }
 
             private static passthruSetTrap(
