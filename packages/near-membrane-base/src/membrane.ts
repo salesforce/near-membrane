@@ -238,6 +238,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         getOwnPropertyDescriptors: ObjectGetOwnPropertyDescriptors,
         isFrozen: ObjectIsFrozen,
         isSealed: ObjectIsSealed,
+        keys: ObjectKeys,
         prototype: ObjectProto,
         seal: ObjectSeal,
     } = ObjectCtor;
@@ -674,23 +675,25 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             !isInShadowRealm && typeof instrumentation === 'object' && instrumentation !== null;
 
         const arityToApplyTrapNameRegistry: any = {
+            // Populated in the returned connector function below.
             __proto__: null,
-            0: 'applyTrapForZeroOrMoreArgs',
-            1: 'applyTrapForOneOrMoreArgs',
-            2: 'applyTrapForTwoOrMoreArgs',
-            3: 'applyTrapForThreeOrMoreArgs',
-            4: 'applyTrapForFourOrMoreArgs',
-            n: 'applyTrapForAnyNumberOfArgs',
+            0: undefined,
+            1: undefined,
+            2: undefined,
+            3: undefined,
+            4: undefined,
+            n: undefined,
         };
 
         const arityToConstructTrapNameRegistry: any = {
+            // Populated in the returned connector function below.
             __proto__: null,
-            0: 'constructTrapForZeroOrMoreArgs',
-            1: 'constructTrapForOneOrMoreArgs',
-            2: 'constructTrapForTwoOrMoreArgs',
-            3: 'constructTrapForThreeOrMoreArgs',
-            4: 'constructTrapForFourOrMoreArgs',
-            n: 'constructTrapForAnyNumberOfArgs',
+            0: undefined,
+            1: undefined,
+            2: undefined,
+            3: undefined,
+            4: undefined,
+            n: undefined,
         };
 
         const localProxyTargetToLazyPropertyDescriptorStateByTargetMap = new WeakMapCtor();
@@ -4117,43 +4120,90 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 32: foreignCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
                 33: foreignCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
             } = hooks);
+            const applyTrapForZeroOrMoreArgs = createApplyOrConstructTrapForZeroOrMoreArgs(
+                ProxyHandlerTraps.Apply
+            );
+            const applyTrapForOneOrMoreArgs = createApplyOrConstructTrapForOneOrMoreArgs(
+                ProxyHandlerTraps.Apply
+            );
+            const applyTrapForTwoOrMoreArgs = createApplyOrConstructTrapForTwoOrMoreArgs(
+                ProxyHandlerTraps.Apply
+            );
+            const applyTrapForThreeOrMoreArgs = createApplyOrConstructTrapForThreeOrMoreArgs(
+                ProxyHandlerTraps.Apply
+            );
+            const applyTrapForFourOrMoreArgs = createApplyOrConstructTrapForFourOrMoreArgs(
+                ProxyHandlerTraps.Apply
+            );
+            const applyTrapForAnyNumberOfArgs = createApplyOrConstructTrapForAnyNumberOfArgs(
+                ProxyHandlerTraps.Apply
+            );
+            const constructTrapForZeroOrMoreArgs = createApplyOrConstructTrapForZeroOrMoreArgs(
+                ProxyHandlerTraps.Construct
+            );
+            const constructTrapForOneOrMoreArgs = createApplyOrConstructTrapForOneOrMoreArgs(
+                ProxyHandlerTraps.Construct
+            );
+            const constructTrapForTwoOrMoreArgs = createApplyOrConstructTrapForTwoOrMoreArgs(
+                ProxyHandlerTraps.Construct
+            );
+            const constructTrapForThreeOrMoreArgs = createApplyOrConstructTrapForThreeOrMoreArgs(
+                ProxyHandlerTraps.Construct
+            );
+            const constructTrapForFourOrMoreArgs = createApplyOrConstructTrapForFourOrMoreArgs(
+                ProxyHandlerTraps.Construct
+            );
+            const constructTrapForAnyNumberOfArgs = createApplyOrConstructTrapForAnyNumberOfArgs(
+                ProxyHandlerTraps.Construct
+            );
+            // A minification friendly way to get the trap names.
+            const trapNames = ObjectKeys({
+                applyTrapForZeroOrMoreArgs,
+                applyTrapForOneOrMoreArgs,
+                applyTrapForTwoOrMoreArgs,
+                applyTrapForThreeOrMoreArgs,
+                applyTrapForFourOrMoreArgs,
+                applyTrapForAnyNumberOfArgs,
+                constructTrapForZeroOrMoreArgs,
+                constructTrapForOneOrMoreArgs,
+                constructTrapForTwoOrMoreArgs,
+                constructTrapForThreeOrMoreArgs,
+                constructTrapForFourOrMoreArgs,
+                constructTrapForAnyNumberOfArgs,
+            });
+            arityToApplyTrapNameRegistry[0] = trapNames[0];
+            arityToApplyTrapNameRegistry[1] = trapNames[1];
+            arityToApplyTrapNameRegistry[2] = trapNames[2];
+            arityToApplyTrapNameRegistry[3] = trapNames[3];
+            arityToApplyTrapNameRegistry[4] = trapNames[4];
+            arityToApplyTrapNameRegistry.n = trapNames[5];
+            arityToConstructTrapNameRegistry[0] = trapNames[6];
+            arityToConstructTrapNameRegistry[1] = trapNames[7];
+            arityToConstructTrapNameRegistry[2] = trapNames[8];
+            arityToConstructTrapNameRegistry[3] = trapNames[9];
+            arityToConstructTrapNameRegistry[4] = trapNames[10];
+            arityToConstructTrapNameRegistry.n = trapNames[11];
+
             const { prototype: BoundaryProxyHandlerProto } = BoundaryProxyHandler;
-            // @ts-ignore: Prevent read-only property error.
-            BoundaryProxyHandlerProto.applyTrapForZeroOrMoreArgs =
-                createApplyOrConstructTrapForZeroOrMoreArgs(ProxyHandlerTraps.Apply);
-            // @ts-ignore: Prevent read-only property error.
-            BoundaryProxyHandlerProto.applyTrapForOneOrMoreArgs =
-                createApplyOrConstructTrapForOneOrMoreArgs(ProxyHandlerTraps.Apply);
-            // @ts-ignore: Prevent read-only property error.
-            BoundaryProxyHandlerProto.applyTrapForTwoOrMoreArgs =
-                createApplyOrConstructTrapForTwoOrMoreArgs(ProxyHandlerTraps.Apply);
-            // @ts-ignore: Prevent read-only property error.
-            BoundaryProxyHandlerProto.applyTrapForThreeOrMoreArgs =
-                createApplyOrConstructTrapForThreeOrMoreArgs(ProxyHandlerTraps.Apply);
-            // @ts-ignore: Prevent read-only property error.
-            BoundaryProxyHandlerProto.applyTrapForFourOrMoreArgs =
-                createApplyOrConstructTrapForFourOrMoreArgs(ProxyHandlerTraps.Apply);
-            // @ts-ignore: Prevent read-only property error.
-            BoundaryProxyHandlerProto.applyTrapForAnyNumberOfArgs =
-                createApplyOrConstructTrapForAnyNumberOfArgs(ProxyHandlerTraps.Apply);
-            // @ts-ignore: Prevent read-only property error.
-            BoundaryProxyHandlerProto.constructTrapForZeroOrMoreArgs =
-                createApplyOrConstructTrapForZeroOrMoreArgs(ProxyHandlerTraps.Construct);
-            // @ts-ignore: Prevent read-only property error.
-            BoundaryProxyHandlerProto.constructTrapForOneOrMoreArgs =
-                createApplyOrConstructTrapForOneOrMoreArgs(ProxyHandlerTraps.Construct);
-            // @ts-ignore: Prevent read-only property error.
-            BoundaryProxyHandlerProto.constructTrapForTwoOrMoreArgs =
-                createApplyOrConstructTrapForTwoOrMoreArgs(ProxyHandlerTraps.Construct);
-            // @ts-ignore: Prevent read-only property error.
-            BoundaryProxyHandlerProto.constructTrapForThreeOrMoreArgs =
-                createApplyOrConstructTrapForThreeOrMoreArgs(ProxyHandlerTraps.Construct);
-            // @ts-ignore: Prevent read-only property error.
-            BoundaryProxyHandlerProto.constructTrapForFourOrMoreArgs =
-                createApplyOrConstructTrapForFourOrMoreArgs(ProxyHandlerTraps.Construct);
-            // @ts-ignore: Prevent read-only property error.
-            BoundaryProxyHandlerProto.constructTrapForAnyNumberOfArgs =
-                createApplyOrConstructTrapForAnyNumberOfArgs(ProxyHandlerTraps.Construct);
+            BoundaryProxyHandlerProto[arityToApplyTrapNameRegistry[0]] = applyTrapForZeroOrMoreArgs;
+            BoundaryProxyHandlerProto[arityToApplyTrapNameRegistry[1]] = applyTrapForOneOrMoreArgs;
+            BoundaryProxyHandlerProto[arityToApplyTrapNameRegistry[2]] = applyTrapForTwoOrMoreArgs;
+            BoundaryProxyHandlerProto[arityToApplyTrapNameRegistry[3]] =
+                applyTrapForThreeOrMoreArgs;
+            BoundaryProxyHandlerProto[arityToApplyTrapNameRegistry[4]] = applyTrapForFourOrMoreArgs;
+            BoundaryProxyHandlerProto[arityToApplyTrapNameRegistry.n] = applyTrapForAnyNumberOfArgs;
+            BoundaryProxyHandlerProto[arityToConstructTrapNameRegistry[0]] =
+                constructTrapForZeroOrMoreArgs;
+            BoundaryProxyHandlerProto[arityToConstructTrapNameRegistry[1]] =
+                constructTrapForOneOrMoreArgs;
+            BoundaryProxyHandlerProto[arityToConstructTrapNameRegistry[2]] =
+                constructTrapForTwoOrMoreArgs;
+            BoundaryProxyHandlerProto[arityToConstructTrapNameRegistry[3]] =
+                constructTrapForThreeOrMoreArgs;
+            BoundaryProxyHandlerProto[arityToConstructTrapNameRegistry[4]] =
+                constructTrapForFourOrMoreArgs;
+            BoundaryProxyHandlerProto[arityToConstructTrapNameRegistry.n] =
+                constructTrapForAnyNumberOfArgs;
             if (DEV_MODE) {
                 // @ts-ignore: Prevent read-only property error.
                 BoundaryProxyHandlerProto.color = color;
