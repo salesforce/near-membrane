@@ -335,7 +335,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 // Safari 12 on iOS 12.1 has a `this` of `undefined` so we
                 // fallback to `self`.
                 // eslint-disable-next-line no-restricted-globals
-                return this || self;
+                return this ?? self;
             },
         } as PropertyDescriptor),
         globalThis);
