@@ -299,12 +299,13 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
     } = RegExpProto;
     // Edge 15 does not support RegExp.prototype.flags.
     // https://caniuse.com/mdn-javascript_builtins_regexp_flags
-    const RegExpProtoFlagsGetter =
-        ReflectApply(ObjectProto__lookupGetter__, RegExpProto, ['flags']) ||
-        function flags(this: RegExp) {
-            const string = ReflectApply(RegExProtoToString, this, []);
-            return ReflectApply(RegExpProtoExec, FLAGS_REG_EXP, [string])[0];
-        };
+    const RegExpProtoFlagsGetter = isInShadowRealm
+        ? ReflectApply(ObjectProto__lookupGetter__, RegExpProto, ['flags']) ??
+          function flags(this: RegExp) {
+              const string = ReflectApply(RegExProtoToString, this, []);
+              return ReflectApply(RegExpProtoExec, FLAGS_REG_EXP, [string])[0];
+          }
+        : noop;
     const RegExpProtoSourceGetter = ReflectApply(ObjectProto__lookupGetter__, RegExpProto, [
         'source',
     ])!;
@@ -341,19 +342,6 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
     // Install flags to ensure things are installed once per realm.
     let installedErrorPrepareStackTraceFlag = false;
     let installedPropertyDescriptorMethodWrappersFlag = false;
-    // A regexp to detect call sites containing LOCKER_IDENTIFIER_MARKER.
-    const lockerFunctionNameMarkerRegExp = new RegExpCtor(
-        `${
-            // Escape regexp special characters in LOCKER_IDENTIFIER_MARKER.
-            ReflectApply(StringProtoReplace, LOCKER_IDENTIFIER_MARKER, [
-                /[\\^$.*+?()[\]{}|]/g,
-                '\\$&',
-            ])
-            // Function name references in call sites also contain
-            // the name of the class they belong to,
-            // e.g. myClassName.myFunctionName.
-        }(?=\\.|$)`
-    );
     // eslint-disable-next-line no-shadow
     const enum PreventExtensionsResult {
         None = 0,
@@ -429,7 +417,19 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   getFunctionName: CallSiteProtoGetFunctionName,
                   toString: CallSiteProtoToString,
               } = CallSite.prototype;
-
+              // A regexp to detect call sites containing LOCKER_IDENTIFIER_MARKER.
+              const lockerFunctionNameMarkerRegExp = new RegExpCtor(
+                  `${
+                      // Escape regexp special characters in LOCKER_IDENTIFIER_MARKER.
+                      ReflectApply(StringProtoReplace, LOCKER_IDENTIFIER_MARKER, [
+                          /[\\^$.*+?()[\]{}|]/g,
+                          '\\$&',
+                      ])
+                      // Function name references in call sites also contain
+                      // the name of the class they belong to,
+                      // e.g. myClassName.myFunctionName.
+                  }(?=\\.|$)`
+              );
               const formatStackTrace = function formatStackTrace(
                   error: Error,
                   callSites: NodeJS.CallSite[]
