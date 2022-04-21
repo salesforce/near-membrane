@@ -31,8 +31,8 @@ module.exports = {
                     // https://github.com/babel/babel/blob/v7.15.6/packages/babel-core/src/config/files/configuration.ts#L24
                     const configPath =
                         // prettier-ignore
-                        options.configFile ||
-                        (await globby([`${path.resolve('.babelrc')}{,.js,.cjs,.mjs,.json}`]))[0] ||
+                        options.configFile ??
+                        (await globby([`${path.resolve('.babelrc')}{,.js,.cjs,.mjs,.json}`]))[0] ??
                         (await globby([`${path.resolve(rootPath, 'babel.config')}{.js,.cjs,.mjs,.json}`]))[0];
                     const config =
                         path.extname(configPath) === '.json'

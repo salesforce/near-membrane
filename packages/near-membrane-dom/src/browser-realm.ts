@@ -67,7 +67,7 @@ function createDetachableIframe(): HTMLIFrameElement {
     // It is impossible to test whether the NodeProtoLastChildGetter branch is
     // reached in a normal Karma test environment.
     const parent =
-        ReflectApply(DocumentProtoBodyGetter, docRef, []) ||
+        ReflectApply(DocumentProtoBodyGetter, docRef, []) ??
         /* istanbul ignore next */ ReflectApply(NodeProtoLastChildGetter, docRef, []);
     const style = ReflectApply(HTMLElementProtoStyleGetter, iframe, []);
     style.display = 'none';
