@@ -279,11 +279,9 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         slice: ArrayProtoSlice,
     } = ArrayCtor.prototype;
     const { isView: ArrayBufferIsView } = ArrayBufferCtor;
-    const ArrayBufferProtoByteLengthGetter = ReflectApply(
-        ObjectProto__lookupGetter__,
-        ArrayBufferCtor.prototype,
-        ['byteLength']
-    )!;
+    const ArrayBufferProtoByteLengthGetter = !isInShadowRealm
+        ? ReflectApply(ObjectProto__lookupGetter__, ArrayBufferCtor.prototype, ['byteLength'])!
+        : undefined;
     const BigIntProtoValueOf = SUPPORTS_BIG_INT ? BigInt.prototype.valueOf : undefined;
     const { valueOf: BooleanProtoValueOf } = Boolean.prototype;
     const { toString: ErrorProtoToString } = ErrorCtor.prototype;
@@ -3839,7 +3837,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                                   // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
                                   // https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.bytelength
                                   // Step 2: Perform ? RequireInternalSlot(O, [[ArrayBufferData]]).
-                                  ReflectApply(ArrayBufferProtoByteLengthGetter, target, []);
+                                  ReflectApply(ArrayBufferProtoByteLengthGetter!, target, []);
                                   return true;
                                   // eslint-disable-next-line no-empty
                               } catch {}
