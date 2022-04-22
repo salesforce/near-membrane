@@ -2367,6 +2367,19 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                       key: PropertyKey,
                       receiver: any
                   ): ReturnType<typeof Reflect.get> {
+                      // Only allow accessing near-membrane symbol values if the
+                      // BoundaryProxyHandler.has trap has been called immediately
+                      // before and the symbol does not exist.
+                      nearMembraneSymbolFlag &&= lastProxyTrapCalled === ProxyHandlerTraps.Has;
+                      lastProxyTrapCalled = ProxyHandlerTraps.Get;
+                      if (nearMembraneSymbolFlag) {
+                          // Exit without performing a [[Get]] for near-membrane
+                          // symbols because we know when the nearMembraneSymbolFlag
+                          // is on that there is no shadowed symbol value.
+                          if (key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL) {
+                              return this.serializedValue;
+                          }
+                      }
                       let activity: any;
                       if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                           activity = startActivity('hybridGetTrap');
@@ -2426,6 +2439,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                       _shadowTarget: ShadowTarget,
                       key: PropertyKey
                   ): ReturnType<typeof Reflect.has> {
+                      lastProxyTrapCalled = ProxyHandlerTraps.Has;
                       let activity: any;
                       if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                           activity = startActivity('hybridHasTrap');
@@ -2467,6 +2481,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                               currentObject = ReflectGetPrototypeOf(currentObject);
                           }
                       }
+                      // The near-membrane symbol flag is on if the symbol does
+                      // not exist on the object or its [[Prototype]].
+                      nearMembraneSymbolFlag =
+                          !result && key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL;
                       if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                           activity.stop();
                       }
@@ -2698,8 +2716,8 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                           }
                           throw errorToThrow;
                       }
-                      // The near-membrane symbol flag is on if the symbol does not
-                      // exist on the object or its [[Prototype]].
+                      // The near-membrane symbol flag is on if the symbol does
+                      // not exist on the object or its [[Prototype]].
                       nearMembraneSymbolFlag =
                           !result &&
                           (key === LOCKER_NEAR_MEMBRANE_SYMBOL ||
@@ -2908,7 +2926,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 key: PropertyKey,
                 value: any,
                 receiver: any
-            ): boolean {
+            ): ReturnType<typeof Reflect.set> {
                 lastProxyTrapCalled = ProxyHandlerTraps.Set;
                 const { foreignTargetPointer, proxy } = this;
                 // Intentionally ignoring `document.all`.
@@ -2994,29 +3012,69 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             //  Static traps:
 
             private static staticDefinePropertyTrap = isInShadowRealm
-                ? ReflectDefineProperty
+                ? function (
+                      this: BoundaryProxyHandler,
+                      shadowTarget: ShadowTarget,
+                      key: PropertyKey,
+                      unsafePartialDesc: PropertyDescriptor
+                  ): ReturnType<typeof Reflect.defineProperty> {
+                      lastProxyTrapCalled = ProxyHandlerTraps.DefineProperty;
+                      return ReflectDefineProperty(shadowTarget, key, unsafePartialDesc);
+                  }
                 : (alwaysFalse as typeof Reflect.defineProperty);
 
             private static staticDeletePropertyTrap = isInShadowRealm
-                ? ReflectDeleteProperty
+                ? function (
+                      this: BoundaryProxyHandler,
+                      shadowTarget: ShadowTarget,
+                      key: PropertyKey
+                  ): ReturnType<typeof Reflect.deleteProperty> {
+                      lastProxyTrapCalled = ProxyHandlerTraps.DeleteProperty;
+                      return ReflectDeleteProperty(shadowTarget, key);
+                  }
                 : (alwaysFalse as typeof Reflect.deleteProperty);
 
             private static staticGetOwnPropertyDescriptorTrap = isInShadowRealm
-                ? ReflectGetOwnPropertyDescriptor
+                ? function (
+                      this: BoundaryProxyHandler,
+                      shadowTarget: ShadowTarget,
+                      key: PropertyKey
+                  ): ReturnType<typeof Reflect.getOwnPropertyDescriptor> {
+                      lastProxyTrapCalled = ProxyHandlerTraps.GetOwnPropertyDescriptor;
+                      return ReflectGetOwnPropertyDescriptor(shadowTarget, key);
+                  }
                 : (noop as typeof Reflect.getOwnPropertyDescriptor);
 
             private static staticGetPrototypeOfTrap = isInShadowRealm
-                ? ReflectGetPrototypeOf
+                ? function (
+                      this: BoundaryProxyHandler,
+                      shadowTarget: ShadowTarget
+                  ): ReturnType<typeof Reflect.getPrototypeOf> {
+                      lastProxyTrapCalled = ProxyHandlerTraps.GetPrototypeOf;
+                      return ReflectGetPrototypeOf(shadowTarget);
+                  }
                 : ((() => null) as typeof Reflect.getPrototypeOf);
 
             private static staticGetTrap = isInShadowRealm
                 ? function (
                       this: BoundaryProxyHandler,
-                      _shadowTarget: ShadowTarget,
+                      shadowTarget: ShadowTarget,
                       key: PropertyKey,
                       receiver: any
                   ): ReturnType<typeof Reflect.get> {
-                      const { shadowTarget } = this;
+                      // Only allow accessing near-membrane symbol values if the
+                      // BoundaryProxyHandler.has trap has been called immediately
+                      // before and the symbol does not exist.
+                      nearMembraneSymbolFlag &&= lastProxyTrapCalled === ProxyHandlerTraps.Has;
+                      lastProxyTrapCalled = ProxyHandlerTraps.Get;
+                      if (nearMembraneSymbolFlag) {
+                          // Exit without performing a [[Get]] for near-membrane
+                          // symbols because we know when the nearMembraneSymbolFlag
+                          // is on that there is no shadowed symbol value.
+                          if (key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL) {
+                              return this.serializedValue;
+                          }
+                      }
                       const result = ReflectGet(shadowTarget, key, receiver);
                       if (
                           result === undefined &&
@@ -3031,27 +3089,73 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 : (noop as typeof Reflect.get);
 
             private static staticHasTrap = isInShadowRealm
-                ? ReflectHas
+                ? function (
+                      this: BoundaryProxyHandler,
+                      shadowTarget: ShadowTarget,
+                      key: PropertyKey
+                  ): ReturnType<typeof Reflect.has> {
+                      lastProxyTrapCalled = ProxyHandlerTraps.Has;
+                      const result = ReflectHas(shadowTarget, key);
+                      // The near-membrane symbol flag is on if the symbol does
+                      // not exist on the object or its [[Prototype]].
+                      nearMembraneSymbolFlag =
+                          !result && key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL;
+                      return result;
+                  }
                 : (alwaysFalse as typeof Reflect.has);
 
             private static staticIsExtensibleTrap = isInShadowRealm
-                ? ReflectIsExtensible
+                ? function (
+                      this: BoundaryProxyHandler,
+                      shadowTarget: ShadowTarget
+                  ): ReturnType<typeof Reflect.isExtensible> {
+                      lastProxyTrapCalled = ProxyHandlerTraps.IsExtensible;
+                      return ReflectIsExtensible(shadowTarget);
+                  }
                 : (alwaysFalse as typeof Reflect.isExtensible);
 
             private static staticOwnKeysTrap = isInShadowRealm
-                ? ReflectOwnKeys
+                ? function (
+                      this: BoundaryProxyHandler,
+                      shadowTarget: ShadowTarget
+                  ): ReturnType<typeof Reflect.ownKeys> {
+                      lastProxyTrapCalled = ProxyHandlerTraps.OwnKeys;
+                      return ReflectOwnKeys(shadowTarget);
+                  }
                 : ((() => []) as typeof Reflect.ownKeys);
 
             private static staticPreventExtensionsTrap = isInShadowRealm
-                ? ReflectPreventExtensions
+                ? function (
+                      this: BoundaryProxyHandler,
+                      shadowTarget: ShadowTarget
+                  ): ReturnType<typeof Reflect.preventExtensions> {
+                      lastProxyTrapCalled = ProxyHandlerTraps.PreventExtensions;
+                      return ReflectPreventExtensions(shadowTarget);
+                  }
                 : (alwaysFalse as typeof Reflect.preventExtensions);
 
             private static staticSetPrototypeOfTrap = isInShadowRealm
-                ? ReflectSetPrototypeOf
+                ? function (
+                      this: BoundaryProxyHandler,
+                      shadowTarget: ShadowTarget,
+                      proto: object | null
+                  ): ReturnType<typeof Reflect.setPrototypeOf> {
+                      lastProxyTrapCalled = ProxyHandlerTraps.SetPrototypeOf;
+                      return ReflectSetPrototypeOf(shadowTarget, proto);
+                  }
                 : (alwaysFalse as typeof Reflect.setPrototypeOf);
 
             private static staticSetTrap = isInShadowRealm
-                ? ReflectSet
+                ? function (
+                      this: BoundaryProxyHandler,
+                      shadowTarget: ShadowTarget,
+                      key: PropertyKey,
+                      value: any,
+                      receiver: any
+                  ): ReturnType<typeof Reflect.set> {
+                      lastProxyTrapCalled = ProxyHandlerTraps.Set;
+                      return ReflectSet(shadowTarget, key, value, receiver);
+                  }
                 : (alwaysFalse as typeof Reflect.set);
 
             // Default traps:
@@ -3882,14 +3986,20 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                       targetPointer();
                       const target = selectedTarget!;
                       selectedTarget = undefined;
-                      try {
-                          return ReflectHas(target, TO_STRING_TAG_SYMBOL)
-                              ? serializeTargetByTrialAndError(target)
-                              : // Fast path.
-                                serializeTargetByBrand(target);
-                          // eslint-disable-next-line no-empty
-                      } catch {}
-                      return undefined;
+                      let result: SerializedValue | undefined;
+                      if (!(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in target)) {
+                          result = target[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL];
+                      }
+                      if (result === undefined) {
+                          try {
+                              return ReflectHas(target, TO_STRING_TAG_SYMBOL)
+                                  ? serializeTargetByTrialAndError(target)
+                                  : // Fast path.
+                                    serializeTargetByBrand(target);
+                              // eslint-disable-next-line no-empty
+                          } catch {}
+                      }
+                      return result;
                   }
                 : (noop as unknown as CallableSerializeTarget),
             // callableSetLazyPropertyDescriptorStateByTarget
