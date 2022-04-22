@@ -28,7 +28,6 @@ describe('@@lockerNearMembrane', () => {
     it('should be detectable', () => {
         expect.assertions(15);
 
-        // eslint-disable-next-line no-unused-vars
         let takeInside;
         const env = createVirtualEnvironment(window, window, {
             endowments: Object.getOwnPropertyDescriptors({
@@ -76,7 +75,6 @@ describe('@@lockerNearMembrane', () => {
     it('should not be detectable when customized', () => {
         expect.assertions(12);
 
-        // eslint-disable-next-line no-unused-vars
         let takeInside;
         const env = createVirtualEnvironment(window, window, {
             endowments: Object.getOwnPropertyDescriptors({
@@ -142,7 +140,6 @@ describe('@@lockerNearMembrane', () => {
     it('should not throw proxy invariant violation errors', () => {
         expect.assertions(15);
 
-        // eslint-disable-next-line no-unused-vars
         let takeInside;
         const env = createVirtualEnvironment(window, window, {
             endowments: Object.getOwnPropertyDescriptors({
@@ -200,7 +197,6 @@ describe('@@lockerNearMembraneSerializedValue', () => {
     it('should be detectable', () => {
         expect.assertions(45);
 
-        // eslint-disable-next-line no-unused-vars
         let takeInside;
         const env = createVirtualEnvironment(window, window, {
             endowments: Object.getOwnPropertyDescriptors({
@@ -283,10 +279,112 @@ describe('@@lockerNearMembraneSerializedValue', () => {
         `);
     });
 
+    it('should be detectable with blue proxies of other realms', () => {
+        expect.assertions(45);
+
+        const iframe = document.createElement('iframe');
+        iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
+        document.body.appendChild(iframe);
+        const { contentWindow: blueIframeWindow } = iframe;
+
+        let bluePairs;
+        let env = createVirtualEnvironment(blueIframeWindow, blueIframeWindow, {
+            endowments: Object.getOwnPropertyDescriptors({
+                exposePairs(insidePairs) {
+                    bluePairs = insidePairs;
+                },
+            }),
+        });
+
+        env.evaluate(`
+            const symbol = Symbol('insideSymbol');
+            exposePairs([
+                [Object(BigInt(0x1fffffffffffff)), BigInt(0x1fffffffffffff)],
+                [new Boolean(true), true],
+                [new Boolean(false), false],
+                [new Number(0), 0],
+                [
+                    /insideRegExpLiteral/ysu,
+                    JSON.stringify({
+                        flags: 'suy',
+                        source: 'insideRegExpLiteral',
+                    })
+                ],
+                [
+                    new RegExp('insideRegExpObject', 'ysu'),
+                    JSON.stringify({
+                        flags: 'suy',
+                        source: 'insideRegExpObject',
+                    })
+                ],
+                [new String('insideString'), 'insideString'],
+                [Object(symbol), symbol],
+                [['insideArray'], undefined],
+            ])
+        `);
+
+        let takeInside;
+        env = createVirtualEnvironment(window, window, {
+            endowments: Object.getOwnPropertyDescriptors({
+                expect,
+                exposeTakeInside(func) {
+                    takeInside = func;
+                },
+                injectPairs(func) {
+                    func(bluePairs);
+                },
+                takeOutside(insideValue, expectedSerialized) {
+                    // Test blue proxies.
+                    // To unlock the near-membrane symbol gate first perform a has()
+                    // trap check.
+                    expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue).toBe(false);
+                    // Next, perform a get() trap call.
+                    expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
+                        expectedSerialized
+                    );
+                    // Performing a get() trap call without first performing a has()
+                    // trap check will produce `undefined`.
+                    expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
+                        undefined
+                    );
+                },
+            }),
+        });
+
+        env.evaluate(`
+            const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = Symbol.for(
+                '@@lockerNearMembraneSerializedValue'
+            );
+
+            exposeTakeInside(function takeInside(outsideValue) {
+                // Test red proxies.
+                expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in outsideValue).toBe(false);
+                expect(outsideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(undefined);
+            });
+        `);
+
+        // Test red proxies.
+        for (const { 0: value } of bluePairs) {
+            takeInside(value);
+        }
+
+        env.evaluate(`
+            let magentaPairs
+            injectPairs((outsideMagentaPairs) => {
+                magentaPairs = outsideMagentaPairs;
+            });
+            // Test blue proxies.
+            for (const { 0: magentaValue, 1: expectedSerialized } of magentaPairs) {
+                takeOutside(magentaValue, expectedSerialized);
+            }
+        `);
+
+        iframe.remove();
+    });
+
     it('should be detectable with custom Symbol.toStringTag value', () => {
         expect.assertions(45);
 
-        // eslint-disable-next-line no-unused-vars
         let takeInside;
         const env = createVirtualEnvironment(window, window, {
             endowments: Object.getOwnPropertyDescriptors({
@@ -388,7 +486,6 @@ describe('@@lockerNearMembraneSerializedValue', () => {
     it('should be detectable with no Symbol.toStringTag value', () => {
         expect.assertions(10);
 
-        // eslint-disable-next-line no-unused-vars
         let takeInside;
         const env = createVirtualEnvironment(window, window, {
             endowments: Object.getOwnPropertyDescriptors({
@@ -486,7 +583,6 @@ describe('@@lockerNearMembraneSerializedValue', () => {
     it('should not be detectable with custom @@lockerNearMembraneSerializedValue value', () => {
         expect.assertions(36);
 
-        // eslint-disable-next-line no-unused-vars
         let takeInside;
         const env = createVirtualEnvironment(window, window, {
             endowments: Object.getOwnPropertyDescriptors({
@@ -647,7 +743,6 @@ describe('@@lockerNearMembraneSerializedValue', () => {
     it('should not throw proxy invariant violation errors', () => {
         expect.assertions(45);
 
-        // eslint-disable-next-line no-unused-vars
         let takeInside;
         const env = createVirtualEnvironment(window, window, {
             endowments: Object.getOwnPropertyDescriptors({

@@ -1,24 +1,22 @@
 import {
-    createConnector,
-    createMembraneMarshall,
+    createBlueConnector,
+    createRedConnector,
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
-
-const init = createMembraneMarshall();
 
 /*
     These tests are exercising the BUILT near-membrane-base,
     ie. package/near-membrane-base/dist/index.js
 */
 describe('Implementing an environment with VirtualEnvironment', () => {
-    let redRealmGlobal;
+    const blueGlobalThis = globalThis;
+    let redGlobalThis;
 
     beforeEach(() => {
         const iframe = document.createElement('iframe');
         iframe.id = 'red-realm';
         document.body.appendChild(iframe);
-
-        redRealmGlobal = iframe.contentWindow.window;
+        redGlobalThis = iframe.contentWindow;
     });
 
     afterEach(() => {
@@ -38,12 +36,9 @@ describe('Implementing an environment with VirtualEnvironment', () => {
         it("calls through to the red realm's callable evaluation function", () => {
             expect.assertions(1);
 
-            // eslint-disable-next-line no-eval
-            const redConnector = createConnector(redRealmGlobal.eval);
-
             const ve = new VirtualEnvironment({
-                blueConnector: init,
-                redConnector,
+                blueConnector: createBlueConnector(blueGlobalThis),
+                redConnector: createRedConnector(redGlobalThis.eval),
             });
             ve.link('globalThis');
 
@@ -57,12 +52,9 @@ describe('Implementing an environment with VirtualEnvironment', () => {
         it('throws pushed error from blue target', () => {
             expect.assertions(1);
 
-            // eslint-disable-next-line no-eval
-            const redConnector = createConnector(redRealmGlobal.eval);
-
             const ve = new VirtualEnvironment({
-                blueConnector: init,
-                redConnector,
+                blueConnector: createBlueConnector(blueGlobalThis),
+                redConnector: createRedConnector(redGlobalThis.eval),
             });
             ve.link('globalThis');
 
@@ -79,12 +71,9 @@ describe('Implementing an environment with VirtualEnvironment', () => {
         it('rethrows if blue target does not have pushed error', () => {
             expect.assertions(1);
 
-            // eslint-disable-next-line no-eval
-            const redConnector = createConnector(redRealmGlobal.eval);
-
             const ve = new VirtualEnvironment({
-                blueConnector: init,
-                redConnector,
+                blueConnector: createBlueConnector(blueGlobalThis),
+                redConnector: createRedConnector(redGlobalThis.eval),
             });
             ve.link('globalThis');
 
@@ -105,12 +94,9 @@ describe('Implementing an environment with VirtualEnvironment', () => {
         it('does not skip index-like properties', () => {
             expect.assertions(1);
 
-            // eslint-disable-next-line no-eval
-            const redConnector = createConnector(redRealmGlobal.eval);
-
             const ve = new VirtualEnvironment({
-                blueConnector: init,
-                redConnector,
+                blueConnector: createBlueConnector(blueGlobalThis),
+                redConnector: createRedConnector(redGlobalThis.eval),
             });
             ve.link('globalThis');
 
@@ -122,12 +108,9 @@ describe('Implementing an environment with VirtualEnvironment', () => {
         it('skips untamable properties, ie. descriptor is not configurable', () => {
             expect.assertions(1);
 
-            // eslint-disable-next-line no-eval
-            const redConnector = createConnector(redRealmGlobal.eval);
-
             const ve = new VirtualEnvironment({
-                blueConnector: init,
-                redConnector,
+                blueConnector: createBlueConnector(blueGlobalThis),
+                redConnector: createRedConnector(redGlobalThis.eval),
             });
             ve.link('globalThis');
 
@@ -146,12 +129,9 @@ describe('Implementing an environment with VirtualEnvironment', () => {
         it('calls blueGetTransferableValue with both args', () => {
             expect.assertions(2);
 
-            // eslint-disable-next-line no-eval
-            const redConnector = createConnector(redRealmGlobal.eval);
-
             const ve = new VirtualEnvironment({
-                blueConnector: init,
-                redConnector,
+                blueConnector: createBlueConnector(blueGlobalThis),
+                redConnector: createRedConnector(redGlobalThis.eval),
             });
             ve.link('globalThis');
 

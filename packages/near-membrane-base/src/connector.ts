@@ -5,24 +5,43 @@ const WeakMapCtor = WeakMap;
 const { apply: ReflectApply } = Reflect;
 const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMapCtor.prototype;
 
-// istanbul ignore next
+const evaluatorToRedCreateHooksCallbackMap = new WeakMapCtor();
+const globalThisToBlueCreateHooksCallbackMap = new WeakMapCtor();
+
 const createMembraneMarshallSourceInStrictMode = `
 'use strict';
 (${createMembraneMarshall.toString()})`;
 
-const evaluatorToCreateHooksCallbackMap = new WeakMapCtor();
+export function createBlueConnector(
+    globalObjectVirtualizationTarget: WindowProxy & typeof globalThis = window
+): ReturnType<typeof createMembraneMarshall> {
+    let createHooksCallback = ReflectApply(
+        WeakMapProtoGet,
+        globalThisToBlueCreateHooksCallbackMap,
+        [globalObjectVirtualizationTarget]
+    );
+    if (createHooksCallback === undefined) {
+        createHooksCallback = createMembraneMarshall(globalObjectVirtualizationTarget);
+        ReflectApply(WeakMapProtoSet, globalThisToBlueCreateHooksCallbackMap, [
+            globalObjectVirtualizationTarget,
+            createHooksCallback,
+        ]);
+    }
+    return createHooksCallback;
+}
 
-// eslint-disable-next-line no-eval
-export function createConnector(evaluator: typeof eval): ReturnType<typeof createMembraneMarshall> {
+export function createRedConnector(
+    evaluator: typeof eval
+): ReturnType<typeof createMembraneMarshall> {
     if (typeof evaluator !== 'function') {
         throw new TypeErrorCtor('Missing evaluator function.');
     }
-    let createHooksCallback = ReflectApply(WeakMapProtoGet, evaluatorToCreateHooksCallbackMap, [
+    let createHooksCallback = ReflectApply(WeakMapProtoGet, evaluatorToRedCreateHooksCallbackMap, [
         evaluator,
     ]);
     if (createHooksCallback === undefined) {
-        createHooksCallback = evaluator(createMembraneMarshallSourceInStrictMode)(true);
-        ReflectApply(WeakMapProtoSet, evaluatorToCreateHooksCallbackMap, [
+        createHooksCallback = evaluator(createMembraneMarshallSourceInStrictMode)();
+        ReflectApply(WeakMapProtoSet, evaluatorToRedCreateHooksCallbackMap, [
             evaluator,
             createHooksCallback,
         ]);

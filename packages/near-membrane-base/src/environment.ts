@@ -62,18 +62,18 @@ export class VirtualEnvironment {
 
     private readonly redGlobalThisPointer: Pointer;
 
-    constructor(providedOptions: VirtualEnvironmentOptions) {
-        if (providedOptions === undefined) {
+    constructor(options: VirtualEnvironmentOptions) {
+        if (options === undefined) {
             throw new ErrorCtor('Missing VirtualEnvironmentOptions options bag.');
         }
         // prettier-ignore
         const {
             blueConnector,
-            redConnector,
             distortionCallback,
             instrumentation,
+            redConnector,
             // eslint-disable-next-line prefer-object-spread
-        } = ObjectAssign({ __proto__: null }, providedOptions);
+        } = ObjectAssign({ __proto__: null }, options);
         let blueHooks: Parameters<HooksCallback>;
         const blueConnect = blueConnector(
             'blue',
