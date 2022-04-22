@@ -202,7 +202,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
     const { for: SymbolFor, toStringTag: TO_STRING_TAG_SYMBOL } = SymbolCtor;
     // @rollup/plugin-replace replaces `DEV_MODE` references.
     const DEV_MODE = true;
-    const FLAGS_REG_EXP = /\w*$/;
+    const FLAGS_REG_EXP = isInShadowRealm ? /\w*$/ : undefined;
     const LOCKER_DEBUG_MODE_SYMBOL = Symbol.for('@@lockerDebugMode');
     const LOCKER_IDENTIFIER_MARKER = '$LWS';
     const LOCKER_LIVE_VALUE_MARKER_SYMBOL = SymbolFor('@@lockerLiveValue');
@@ -299,13 +299,13 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
     } = RegExpProto;
     // Edge 15 does not support RegExp.prototype.flags.
     // https://caniuse.com/mdn-javascript_builtins_regexp_flags
-    const RegExpProtoFlagsGetter = isInShadowRealm
+    const RegExpProtoFlagsGetter: (() => string) | undefined = isInShadowRealm
         ? ReflectApply(ObjectProto__lookupGetter__, RegExpProto, ['flags']) ??
           function flags(this: RegExp) {
               const string = ReflectApply(RegExProtoToString, this, []);
-              return ReflectApply(RegExpProtoExec, FLAGS_REG_EXP, [string])[0];
+              return ReflectApply(RegExpProtoExec, FLAGS_REG_EXP!, [string])[0] as string;
           }
-        : noop;
+        : undefined;
     const RegExpProtoSourceGetter = ReflectApply(ObjectProto__lookupGetter__, RegExpProto, [
         'source',
     ])!;
@@ -549,7 +549,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   const source = ReflectApply(RegExpProtoSourceGetter, value, []);
                   return JSONStringify({
                       __proto__: null,
-                      flags: ReflectApply(RegExpProtoFlagsGetter, value, []),
+                      flags: ReflectApply(RegExpProtoFlagsGetter!, value, []),
                       source,
                   });
               }
@@ -2581,66 +2581,68 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 return result;
             }
 
-            private static passthruGetTrap(
-                this: BoundaryProxyHandler,
-                _shadowTarget: ShadowTarget,
-                key: PropertyKey,
-                receiver: any
-            ): ReturnType<typeof Reflect.get> {
-                // Only allow accessing near-membrane symbol values if the
-                // BoundaryProxyHandler.has trap has been called immediately
-                // before and the symbol does not exist.
-                nearMembraneSymbolFlag &&= lastProxyTrapCalled === ProxyHandlerTraps.Has;
-                lastProxyTrapCalled = ProxyHandlerTraps.Get;
-                if (nearMembraneSymbolFlag) {
-                    // Exit without performing a [[Get]] for near-membrane
-                    // symbols because we know when the nearMembraneSymbolFlag
-                    // is on that there is no shadowed symbol value.
-                    if (key === LOCKER_NEAR_MEMBRANE_SYMBOL) {
-                        return true;
-                    }
-                    if (key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL) {
-                        return this.serializedValue;
-                    }
-                }
-                let activity: any;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('[Native Reflect.get]');
-                }
-                // Inline getTransferableValue().
-                const transferableReceiver =
-                    (typeof receiver === 'object' && receiver !== null) ||
-                    typeof receiver === 'function'
-                        ? getTransferablePointer(receiver)
-                        : receiver;
-                let result: any;
-                try {
-                    const pointerOrPrimitive = foreignCallableGet(
-                        this.foreignTargetPointer,
-                        this.foreignTargetTraits,
-                        key,
-                        transferableReceiver
-                    );
-                    if (typeof pointerOrPrimitive === 'function') {
-                        pointerOrPrimitive();
-                        result = selectedTarget;
-                        selectedTarget = undefined;
-                    } else {
-                        result = pointerOrPrimitive;
-                    }
-                } catch (error: any) {
-                    const errorToThrow = selectedTarget ?? error;
-                    selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.error(errorToThrow);
-                    }
-                    throw errorToThrow;
-                }
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity.stop();
-                }
-                return result;
-            }
+            private static passthruGetTrap = !isInShadowRealm
+                ? function (
+                      this: BoundaryProxyHandler,
+                      _shadowTarget: ShadowTarget,
+                      key: PropertyKey,
+                      receiver: any
+                  ): ReturnType<typeof Reflect.get> {
+                      // Only allow accessing near-membrane symbol values if the
+                      // BoundaryProxyHandler.has trap has been called immediately
+                      // before and the symbol does not exist.
+                      nearMembraneSymbolFlag &&= lastProxyTrapCalled === ProxyHandlerTraps.Has;
+                      lastProxyTrapCalled = ProxyHandlerTraps.Get;
+                      if (nearMembraneSymbolFlag) {
+                          // Exit without performing a [[Get]] for near-membrane
+                          // symbols because we know when the nearMembraneSymbolFlag
+                          // is on that there is no shadowed symbol value.
+                          if (key === LOCKER_NEAR_MEMBRANE_SYMBOL) {
+                              return true;
+                          }
+                          if (key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL) {
+                              return this.serializedValue;
+                          }
+                      }
+                      let activity: any;
+                      if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                          activity = startActivity('[Native Reflect.get]');
+                      }
+                      // Inline getTransferableValue().
+                      const transferableReceiver =
+                          (typeof receiver === 'object' && receiver !== null) ||
+                          typeof receiver === 'function'
+                              ? getTransferablePointer(receiver)
+                              : receiver;
+                      let result: any;
+                      try {
+                          const pointerOrPrimitive = foreignCallableGet(
+                              this.foreignTargetPointer,
+                              this.foreignTargetTraits,
+                              key,
+                              transferableReceiver
+                          );
+                          if (typeof pointerOrPrimitive === 'function') {
+                              pointerOrPrimitive();
+                              result = selectedTarget;
+                              selectedTarget = undefined;
+                          } else {
+                              result = pointerOrPrimitive;
+                          }
+                      } catch (error: any) {
+                          const errorToThrow = selectedTarget ?? error;
+                          selectedTarget = undefined;
+                          if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                              activity.error(errorToThrow);
+                          }
+                          throw errorToThrow;
+                      }
+                      if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                          activity.stop();
+                      }
+                      return result;
+                  }
+                : (noop as typeof Reflect.get);
 
             private static passthruGetPrototypeOfTrap(
                 this: BoundaryProxyHandler,
@@ -2676,38 +2678,40 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 return proto as object | null;
             }
 
-            private static passthruHasTrap(
-                this: BoundaryProxyHandler,
-                _shadowTarget: ShadowTarget,
-                key: PropertyKey
-            ): ReturnType<typeof Reflect.has> {
-                lastProxyTrapCalled = ProxyHandlerTraps.Has;
-                let activity: any;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('[Native Reflect.has]');
-                }
-                let result;
-                try {
-                    result = foreignCallableHas(this.foreignTargetPointer, key);
-                } catch (error: any) {
-                    const errorToThrow = selectedTarget ?? error;
-                    selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                        activity.error(errorToThrow);
-                    }
-                    throw errorToThrow;
-                }
-                // The near-membrane symbol flag is on if the symbol does not
-                // exist on the object or its [[Prototype]].
-                nearMembraneSymbolFlag =
-                    !result &&
-                    (key === LOCKER_NEAR_MEMBRANE_SYMBOL ||
-                        key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL);
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity.stop();
-                }
-                return result;
-            }
+            private static passthruHasTrap = !isInShadowRealm
+                ? function (
+                      this: BoundaryProxyHandler,
+                      _shadowTarget: ShadowTarget,
+                      key: PropertyKey
+                  ): ReturnType<typeof Reflect.has> {
+                      lastProxyTrapCalled = ProxyHandlerTraps.Has;
+                      let activity: any;
+                      if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                          activity = startActivity('[Native Reflect.has]');
+                      }
+                      let result;
+                      try {
+                          result = foreignCallableHas(this.foreignTargetPointer, key);
+                      } catch (error: any) {
+                          const errorToThrow = selectedTarget ?? error;
+                          selectedTarget = undefined;
+                          if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                              activity.error(errorToThrow);
+                          }
+                          throw errorToThrow;
+                      }
+                      // The near-membrane symbol flag is on if the symbol does not
+                      // exist on the object or its [[Prototype]].
+                      nearMembraneSymbolFlag =
+                          !result &&
+                          (key === LOCKER_NEAR_MEMBRANE_SYMBOL ||
+                              key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL);
+                      if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                          activity.stop();
+                      }
+                      return result;
+                  }
+                : (alwaysFalse as typeof Reflect.has);
 
             private static passthruIsExtensibleTrap(
                 this: BoundaryProxyHandler,
