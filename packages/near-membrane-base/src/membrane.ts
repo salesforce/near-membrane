@@ -187,7 +187,9 @@ export type ProxyTarget = CallableFunction | any[] | object;
 const proxyTargetToLazyPropertyDescriptorStateByTargetMap = new WeakMap();
 
 // istanbul ignore next
-export function createMembraneMarshall(isInShadowRealm?: boolean) {
+export function createMembraneMarshall(
+    globalObjectVirtualizationTarget?: WindowProxy & typeof globalThis
+) {
     /* eslint-disable prefer-object-spread */
     const ArrayCtor = Array;
     const ArrayBufferCtor = ArrayBuffer;
@@ -202,7 +204,10 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
     const { for: SymbolFor, toStringTag: TO_STRING_TAG_SYMBOL } = SymbolCtor;
     // @rollup/plugin-replace replaces `DEV_MODE` references.
     const DEV_MODE = true;
-    const FLAGS_REG_EXP = isInShadowRealm ? /\w*$/ : undefined;
+    const IS_IN_SHADOW_REALM =
+        typeof globalObjectVirtualizationTarget !== 'object' ||
+        globalObjectVirtualizationTarget === null;
+    const FLAGS_REG_EXP = IS_IN_SHADOW_REALM ? /\w*$/ : undefined;
     const LOCKER_DEBUG_MODE_SYMBOL = Symbol.for('@@lockerDebugMode');
     const LOCKER_IDENTIFIER_MARKER = '$LWS';
     const LOCKER_LIVE_VALUE_MARKER_SYMBOL = SymbolFor('@@lockerLiveValue');
@@ -279,7 +284,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         slice: ArrayProtoSlice,
     } = ArrayCtor.prototype;
     const { isView: ArrayBufferIsView } = ArrayBufferCtor;
-    const ArrayBufferProtoByteLengthGetter = !isInShadowRealm
+    const ArrayBufferProtoByteLengthGetter = !IS_IN_SHADOW_REALM
         ? ReflectApply(ObjectProto__lookupGetter__, ArrayBufferCtor.prototype, ['byteLength'])!
         : undefined;
     const BigIntProtoValueOf = SUPPORTS_BIG_INT ? BigInt.prototype.valueOf : undefined;
@@ -297,7 +302,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
     } = RegExpProto;
     // Edge 15 does not support RegExp.prototype.flags.
     // https://caniuse.com/mdn-javascript_builtins_regexp_flags
-    const RegExpProtoFlagsGetter: (() => string) | undefined = isInShadowRealm
+    const RegExpProtoFlagsGetter: (() => string) | undefined = IS_IN_SHADOW_REALM
         ? ReflectApply(ObjectProto__lookupGetter__, RegExpProto, ['flags']) ??
           function flags(this: RegExp) {
               const string = ReflectApply(RegExProtoToString, this, []);
@@ -319,11 +324,12 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
     const { info: consoleInfoRef } = consoleRef;
     const localEval = eval;
     const globalThisRef =
+        globalObjectVirtualizationTarget ??
         // Support for globalThis was added in Chrome 71.
-        (typeof globalThis !== 'undefined' && globalThis) ||
+        (typeof globalThis !== 'undefined' ? globalThis : undefined) ??
         // However, environments like Android emulators are running Chrome 69.
         // eslint-disable-next-line no-restricted-globals
-        (typeof self !== 'undefined' && self) ||
+        (typeof self !== 'undefined' ? self : undefined) ??
         // See https://mathiasbynens.be/notes/globalthis for more details.
         (ReflectDefineProperty(ObjectProto, 'globalThis', {
             __proto__: null,
@@ -507,7 +513,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         // No-operation.
     }
 
-    const serializeBigIntObject = isInShadowRealm
+    const serializeBigIntObject = IS_IN_SHADOW_REALM
         ? (bigIntObject: BigInt): bigint =>
               // Section 21.2.3 Properties of the BigInt Prototype Object
               // https://tc39.es/ecma262/#thisbigintvalue
@@ -516,7 +522,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
               ReflectApply(BigIntProtoValueOf!, bigIntObject, [])
         : (noop as () => undefined);
 
-    const serializeBooleanObject = isInShadowRealm
+    const serializeBooleanObject = IS_IN_SHADOW_REALM
         ? (booleanObject: Boolean): boolean =>
               // Section 20.3.3 Properties of the Boolean Prototype Object
               // https://tc39.es/ecma262/#thisbooleanvalue
@@ -526,7 +532,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
               ReflectApply(BooleanProtoValueOf, booleanObject, [])
         : (noop as () => undefined);
 
-    const serializeNumberObject = isInShadowRealm
+    const serializeNumberObject = IS_IN_SHADOW_REALM
         ? (numberObject: Number): number =>
               // 21.1.3 Properties of the Number Prototype Object
               // https://tc39.es/ecma262/#thisnumbervalue
@@ -536,7 +542,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
               ReflectApply(NumberProtoValueOf, numberObject, [])
         : (noop as () => undefined);
 
-    const serializeRegExp = isInShadowRealm
+    const serializeRegExp = IS_IN_SHADOW_REALM
         ? (value: any): string | undefined => {
               // 22.2.5.12 get RegExp.prototype.source
               // https://tc39.es/ecma262/#sec-get-regexp.prototype.source
@@ -555,7 +561,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
           }
         : (noop as () => undefined);
 
-    const serializeStringObject = isInShadowRealm
+    const serializeStringObject = IS_IN_SHADOW_REALM
         ? (stringObject: String): string =>
               // 22.1.3 Properties of the String Prototype Object
               // https://tc39.es/ecma262/#thisstringvalue
@@ -565,7 +571,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
               ReflectApply(StringProtoValueOf, stringObject, [])
         : (noop as () => undefined);
 
-    const serializeSymbolObject = isInShadowRealm
+    const serializeSymbolObject = IS_IN_SHADOW_REALM
         ? (symbolObject: Symbol): symbol =>
               // 20.4.3 Properties of the Symbol Prototype Object
               // https://tc39.es/ecma262/#thissymbolvalue
@@ -575,7 +581,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
               ReflectApply(SymbolProtoValueOf, symbolObject, [])
         : (noop as () => undefined);
 
-    const serializeTargetByBrand = isInShadowRealm
+    const serializeTargetByBrand = IS_IN_SHADOW_REALM
         ? (target: ProxyTarget): SerializedValue | undefined => {
               const brand = ReflectApply(ObjectProtoToString, target, []);
               switch (brand) {
@@ -614,7 +620,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
           }
         : (noop as () => undefined);
 
-    const serializeTargetByTrialAndError = isInShadowRealm
+    const serializeTargetByTrialAndError = IS_IN_SHADOW_REALM
         ? (target: ProxyTarget): SerializedValue | undefined => {
               // The serialization attempts below represent boxed primitives of
               // `ESGlobalKeys` in packages/near-membrane-base/src/intrinsics.ts
@@ -658,19 +664,19 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
     return function createHooksCallback(
         color: string,
         foreignCallableHooksCallback: HooksCallback,
-        providedOptions?: HooksOptions
+        options?: HooksOptions
     ): HooksCallback {
         const {
             distortionCallback = identity,
             instrumentation,
             // eslint-disable-next-line prefer-object-spread
-        } = ObjectAssign({ __proto__: null }, providedOptions);
+        } = ObjectAssign({ __proto__: null }, options);
 
         const LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG: boolean =
             // In the future we can preface the LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG
             // definition with a LOCKER_UNMINIFIED_FLAG check to have instrumentation
             // removed in minified production builds.
-            !isInShadowRealm && typeof instrumentation === 'object' && instrumentation !== null;
+            !IS_IN_SHADOW_REALM && typeof instrumentation === 'object' && instrumentation !== null;
 
         const arityToApplyTrapNameRegistry: any = {
             // Populated in the returned connector function below.
@@ -732,7 +738,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
         let nearMembraneSymbolFlag = false;
         let selectedTarget: undefined | ProxyTarget;
 
-        const activateLazyOwnPropertyDefinition = isInShadowRealm
+        const activateLazyOwnPropertyDefinition = IS_IN_SHADOW_REALM
             ? (target: object, key: PropertyKey, state: object) => {
                   state[key] = false;
                   const foreignTargetPointer = getTransferablePointer(target);
@@ -1414,7 +1420,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             return pointer;
         }
 
-        const getLazyPropertyDescriptorStateByTarget = isInShadowRealm
+        const getLazyPropertyDescriptorStateByTarget = IS_IN_SHADOW_REALM
             ? (target: ProxyTarget): object | undefined => {
                   let state: any = ReflectApply(
                       WeakMapProtoGet,
@@ -1450,7 +1456,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             if (proxyPointer) {
                 return proxyPointer;
             }
-            const distortedTarget: ProxyTarget = isInShadowRealm
+            const distortedTarget: ProxyTarget = IS_IN_SHADOW_REALM
                 ? originalTarget
                 : distortionCallback(originalTarget);
             // If a distortion entry is found, it must be a valid proxy target.
@@ -1522,7 +1528,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             return proxyPointer;
         }
 
-        const installPropertyDescriptorMethodWrappers = isInShadowRealm
+        const installPropertyDescriptorMethodWrappers = IS_IN_SHADOW_REALM
             ? (unforgeableGlobalThisKeys?: PropertyKeys) => {
                   if (installedPropertyDescriptorMethodWrappersFlag) {
                       return;
@@ -2016,7 +2022,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             return error;
         }
 
-        const setLazyPropertyDescriptorStateByTarget = isInShadowRealm
+        const setLazyPropertyDescriptorStateByTarget = IS_IN_SHADOW_REALM
             ? (target: ProxyTarget, state: object) => {
                   ReflectApply(
                       WeakMapProtoSet,
@@ -2212,7 +2218,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                     // can be faster.
                     ObjectFreeze(this);
                     this.revoke();
-                } else if (isInShadowRealm) {
+                } else if (IS_IN_SHADOW_REALM) {
                     if (isForeignTargetArray) {
                         this.makeProxyLive();
                     }
@@ -2360,7 +2366,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             // Hybrid traps:
             // (traps that operate on their shadowTarget, proxy, and foreignTargetPointer):
 
-            private static hybridGetTrap = isInShadowRealm
+            private static hybridGetTrap = IS_IN_SHADOW_REALM
                 ? function (
                       this: BoundaryProxyHandler,
                       _shadowTarget: ShadowTarget,
@@ -2420,7 +2426,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   }
                 : (noop as typeof Reflect.get);
 
-            private static hybridHasTrap = isInShadowRealm
+            private static hybridHasTrap = IS_IN_SHADOW_REALM
                 ? function (
                       this: BoundaryProxyHandler,
                       _shadowTarget: ShadowTarget,
@@ -2579,7 +2585,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 return result;
             }
 
-            private static passthruGetTrap = !isInShadowRealm
+            private static passthruGetTrap = !IS_IN_SHADOW_REALM
                 ? function (
                       this: BoundaryProxyHandler,
                       _shadowTarget: ShadowTarget,
@@ -2676,7 +2682,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 return proto as object | null;
             }
 
-            private static passthruHasTrap = !isInShadowRealm
+            private static passthruHasTrap = !IS_IN_SHADOW_REALM
                 ? function (
                       this: BoundaryProxyHandler,
                       _shadowTarget: ShadowTarget,
@@ -2934,7 +2940,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
             // Pending traps:
 
-            private static pendingDefinePropertyTrap = isInShadowRealm
+            private static pendingDefinePropertyTrap = IS_IN_SHADOW_REALM
                 ? function (
                       this: BoundaryProxyHandler,
                       shadowTarget: ShadowTarget,
@@ -2946,7 +2952,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   }
                 : (alwaysFalse as typeof Reflect.defineProperty);
 
-            private static pendingDeletePropertyTrap = isInShadowRealm
+            private static pendingDeletePropertyTrap = IS_IN_SHADOW_REALM
                 ? function (
                       this: BoundaryProxyHandler,
                       shadowTarget: ShadowTarget,
@@ -2957,7 +2963,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   }
                 : (alwaysFalse as typeof Reflect.deleteProperty);
 
-            private static pendingPreventExtensionsTrap = isInShadowRealm
+            private static pendingPreventExtensionsTrap = IS_IN_SHADOW_REALM
                 ? function (
                       this: BoundaryProxyHandler,
                       shadowTarget: ShadowTarget
@@ -2967,7 +2973,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   }
                 : (alwaysFalse as typeof Reflect.preventExtensions);
 
-            private static pendingSetPrototypeOfTrap = isInShadowRealm
+            private static pendingSetPrototypeOfTrap = IS_IN_SHADOW_REALM
                 ? function (
                       this: BoundaryProxyHandler,
                       shadowTarget: ShadowTarget,
@@ -2978,7 +2984,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   }
                 : (alwaysFalse as typeof Reflect.setPrototypeOf);
 
-            private static pendingSetTrap = isInShadowRealm
+            private static pendingSetTrap = IS_IN_SHADOW_REALM
                 ? function (
                       this: BoundaryProxyHandler,
                       shadowTarget: ShadowTarget,
@@ -2993,30 +2999,29 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
             //  Static traps:
 
-            private static staticDefinePropertyTrap = isInShadowRealm
+            private static staticDefinePropertyTrap = IS_IN_SHADOW_REALM
                 ? ReflectDefineProperty
                 : (alwaysFalse as typeof Reflect.defineProperty);
 
-            private static staticDeletePropertyTrap = isInShadowRealm
+            private static staticDeletePropertyTrap = IS_IN_SHADOW_REALM
                 ? ReflectDeleteProperty
                 : (alwaysFalse as typeof Reflect.deleteProperty);
 
-            private static staticGetOwnPropertyDescriptorTrap = isInShadowRealm
+            private static staticGetOwnPropertyDescriptorTrap = IS_IN_SHADOW_REALM
                 ? ReflectGetOwnPropertyDescriptor
                 : (noop as typeof Reflect.getOwnPropertyDescriptor);
 
-            private static staticGetPrototypeOfTrap = isInShadowRealm
+            private static staticGetPrototypeOfTrap = IS_IN_SHADOW_REALM
                 ? ReflectGetPrototypeOf
                 : ((() => null) as typeof Reflect.getPrototypeOf);
 
-            private static staticGetTrap = isInShadowRealm
+            private static staticGetTrap = IS_IN_SHADOW_REALM
                 ? function (
                       this: BoundaryProxyHandler,
-                      _shadowTarget: ShadowTarget,
+                      shadowTarget: ShadowTarget,
                       key: PropertyKey,
                       receiver: any
                   ): ReturnType<typeof Reflect.get> {
-                      const { shadowTarget } = this;
                       const result = ReflectGet(shadowTarget, key, receiver);
                       if (
                           result === undefined &&
@@ -3030,27 +3035,27 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   }
                 : (noop as typeof Reflect.get);
 
-            private static staticHasTrap = isInShadowRealm
+            private static staticHasTrap = IS_IN_SHADOW_REALM
                 ? ReflectHas
                 : (alwaysFalse as typeof Reflect.has);
 
-            private static staticIsExtensibleTrap = isInShadowRealm
+            private static staticIsExtensibleTrap = IS_IN_SHADOW_REALM
                 ? ReflectIsExtensible
                 : (alwaysFalse as typeof Reflect.isExtensible);
 
-            private static staticOwnKeysTrap = isInShadowRealm
+            private static staticOwnKeysTrap = IS_IN_SHADOW_REALM
                 ? ReflectOwnKeys
                 : ((() => []) as typeof Reflect.ownKeys);
 
-            private static staticPreventExtensionsTrap = isInShadowRealm
+            private static staticPreventExtensionsTrap = IS_IN_SHADOW_REALM
                 ? ReflectPreventExtensions
                 : (alwaysFalse as typeof Reflect.preventExtensions);
 
-            private static staticSetPrototypeOfTrap = isInShadowRealm
+            private static staticSetPrototypeOfTrap = IS_IN_SHADOW_REALM
                 ? ReflectSetPrototypeOf
                 : (alwaysFalse as typeof Reflect.setPrototypeOf);
 
-            private static staticSetTrap = isInShadowRealm
+            private static staticSetTrap = IS_IN_SHADOW_REALM
                 ? ReflectSet
                 : (alwaysFalse as typeof Reflect.set);
 
@@ -3058,11 +3063,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
             // Pending traps are needed for the shadow realm side of the membrane
             // to avoid leaking mutation operations on the primary realm side.
-            private static defaultDefinePropertyTrap = isInShadowRealm
+            private static defaultDefinePropertyTrap = IS_IN_SHADOW_REALM
                 ? BoundaryProxyHandler.pendingDefinePropertyTrap
                 : BoundaryProxyHandler.passthruDefinePropertyTrap;
 
-            private static defaultDeletePropertyTrap = isInShadowRealm
+            private static defaultDeletePropertyTrap = IS_IN_SHADOW_REALM
                 ? BoundaryProxyHandler.pendingDeletePropertyTrap
                 : BoundaryProxyHandler.passthruDeletePropertyTrap;
 
@@ -3072,11 +3077,11 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             private static defaultGetPrototypeOfTrap =
                 BoundaryProxyHandler.passthruGetPrototypeOfTrap;
 
-            private static defaultGetTrap = isInShadowRealm
+            private static defaultGetTrap = IS_IN_SHADOW_REALM
                 ? BoundaryProxyHandler.hybridGetTrap
                 : BoundaryProxyHandler.passthruGetTrap;
 
-            private static defaultHasTrap = isInShadowRealm
+            private static defaultHasTrap = IS_IN_SHADOW_REALM
                 ? BoundaryProxyHandler.hybridHasTrap
                 : BoundaryProxyHandler.passthruHasTrap;
 
@@ -3084,15 +3089,15 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
 
             private static defaultOwnKeysTrap = BoundaryProxyHandler.passthruOwnKeysTrap;
 
-            private static defaultPreventExtensionsTrap = isInShadowRealm
+            private static defaultPreventExtensionsTrap = IS_IN_SHADOW_REALM
                 ? BoundaryProxyHandler.pendingPreventExtensionsTrap
                 : BoundaryProxyHandler.passthruPreventExtensionsTrap;
 
-            private static defaultSetTrap = isInShadowRealm
+            private static defaultSetTrap = IS_IN_SHADOW_REALM
                 ? BoundaryProxyHandler.pendingSetTrap
                 : BoundaryProxyHandler.passthruSetTrap;
 
-            private static defaultSetPrototypeOfTrap = isInShadowRealm
+            private static defaultSetPrototypeOfTrap = IS_IN_SHADOW_REALM
                 ? BoundaryProxyHandler.pendingSetPrototypeOfTrap
                 : BoundaryProxyHandler.passthruSetPrototypeOfTrap;
         }
@@ -3102,7 +3107,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             // When crossing, should be mapped to the foreign globalThis
             createPointer(globalThisRef),
             // getSelectedTarget
-            !isInShadowRealm
+            !IS_IN_SHADOW_REALM
                 ? (): any => {
                       const result = selectedTarget;
                       selectedTarget = undefined;
@@ -3134,7 +3139,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 return createPointer(typeof value === 'undefined' ? undefined : value);
             },
             // callableEvaluate
-            isInShadowRealm
+            IS_IN_SHADOW_REALM
                 ? (sourceText: string): PointerOrPrimitive => {
                       try {
                           const result = localEval(sourceText);
@@ -3599,7 +3604,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                 }
             },
             // callableDebugInfo
-            LOCKER_UNMINIFIED_FLAG && !isInShadowRealm
+            LOCKER_UNMINIFIED_FLAG && !IS_IN_SHADOW_REALM
                 ? (...args: Parameters<typeof console.info>): boolean => {
                       if (LOCKER_DEBUG_MODE_FLAG === undefined) {
                           LOCKER_DEBUG_MODE_FLAG = ReflectApply(
@@ -3634,7 +3639,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   }
                 : ((() => false) as unknown as CallableDebugInfo),
             // callableDefineProperties
-            isInShadowRealm
+            IS_IN_SHADOW_REALM
                 ? (
                       targetPointer: Pointer,
                       ...descriptorTuples: [...Parameters<CallableDescriptorCallback>]
@@ -3662,7 +3667,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   }
                 : (noop as unknown as CallableDefineProperties),
             // callableGetLazyPropertyDescriptorStateByTarget
-            !isInShadowRealm
+            !IS_IN_SHADOW_REALM
                 ? (targetPointer: Pointer) => {
                       targetPointer();
                       const target = selectedTarget!;
@@ -3678,7 +3683,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   }
                 : (noop as unknown as CallableGetLazyPropertyDescriptorStateByTarget),
             // callableGetTargetIntegrityTraits
-            !isInShadowRealm
+            !IS_IN_SHADOW_REALM
                 ? (targetPointer: Pointer): TargetIntegrityTraits => {
                       targetPointer();
                       const target = selectedTarget!;
@@ -3732,7 +3737,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
             // callableInstallErrorPrepareStackTrace
             installErrorPrepareStackTrace,
             // callableInstallLazyPropertyDescriptors
-            isInShadowRealm
+            IS_IN_SHADOW_REALM
                 ? (
                       targetPointer: Pointer,
                       ...ownKeysAndUnforgeableGlobalThisKeys: PropertyKeys
@@ -3802,7 +3807,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   }
                 : (noop as unknown as CallableInstallLazyPropertyDescriptors),
             // callableIsTargetLive
-            !isInShadowRealm
+            !IS_IN_SHADOW_REALM
                 ? (targetPointer: Pointer): boolean => {
                       targetPointer();
                       const target = selectedTarget!;
@@ -3863,7 +3868,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   }
                 : (alwaysFalse as unknown as CallableIsTargetLive),
             // callableIsTargetRevoked
-            !isInShadowRealm
+            !IS_IN_SHADOW_REALM
                 ? (targetPointer: Pointer): boolean => {
                       targetPointer();
                       const target = selectedTarget!;
@@ -3877,7 +3882,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   }
                 : (alwaysFalse as unknown as CallableIsTargetRevoked),
             // callableSerializeTarget
-            isInShadowRealm
+            IS_IN_SHADOW_REALM
                 ? (targetPointer: Pointer): SerializedValue | undefined => {
                       targetPointer();
                       const target = selectedTarget!;
@@ -3893,7 +3898,7 @@ export function createMembraneMarshall(isInShadowRealm?: boolean) {
                   }
                 : (noop as unknown as CallableSerializeTarget),
             // callableSetLazyPropertyDescriptorStateByTarget
-            !isInShadowRealm
+            !IS_IN_SHADOW_REALM
                 ? (targetPointer: Pointer, statePointer: Pointer) => {
                       targetPointer();
                       const target = selectedTarget!;

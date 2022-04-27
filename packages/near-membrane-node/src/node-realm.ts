@@ -1,7 +1,7 @@
 import {
     assignFilteredGlobalDescriptorsFromPropertyDescriptorMap,
-    createConnector,
-    createMembraneMarshall,
+    createBlueConnector,
+    createRedConnector,
     getFilteredGlobalOwnKeys,
     linkIntrinsics,
     DistortionCallback,
@@ -18,12 +18,11 @@ interface NodeEnvironmentOptions {
 }
 
 const TypeErrorCtor = TypeError;
-const createHooksCallback = createMembraneMarshall();
 
 export default function createVirtualEnvironment(
     globalObjectShape: object,
     globalObjectVirtualizationTarget: WindowProxy & typeof globalThis,
-    providedOptions: NodeEnvironmentOptions
+    options: NodeEnvironmentOptions
 ): VirtualEnvironment {
     if (typeof globalObjectShape !== 'object' || globalObjectShape === null) {
         throw new TypeErrorCtor('Missing global object shape.');
@@ -34,23 +33,15 @@ export default function createVirtualEnvironment(
     ) {
         throw new TypeErrorCtor('Missing global object virtualization target.');
     }
-    // prettier-ignore
-    const {
-        distortionCallback,
-        endowments,
-        instrumentation,
-    } = {
+    const { distortionCallback, endowments, instrumentation } = {
         __proto__: null,
-        ...providedOptions,
+        ...options,
     } as NodeEnvironmentOptions;
-    const redGlobalThis: typeof globalThis = runInNewContext('globalThis');
-    const blueConnector = createHooksCallback;
-    const redConnector = createConnector(redGlobalThis.eval);
     const env = new VirtualEnvironment({
-        blueConnector,
+        blueConnector: createBlueConnector(globalObjectVirtualizationTarget),
         distortionCallback,
-        redConnector,
         instrumentation,
+        redConnector: createRedConnector(runInNewContext('globalThis').eval),
     });
     linkIntrinsics(env, globalObjectVirtualizationTarget);
     env.lazyRemapProperties(
