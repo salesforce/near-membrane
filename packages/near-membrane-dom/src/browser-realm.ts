@@ -1,7 +1,7 @@
 import {
     assignFilteredGlobalDescriptorsFromPropertyDescriptorMap,
-    createConnector,
-    createMembraneMarshall,
+    createBlueConnector,
+    createRedConnector,
     getFilteredGlobalOwnKeys,
     linkIntrinsics,
     DistortionCallback,
@@ -56,7 +56,6 @@ const NodeProtoLastChildGetter = ReflectApply(ObjectProto__lookupGetter__, NodeP
     'lastChild',
 ])!;
 const docRef = document;
-const blueConnector = createMembraneMarshall();
 
 let defaultGlobalOwnKeys: PropertyKeys | null = null;
 
@@ -79,7 +78,7 @@ function createDetachableIframe(): HTMLIFrameElement {
 function createIframeVirtualEnvironment(
     globalObjectShape: object | null,
     globalObjectVirtualizationTarget: WindowProxy & typeof globalThis,
-    providedOptions?: BrowserEnvironmentOptions
+    options?: BrowserEnvironmentOptions
 ): VirtualEnvironment {
     if (typeof globalObjectShape !== 'object') {
         throw new TypeErrorCtor('Missing global object shape.');
@@ -96,7 +95,7 @@ function createIframeVirtualEnvironment(
         instrumentation,
         keepAlive = false,
         // eslint-disable-next-line prefer-object-spread
-    } = ObjectAssign({ __proto__: null }, providedOptions);
+    } = ObjectAssign({ __proto__: null }, options);
     const iframe = createDetachableIframe();
     const redWindow: Window & typeof globalThis = ReflectApply(
         HTMLIFrameElementProtoContentWindowGetter,
@@ -109,10 +108,10 @@ function createIframeVirtualEnvironment(
     }
     const blueRefs = getCachedGlobalObjectReferences(globalObjectVirtualizationTarget);
     const env = new VirtualEnvironment({
-        blueConnector,
+        blueConnector: createBlueConnector(globalObjectVirtualizationTarget),
         distortionCallback,
-        redConnector: createConnector(redWindow.eval),
         instrumentation,
+        redConnector: createRedConnector(redWindow.eval),
     });
     linkIntrinsics(env, globalObjectVirtualizationTarget);
     // window
@@ -154,8 +153,8 @@ function createIframeVirtualEnvironment(
     // We don't remap `blueRefs.WindowPropertiesProto` because it is "magical"
     // in that it provides access to elements by id.
     //
-    // Once we get the iframe info ready, and all mapped, we can proceed
-    // to detach the iframe only if the keepAlive option isn't true.
+    // Once we get the iframe info ready, and all mapped, we can proceed to
+    // detach the iframe only if `options.keepAlive` isn't true.
     if (keepAlive) {
         // TODO: Temporary hack to preserve the document reference in Firefox.
         // https://bugzilla.mozilla.org/show_bug.cgi?id=543435

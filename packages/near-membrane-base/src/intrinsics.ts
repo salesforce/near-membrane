@@ -64,7 +64,7 @@ const ESGlobalKeys = [
     // 'Map', // Remapped
     'Number',
     // 'Object', // Reflective
-    // Allow Blue `Promise` constructor to overwrite the Red one so that promises
+    // Allow blue `Promise` constructor to overwrite the Red one so that promises
     // created by the `Promise` constructor or APIs like `fetch` will work.
     // 'Promise', // Remapped
     // 'Proxy', // Reflective

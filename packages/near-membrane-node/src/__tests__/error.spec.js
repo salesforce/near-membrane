@@ -47,7 +47,7 @@ describe('The Error Boundary', () => {
             sandboxedValue();
         }).toThrowError(RangeError);
     });
-    it('should remap the Blue Realm Error instance to the sandbox errors', () => {
+    it('should remap the blue realm error instance to the sandbox errors', () => {
         expect.assertions(3);
 
         const env = createVirtualEnvironment(globalThis, globalThis, {
