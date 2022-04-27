@@ -37,13 +37,13 @@ describe('@@lockerNearMembrane', () => {
                 },
                 takeOutside(insideValue) {
                     // Test blue proxies.
-                    // To unlock the near-membrane symbol gate first perform a has()
-                    // trap check.
+                    // To unlock the near-membrane symbol flag first perform a
+                    // has() trap check.
                     expect(LOCKER_NEAR_MEMBRANE_SYMBOL in insideValue).toBe(false);
                     // Next, perform a get() trap call.
                     expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(true);
-                    // Performing a get() trap call without first performing a has()
-                    // trap check will produce `undefined`.
+                    // Performing a get() trap call without first performing a
+                    // has() trap check will produce `undefined`.
                     expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(undefined);
                 },
             }),
@@ -149,13 +149,13 @@ describe('@@lockerNearMembrane', () => {
                 },
                 takeOutside(insideValue) {
                     // Test blue proxies.
-                    // To unlock the near-membrane symbol gate first perform a has()
-                    // trap check.
+                    // To unlock the near-membrane symbol flag first perform a
+                    // has() trap check.
                     expect(LOCKER_NEAR_MEMBRANE_SYMBOL in insideValue).toBe(false);
                     // Next, perform a get() trap call.
                     expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(true);
-                    // Performing a get() trap call without first performing a has()
-                    // trap check will produce `undefined`.
+                    // Performing a get() trap call without first performing a
+                    // has() trap check will produce `undefined`.
                     expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(undefined);
                 },
             }),
@@ -206,15 +206,15 @@ describe('@@lockerNearMembraneSerializedValue', () => {
                 },
                 takeOutside(insideValue, expectedSerialized) {
                     // Test blue proxies.
-                    // To unlock the near-membrane symbol gate first perform a has()
-                    // trap check.
+                    // To unlock the near-membrane symbol flag first perform a
+                    // has() trap check.
                     expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue).toBe(false);
                     // Next, perform a get() trap call.
                     expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
                         expectedSerialized
                     );
-                    // Performing a get() trap call without first performing a has()
-                    // trap check will produce `undefined`.
+                    // Performing a get() trap call without first performing a
+                    // has() trap check will produce `undefined`.
                     expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
                         undefined
                     );
@@ -335,15 +335,15 @@ describe('@@lockerNearMembraneSerializedValue', () => {
                 },
                 takeOutside(insideValue, expectedSerialized) {
                     // Test blue proxies.
-                    // To unlock the near-membrane symbol gate first perform a has()
-                    // trap check.
+                    // To unlock the near-membrane symbol flag first perform a
+                    // has() trap check.
                     expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue).toBe(false);
                     // Next, perform a get() trap call.
                     expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
                         expectedSerialized
                     );
-                    // Performing a get() trap call without first performing a has()
-                    // trap check will produce `undefined`.
+                    // Performing a get() trap call without first performing a
+                    // has() trap check will produce `undefined`.
                     expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
                         undefined
                     );
@@ -394,15 +394,15 @@ describe('@@lockerNearMembraneSerializedValue', () => {
                 },
                 takeOutside(insideValue, expectedSerialized) {
                     // Test blue proxies.
-                    // To unlock the near-membrane symbol gate first perform a has()
-                    // trap check.
+                    // To unlock the near-membrane symbol flag first perform a
+                    // has() trap check.
                     expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue).toBe(false);
                     // Next, perform a get() trap call.
                     expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
                         expectedSerialized
                     );
-                    // Performing a get() trap call without first performing a has()
-                    // trap check will produce `undefined`.
+                    // Performing a get() trap call without first performing a
+                    // has() trap check will produce `undefined`.
                     expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
                         undefined
                     );
@@ -495,15 +495,15 @@ describe('@@lockerNearMembraneSerializedValue', () => {
                 },
                 takeOutside(insideValue, expectedSerialized) {
                     // Test blue proxies.
-                    // To unlock the near-membrane symbol gate first perform a has()
-                    // trap check.
+                    // To unlock the near-membrane symbol flag first perform a
+                    // has() trap check.
                     expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue).toBe(false);
                     // Next, perform a get() trap call.
                     expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
                         expectedSerialized
                     );
-                    // Performing a get() trap call without first performing a has()
-                    // trap check will produce `undefined`.
+                    // Performing a get() trap call without first performing a
+                    // has() trap check will produce `undefined`.
                     expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
                         undefined
                     );
@@ -752,15 +752,15 @@ describe('@@lockerNearMembraneSerializedValue', () => {
                 },
                 takeOutside(insideValue, expectedSerialized) {
                     // Test blue proxies.
-                    // To unlock the near-membrane symbol gate first perform a has()
-                    // trap check.
+                    // To unlock the near-membrane symbol flag first perform a
+                    // has() trap check.
                     expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue).toBe(false);
                     // Next, perform a get() trap call.
                     expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
                         expectedSerialized
                     );
-                    // Performing a get() trap call without first performing a has()
-                    // trap check will produce `undefined`.
+                    // Performing a get() trap call without first performing a
+                    // has() trap check will produce `undefined`.
                     expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
                         undefined
                     );
