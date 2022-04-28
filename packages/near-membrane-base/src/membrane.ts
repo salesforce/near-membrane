@@ -237,8 +237,8 @@ export function createMembraneMarshall(
     // is used for light weight initialization time debug while phase two is
     // reserved for post initialization runtime.
     const LOCKER_UNMINIFIED_FLAG = `${() => /* $LWS */ 1}`.includes('*');
-    // Lazily define phase two debug mode flag in `updateDebugMode()`.
-    let LOCKER_DEBUG_MODE_FLAG: boolean | undefined = LOCKER_UNMINIFIED_FLAG && undefined;
+    // Indicate whether debug support is available.
+    const LOCKER_DEBUGGABLE_FLAG = LOCKER_UNMINIFIED_FLAG && !IS_IN_SHADOW_REALM;
     // BigInt is not supported in Safari 13.1.
     // https://caniuse.com/bigint
     const SUPPORTS_BIG_INT = typeof BigInt === 'function';
@@ -790,6 +790,25 @@ export function createMembraneMarshall(
                   }
               }
             : noop;
+
+        let checkDebugMode = LOCKER_DEBUGGABLE_FLAG
+            ? () => {
+                  try {
+                      if (
+                          ReflectApply(ObjectProtoHasOwnProperty, globalThisRef, [
+                              LOCKER_DEBUG_MODE_SYMBOL,
+                          ])
+                      ) {
+                          checkDebugMode = () => true;
+                          installErrorPrepareStackTrace();
+                          foreignCallableInstallErrorPrepareStackTrace();
+                      }
+                  } catch {
+                      checkDebugMode = alwaysFalse;
+                  }
+                  return false;
+              }
+            : alwaysFalse;
 
         function copyForeignOwnPropertyDescriptorsAndPrototypeToShadowTarget(
             foreignTargetPointer: Pointer,
@@ -1823,28 +1842,6 @@ export function createMembraneMarshall(
               }
             : noop;
 
-        let updateDebugMode = !IS_IN_SHADOW_REALM
-            ? () => {
-                  try {
-                      if (
-                          LOCKER_DEBUG_MODE_FLAG === undefined &&
-                          ReflectApply(ObjectProtoHasOwnProperty, globalThisRef, [
-                              LOCKER_DEBUG_MODE_SYMBOL,
-                          ])
-                      ) {
-                          LOCKER_DEBUG_MODE_FLAG = true;
-                          updateDebugMode = () => true;
-                          installErrorPrepareStackTrace();
-                          foreignCallableInstallErrorPrepareStackTrace();
-                      }
-                  } catch {
-                      LOCKER_DEBUG_MODE_FLAG = false;
-                      updateDebugMode = alwaysFalse;
-                  }
-                  return LOCKER_DEBUG_MODE_FLAG ?? false;
-              }
-            : alwaysFalse;
-
         function lockShadowTarget(shadowTarget: ShadowTarget, foreignTargetPointer: Pointer): void {
             copyForeignOwnPropertyDescriptorsAndPrototypeToShadowTarget(
                 foreignTargetPointer,
@@ -2051,8 +2048,8 @@ export function createMembraneMarshall(
         }
 
         function pushErrorAcrossBoundary(error: any): any {
-            if (LOCKER_UNMINIFIED_FLAG && !IS_IN_SHADOW_REALM) {
-                updateDebugMode();
+            if (LOCKER_DEBUGGABLE_FLAG) {
+                checkDebugMode();
             }
             // Inline getTransferableValue().
             if ((typeof error === 'object' && error !== null) || typeof error === 'function') {
@@ -3225,7 +3222,7 @@ export function createMembraneMarshall(
                 }
             },
             // callablePushErrorTarget
-            LOCKER_UNMINIFIED_FLAG && !IS_IN_SHADOW_REALM
+            LOCKER_DEBUGGABLE_FLAG
                 ? (
                       foreignTargetPointer: () => void,
                       foreignTargetTraits: TargetTraits,
@@ -3238,10 +3235,15 @@ export function createMembraneMarshall(
                           foreignTargetFunctionArity,
                           foreignTargetFunctionName
                       );
-                      return () => {
-                          updateDebugMode();
+                      const pointerWrapper = () => {
+                          checkDebugMode();
                           return pointer();
                       };
+                      if (DEV_MODE) {
+                          pointerWrapper['[[OriginalTarget]]'] = pointer['[[OriginalTarget]]'];
+                          pointerWrapper['[[Color]]'] = pointer['[[Color]]'];
+                      }
+                      return pointerWrapper;
                   }
                 : pushTarget,
             // callablePushTarget: This function can be used by a foreign realm
@@ -3665,9 +3667,9 @@ export function createMembraneMarshall(
                 }
             },
             // callableDebugInfo
-            LOCKER_UNMINIFIED_FLAG && !IS_IN_SHADOW_REALM
+            LOCKER_DEBUGGABLE_FLAG
                 ? (...args: Parameters<typeof console.info>) => {
-                      if (updateDebugMode()) {
+                      if (checkDebugMode()) {
                           for (let i = 0, { length } = args; i < length; i += 1) {
                               const pointerOrPrimitive: PointerOrPrimitive = args[i];
                               if (typeof pointerOrPrimitive === 'function') {
