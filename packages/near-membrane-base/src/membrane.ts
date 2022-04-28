@@ -32,6 +32,7 @@ type CallablePushTarget = (
     foreignTargetFunctionArity: number | undefined,
     foreignTargetFunctionName: string | undefined
 ) => Pointer;
+type CallablePushErrorTarget = CallablePushTarget;
 type CallableApply = (
     targetPointer: Pointer,
     thisArgPointerOrUndefined: PointerOrPrimitive,
@@ -79,7 +80,7 @@ type CallableSet = (
     valuePointerOrPrimitive: PointerOrPrimitive,
     receiverPointerOrPrimitive: PointerOrPrimitive
 ) => boolean;
-type CallableDebugInfo = (...args: Parameters<typeof console.info>) => boolean;
+type CallableDebugInfo = (...args: Parameters<typeof console.info>) => void;
 type CallableGetLazyPropertyDescriptorStateByTarget = (
     targetPointer: Pointer
 ) => PointerOrPrimitive;
@@ -152,6 +153,7 @@ export type HooksCallback = (
     callableGetPropertyValuePointer: CallableGetPropertyValuePointer | undefined,
     callableEvaluate: CallableEvaluate | undefined,
     callableLinkPointers: CallableLinkPointers | undefined,
+    callablePushErrorTarget: CallablePushErrorTarget,
     callablePushTarget: CallablePushTarget,
     callableApply: CallableApply,
     callableConstruct: CallableConstruct,
@@ -208,13 +210,19 @@ export function createMembraneMarshall(
         typeof globalObjectVirtualizationTarget !== 'object' ||
         globalObjectVirtualizationTarget === null;
     const FLAGS_REG_EXP = IS_IN_SHADOW_REALM ? /\w*$/ : undefined;
-    const LOCKER_DEBUG_MODE_SYMBOL = Symbol.for('@@lockerDebugMode');
+    const LOCKER_DEBUG_MODE_SYMBOL = !IS_IN_SHADOW_REALM
+        ? SymbolFor('@@lockerDebugMode')
+        : undefined;
     const LOCKER_IDENTIFIER_MARKER = '$LWS';
-    const LOCKER_LIVE_VALUE_MARKER_SYMBOL = SymbolFor('@@lockerLiveValue');
-    const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = SymbolFor(
-        '@@lockerNearMembraneSerializedValue'
-    );
-    const LOCKER_NEAR_MEMBRANE_SYMBOL = SymbolFor('@@lockerNearMembrane');
+    const LOCKER_LIVE_VALUE_MARKER_SYMBOL = !IS_IN_SHADOW_REALM
+        ? SymbolFor('@@lockerLiveValue')
+        : undefined;
+    const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = !IS_IN_SHADOW_REALM
+        ? SymbolFor('@@lockerNearMembraneSerializedValue')
+        : undefined;
+    const LOCKER_NEAR_MEMBRANE_SYMBOL = !IS_IN_SHADOW_REALM
+        ? SymbolFor('@@lockerNearMembrane')
+        : undefined;
     const LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL = SymbolFor(
         '@@lockerNearMembraneUndefinedValue'
     );
@@ -229,8 +237,7 @@ export function createMembraneMarshall(
     // is used for light weight initialization time debug while phase two is
     // reserved for post initialization runtime.
     const LOCKER_UNMINIFIED_FLAG = `${() => /* $LWS */ 1}`.includes('*');
-    // Lazily define phase two debug mode flag in
-    // `BoundaryProxyHandler.prototype.makeProxyStatic()`.
+    // Lazily define phase two debug mode flag in `updateDebugMode()`.
     let LOCKER_DEBUG_MODE_FLAG: boolean | undefined = LOCKER_UNMINIFIED_FLAG && undefined;
     // BigInt is not supported in Safari 13.1.
     // https://caniuse.com/bigint
@@ -320,9 +327,13 @@ export function createMembraneMarshall(
     const { valueOf: SymbolProtoValueOf } = SymbolCtor.prototype;
     // eslint-disable-next-line @typescript-eslint/no-shadow, no-shadow
     const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMapCtor.prototype;
-    const consoleRef = console;
-    const { info: consoleInfoRef } = consoleRef;
-    const localEval = eval;
+    const consoleObject =
+        !IS_IN_SHADOW_REALM && typeof console === 'object' && console !== null
+            ? console
+            : undefined;
+    const consoleInfo = consoleObject?.info;
+    const localEval = IS_IN_SHADOW_REALM ? eval : undefined;
+
     const globalThisRef =
         globalObjectVirtualizationTarget ??
         // Support for globalThis was added in Chrome 71.
@@ -707,6 +718,7 @@ export function createMembraneMarshall(
             ? instrumentation!.startActivity
             : undefined;
 
+        let foreignCallablePushErrorTarget: CallablePushErrorTarget;
         let foreignCallablePushTarget: CallablePushTarget;
         let foreignCallableApply: CallableApply;
         let foreignCallableConstruct: CallableConstruct;
@@ -1449,7 +1461,10 @@ export function createMembraneMarshall(
               }
             : noop;
 
-        function getTransferablePointer(originalTarget: ProxyTarget): Pointer {
+        function getTransferablePointer(
+            originalTarget: ProxyTarget,
+            foreignCallablePusher = foreignCallablePushTarget
+        ): Pointer {
             let proxyPointer = ReflectApply(WeakMapProtoGet, proxyTargetToPointerMap, [
                 originalTarget,
             ]);
@@ -1509,7 +1524,7 @@ export function createMembraneMarshall(
                     // eslint-disable-next-line no-empty
                 } catch {}
             }
-            proxyPointer = foreignCallablePushTarget(
+            proxyPointer = foreignCallablePusher(
                 createPointer(distortedTarget),
                 targetTraits,
                 targetFunctionArity,
@@ -1808,6 +1823,28 @@ export function createMembraneMarshall(
               }
             : noop;
 
+        let updateDebugMode = !IS_IN_SHADOW_REALM
+            ? () => {
+                  try {
+                      if (
+                          LOCKER_DEBUG_MODE_FLAG === undefined &&
+                          ReflectApply(ObjectProtoHasOwnProperty, globalThisRef, [
+                              LOCKER_DEBUG_MODE_SYMBOL,
+                          ])
+                      ) {
+                          LOCKER_DEBUG_MODE_FLAG = true;
+                          updateDebugMode = () => true;
+                          installErrorPrepareStackTrace();
+                          foreignCallableInstallErrorPrepareStackTrace();
+                      }
+                  } catch {
+                      LOCKER_DEBUG_MODE_FLAG = false;
+                      updateDebugMode = alwaysFalse;
+                  }
+                  return LOCKER_DEBUG_MODE_FLAG ?? false;
+              }
+            : alwaysFalse;
+
         function lockShadowTarget(shadowTarget: ShadowTarget, foreignTargetPointer: Pointer): void {
             copyForeignOwnPropertyDescriptorsAndPrototypeToShadowTarget(
                 foreignTargetPointer,
@@ -2014,12 +2051,34 @@ export function createMembraneMarshall(
         }
 
         function pushErrorAcrossBoundary(error: any): any {
+            if (LOCKER_UNMINIFIED_FLAG && !IS_IN_SHADOW_REALM) {
+                updateDebugMode();
+            }
             // Inline getTransferableValue().
             if ((typeof error === 'object' && error !== null) || typeof error === 'function') {
-                const foreignErrorPointer = getTransferablePointer(error);
+                const foreignErrorPointer = getTransferablePointer(
+                    error,
+                    foreignCallablePushErrorTarget
+                );
                 foreignErrorPointer();
             }
             return error;
+        }
+
+        function pushTarget(
+            foreignTargetPointer: () => void,
+            foreignTargetTraits: TargetTraits,
+            foreignTargetFunctionArity: number | undefined,
+            foreignTargetFunctionName: string | undefined
+        ): Pointer {
+            const { proxy } = new BoundaryProxyHandler(
+                foreignTargetPointer,
+                foreignTargetTraits,
+                foreignTargetFunctionArity,
+                foreignTargetFunctionName
+            );
+            ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [proxy, foreignTargetPointer]);
+            return createPointer(proxy);
         }
 
         const setLazyPropertyDescriptorStateByTarget = IS_IN_SHADOW_REALM
@@ -2336,10 +2395,10 @@ export function createMembraneMarshall(
                     ObjectSeal(shadowTarget);
                 } else if (targetIntegrityTraits & TargetIntegrityTraits.IsNotExtensible) {
                     ReflectPreventExtensions(shadowTarget);
-                } else if (LOCKER_DEBUG_MODE_FLAG !== false) {
+                } else if (LOCKER_UNMINIFIED_FLAG) {
                     // We don't wrap `foreignCallableDebugInfo()` in a try-catch
                     // because it cannot throw.
-                    LOCKER_DEBUG_MODE_FLAG = foreignCallableDebugInfo(
+                    foreignCallableDebugInfo(
                         'Mutations on the membrane of an object originating ' +
                             'outside of the sandbox will not be reflected on ' +
                             'the object itself:',
@@ -2762,7 +2821,7 @@ export function createMembraneMarshall(
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                     activity = startActivity('[Native Reflect.ownKeys]');
                 }
-                let ownKeys: ReturnType<typeof Reflect.ownKeys>;
+                let ownKeys: ReturnType<typeof Reflect.ownKeys> | undefined;
                 try {
                     foreignCallableOwnKeys(this.foreignTargetPointer, (...args) => {
                         ownKeys = args;
@@ -2778,7 +2837,6 @@ export function createMembraneMarshall(
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                     activity.stop();
                 }
-                // @ts-ignore: Prevent used before assignment error.
                 return ownKeys || [];
             }
 
@@ -3142,7 +3200,7 @@ export function createMembraneMarshall(
             IS_IN_SHADOW_REALM
                 ? (sourceText: string): PointerOrPrimitive => {
                       try {
-                          const result = localEval(sourceText);
+                          const result = localEval!(sourceText);
                           // Inline getTransferableValue().
                           return (typeof result === 'object' && result !== null) ||
                               typeof result === 'function'
@@ -3166,6 +3224,26 @@ export function createMembraneMarshall(
                     ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [target, newPointer]);
                 }
             },
+            // callablePushErrorTarget
+            LOCKER_UNMINIFIED_FLAG && !IS_IN_SHADOW_REALM
+                ? (
+                      foreignTargetPointer: () => void,
+                      foreignTargetTraits: TargetTraits,
+                      foreignTargetFunctionArity: number | undefined,
+                      foreignTargetFunctionName: string | undefined
+                  ): Pointer => {
+                      const pointer = pushTarget(
+                          foreignTargetPointer,
+                          foreignTargetTraits,
+                          foreignTargetFunctionArity,
+                          foreignTargetFunctionName
+                      );
+                      return () => {
+                          updateDebugMode();
+                          return pointer();
+                      };
+                  }
+                : pushTarget,
             // callablePushTarget: This function can be used by a foreign realm
             // to install a proxy into this realm that correspond to an object
             // from the foreign realm. It returns a Pointer that can be used by
@@ -3173,24 +3251,7 @@ export function createMembraneMarshall(
             // passing arguments or returning from a foreign callable invocation.
             // This function is extremely important to understand the mechanics
             // of this membrane.
-            (
-                foreignTargetPointer: () => void,
-                foreignTargetTraits: TargetTraits,
-                foreignTargetFunctionArity: number | undefined,
-                foreignTargetFunctionName: string | undefined
-            ): Pointer => {
-                const { proxy } = new BoundaryProxyHandler(
-                    foreignTargetPointer,
-                    foreignTargetTraits,
-                    foreignTargetFunctionArity,
-                    foreignTargetFunctionName
-                );
-                ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [
-                    proxy,
-                    foreignTargetPointer,
-                ]);
-                return createPointer(proxy);
-            },
+            pushTarget,
             // callableApply
             (
                 targetPointer: Pointer,
@@ -3605,22 +3666,8 @@ export function createMembraneMarshall(
             },
             // callableDebugInfo
             LOCKER_UNMINIFIED_FLAG && !IS_IN_SHADOW_REALM
-                ? (...args: Parameters<typeof console.info>): boolean => {
-                      if (LOCKER_DEBUG_MODE_FLAG === undefined) {
-                          LOCKER_DEBUG_MODE_FLAG = ReflectApply(
-                              ObjectProtoHasOwnProperty,
-                              globalThisRef,
-                              [LOCKER_DEBUG_MODE_SYMBOL]
-                          );
-                          if (LOCKER_DEBUG_MODE_FLAG) {
-                              try {
-                                  installErrorPrepareStackTrace();
-                                  foreignCallableInstallErrorPrepareStackTrace();
-                                  // eslint-disable-next-line no-empty
-                              } catch {}
-                          }
-                      }
-                      if (LOCKER_DEBUG_MODE_FLAG) {
+                ? (...args: Parameters<typeof console.info>) => {
+                      if (updateDebugMode()) {
                           for (let i = 0, { length } = args; i < length; i += 1) {
                               const pointerOrPrimitive: PointerOrPrimitive = args[i];
                               if (typeof pointerOrPrimitive === 'function') {
@@ -3630,12 +3677,10 @@ export function createMembraneMarshall(
                               }
                           }
                           try {
-                              ReflectApply(consoleInfoRef, consoleRef, args);
+                              ReflectApply(consoleInfo!, consoleObject, args);
                               // eslint-disable-next-line no-empty
                           } catch {}
-                          return true;
                       }
-                      return false;
                   }
                 : ((() => false) as unknown as CallableDebugInfo),
             // callableDefineProperties
@@ -4104,34 +4149,35 @@ export function createMembraneMarshall(
                 // 3: callableGetPropertyValuePointer,
                 // 4: callableEvaluate,
                 // 5: callableLinkPointers,
-                6: foreignCallablePushTarget,
-                7: foreignCallableApply,
-                8: foreignCallableConstruct,
-                9: foreignCallableDefineProperty,
-                10: foreignCallableDeleteProperty,
-                11: foreignCallableGet,
-                12: foreignCallableGetOwnPropertyDescriptor,
-                13: foreignCallableGetPrototypeOf,
-                14: foreignCallableHas,
-                15: foreignCallableIsExtensible,
-                16: foreignCallableOwnKeys,
-                17: foreignCallablePreventExtensions,
-                18: foreignCallableSet,
-                19: foreignCallableSetPrototypeOf,
-                20: foreignCallableDebugInfo,
-                // 21: callableDefineProperties,
-                22: foreignCallableGetLazyPropertyDescriptorStateByTarget,
-                23: foreignCallableGetTargetIntegrityTraits,
-                24: foreignCallableGetToStringTagOfTarget,
-                25: foreignCallableInstallErrorPrepareStackTrace,
-                // 26: callableInstallLazyPropertyDescriptors,
-                27: foreignCallableIsTargetLive,
-                28: foreignCallableIsTargetRevoked,
-                29: foreignCallableSerializeTarget,
-                30: foreignCallableSetLazyPropertyDescriptorStateByTarget,
-                31: foreignCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
-                32: foreignCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
-                33: foreignCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
+                6: foreignCallablePushErrorTarget,
+                7: foreignCallablePushTarget,
+                8: foreignCallableApply,
+                9: foreignCallableConstruct,
+                10: foreignCallableDefineProperty,
+                11: foreignCallableDeleteProperty,
+                12: foreignCallableGet,
+                13: foreignCallableGetOwnPropertyDescriptor,
+                14: foreignCallableGetPrototypeOf,
+                15: foreignCallableHas,
+                16: foreignCallableIsExtensible,
+                17: foreignCallableOwnKeys,
+                18: foreignCallablePreventExtensions,
+                19: foreignCallableSet,
+                20: foreignCallableSetPrototypeOf,
+                21: foreignCallableDebugInfo,
+                // 22: callableDefineProperties,
+                23: foreignCallableGetLazyPropertyDescriptorStateByTarget,
+                24: foreignCallableGetTargetIntegrityTraits,
+                25: foreignCallableGetToStringTagOfTarget,
+                26: foreignCallableInstallErrorPrepareStackTrace,
+                // 27: callableInstallLazyPropertyDescriptors,
+                28: foreignCallableIsTargetLive,
+                29: foreignCallableIsTargetRevoked,
+                30: foreignCallableSerializeTarget,
+                31: foreignCallableSetLazyPropertyDescriptorStateByTarget,
+                32: foreignCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
+                33: foreignCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
+                34: foreignCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
             } = hooks);
             const applyTrapForZeroOrMoreArgs = createApplyOrConstructTrapForZeroOrMoreArgs(
                 ProxyHandlerTraps.Apply
