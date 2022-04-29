@@ -518,7 +518,7 @@ export function createMembraneMarshall(
                   ErrorCtor.stackTraceLimit = LOCKER_STACK_TRACE_LIMIT;
               }
           }
-        : (noop as unknown as CallableInstallErrorPrepareStackTrace);
+        : (noop as CallableInstallErrorPrepareStackTrace);
 
     function noop() {
         // No-operation.
@@ -3168,7 +3168,7 @@ export function createMembraneMarshall(
                       selectedTarget = undefined;
                       return result;
                   }
-                : (noop as unknown as GetSelectedTarget),
+                : (noop as GetSelectedTarget),
             // getTransferableValue
             (value: any): PointerOrPrimitive => {
                 if ((typeof value === 'object' && value !== null) || typeof value === 'function') {
@@ -3207,7 +3207,7 @@ export function createMembraneMarshall(
                           throw pushErrorAcrossBoundary(error);
                       }
                   }
-                : (noop as unknown as CallableEvaluate),
+                : (noop as CallableEvaluate),
             // callableLinkPointers: this callable function allows the foreign
             // realm to define a linkage between two values across the membrane.
             (targetPointer: Pointer, newPointer: Pointer) => {
@@ -3684,7 +3684,7 @@ export function createMembraneMarshall(
                           } catch {}
                       }
                   }
-                : ((() => false) as unknown as CallableDebugInfo),
+                : (noop as CallableDebugInfo),
             // callableDefineProperties
             IS_IN_SHADOW_REALM
                 ? (
@@ -3712,7 +3712,7 @@ export function createMembraneMarshall(
                           );
                       }
                   }
-                : (noop as unknown as CallableDefineProperties),
+                : (noop as CallableDefineProperties),
             // callableGetLazyPropertyDescriptorStateByTarget
             !IS_IN_SHADOW_REALM
                 ? (targetPointer: Pointer) => {
@@ -3728,7 +3728,7 @@ export function createMembraneMarshall(
                       );
                       return state ? getTransferablePointer(state) : state;
                   }
-                : (noop as unknown as CallableGetLazyPropertyDescriptorStateByTarget),
+                : (noop as CallableGetLazyPropertyDescriptorStateByTarget),
             // callableGetTargetIntegrityTraits
             !IS_IN_SHADOW_REALM
                 ? (targetPointer: Pointer): TargetIntegrityTraits => {
@@ -3763,8 +3763,7 @@ export function createMembraneMarshall(
                       }
                       return TargetIntegrityTraits.None;
                   }
-                : ((() =>
-                      TargetIntegrityTraits.None) as unknown as CallableGetTargetIntegrityTraits),
+                : ((() => TargetIntegrityTraits.None) as CallableGetTargetIntegrityTraits),
             // callableGetToStringTagOfTarget
             (targetPointer: Pointer): string => {
                 targetPointer();
@@ -3852,7 +3851,7 @@ export function createMembraneMarshall(
                       }
                       installPropertyDescriptorMethodWrappers(unforgeableGlobalThisKeys);
                   }
-                : (noop as unknown as CallableInstallLazyPropertyDescriptors),
+                : (noop as CallableInstallLazyPropertyDescriptors),
             // callableIsTargetLive
             !IS_IN_SHADOW_REALM
                 ? (targetPointer: Pointer): boolean => {
@@ -3913,7 +3912,7 @@ export function createMembraneMarshall(
                       } catch {}
                       return false;
                   }
-                : (alwaysFalse as unknown as CallableIsTargetLive),
+                : (alwaysFalse as CallableIsTargetLive),
             // callableIsTargetRevoked
             !IS_IN_SHADOW_REALM
                 ? (targetPointer: Pointer): boolean => {
@@ -3927,7 +3926,7 @@ export function createMembraneMarshall(
                       } catch {}
                       return true;
                   }
-                : (alwaysFalse as unknown as CallableIsTargetRevoked),
+                : (alwaysFalse as CallableIsTargetRevoked),
             // callableSerializeTarget
             IS_IN_SHADOW_REALM
                 ? (targetPointer: Pointer): SerializedValue | undefined => {
@@ -3943,7 +3942,7 @@ export function createMembraneMarshall(
                       } catch {}
                       return undefined;
                   }
-                : (noop as unknown as CallableSerializeTarget),
+                : (noop as CallableSerializeTarget),
             // callableSetLazyPropertyDescriptorStateByTarget
             !IS_IN_SHADOW_REALM
                 ? (targetPointer: Pointer, statePointer: Pointer) => {
@@ -3961,7 +3960,7 @@ export function createMembraneMarshall(
                           [target, state]
                       );
                   }
-                : (noop as unknown as CallableSetLazyPropertyDescriptorStateByTarget),
+                : (noop as CallableSetLazyPropertyDescriptorStateByTarget),
             // callableBatchGetPrototypeOfAndGetOwnPropertyDescriptors
             (
                 targetPointer: Pointer,
@@ -3980,7 +3979,7 @@ export function createMembraneMarshall(
                 const { length } = ownKeys;
                 const descriptorTuples = new ArrayCtor(
                     length * 7
-                ) as unknown as Parameters<CallableDescriptorCallback>;
+                ) as Parameters<CallableDescriptorCallback>;
                 for (let i = 0, j = 0; i < length; i += 1, j += 7) {
                     const ownKey = ownKeys[i];
                     const safeDesc = (unsafeDescMap as any)[ownKey];
