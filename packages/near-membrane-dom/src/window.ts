@@ -3,6 +3,7 @@ import { PropertyKeys } from '@locker/near-membrane-base';
 const WeakMapCtor = WeakMap;
 const {
     apply: ReflectApply,
+    deleteProperty: ReflectDeleteProperty,
     getPrototypeOf: ReflectGetPrototypeOf,
     ownKeys: ReflectOwnKeys,
 } = Reflect;
@@ -141,11 +142,11 @@ export function filterWindowKeys(keys: PropertyKeys): PropertyKeys {
  */
 export function removeWindowDescriptors<T extends PropertyDescriptorMap>(unsafeDescMap: T): T {
     // Remove unforgeable descriptors that cannot be installed.
-    delete unsafeDescMap.document;
-    delete unsafeDescMap.location;
-    delete unsafeDescMap.top;
-    delete unsafeDescMap.window;
+    ReflectDeleteProperty(unsafeDescMap, 'document');
+    ReflectDeleteProperty(unsafeDescMap, 'location');
+    ReflectDeleteProperty(unsafeDescMap, 'top');
+    ReflectDeleteProperty(unsafeDescMap, 'window');
     // Remove other browser specific unforgeables.
-    delete unsafeDescMap.chrome;
+    ReflectDeleteProperty(unsafeDescMap, 'chrome');
     return unsafeDescMap;
 }
