@@ -416,13 +416,17 @@ export function createMembraneMarshall(
               // Feature detect the V8 stack trace API.
               // https://v8.dev/docs/stack-trace-api
               const CallSite = ((): Function | undefined => {
-                  ErrorCtor.prepareStackTrace = (_error: Error, callSites: NodeJS.CallSite[]) =>
-                      callSites;
-                  const callSites = new ErrorCtor().stack as string | NodeJS.CallSite[];
-                  delete ErrorCtor.prepareStackTrace;
-                  return isArrayOrThrowForRevoked(callSites) && callSites.length > 0
-                      ? callSites[0]?.constructor
-                      : undefined;
+                  try {
+                      ErrorCtor.prepareStackTrace = (_error: Error, callSites: NodeJS.CallSite[]) =>
+                          callSites;
+                      const callSites = new ErrorCtor().stack as string | NodeJS.CallSite[];
+                      ReflectDeleteProperty(ErrorCtor, 'prepareStackTrace');
+                      return isArrayOrThrowForRevoked(callSites) && callSites.length > 0
+                          ? callSites[0]?.constructor
+                          : undefined;
+                      // eslint-disable-next-line no-empty
+                  } catch {}
+                  return undefined;
               })();
               if (typeof CallSite !== 'function') {
                   return;
@@ -501,22 +505,28 @@ export function createMembraneMarshall(
                   }
                   return stackTrace;
               };
-              // Error.prepareStackTrace cannot be a bound or proxy wrapped
-              // function, so to obscure its source we wrap the call to
-              // formatStackTrace().
-              ErrorCtor.prepareStackTrace = function prepareStackTrace(
-                  error: Error,
-                  callSites: NodeJS.CallSite[]
-              ) {
-                  return formatStackTrace(error, callSites);
-              };
-              const { stackTraceLimit } = ErrorCtor;
-              if (
-                  typeof stackTraceLimit !== 'number' ||
-                  stackTraceLimit < LOCKER_STACK_TRACE_LIMIT
-              ) {
-                  ErrorCtor.stackTraceLimit = LOCKER_STACK_TRACE_LIMIT;
-              }
+              try {
+                  // Error.prepareStackTrace cannot be a bound or proxy wrapped
+                  // function, so to obscure its source we wrap the call to
+                  // formatStackTrace().
+                  ErrorCtor.prepareStackTrace = function prepareStackTrace(
+                      error: Error,
+                      callSites: NodeJS.CallSite[]
+                  ) {
+                      return formatStackTrace(error, callSites);
+                  };
+                  // eslint-disable-next-line no-empty
+              } catch {}
+              try {
+                  const { stackTraceLimit } = ErrorCtor;
+                  if (
+                      typeof stackTraceLimit !== 'number' ||
+                      stackTraceLimit < LOCKER_STACK_TRACE_LIMIT
+                  ) {
+                      ErrorCtor.stackTraceLimit = LOCKER_STACK_TRACE_LIMIT;
+                  }
+                  // eslint-disable-next-line no-empty
+              } catch {}
           }
         : (noop as CallableInstallErrorPrepareStackTrace);
 
@@ -786,7 +796,7 @@ export function createMembraneMarshall(
                   if (safeDesc) {
                       ReflectDefineProperty(target, key, safeDesc);
                   } else {
-                      delete target[key];
+                      ReflectDeleteProperty(target, key);
                   }
               }
             : noop;
@@ -1801,44 +1811,67 @@ export function createMembraneMarshall(
                                       if (unsafeDesc) {
                                           unsafeDescMap[ownKey] = unsafeDesc;
                                       } else if (!isFixingChromeBug) {
-                                          delete unsafeDescMap[ownKey];
+                                          ReflectDeleteProperty(unsafeDescMap, ownKey);
                                       }
                                   }
                               }
                               return unsafeDescMap;
                           },
                       }) as typeof Object.getOwnPropertyDescriptors;
-
-                  ReflectRef.defineProperty = wrapDefineAccessOrProperty(
-                      ReflectDefineProperty
-                  ) as typeof Reflect.defineProperty;
-                  ReflectRef.getOwnPropertyDescriptor = wrapGetOwnPropertyDescriptor(
-                      ReflectGetOwnPropertyDescriptor
-                  );
-                  ObjectCtor.getOwnPropertyDescriptor = wrapGetOwnPropertyDescriptor(
-                      ObjectGetOwnPropertyDescriptor
-                  );
-                  ObjectCtor.getOwnPropertyDescriptors = wrapGetOwnPropertyDescriptors(
-                      ObjectGetOwnPropertyDescriptors
-                  );
-                  // eslint-disable-next-line @typescript-eslint/naming-convention, no-restricted-properties, no-underscore-dangle
-                  (ObjectProto as any).__defineGetter__ = wrapDefineAccessOrProperty(
-                      ObjectProto__defineGetter__
-                  );
-                  // eslint-disable-next-line @typescript-eslint/naming-convention, no-restricted-properties, no-underscore-dangle
-                  (ObjectProto as any).__defineSetter__ = wrapDefineAccessOrProperty(
-                      ObjectProto__defineSetter__
-                  );
-                  // eslint-disable-next-line @typescript-eslint/naming-convention, no-underscore-dangle
-                  (ObjectProto as any).__lookupGetter__ = wrapLookupAccessor(
-                      ObjectProto__lookupGetter__,
-                      lookupFixedGetter
-                  );
-                  // eslint-disable-next-line @typescript-eslint/naming-convention, no-underscore-dangle
-                  (ObjectProto as any).__lookupSetter__ = wrapLookupAccessor(
-                      ObjectProto__lookupSetter__,
-                      lookupFixedSetter
-                  );
+                  try {
+                      ReflectRef.defineProperty = wrapDefineAccessOrProperty(
+                          ReflectDefineProperty
+                      ) as typeof Reflect.defineProperty;
+                      // eslint-disable-next-line no-empty
+                  } catch {}
+                  try {
+                      ReflectRef.getOwnPropertyDescriptor = wrapGetOwnPropertyDescriptor(
+                          ReflectGetOwnPropertyDescriptor
+                      );
+                      // eslint-disable-next-line no-empty
+                  } catch {}
+                  try {
+                      ObjectCtor.getOwnPropertyDescriptor = wrapGetOwnPropertyDescriptor(
+                          ObjectGetOwnPropertyDescriptor
+                      );
+                      // eslint-disable-next-line no-empty
+                  } catch {}
+                  try {
+                      ObjectCtor.getOwnPropertyDescriptors = wrapGetOwnPropertyDescriptors(
+                          ObjectGetOwnPropertyDescriptors
+                      );
+                      // eslint-disable-next-line no-empty
+                  } catch {}
+                  try {
+                      // eslint-disable-next-line @typescript-eslint/naming-convention, no-restricted-properties, no-underscore-dangle
+                      (ObjectProto as any).__defineGetter__ = wrapDefineAccessOrProperty(
+                          ObjectProto__defineGetter__
+                      );
+                      // eslint-disable-next-line no-empty
+                  } catch {}
+                  try {
+                      // eslint-disable-next-line @typescript-eslint/naming-convention, no-restricted-properties, no-underscore-dangle
+                      (ObjectProto as any).__defineSetter__ = wrapDefineAccessOrProperty(
+                          ObjectProto__defineSetter__
+                      );
+                      // eslint-disable-next-line no-empty
+                  } catch {}
+                  try {
+                      // eslint-disable-next-line @typescript-eslint/naming-convention, no-underscore-dangle
+                      (ObjectProto as any).__lookupGetter__ = wrapLookupAccessor(
+                          ObjectProto__lookupGetter__,
+                          lookupFixedGetter
+                      );
+                      // eslint-disable-next-line no-empty
+                  } catch {}
+                  try {
+                      // eslint-disable-next-line @typescript-eslint/naming-convention, no-underscore-dangle
+                      (ObjectProto as any).__lookupSetter__ = wrapLookupAccessor(
+                          ObjectProto__lookupSetter__,
+                          lookupFixedSetter
+                      );
+                      // eslint-disable-next-line no-empty
+                  } catch {}
               }
             : noop;
 
@@ -2388,33 +2421,26 @@ export function createMembraneMarshall(
                 // Preserve the semantics of the target.
                 if (targetIntegrityTraits & TargetIntegrityTraits.IsFrozen) {
                     ObjectFreeze(shadowTarget);
-                } else if (targetIntegrityTraits & TargetIntegrityTraits.IsSealed) {
-                    ObjectSeal(shadowTarget);
-                } else if (targetIntegrityTraits & TargetIntegrityTraits.IsNotExtensible) {
-                    ReflectPreventExtensions(shadowTarget);
-                } else if (LOCKER_UNMINIFIED_FLAG) {
-                    // We don't wrap `foreignCallableDebugInfo()` in a try-catch
-                    // because it cannot throw.
-                    foreignCallableDebugInfo(
-                        'Mutations on the membrane of an object originating ' +
-                            'outside of the sandbox will not be reflected on ' +
-                            'the object itself:',
-                        foreignTargetPointer
-                    );
+                } else {
+                    if (targetIntegrityTraits & TargetIntegrityTraits.IsSealed) {
+                        ObjectSeal(shadowTarget);
+                    } else if (targetIntegrityTraits & TargetIntegrityTraits.IsNotExtensible) {
+                        ReflectPreventExtensions(shadowTarget);
+                    }
+                    if (LOCKER_UNMINIFIED_FLAG) {
+                        // We don't wrap `foreignCallableDebugInfo()` in a try-catch
+                        // because it cannot throw.
+                        foreignCallableDebugInfo(
+                            'Mutations on the membrane of an object originating ' +
+                                'outside of the sandbox will not be reflected on ' +
+                                'the object itself:',
+                            foreignTargetPointer
+                        );
+                    }
                 }
                 // Future optimization: Hoping proxies with frozen handlers can
                 // be faster.
                 ObjectFreeze(this);
-            }
-
-            private makeProxyUnambiguous() {
-                // We don't wrap `foreignCallableIsTargetLive()` in a try-catch
-                // because it cannot throw.
-                if (foreignCallableIsTargetLive(this.foreignTargetPointer)) {
-                    this.makeProxyLive();
-                } else {
-                    this.makeProxyStatic();
-                }
             }
 
             // Logic implementation of all traps.
@@ -3002,7 +3028,13 @@ export function createMembraneMarshall(
                       key: PropertyKey,
                       unsafePartialDesc: PropertyDescriptor
                   ): ReturnType<typeof Reflect.defineProperty> {
-                      this.makeProxyUnambiguous();
+                      // We don't wrap `foreignCallableIsTargetLive()` in a
+                      // try-catch because it cannot throw.
+                      if (foreignCallableIsTargetLive(this.foreignTargetPointer)) {
+                          this.makeProxyLive();
+                      } else {
+                          this.makeProxyStatic();
+                      }
                       return this.defineProperty!(shadowTarget, key, unsafePartialDesc);
                   }
                 : (alwaysFalse as typeof Reflect.defineProperty);
@@ -3013,7 +3045,13 @@ export function createMembraneMarshall(
                       shadowTarget: ShadowTarget,
                       key: PropertyKey
                   ): ReturnType<typeof Reflect.deleteProperty> {
-                      this.makeProxyUnambiguous();
+                      // We don't wrap `foreignCallableIsTargetLive()` in a
+                      // try-catch because it cannot throw.
+                      if (foreignCallableIsTargetLive(this.foreignTargetPointer)) {
+                          this.makeProxyLive();
+                      } else {
+                          this.makeProxyStatic();
+                      }
                       return this.deleteProperty!(shadowTarget, key);
                   }
                 : (alwaysFalse as typeof Reflect.deleteProperty);
@@ -3023,7 +3061,13 @@ export function createMembraneMarshall(
                       this: BoundaryProxyHandler,
                       shadowTarget: ShadowTarget
                   ): ReturnType<typeof Reflect.preventExtensions> {
-                      this.makeProxyUnambiguous();
+                      // We don't wrap `foreignCallableIsTargetLive()` in a
+                      // try-catch because it cannot throw.
+                      if (foreignCallableIsTargetLive(this.foreignTargetPointer)) {
+                          this.makeProxyLive();
+                      } else {
+                          this.makeProxyStatic();
+                      }
                       return this.preventExtensions!(shadowTarget);
                   }
                 : (alwaysFalse as typeof Reflect.preventExtensions);
@@ -3034,7 +3078,13 @@ export function createMembraneMarshall(
                       shadowTarget: ShadowTarget,
                       proto: object | null
                   ): ReturnType<typeof Reflect.setPrototypeOf> {
-                      this.makeProxyUnambiguous();
+                      // We don't wrap `foreignCallableIsTargetLive()` in a
+                      // try-catch because it cannot throw.
+                      if (foreignCallableIsTargetLive(this.foreignTargetPointer)) {
+                          this.makeProxyLive();
+                      } else {
+                          this.makeProxyStatic();
+                      }
                       return this.setPrototypeOf!(shadowTarget, proto);
                   }
                 : (alwaysFalse as typeof Reflect.setPrototypeOf);
@@ -3047,7 +3097,13 @@ export function createMembraneMarshall(
                       value: any,
                       receiver: any
                   ): ReturnType<typeof Reflect.set> {
-                      this.makeProxyUnambiguous();
+                      // We don't wrap `foreignCallableIsTargetLive()` in a
+                      // try-catch because it cannot throw.
+                      if (foreignCallableIsTargetLive(this.foreignTargetPointer)) {
+                          this.makeProxyLive();
+                      } else {
+                          this.makeProxyStatic();
+                      }
                       return this.set!(shadowTarget, key, value, receiver);
                   }
                 : (alwaysFalse as typeof Reflect.set);
