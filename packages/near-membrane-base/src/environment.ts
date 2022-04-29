@@ -298,9 +298,7 @@ export class VirtualEnvironment {
         const targetPointer = this.blueGetTransferableValue(target) as Pointer;
         const ownKeys = ReflectOwnKeys(unsafeBlueDescMap);
         const { length } = ownKeys;
-        const args = new ArrayCtor(
-            1 + length * 7
-        ) as unknown as Parameters<CallableDefineProperties>;
+        const args = new ArrayCtor(1 + length * 7) as Parameters<CallableDefineProperties>;
         args[0] = targetPointer;
         for (let i = 0, j = 1; i < length; i += 1, j += 7) {
             const ownKey = ownKeys[i];
