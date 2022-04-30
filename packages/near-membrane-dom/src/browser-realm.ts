@@ -17,7 +17,7 @@ import {
     unforgeablePoisonedWindowKeys,
 } from './window';
 
-interface BrowserEnvironmentOptions {
+export interface BrowserEnvironmentOptions {
     distortionCallback?: DistortionCallback;
     endowments?: PropertyDescriptorMap;
     keepAlive?: boolean;
@@ -76,17 +76,11 @@ function createDetachableIframe(): HTMLIFrameElement {
 }
 
 function createIframeVirtualEnvironment(
-    globalObjectShape: object | null,
-    globalObjectVirtualizationTarget: WindowProxy & typeof globalThis,
+    globalObject: WindowProxy & typeof globalThis,
+    globalObjectShape?: object,
     options?: BrowserEnvironmentOptions
 ): VirtualEnvironment {
-    if (typeof globalObjectShape !== 'object') {
-        throw new TypeErrorCtor('Missing global object shape.');
-    }
-    if (
-        typeof globalObjectVirtualizationTarget !== 'object' ||
-        globalObjectVirtualizationTarget === null
-    ) {
+    if (typeof globalObject !== 'object' || globalObject === null) {
         throw new TypeErrorCtor('Missing global object virtualization target.');
     }
     const {
@@ -102,18 +96,19 @@ function createIframeVirtualEnvironment(
         iframe,
         []
     )!;
-    const shouldUseDefaultGlobalOwnKeys = globalObjectShape === null;
+    const shouldUseDefaultGlobalOwnKeys =
+        typeof globalObjectShape !== 'object' || globalObjectShape === null;
     if (shouldUseDefaultGlobalOwnKeys && defaultGlobalOwnKeys === null) {
         defaultGlobalOwnKeys = filterWindowKeys(getFilteredGlobalOwnKeys(redWindow));
     }
-    const blueRefs = getCachedGlobalObjectReferences(globalObjectVirtualizationTarget);
+    const blueRefs = getCachedGlobalObjectReferences(globalObject);
     const env = new VirtualEnvironment({
-        blueConnector: createBlueConnector(globalObjectVirtualizationTarget),
+        blueConnector: createBlueConnector(globalObject),
         distortionCallback,
         instrumentation,
         redConnector: createRedConnector(redWindow.eval),
     });
-    linkIntrinsics(env, globalObjectVirtualizationTarget);
+    linkIntrinsics(env, globalObject);
     // window
     // window.document
     // In browsers globalThis is === window.

@@ -11,7 +11,7 @@ import {
 
 import { runInNewContext } from 'vm';
 
-interface NodeEnvironmentOptions {
+export interface NodeEnvironmentOptions {
     distortionCallback?: DistortionCallback;
     endowments?: PropertyDescriptorMap;
     instrumentation?: Instrumentation;
@@ -20,38 +20,32 @@ interface NodeEnvironmentOptions {
 const TypeErrorCtor = TypeError;
 
 export default function createVirtualEnvironment(
+    globalObject: WindowProxy & typeof globalThis,
     globalObjectShape: object,
-    globalObjectVirtualizationTarget: WindowProxy & typeof globalThis,
     options: NodeEnvironmentOptions
 ): VirtualEnvironment {
+    if (typeof globalObject !== 'object' || globalObject === null) {
+        throw new TypeErrorCtor('Missing global object virtualization target.');
+    }
     if (typeof globalObjectShape !== 'object' || globalObjectShape === null) {
         throw new TypeErrorCtor('Missing global object shape.');
-    }
-    if (
-        typeof globalObjectVirtualizationTarget !== 'object' ||
-        globalObjectVirtualizationTarget === null
-    ) {
-        throw new TypeErrorCtor('Missing global object virtualization target.');
     }
     const { distortionCallback, endowments, instrumentation } = {
         __proto__: null,
         ...options,
     } as NodeEnvironmentOptions;
     const env = new VirtualEnvironment({
-        blueConnector: createBlueConnector(globalObjectVirtualizationTarget),
+        blueConnector: createBlueConnector(globalObject),
         distortionCallback,
         instrumentation,
         redConnector: createRedConnector(runInNewContext('globalThis').eval),
     });
-    linkIntrinsics(env, globalObjectVirtualizationTarget);
-    env.lazyRemapProperties(
-        globalObjectVirtualizationTarget,
-        getFilteredGlobalOwnKeys(globalObjectShape)
-    );
+    linkIntrinsics(env, globalObject);
+    env.lazyRemapProperties(globalObject, getFilteredGlobalOwnKeys(globalObjectShape));
     if (endowments) {
         const filteredEndowments = {};
         assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(filteredEndowments, endowments);
-        env.remapProperties(globalObjectVirtualizationTarget, filteredEndowments);
+        env.remapProperties(globalObject, filteredEndowments);
     }
     return env;
 }
