@@ -29,7 +29,7 @@ describe('@@lockerNearMembrane', () => {
         expect.assertions(15);
 
         let takeInside;
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({
                 expect,
                 exposeTakeInside(func) {
@@ -76,7 +76,7 @@ describe('@@lockerNearMembrane', () => {
         expect.assertions(12);
 
         let takeInside;
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({
                 expect,
                 exposeTakeInside(func) {
@@ -141,7 +141,7 @@ describe('@@lockerNearMembrane', () => {
         expect.assertions(15);
 
         let takeInside;
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({
                 expect,
                 exposeTakeInside(func) {
@@ -198,7 +198,7 @@ describe('@@lockerNearMembraneSerializedValue', () => {
         expect.assertions(45);
 
         let takeInside;
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({
                 expect,
                 exposeTakeInside(func) {
@@ -288,12 +288,13 @@ describe('@@lockerNearMembraneSerializedValue', () => {
         const { contentWindow: blueIframeWindow } = iframe;
 
         let bluePairs;
-        let env = createVirtualEnvironment(blueIframeWindow, blueIframeWindow, {
+        let env = createVirtualEnvironment(blueIframeWindow, {
             endowments: Object.getOwnPropertyDescriptors({
                 exposePairs(insidePairs) {
                     bluePairs = insidePairs;
                 },
             }),
+            globalObjectShape: blueIframeWindow,
         });
 
         env.evaluate(`
@@ -324,7 +325,7 @@ describe('@@lockerNearMembraneSerializedValue', () => {
         `);
 
         let takeInside;
-        env = createVirtualEnvironment(window, window, {
+        env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({
                 expect,
                 exposeTakeInside(func) {
@@ -386,7 +387,7 @@ describe('@@lockerNearMembraneSerializedValue', () => {
         expect.assertions(45);
 
         let takeInside;
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({
                 expect,
                 exposeTakeInside(func) {
@@ -487,7 +488,7 @@ describe('@@lockerNearMembraneSerializedValue', () => {
         expect.assertions(10);
 
         let takeInside;
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({
                 expect,
                 exposeTakeInside(func) {
@@ -584,7 +585,7 @@ describe('@@lockerNearMembraneSerializedValue', () => {
         expect.assertions(36);
 
         let takeInside;
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({
                 expect,
                 exposeTakeInside(func) {
@@ -744,7 +745,7 @@ describe('@@lockerNearMembraneSerializedValue', () => {
         expect.assertions(45);
 
         let takeInside;
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({
                 expect,
                 exposeTakeInside(func) {

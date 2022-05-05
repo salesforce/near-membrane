@@ -20,6 +20,7 @@ import {
 export interface BrowserEnvironmentOptions {
     distortionCallback?: DistortionCallback;
     endowments?: PropertyDescriptorMap;
+    globalObjectShape?: object;
     keepAlive?: boolean;
     instrumentation?: Instrumentation;
 }
@@ -77,7 +78,6 @@ function createDetachableIframe(): HTMLIFrameElement {
 
 function createIframeVirtualEnvironment(
     globalObject: WindowProxy & typeof globalThis,
-    globalObjectShape?: object,
     options?: BrowserEnvironmentOptions
 ): VirtualEnvironment {
     if (typeof globalObject !== 'object' || globalObject === null) {
@@ -86,6 +86,7 @@ function createIframeVirtualEnvironment(
     const {
         distortionCallback,
         endowments,
+        globalObjectShape,
         instrumentation,
         keepAlive = false,
         // eslint-disable-next-line prefer-object-spread

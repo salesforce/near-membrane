@@ -2,7 +2,7 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('WeakRef', () => {
     it('behaves correctly with a red realm object', (done) => {
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ done, expect }),
         });
         env.evaluate(`

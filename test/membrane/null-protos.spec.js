@@ -13,7 +13,7 @@ describe('null __proto__', () => {
     it('should work for get trap', () => {
         expect.assertions(4);
 
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ bar, saveFoo, expect }),
         });
 
@@ -32,7 +32,7 @@ describe('null __proto__', () => {
     it('should work for set trap', () => {
         expect.assertions(6);
 
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ bar, saveFoo, expect }),
         });
 
@@ -54,7 +54,7 @@ describe('null __proto__', () => {
     it('should work for has trap', () => {
         expect.assertions(4);
 
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ bar, saveFoo, expect }),
         });
 

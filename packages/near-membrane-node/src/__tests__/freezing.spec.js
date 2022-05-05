@@ -16,7 +16,9 @@ describe('Freezing', () => {
             globalThis.plainObject = { x: 1 };
             Object.freeze(globalThis.plainObject);
 
-            const env = createVirtualEnvironment(globalThis, globalThis);
+            const env = createVirtualEnvironment(globalThis, {
+                globalObjectShape: globalThis,
+            });
 
             // Check the state of plainObject in the blue realm.
             expect(Object.isExtensible(globalThis.plainObject)).toBe(false);
@@ -47,7 +49,9 @@ describe('Freezing', () => {
 
             globalThis.exoticObject = new ExoticObject({ x: 1 });
 
-            const env = createVirtualEnvironment(globalThis, globalThis);
+            const env = createVirtualEnvironment(globalThis, {
+                globalObjectShape: globalThis,
+            });
 
             // Check the state of exoticObject in the sandbox.
             env.evaluate(`
@@ -80,7 +84,9 @@ describe('Freezing', () => {
 
             globalThis.plainObject = { x: 1 };
 
-            const env = createVirtualEnvironment(globalThis, globalThis);
+            const env = createVirtualEnvironment(globalThis, {
+                globalObjectShape: globalThis,
+            });
 
             // Check the state of plainObject in the sandbox.
             env.evaluate(`
@@ -128,7 +134,9 @@ describe('Freezing', () => {
                 }).toThrowError(TypeError);
             };
 
-            const env = createVirtualEnvironment(globalThis, globalThis);
+            const env = createVirtualEnvironment(globalThis, {
+                globalObjectShape: globalThis,
+            });
 
             env.evaluate(`
                 'use strict';

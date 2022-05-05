@@ -2,7 +2,9 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 const LOCKER_LIVE_VALUE_MARKER_SYMBOL = Symbol.for('@@lockerLiveValue');
 
-const env = createVirtualEnvironment(window, window);
+const env = createVirtualEnvironment(window, {
+    endowments: Object.getOwnPropertyDescriptors(window),
+});
 
 describe('@@lockerLiveValue', () => {
     it('applies to HTMLElement.prototype.style', () => {
@@ -44,7 +46,7 @@ describe('@@lockerLiveValue', () => {
                 this.foo++;
             }
         }
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({
                 X,
                 expect,
@@ -99,7 +101,7 @@ describe('@@lockerLiveValue', () => {
                 this.foo++;
             }
         }
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({
                 A,
                 expect,

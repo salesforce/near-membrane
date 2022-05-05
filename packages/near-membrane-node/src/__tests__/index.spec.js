@@ -1,31 +1,33 @@
 import createVirtualEnvironment from '../node-realm';
 
 describe('createVirtualEnvironment', () => {
+    const globalObjectShape = globalThis;
     describe('with default settings', () => {
         describe('throws when', () => {
             it('no globalObject is provided', () => {
                 expect(() => createVirtualEnvironment()).toThrow();
             });
-            it('no globalObjectShape is provided', () => {
-                expect(() => createVirtualEnvironment(globalThis)).toThrow();
-            });
         });
         describe('creates an environment when', () => {
+            it('no globalObjectShape is provided', () => {
+                const env = createVirtualEnvironment(globalThis, { globalObjectShape });
+                expect(() => env.evaluate('')).not.toThrow();
+            });
             it('no options are provided', () => {
-                const env = createVirtualEnvironment(globalThis, globalThis /* no options */);
+                const env = createVirtualEnvironment(globalThis /* no options */);
                 expect(() => env.evaluate('')).not.toThrow();
             });
             it('an empty options object is provided', () => {
-                const env = createVirtualEnvironment(globalThis, globalThis, {});
+                const env = createVirtualEnvironment(globalThis);
                 expect(() => env.evaluate('')).not.toThrow();
             });
             it('object has endowments, but is undefined', () => {
                 let endowments;
-                const env = createVirtualEnvironment(globalThis, globalThis, { endowments });
+                const env = createVirtualEnvironment(globalThis, { endowments });
                 expect(() => env.evaluate('')).not.toThrow();
             });
             it('object has endowments, but is empty', () => {
-                const env = createVirtualEnvironment(globalThis, globalThis, {
+                const env = createVirtualEnvironment(globalThis, {
                     endowments: {},
                 });
                 expect(() => env.evaluate('')).not.toThrow();
@@ -45,8 +47,9 @@ describe('createVirtualEnvironment', () => {
                 expect(a2).toStrictEqual([3, 4]);
             };
 
-            const env = createVirtualEnvironment(globalThis, globalThis, {
+            const env = createVirtualEnvironment(globalThis, {
                 endowments: Object.getOwnPropertyDescriptors({ blueArrayFactory }),
+                globalObjectShape,
             });
 
             env.evaluate(`blueArrayFactory([1, 2], new Array(3, 4))`);
@@ -63,7 +66,7 @@ describe('createVirtualEnvironment', () => {
                 expect(b2.x).toBe(2);
             };
 
-            const env = createVirtualEnvironment(globalThis, globalThis, {
+            const env = createVirtualEnvironment(globalThis, {
                 endowments: Object.getOwnPropertyDescriptors({ blueObjectFactory }),
             });
 
@@ -78,8 +81,9 @@ describe('createVirtualEnvironment', () => {
                 }
             };
 
-            const env = createVirtualEnvironment(globalThis, globalThis, {
+            const env = createVirtualEnvironment(globalThis, {
                 endowments: Object.getOwnPropertyDescriptors({ o }),
+                globalObjectShape,
             });
 
             env.evaluate(`let {blueFn} = o; o.blueFn({ blueFn })`);
@@ -96,7 +100,7 @@ describe('createVirtualEnvironment', () => {
                 b2: Object.create({}, { x: { value: 2 } }),
             };
 
-            const env = createVirtualEnvironment(globalThis, globalThis, {
+            const env = createVirtualEnvironment(globalThis, {
                 endowments: Object.getOwnPropertyDescriptors({ expect, foo }),
             });
 
@@ -120,7 +124,7 @@ describe('createVirtualEnvironment', () => {
                 b2: Object.create({}, { x: { value: 2 } }),
             };
 
-            const env = createVirtualEnvironment(globalThis, globalThis, {
+            const env = createVirtualEnvironment(globalThis, {
                 endowments: Object.getOwnPropertyDescriptors({ expect, foo }),
             });
 
@@ -146,7 +150,7 @@ describe('createVirtualEnvironment', () => {
                 }
             };
 
-            const env = createVirtualEnvironment(globalThis, globalThis, {
+            const env = createVirtualEnvironment(globalThis, {
                 endowments: Object.getOwnPropertyDescriptors({ count, Constructible, expect }),
             });
 

@@ -4,7 +4,7 @@ describe('object-branding', () => {
     it('should get branding of target', () => {
         expect.assertions(28);
 
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
         });
 
@@ -57,7 +57,7 @@ describe('object-branding', () => {
     it('should get branding of with targets with null prototypes', () => {
         expect.assertions(39);
 
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
         });
 

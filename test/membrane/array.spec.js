@@ -9,7 +9,7 @@ function saveFoo(arg) {
 
 describe('arrays', () => {
     it('should preserve the length behavior across the membrane', () => {
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ blue, expect, saveFoo }),
         });
 

@@ -2,7 +2,7 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('Promise', () => {
     it('can be constructed', (done) => {
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ done, expect }),
         });
 
@@ -17,7 +17,7 @@ describe('Promise', () => {
         `);
     });
     it('.resolve() should be supported', (done) => {
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ done, expect }),
         });
 
@@ -30,7 +30,7 @@ describe('Promise', () => {
         `);
     });
     it('.reject() should be supported', (done) => {
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ done, expect }),
         });
 
@@ -43,7 +43,7 @@ describe('Promise', () => {
         `);
     });
     it('throw should be supported with errors', (done) => {
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ done, expect }),
         });
 
@@ -58,7 +58,7 @@ describe('Promise', () => {
         `);
     });
     it('throw should be supported with non-errors', (done) => {
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ done, expect }),
         });
 

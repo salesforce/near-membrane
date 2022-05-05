@@ -8,7 +8,7 @@ class Base {
 }
 
 let Foo;
-createVirtualEnvironment(window, window, {
+createVirtualEnvironment(window, {
     endowments: Object.getOwnPropertyDescriptors({
         Base,
         saveFoo(f) {
@@ -28,7 +28,7 @@ describe('The membrane', () => {
     it('should allow expandos on endowments inside the sandbox', () => {
         expect.assertions(4);
 
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({
                 Foo,
                 expect,

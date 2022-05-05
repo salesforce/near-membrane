@@ -1,10 +1,15 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('Symbols', () => {
+    const envOptions = {
+        endowments: Object.getOwnPropertyDescriptors({ expect }),
+        globalObjectShape: window,
+    };
+
     it('should support symbols', () => {
         expect.assertions(6);
 
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, envOptions);
 
         env.evaluate(`
             expect(typeof Symbol() === 'symbol').toBeTrue();
@@ -23,7 +28,7 @@ describe('Symbols', () => {
         globalThis.symbolWithDescription = Symbol('symbol-with-desc');
         globalThis.symbolWithKey = Symbol.for('symbol-with-key');
 
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, envOptions);
 
         env.evaluate(`
             expect(typeof globalThis.regularSymbol).toBe('symbol');
@@ -37,7 +42,7 @@ describe('Symbols', () => {
         // eslint-disable-next-line symbol-description
         globalThis.regularSymbol = Symbol();
 
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, envOptions);
 
         env.evaluate(`
             expect(globalThis.regularSymbol.constructor).toBe(Symbol);
@@ -47,7 +52,7 @@ describe('Symbols', () => {
     it('should not leak outer realm global reference via Symbol.for()', () => {
         expect.assertions(3);
 
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, envOptions);
 
         env.evaluate(`
             expect(typeof Symbol.for('symbol-with-key')).toBe('symbol');
@@ -67,7 +72,7 @@ describe('Symbols', () => {
             }
         }
 
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ Base, symbol }),
         });
 
