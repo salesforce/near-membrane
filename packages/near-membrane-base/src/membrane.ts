@@ -875,9 +875,7 @@ export function createMembraneMarshall(
 
         function createApplyOrConstructTrapForZeroOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = `[Native Reflect.${
-                isApplyTrap ? 'apply' : 'construct'
-            }(args count: 0)]`;
+            const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(args count: 0)`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
                 : arityToConstructTrapNameRegistry;
@@ -945,9 +943,7 @@ export function createMembraneMarshall(
 
         function createApplyOrConstructTrapForOneOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = `[Native Reflect.${
-                isApplyTrap ? 'apply' : 'construct'
-            }(args count: 1)]`;
+            const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(args count: 1)`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
                 : arityToConstructTrapNameRegistry;
@@ -1025,9 +1021,7 @@ export function createMembraneMarshall(
 
         function createApplyOrConstructTrapForTwoOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = `[Native Reflect.${
-                isApplyTrap ? 'apply' : 'construct'
-            }(args count: 2)]`;
+            const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(args count: 2)`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
                 : arityToConstructTrapNameRegistry;
@@ -1114,9 +1108,7 @@ export function createMembraneMarshall(
 
         function createApplyOrConstructTrapForThreeOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = `[Native Reflect.${
-                isApplyTrap ? 'apply' : 'construct'
-            }(args count: 3)]`;
+            const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(args count: 3)`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
                 : arityToConstructTrapNameRegistry;
@@ -1212,9 +1204,7 @@ export function createMembraneMarshall(
 
         function createApplyOrConstructTrapForFourOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = `[Native Reflect.${
-                isApplyTrap ? 'apply' : 'construct'
-            }(args count: 4)]`;
+            const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(args count: 4)`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
                 : arityToConstructTrapNameRegistry;
@@ -1317,6 +1307,120 @@ export function createMembraneMarshall(
             };
         }
 
+        function createApplyOrConstructTrapForFiveOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
+            const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
+            const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(args count: 5)`;
+            const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
+                ? arityToApplyTrapNameRegistry
+                : arityToConstructTrapNameRegistry;
+            const foreignCallableApplyOrConstruct = isApplyTrap
+                ? foreignCallableApply
+                : foreignCallableConstruct;
+            return function applyOrConstructTrapForTwoOrMoreArgs(
+                this: BoundaryProxyHandler,
+                shadowTarget: ShadowTarget,
+                thisArgOrArgs: any,
+                argsOrNewTarget: any
+            ) {
+                lastProxyTrapCalled = proxyTrapEnum;
+                const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
+                const { length } = args;
+                if (length !== 5) {
+                    return this[
+                        arityToApplyOrConstructTrapNameRegistry[length] ??
+                            arityToApplyOrConstructTrapNameRegistry.n
+                    ](shadowTarget, thisArgOrArgs, argsOrNewTarget);
+                }
+                let activity: any;
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity = startActivity(activityName);
+                }
+                // @ts-ignore: Prevent private property access error.
+                const { foreignTargetPointer } = this;
+                const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
+                let result: any;
+                try {
+                    const { 0: arg0, 1: arg1, 2: arg2, 3: arg3, 4: arg4 } = args;
+                    const pointerOrPrimitive = foreignCallableApplyOrConstruct(
+                        foreignTargetPointer,
+                        // Inline getTransferableValue().
+                        (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
+                            typeof thisArgOrNewTarget === 'function'
+                            ? getTransferablePointer(thisArgOrNewTarget)
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof thisArgOrNewTarget === 'undefined'
+                            ? undefined
+                            : thisArgOrNewTarget,
+                        // Inline getTransferableValue().
+                        (typeof arg0 === 'object' && arg0 !== null) || typeof arg0 === 'function'
+                            ? getTransferablePointer(arg0)
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof arg0 === 'undefined'
+                            ? undefined
+                            : arg0,
+                        // Inline getTransferableValue().
+                        (typeof arg1 === 'object' && arg1 !== null) || typeof arg1 === 'function'
+                            ? getTransferablePointer(arg1)
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof arg1 === 'undefined'
+                            ? undefined
+                            : arg1,
+                        // Inline getTransferableValue().
+                        (typeof arg2 === 'object' && arg2 !== null) || typeof arg2 === 'function'
+                            ? getTransferablePointer(arg2)
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof arg2 === 'undefined'
+                            ? undefined
+                            : arg2,
+                        // Inline getTransferableValue().
+                        (typeof arg3 === 'object' && arg3 !== null) || typeof arg3 === 'function'
+                            ? getTransferablePointer(arg3)
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof arg3 === 'undefined'
+                            ? undefined
+                            : arg3,
+                        // Inline getTransferableValue().
+                        (typeof arg4 === 'object' && arg4 !== null) || typeof arg4 === 'function'
+                            ? getTransferablePointer(arg4)
+                            : // Intentionally ignoring `document.all`.
+                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                            typeof arg4 === 'undefined'
+                            ? undefined
+                            : arg4
+                    );
+                    if (typeof pointerOrPrimitive === 'function') {
+                        pointerOrPrimitive();
+                        result = selectedTarget;
+                        selectedTarget = undefined;
+                    } else {
+                        result = pointerOrPrimitive;
+                    }
+                } catch (error: any) {
+                    const errorToThrow = selectedTarget ?? error;
+                    selectedTarget = undefined;
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.error(errorToThrow);
+                    }
+                    throw errorToThrow;
+                }
+                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    activity.stop();
+                }
+                return result;
+            };
+        }
+
         function createApplyOrConstructTrapForAnyNumberOfArgs(proxyTrapEnum: ProxyHandlerTraps) {
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
             const nativeMethodName = isApplyTrap ? 'apply' : 'construct';
@@ -1337,9 +1441,7 @@ export function createMembraneMarshall(
                 const { length } = args;
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity(
-                        `[Native Reflect.${nativeMethodName}(args count: ${length})]`
-                    );
+                    activity = startActivity(`Reflect.${nativeMethodName}(args count: ${length})`);
                 }
                 const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
                 let combinedOffset = 2;
@@ -1964,7 +2066,7 @@ export function createMembraneMarshall(
         ): boolean {
             let activity: any;
             if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                activity = startActivity('[Native Reflect.set]');
+                activity = startActivity('Reflect.set');
             }
             // Inline getTransferableValue().
             const transferableValue =
@@ -2571,7 +2673,7 @@ export function createMembraneMarshall(
                 lastProxyTrapCalled = ProxyHandlerTraps.DefineProperty;
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('[Native Reflect.defineProperty]');
+                    activity = startActivity('Reflect.defineProperty');
                 }
                 const safePartialDesc = unsafePartialDesc;
                 ReflectSetPrototypeOf(safePartialDesc, null);
@@ -2646,7 +2748,7 @@ export function createMembraneMarshall(
                 lastProxyTrapCalled = ProxyHandlerTraps.DeleteProperty;
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('[Native Reflect.deleteProperty]');
+                    activity = startActivity('Reflect.deleteProperty');
                 }
                 let result = false;
                 try {
@@ -2690,7 +2792,7 @@ export function createMembraneMarshall(
                       }
                       let activity: any;
                       if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                          activity = startActivity('[Native Reflect.get]');
+                          activity = startActivity('Reflect.get');
                       }
                       // Inline getTransferableValue().
                       const transferableReceiver =
@@ -2735,7 +2837,7 @@ export function createMembraneMarshall(
                 lastProxyTrapCalled = ProxyHandlerTraps.GetPrototypeOf;
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('[Native Reflect.getPrototypeOf]');
+                    activity = startActivity('Reflect.getPrototypeOf');
                 }
                 let protoPointerOrNull;
                 try {
@@ -2771,7 +2873,7 @@ export function createMembraneMarshall(
                       lastProxyTrapCalled = ProxyHandlerTraps.Has;
                       let activity: any;
                       if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                          activity = startActivity('[Native Reflect.has]');
+                          activity = startActivity('Reflect.has');
                       }
                       let result;
                       try {
@@ -2804,7 +2906,7 @@ export function createMembraneMarshall(
                 lastProxyTrapCalled = ProxyHandlerTraps.IsExtensible;
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('[Native Reflect.isExtensible]');
+                    activity = startActivity('Reflect.isExtensible');
                 }
                 const { shadowTarget } = this;
                 let result = false;
@@ -2840,7 +2942,7 @@ export function createMembraneMarshall(
                 lastProxyTrapCalled = ProxyHandlerTraps.OwnKeys;
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('[Native Reflect.ownKeys]');
+                    activity = startActivity('Reflect.ownKeys');
                 }
                 let ownKeys: ReturnType<typeof Reflect.ownKeys> | undefined;
                 try {
@@ -2869,7 +2971,7 @@ export function createMembraneMarshall(
                 lastProxyTrapCalled = ProxyHandlerTraps.GetOwnPropertyDescriptor;
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('[Native Reflect.getOwnPropertyDescriptor]');
+                    activity = startActivity('Reflect.getOwnPropertyDescriptor');
                 }
                 let safeDesc: PropertyDescriptor | undefined;
                 try {
@@ -2921,7 +3023,7 @@ export function createMembraneMarshall(
                 lastProxyTrapCalled = ProxyHandlerTraps.PreventExtensions;
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('[Native Reflect.preventExtensions]');
+                    activity = startActivity('Reflect.preventExtensions');
                 }
                 const { shadowTarget } = this;
                 let result = true;
@@ -2964,7 +3066,7 @@ export function createMembraneMarshall(
                 lastProxyTrapCalled = ProxyHandlerTraps.SetPrototypeOf;
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity('[Native Reflect.setPrototypeOf]');
+                    activity = startActivity('Reflect.setPrototypeOf');
                 }
                 const transferableProto = proto ? getTransferablePointer(proto) : proto;
                 let result = false;
@@ -4248,6 +4350,9 @@ export function createMembraneMarshall(
             const applyTrapForFourOrMoreArgs = createApplyOrConstructTrapForFourOrMoreArgs(
                 ProxyHandlerTraps.Apply
             );
+            const applyTrapForFiveOrMoreArgs = createApplyOrConstructTrapForFiveOrMoreArgs(
+                ProxyHandlerTraps.Apply
+            );
             const applyTrapForAnyNumberOfArgs = createApplyOrConstructTrapForAnyNumberOfArgs(
                 ProxyHandlerTraps.Apply
             );
@@ -4266,6 +4371,9 @@ export function createMembraneMarshall(
             const constructTrapForFourOrMoreArgs = createApplyOrConstructTrapForFourOrMoreArgs(
                 ProxyHandlerTraps.Construct
             );
+            const constructTrapForFiveOrMoreArgs = createApplyOrConstructTrapForFiveOrMoreArgs(
+                ProxyHandlerTraps.Construct
+            );
             const constructTrapForAnyNumberOfArgs = createApplyOrConstructTrapForAnyNumberOfArgs(
                 ProxyHandlerTraps.Construct
             );
@@ -4276,12 +4384,14 @@ export function createMembraneMarshall(
                 applyTrapForTwoOrMoreArgs,
                 applyTrapForThreeOrMoreArgs,
                 applyTrapForFourOrMoreArgs,
+                applyTrapForFiveOrMoreArgs,
                 applyTrapForAnyNumberOfArgs,
                 constructTrapForZeroOrMoreArgs,
                 constructTrapForOneOrMoreArgs,
                 constructTrapForTwoOrMoreArgs,
                 constructTrapForThreeOrMoreArgs,
                 constructTrapForFourOrMoreArgs,
+                constructTrapForFiveOrMoreArgs,
                 constructTrapForAnyNumberOfArgs,
             });
             arityToApplyTrapNameRegistry[0] = trapNames[0];
@@ -4289,13 +4399,15 @@ export function createMembraneMarshall(
             arityToApplyTrapNameRegistry[2] = trapNames[2];
             arityToApplyTrapNameRegistry[3] = trapNames[3];
             arityToApplyTrapNameRegistry[4] = trapNames[4];
-            arityToApplyTrapNameRegistry.n = trapNames[5];
-            arityToConstructTrapNameRegistry[0] = trapNames[6];
-            arityToConstructTrapNameRegistry[1] = trapNames[7];
-            arityToConstructTrapNameRegistry[2] = trapNames[8];
-            arityToConstructTrapNameRegistry[3] = trapNames[9];
-            arityToConstructTrapNameRegistry[4] = trapNames[10];
-            arityToConstructTrapNameRegistry.n = trapNames[11];
+            arityToApplyTrapNameRegistry[5] = trapNames[5];
+            arityToApplyTrapNameRegistry.n = trapNames[6];
+            arityToConstructTrapNameRegistry[0] = trapNames[7];
+            arityToConstructTrapNameRegistry[1] = trapNames[8];
+            arityToConstructTrapNameRegistry[2] = trapNames[9];
+            arityToConstructTrapNameRegistry[3] = trapNames[10];
+            arityToConstructTrapNameRegistry[4] = trapNames[11];
+            arityToConstructTrapNameRegistry[5] = trapNames[12];
+            arityToConstructTrapNameRegistry.n = trapNames[13];
 
             const { prototype: BoundaryProxyHandlerProto } = BoundaryProxyHandler;
             BoundaryProxyHandlerProto[arityToApplyTrapNameRegistry[0]] = applyTrapForZeroOrMoreArgs;
@@ -4304,6 +4416,7 @@ export function createMembraneMarshall(
             BoundaryProxyHandlerProto[arityToApplyTrapNameRegistry[3]] =
                 applyTrapForThreeOrMoreArgs;
             BoundaryProxyHandlerProto[arityToApplyTrapNameRegistry[4]] = applyTrapForFourOrMoreArgs;
+            BoundaryProxyHandlerProto[arityToApplyTrapNameRegistry[5]] = applyTrapForFiveOrMoreArgs;
             BoundaryProxyHandlerProto[arityToApplyTrapNameRegistry.n] = applyTrapForAnyNumberOfArgs;
             BoundaryProxyHandlerProto[arityToConstructTrapNameRegistry[0]] =
                 constructTrapForZeroOrMoreArgs;
@@ -4315,6 +4428,8 @@ export function createMembraneMarshall(
                 constructTrapForThreeOrMoreArgs;
             BoundaryProxyHandlerProto[arityToConstructTrapNameRegistry[4]] =
                 constructTrapForFourOrMoreArgs;
+            BoundaryProxyHandlerProto[arityToConstructTrapNameRegistry[5]] =
+                constructTrapForFiveOrMoreArgs;
             BoundaryProxyHandlerProto[arityToConstructTrapNameRegistry.n] =
                 constructTrapForAnyNumberOfArgs;
             if (DEV_MODE) {
