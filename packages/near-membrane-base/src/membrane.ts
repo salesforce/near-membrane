@@ -186,11 +186,11 @@ export type HooksCallback = (
 export type Pointer = CallableFunction;
 export type ProxyTarget = CallableFunction | any[] | object;
 
-const proxyTargetToLazyPropertyDescriptorStateByTargetMap = new WeakMap();
+const proxyTargetToLazyPropertyDescriptorStateMap: WeakMap<ProxyTarget, object> = new WeakMap();
 
 // istanbul ignore next
 export function createMembraneMarshall(
-    globalObjectVirtualizationTarget?: WindowProxy & typeof globalThis
+    globalObject?: typeof globalThis | (WindowProxy & typeof globalThis)
 ) {
     /* eslint-disable prefer-object-spread */
     const ArrayCtor = Array;
@@ -206,9 +206,7 @@ export function createMembraneMarshall(
     const { for: SymbolFor, toStringTag: TO_STRING_TAG_SYMBOL } = SymbolCtor;
     // @rollup/plugin-replace replaces `DEV_MODE` references.
     const DEV_MODE = true;
-    const IS_IN_SHADOW_REALM =
-        typeof globalObjectVirtualizationTarget !== 'object' ||
-        globalObjectVirtualizationTarget === null;
+    const IS_IN_SHADOW_REALM = typeof globalObject !== 'object' || globalObject === null;
     const FLAGS_REG_EXP = IS_IN_SHADOW_REALM ? /\w*$/ : undefined;
     const LOCKER_DEBUG_MODE_SYMBOL = !IS_IN_SHADOW_REALM
         ? SymbolFor('@@lockerDebugMode')
@@ -335,7 +333,7 @@ export function createMembraneMarshall(
     const localEval = IS_IN_SHADOW_REALM ? eval : undefined;
 
     const globalThisRef =
-        globalObjectVirtualizationTarget ??
+        globalObject ??
         // Support for globalThis was added in Chrome 71.
         (typeof globalThis !== 'undefined' ? globalThis : undefined) ??
         // However, environments like Android emulators are running Chrome 69.
@@ -359,14 +357,14 @@ export function createMembraneMarshall(
     let installedPropertyDescriptorMethodWrappersFlag = false;
     // eslint-disable-next-line no-shadow
     const enum PreventExtensionsResult {
-        None = 0,
+        None,
         Extensible = 1 << 0,
         False = 1 << 1,
         True = 1 << 2,
     }
     // eslint-disable-next-line no-shadow
     const enum ProxyHandlerTraps {
-        None = 0,
+        None,
         Apply = 1 << 0,
         Construct = 1 << 1,
         DefineProperty = 1 << 2,
@@ -383,7 +381,7 @@ export function createMembraneMarshall(
     }
     // eslint-disable-next-line no-shadow
     const enum TargetIntegrityTraits {
-        None = 0,
+        None,
         IsNotExtensible = 1 << 0,
         IsSealed = 1 << 1,
         IsFrozen = 1 << 2,
@@ -391,7 +389,6 @@ export function createMembraneMarshall(
     }
     // eslint-disable-next-line no-shadow
     const enum TargetTraits {
-        None = 0,
         IsArray = 1 << 0,
         IsFunction = 1 << 1,
         IsArrowFunction = 1 << 2,
@@ -721,8 +718,10 @@ export function createMembraneMarshall(
             n: undefined,
         };
 
-        const localProxyTargetToLazyPropertyDescriptorStateByTargetMap = new WeakMapCtor();
-        const proxyTargetToPointerMap = new WeakMapCtor();
+        const localProxyTargetToLazyPropertyDescriptorStateMap: WeakMap<ProxyTarget, object> =
+            new WeakMapCtor();
+
+        const proxyTargetToPointerMap: WeakMap<ProxyTarget, Pointer> = new WeakMapCtor();
 
         const startActivity: any = LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG
             ? instrumentation!.startActivity
@@ -756,8 +755,8 @@ export function createMembraneMarshall(
         let foreignCallableBatchGetPrototypeOfWhenHasNoOwnProperty: CallableBatchGetPrototypeOfWhenHasNoOwnProperty;
         let foreignCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor: CallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor;
 
-        let lastProxyTrapCalled = ProxyHandlerTraps.None;
         let nearMembraneSymbolFlag = false;
+        let lastProxyTrapCalled: ProxyHandlerTraps = 0;
         let selectedTarget: undefined | ProxyTarget;
 
         const activateLazyOwnPropertyDefinition = IS_IN_SHADOW_REALM
@@ -1465,7 +1464,7 @@ export function createMembraneMarshall(
             ? (target: ProxyTarget): object | undefined => {
                   let state: any = ReflectApply(
                       WeakMapProtoGet,
-                      localProxyTargetToLazyPropertyDescriptorStateByTargetMap,
+                      localProxyTargetToLazyPropertyDescriptorStateMap,
                       [target]
                   );
                   if (state === undefined) {
@@ -1480,7 +1479,7 @@ export function createMembraneMarshall(
                           if (state) {
                               ReflectApply(
                                   WeakMapProtoSet,
-                                  localProxyTargetToLazyPropertyDescriptorStateByTargetMap,
+                                  localProxyTargetToLazyPropertyDescriptorStateMap,
                                   [target, state]
                               );
                           }
@@ -2113,11 +2112,10 @@ export function createMembraneMarshall(
 
         const setLazyPropertyDescriptorStateByTarget = IS_IN_SHADOW_REALM
             ? (target: ProxyTarget, state: object) => {
-                  ReflectApply(
-                      WeakMapProtoSet,
-                      localProxyTargetToLazyPropertyDescriptorStateByTargetMap,
-                      [target, state]
-                  );
+                  ReflectApply(WeakMapProtoSet, localProxyTargetToLazyPropertyDescriptorStateMap, [
+                      target,
+                      state,
+                  ]);
                   foreignCallableSetLazyPropertyDescriptorStateByTarget(
                       getTransferablePointer(target),
                       getTransferablePointer(state)
@@ -2929,7 +2927,7 @@ export function createMembraneMarshall(
                 let result = true;
                 if (ReflectIsExtensible(shadowTarget)) {
                     const { foreignTargetPointer } = this;
-                    let resultEnum: PreventExtensionsResult;
+                    let resultEnum = PreventExtensionsResult.None;
                     try {
                         resultEnum = foreignCallablePreventExtensions(foreignTargetPointer);
                     } catch (error: any) {
@@ -3779,7 +3777,7 @@ export function createMembraneMarshall(
                       // because we know `target` is an object.
                       const state = ReflectApply(
                           WeakMapProtoGet,
-                          proxyTargetToLazyPropertyDescriptorStateByTargetMap,
+                          proxyTargetToLazyPropertyDescriptorStateMap,
                           [target]
                       );
                       return state ? getTransferablePointer(state) : state;
@@ -4010,11 +4008,10 @@ export function createMembraneMarshall(
                       selectedTarget = undefined;
                       // We don't wrap the `WeakMapProtoSet` call in a try-catch
                       // because we know `target` is an object.
-                      ReflectApply(
-                          WeakMapProtoSet,
-                          proxyTargetToLazyPropertyDescriptorStateByTargetMap,
-                          [target, state]
-                      );
+                      ReflectApply(WeakMapProtoSet, proxyTargetToLazyPropertyDescriptorStateMap, [
+                          target,
+                          state,
+                      ]);
                   }
                 : (noop as CallableSetLazyPropertyDescriptorStateByTarget),
             // callableBatchGetPrototypeOfAndGetOwnPropertyDescriptors

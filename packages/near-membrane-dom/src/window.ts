@@ -31,7 +31,10 @@ const blueGlobalToRecordMap: WeakMap<typeof globalThis, CachedBlueReferencesReco
 // https://bugs.chromium.org/p/chromium/issues/detail?id=1305302
 export const unforgeablePoisonedWindowKeys = (() => {
     const {
-        navigator: { userAgent, userAgentData },
+        // We don't cherry-pick the 'userAgent' property from `navigator` here
+        // to avoid triggering its getter.
+        navigator,
+        navigator: { userAgentData },
     }: any = window;
     // The user-agent client hints API is experimental and subject to change.
     // https://caniuse.com/mdn-api_navigator_useragentdata
@@ -47,7 +50,7 @@ export const unforgeablePoisonedWindowKeys = (() => {
             : // Fallback to a standard user-agent string sniff.
               // Note: Chromium identifies itself as Chrome in its user-agent string.
               // https://developer.mozilla.org/en-US/docs/Web/HTTP/Browser_detection_using_the_user_agent
-              / (?:Headless)?Chrome\/\d+/.test(userAgent)
+              / (?:Headless)?Chrome\/\d+/.test(navigator.userAgent)
     ) {
         return ['window'];
     }
@@ -55,17 +58,17 @@ export const unforgeablePoisonedWindowKeys = (() => {
 })();
 
 export function getCachedGlobalObjectReferences(
-    globalObjectVirtualizationTarget: WindowProxy & typeof globalThis
+    globalObject: WindowProxy & typeof globalThis
 ): CachedBlueReferencesRecord {
-    let record = ReflectApply(WeakMapProtoGet, blueGlobalToRecordMap, [
-        globalObjectVirtualizationTarget,
-    ]) as CachedBlueReferencesRecord | undefined;
+    let record = ReflectApply(WeakMapProtoGet, blueGlobalToRecordMap, [globalObject]) as
+        | CachedBlueReferencesRecord
+        | undefined;
     if (record) {
         return record;
     }
     // Cache references to object values that can't be replaced
     // window -> Window -> WindowProperties -> EventTarget
-    const { document, window } = globalObjectVirtualizationTarget;
+    const { document, window } = globalObject;
     const WindowProto = ReflectGetPrototypeOf(window)!;
     const WindowPropertiesProto = ReflectGetPrototypeOf(WindowProto)!;
     const EventTargetProto = ReflectGetPrototypeOf(WindowPropertiesProto)!;
@@ -78,10 +81,7 @@ export function getCachedGlobalObjectReferences(
         EventTargetProto,
         EventTargetProtoOwnKeys: ReflectOwnKeys(EventTargetProto),
     } as CachedBlueReferencesRecord;
-    ReflectApply(WeakMapProtoSet, blueGlobalToRecordMap, [
-        globalObjectVirtualizationTarget,
-        record,
-    ]);
+    ReflectApply(WeakMapProtoSet, blueGlobalToRecordMap, [globalObject, record]);
     return record;
 }
 

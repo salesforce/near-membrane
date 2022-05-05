@@ -18,6 +18,7 @@ function createConfig({
             input,
             external: [],
             output: {
+                exports: 'auto',
                 file: `dist/index${isCJS ? '.cjs' : ''}.js`,
                 format,
                 // prettier-ignore

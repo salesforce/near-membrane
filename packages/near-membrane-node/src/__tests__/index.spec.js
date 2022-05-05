@@ -3,11 +3,11 @@ import createVirtualEnvironment from '../node-realm';
 describe('createVirtualEnvironment', () => {
     describe('with default settings', () => {
         describe('throws when', () => {
-            it('globalObjectShape is missing', () => {
+            it('no globalObject is provided', () => {
                 expect(() => createVirtualEnvironment()).toThrow();
             });
-            it('globalObjectVirtualizationTarget is missing', () => {
-                expect(() => createVirtualEnvironment({})).toThrow();
+            it('no globalObjectShape is provided', () => {
+                expect(() => createVirtualEnvironment(globalThis)).toThrow();
             });
         });
         describe('creates an environment when', () => {
