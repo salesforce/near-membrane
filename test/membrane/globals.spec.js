@@ -1,10 +1,14 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('sandbox', () => {
+    const envOptions = {
+        globalObjectShape: window,
+    };
+
     it('should allow creation of sandboxed global expandos', () => {
         expect.assertions(3);
 
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, envOptions);
 
         env.evaluate(`
             window.s1 = 'a';
@@ -23,7 +27,7 @@ describe('sandbox', () => {
 
         window.s2 = 'b';
 
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, envOptions);
 
         env.evaluate(`
             expect(s2).toBe('b');
@@ -41,7 +45,7 @@ describe('sandbox', () => {
     it('should not observe lazy global descriptors', () => {
         expect.assertions(44);
 
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, envOptions);
 
         env.evaluate(`
             expect(Object.prototype.__defineGetter__.name).toBe('__defineGetter__');

@@ -27,8 +27,8 @@ function save(arg1, arg2, arg3, arg4) {
     mutateInRed = arg4;
 }
 
-const env = createVirtualEnvironment(window, window, {
-    endowments: Object.getOwnPropertyDescriptors({ Base, ExoticObject, save }),
+const env = createVirtualEnvironment(window, {
+    endowments: Object.getOwnPropertyDescriptors({ Base, ExoticObject, expect, save }),
 });
 
 env.evaluate(`

@@ -20,10 +20,11 @@ describe('membrane', () => {
             ],
         ]);
 
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             distortionCallback(v) {
                 return distortionMap.get(v) || v;
             },
+            endowments: Object.getOwnPropertyDescriptors({ expect }),
         });
 
         env.evaluate(`

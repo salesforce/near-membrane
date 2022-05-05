@@ -9,17 +9,18 @@ const distortionMap = new Map([
     ],
 ]);
 
-const envOptions = {
-    distortionCallback(v) {
-        return distortionMap.get(v) || v;
-    },
-};
-
 describe('Method Distortion', () => {
+    const envOptions = {
+        distortionCallback(v) {
+            return distortionMap.get(v) || v;
+        },
+        globalObjectShape: window,
+    };
+
     it('should be invoked when invoked directly', () => {
         expect.assertions(1);
 
-        const env = createVirtualEnvironment(window, window, envOptions);
+        const env = createVirtualEnvironment(window, envOptions);
 
         env.evaluate(`
             expect(() => {
@@ -32,7 +33,7 @@ describe('Method Distortion', () => {
 
         window.originalFetch = fetch;
 
-        const env = createVirtualEnvironment(window, window, envOptions);
+        const env = createVirtualEnvironment(window, envOptions);
 
         env.evaluate(`
             expect(() => {
@@ -45,7 +46,7 @@ describe('Method Distortion', () => {
 
         window.wrappedFetch = (...args) => fetch(...args);
 
-        const env = createVirtualEnvironment(window, window, envOptions);
+        const env = createVirtualEnvironment(window, envOptions);
 
         env.evaluate(`
             expect(() => {

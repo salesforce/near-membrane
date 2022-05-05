@@ -4,7 +4,9 @@ describe('document.all', () => {
     it('should preserve the typeof it since it is a common test for older browsers', () => {
         expect.assertions(2);
 
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ expect }),
+        });
 
         expect(typeof document.all).toBe('undefined');
 
@@ -32,7 +34,7 @@ describe('document.all', () => {
             },
         });
 
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: {
                 callOutsideWithZeroArgs: {
                     value: (func) => func.call(document.all),
@@ -137,6 +139,7 @@ describe('document.all', () => {
                     },
                 },
             },
+            globalObjectShape: window,
         });
 
         env.evaluate(`
