@@ -1,38 +1,41 @@
 import { createMembraneMarshall } from './membrane';
 
+export type Connector = ReturnType<typeof createMembraneMarshall>;
+
 const TypeErrorCtor = TypeError;
 const WeakMapCtor = WeakMap;
 const { apply: ReflectApply } = Reflect;
 const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMapCtor.prototype;
 
-const evaluatorToRedCreateHooksCallbackMap = new WeakMapCtor();
-const globalThisToBlueCreateHooksCallbackMap = new WeakMapCtor();
+const evaluatorToRedCreateHooksCallbackMap: WeakMap<typeof eval, Connector> = new WeakMapCtor();
+
+const globalThisToBlueCreateHooksCallbackMap: WeakMap<typeof globalThis, Connector> =
+    new WeakMapCtor();
 
 const createMembraneMarshallSourceInStrictMode = `
 'use strict';
-(${createMembraneMarshall.toString()})`;
+(${createMembraneMarshall})`;
 
-export function createBlueConnector(
-    globalObjectVirtualizationTarget: WindowProxy & typeof globalThis = window
-): ReturnType<typeof createMembraneMarshall> {
+export function createBlueConnector(globalObject: typeof globalThis): Connector {
+    if (typeof globalObject !== 'object' || globalObject === null) {
+        throw new TypeErrorCtor('Missing globalObject.');
+    }
     let createHooksCallback = ReflectApply(
         WeakMapProtoGet,
         globalThisToBlueCreateHooksCallbackMap,
-        [globalObjectVirtualizationTarget]
+        [globalObject]
     );
     if (createHooksCallback === undefined) {
-        createHooksCallback = createMembraneMarshall(globalObjectVirtualizationTarget);
+        createHooksCallback = createMembraneMarshall(globalObject);
         ReflectApply(WeakMapProtoSet, globalThisToBlueCreateHooksCallbackMap, [
-            globalObjectVirtualizationTarget,
+            globalObject,
             createHooksCallback,
         ]);
     }
     return createHooksCallback;
 }
 
-export function createRedConnector(
-    evaluator: typeof eval
-): ReturnType<typeof createMembraneMarshall> {
+export function createRedConnector(evaluator: typeof eval): Connector {
     if (typeof evaluator !== 'function') {
         throw new TypeErrorCtor('Missing evaluator function.');
     }

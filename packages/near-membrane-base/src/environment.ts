@@ -1,6 +1,4 @@
-import { Instrumentation } from './instrumentation';
 import {
-    createMembraneMarshall,
     CallableDefineProperties,
     CallableEvaluate,
     CallableGetPropertyValuePointer,
@@ -14,15 +12,17 @@ import {
     Pointer,
     ProxyTarget,
 } from './membrane';
+import { Connector } from './connector';
+import { Instrumentation } from './instrumentation';
 import { PropertyKeys } from './types';
 
-interface VirtualEnvironmentOptions {
+export interface VirtualEnvironmentOptions {
     // Blue connector factory.
-    blueConnector: ReturnType<typeof createMembraneMarshall>;
+    blueConnector: Connector;
     // Optional distortion callback to tame functionalities observed through the membrane.
     distortionCallback?: DistortionCallback;
     // Red connector factory.
-    redConnector: ReturnType<typeof createMembraneMarshall>;
+    redConnector: Connector;
     // Instrumentation library object.
     instrumentation?: Instrumentation;
 }

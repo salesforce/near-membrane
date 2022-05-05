@@ -3,14 +3,14 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 describe('createVirtualEnvironment', () => {
     describe('with default settings', () => {
         describe('throws when', () => {
-            it('globalObjectShape is missing', () => {
+            it('no globalObject is provided', () => {
                 expect(() => createVirtualEnvironment()).toThrow();
-            });
-            it('globalObjectVirtualizationTarget is missing', () => {
-                expect(() => createVirtualEnvironment({})).toThrow();
             });
         });
         describe('creates an environment when', () => {
+            it('no globalObjectShape is provided', () => {
+                expect(() => createVirtualEnvironment(window)).not.toThrow();
+            });
             it('no options are provided', () => {
                 const env = createVirtualEnvironment(window, window /* no options */);
                 expect(() => env.evaluate('')).not.toThrow();

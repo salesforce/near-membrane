@@ -167,14 +167,11 @@ export function getFilteredGlobalOwnKeys(source: object): PropertyKeys {
     return result;
 }
 
-export function linkIntrinsics(
-    env: VirtualEnvironment,
-    globalObjectVirtualizationTarget: typeof globalThis
-) {
+export function linkIntrinsics(env: VirtualEnvironment, globalObject: typeof globalThis) {
     // Remap intrinsics that are realm agnostic.
     for (let i = 0, { length } = ReflectiveIntrinsicObjectNames; i < length; i += 1) {
         const globalName = ReflectiveIntrinsicObjectNames[i];
-        const reflectiveValue = globalObjectVirtualizationTarget[globalName];
+        const reflectiveValue = globalObject[globalName];
         if (reflectiveValue) {
             // Proxy.prototype is undefined.
             if (reflectiveValue.prototype) {

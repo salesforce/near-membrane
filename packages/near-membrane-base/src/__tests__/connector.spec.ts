@@ -1,14 +1,14 @@
 import { createBlueConnector, createRedConnector } from '../index';
 
 describe('createBlueConnector()', () => {
-    it('returns connector when globalObjectVirtualizationTarget is not provided', () => {
+    it('throws when globalObject is not provided', () => {
         // Ignoring "Property 'assertions' does not exist on type '{...}'."
         // @ts-ignore
         expect.assertions(1);
-        const connector = createBlueConnector();
-        expect(typeof connector).toBe('function');
+        // @ts-ignore
+        expect(() => createBlueConnector()).toThrow();
     });
-    it('returns connector function when globalObjectVirtualizationTarget is provided', () => {
+    it('returns connector function when globalObject is provided', () => {
         // Ignoring "Property 'assertions' does not exist on type '{...}'."
         // @ts-ignore
         expect.assertions(1);
