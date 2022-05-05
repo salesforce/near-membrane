@@ -9,10 +9,11 @@ const distortionMap = new Map([
     [localStorageGetter, () => 'distorted localStorage'],
 ]);
 
-const env = createVirtualEnvironment(window, window, {
+const env = createVirtualEnvironment(window, {
     distortionCallback(v) {
         return distortionMap.get(v) || v;
     },
+    globalObjectShape: window,
 });
 
 describe('Getter Function Distortion', () => {

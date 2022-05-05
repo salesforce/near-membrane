@@ -5,7 +5,7 @@ describe('Blue Proxies', () => {
         expect.assertions(9);
 
         let obj;
-        const env = createVirtualEnvironment(window, window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({
                 expect,
                 saveObject(o) {

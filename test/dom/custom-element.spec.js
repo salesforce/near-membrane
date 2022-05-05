@@ -11,10 +11,14 @@ class ExternalElement extends HTMLElement {
 customElements.define('x-external', ExternalElement);
 
 describe('Outer Realm Custom Element', () => {
+    const envOptions = {
+        globalObjectShape: window,
+    };
+
     it('should be accessible within the sandbox', () => {
         expect.assertions(3);
 
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, envOptions);
 
         env.evaluate(`
             const elm = document.createElement('x-external');
@@ -33,7 +37,7 @@ describe('Outer Realm Custom Element', () => {
     it('should be extensible within the sandbox', () => {
         expect.assertions(3);
 
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, envOptions);
 
         env.evaluate(`
             const ExternalElement = customElements.get('x-external');
@@ -48,7 +52,7 @@ describe('Outer Realm Custom Element', () => {
     it('should be extensible and can be new from within the sandbox', () => {
         expect.assertions(3);
 
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, envOptions);
 
         env.evaluate(`
             const ExternalElement = customElements.get('x-external');
@@ -65,7 +69,10 @@ describe('Outer Realm Custom Element', () => {
 
         window.refToExternalElement = ExternalElement;
 
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, {
+            // Provides refToExternalElement & expect
+            globalObjectShape: window,
+        });
 
         env.evaluate(`
             const E = customElements.get('x-external');
@@ -89,7 +96,9 @@ describe('Sandboxed Custom Element', () => {
     it('should preserve the invariants of classes from within the sandbox', () => {
         window.refToExternalElement = ExternalElement;
 
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, {
+            globalObjectShape: window,
+        });
 
         env.evaluate(`
             class Bar extends HTMLElement {}

@@ -38,7 +38,7 @@ const plainObjectNullProto = {
 const exoticLiveObject = new ExoticObject(plainObject);
 Reflect.defineProperty(exoticLiveObject, LOCKER_LIVE_VALUE_MARKER_SYMBOL, {});
 
-const env = createVirtualEnvironment(window, window, {
+const env = createVirtualEnvironment(window, {
     endowments: Object.getOwnPropertyDescriptors({
         array,
         bigInt64Array,

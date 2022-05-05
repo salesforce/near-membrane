@@ -9,7 +9,7 @@ describe('Reflective Intrinsic Objects', () => {
     it('should preserve identity of Object thru membrane', () => {
         expect.assertions(2);
 
-        const env = createVirtualEnvironment(globalThis, globalThis, {
+        const env = createVirtualEnvironment(globalThis, {
             endowments: Object.getOwnPropertyDescriptors({ expect, foo }),
         });
 
@@ -22,7 +22,7 @@ describe('Reflective Intrinsic Objects', () => {
     it('should preserve identity of Function thru membrane', () => {
         expect.assertions(2);
 
-        const env = createVirtualEnvironment(globalThis, globalThis, {
+        const env = createVirtualEnvironment(globalThis, {
             endowments: Object.getOwnPropertyDescriptors({ expect, foo }),
         });
 
@@ -35,7 +35,7 @@ describe('Reflective Intrinsic Objects', () => {
     it('should preserve identity of Error thru membrane', () => {
         expect.assertions(2);
 
-        const env = createVirtualEnvironment(globalThis, globalThis, {
+        const env = createVirtualEnvironment(globalThis, {
             endowments: Object.getOwnPropertyDescriptors({ expect, foo }),
         });
 

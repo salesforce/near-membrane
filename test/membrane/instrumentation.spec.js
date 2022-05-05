@@ -11,7 +11,7 @@ describe('Ensure instrumentation object usage in near-membrane', () => {
         const startActivitySpy = spyOn(mockInstrumentation, 'startActivity').and.callThrough();
         const logSpy = spyOn(mockInstrumentation, 'log').and.callThrough();
         const errorSpy = spyOn(mockInstrumentation, 'error').and.callThrough();
-        const ve = createVirtualEnvironment(window, window, {
+        const ve = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({
                 setter(v) {
                     redProxy = v;

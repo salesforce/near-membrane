@@ -6,7 +6,7 @@ function exportData(arg) {
 }
 
 it('super should behave as expected in sandbox', () => {
-    const envOne = createVirtualEnvironment(window, window, {
+    const envOne = createVirtualEnvironment(window, {
         endowments: Object.getOwnPropertyDescriptors({ exportData }),
     });
     envOne.evaluate(`
@@ -15,7 +15,7 @@ it('super should behave as expected in sandbox', () => {
         this.value = 'base';
       }
     });`);
-    const envTwo = createVirtualEnvironment(window, window, {
+    const envTwo = createVirtualEnvironment(window, {
         endowments: Object.getOwnPropertyDescriptors({ expect, Foo: exported }),
     });
     envTwo.evaluate(`

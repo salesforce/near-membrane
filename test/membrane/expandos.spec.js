@@ -15,7 +15,10 @@ describe('The membrane', () => {
         window.plainObject = { x: 1 };
         window.exoticObject = new ExoticObject(window.plainObject);
 
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, {
+            // Provides plainObject & exoticObject
+            globalObjectShape: window,
+        });
 
         env.evaluate(`
             plainObject.y = 2;

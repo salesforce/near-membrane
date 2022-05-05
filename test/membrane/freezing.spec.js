@@ -16,7 +16,10 @@ describe('Freezing', () => {
             window.plainObject = { x: 1 };
             Object.freeze(window.plainObject);
 
-            const env = createVirtualEnvironment(window, window);
+            const env = createVirtualEnvironment(window, {
+                // Provides plainObject
+                globalObjectShape: window,
+            });
 
             // Check the state of plainObject in the blue realm.
             expect(Object.isExtensible(window.plainObject)).toBe(false);
@@ -46,7 +49,7 @@ describe('Freezing', () => {
             const plainObject = { x: 1 };
             Object.freeze(plainObject);
 
-            const env = createVirtualEnvironment(window, window, {
+            const env = createVirtualEnvironment(window, {
                 endowments: Object.getOwnPropertyDescriptors({ expect, plainObject }),
             });
 
@@ -83,8 +86,10 @@ describe('Freezing', () => {
                 ref: null,
             };
 
-            const env = createVirtualEnvironment(window, window, {
+            const env = createVirtualEnvironment(window, {
                 endowments: Object.getOwnPropertyDescriptors({ receiveX, transmitX }),
+                // Provides expect
+                globalObjectShape: window,
             });
 
             env.evaluate(`
@@ -134,7 +139,10 @@ describe('Freezing', () => {
 
             window.exoticObject = new ExoticObject({ x: 1 });
 
-            const env = createVirtualEnvironment(window, window);
+            const env = createVirtualEnvironment(window, {
+                // Provides exoticObject & expect
+                globalObjectShape: window,
+            });
 
             // Check the state of exoticObject in the sandbox.
             env.evaluate(`
@@ -167,7 +175,10 @@ describe('Freezing', () => {
 
             window.plainObject = { x: 1 };
 
-            const env = createVirtualEnvironment(window, window);
+            const env = createVirtualEnvironment(window, {
+                // Provides plainObject & expect
+                globalObjectShape: window,
+            });
 
             // Check the state of plainObject in the sandbox.
             env.evaluate(`
@@ -216,7 +227,10 @@ describe('Freezing', () => {
                 }).toThrowError(TypeError);
             };
 
-            const env = createVirtualEnvironment(window, window);
+            const env = createVirtualEnvironment(window, {
+                // Provides takeOutside & expect
+                globalObjectShape: window,
+            });
 
             env.evaluate(`
                 'use strict';
@@ -244,7 +258,7 @@ describe('Freezing', () => {
                 },
             });
 
-            const env = createVirtualEnvironment(window, window, {
+            const env = createVirtualEnvironment(window, {
                 endowments: Object.getOwnPropertyDescriptors({
                     exoticObject,
                     expect,
@@ -273,7 +287,7 @@ describe('Freezing', () => {
                     },
                 }
             );
-            const env = createVirtualEnvironment(window, window, {
+            const env = createVirtualEnvironment(window, {
                 endowments: Object.getOwnPropertyDescriptors({
                     expect,
                     plainObject,

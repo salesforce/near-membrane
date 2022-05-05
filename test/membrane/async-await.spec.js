@@ -8,7 +8,7 @@ const skipTests = isFirefox || isSafari;
 if (!skipTests) {
     describe('async/await', () => {
         it('basic wrapping', (done) => {
-            const env = createVirtualEnvironment(window, window, {
+            const env = createVirtualEnvironment(window, {
                 endowments: Object.getOwnPropertyDescriptors({ done, expect }),
             });
 

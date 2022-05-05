@@ -8,36 +8,33 @@ describe('createVirtualEnvironment', () => {
             });
         });
         describe('creates an environment when', () => {
-            it('no globalObjectShape is provided', () => {
-                expect(() => createVirtualEnvironment(window)).not.toThrow();
-            });
             it('no options are provided', () => {
-                const env = createVirtualEnvironment(window, window /* no options */);
+                const env = createVirtualEnvironment(window /* no options */);
                 expect(() => env.evaluate('')).not.toThrow();
             });
             it('an empty options object is provided', () => {
-                const env = createVirtualEnvironment(window, window, {});
+                const env = createVirtualEnvironment(window, {});
                 expect(() => env.evaluate('')).not.toThrow();
             });
             it('options object has endowments, but is undefined', () => {
                 let endowments;
-                const env = createVirtualEnvironment(window, window, { endowments });
+                const env = createVirtualEnvironment(window, { endowments });
                 expect(() => env.evaluate('')).not.toThrow();
             });
             it('options object has endowments, but is empty', () => {
-                const env = createVirtualEnvironment(window, window, {
+                const env = createVirtualEnvironment(window, {
                     endowments: {},
                 });
                 expect(() => env.evaluate('')).not.toThrow();
             });
             it('options object has keepAlive: true', () => {
                 const count = window.frames.length;
-                const env = createVirtualEnvironment(window, window, { keepAlive: true });
+                const env = createVirtualEnvironment(window, { keepAlive: true });
                 expect(window.frames.length).toBe(count + 1);
                 expect(() => env.evaluate('')).not.toThrow();
             });
             it('options object has keepAlive: false', () => {
-                const env = createVirtualEnvironment(window, window, { keepAlive: false });
+                const env = createVirtualEnvironment(window, { keepAlive: false });
                 expect(() => env.evaluate('')).not.toThrow();
             });
         });

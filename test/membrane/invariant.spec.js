@@ -10,7 +10,7 @@ function saveFoo(arg) {
     FooClazz = arg;
 }
 
-const env = createVirtualEnvironment(window, window, {
+const env = createVirtualEnvironment(window, {
     endowments: Object.getOwnPropertyDescriptors({ Base, saveFoo }),
 });
 

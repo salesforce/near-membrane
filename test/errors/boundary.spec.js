@@ -22,12 +22,16 @@ const boundaryHooks = {
 };
 
 describe('The Error Boundary', () => {
+    const envOptions = {
+        globalObjectShape: window,
+    };
+
     it('should preserve identity of errors after a membrane roundtrip', () => {
         expect.assertions(3);
 
         window.boundaryHooks = boundaryHooks;
 
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, envOptions);
 
         env.evaluate(`boundaryHooks.expose(() => { boundaryHooks.a })`);
 
@@ -52,7 +56,7 @@ describe('The Error Boundary', () => {
 
         window.boundaryHooks = boundaryHooks;
 
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, envOptions);
 
         env.evaluate(`
             expect(() => {
@@ -75,7 +79,7 @@ describe('The Error Boundary', () => {
 
         window.boundaryHooks = boundaryHooks;
 
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, envOptions);
 
         env.evaluate(`
             const revocable = Proxy.revocable(() => undefined, {});
@@ -95,7 +99,7 @@ describe('The Error Boundary', () => {
         }).toThrowError(Error);
     });
     it('should protect from leaking sandbox errors during evaluation', () => {
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, envOptions);
 
         expect(() => {
             env.evaluate(`
@@ -104,7 +108,7 @@ describe('The Error Boundary', () => {
         }).toThrowError(TypeError);
     });
     it('should protect from leaking sandbox errors during parsing', () => {
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, envOptions);
 
         expect(() => {
             env.evaluate(`

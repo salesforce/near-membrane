@@ -4,7 +4,9 @@ describe('The object graph', () => {
     it('should be shadowed by a sandbox', () => {
         expect.assertions(21);
 
-        const env = createVirtualEnvironment(window, window);
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ expect }),
+        });
 
         env.evaluate(`
             'use strict';

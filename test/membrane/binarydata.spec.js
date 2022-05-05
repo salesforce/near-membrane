@@ -5,7 +5,7 @@ describe('TypedArray', () => {
     if (typeof Atomics !== 'undefined') {
         describe('Atomics', () => {
             it('operates on atomic-friendly typed arrays', (done) => {
-                const env = createVirtualEnvironment(window, window, {
+                const env = createVirtualEnvironment(window, {
                     endowments: Object.getOwnPropertyDescriptors({ done, expect }),
                 });
 
@@ -28,7 +28,7 @@ describe('TypedArray', () => {
     }
     describe('Blob', () => {
         it('encodes blobs from typed arrays', (done) => {
-            const env = createVirtualEnvironment(window, window, {
+            const env = createVirtualEnvironment(window, {
                 endowments: Object.getOwnPropertyDescriptors({ done, expect }),
             });
 
@@ -44,7 +44,7 @@ describe('TypedArray', () => {
     });
     describe('Crypto', () => {
         it('creates random values from typed arrays', (done) => {
-            const env = createVirtualEnvironment(window, window, {
+            const env = createVirtualEnvironment(window, {
                 endowments: Object.getOwnPropertyDescriptors({ done, expect }),
             });
 
@@ -58,7 +58,7 @@ describe('TypedArray', () => {
     });
     describe('FileReader', () => {
         it('reads from blobs created from typed arrays', (done) => {
-            const env = createVirtualEnvironment(window, window, {
+            const env = createVirtualEnvironment(window, {
                 endowments: Object.getOwnPropertyDescriptors({ done, expect }),
             });
 
