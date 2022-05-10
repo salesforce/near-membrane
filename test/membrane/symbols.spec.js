@@ -60,7 +60,6 @@ describe('Symbols', () => {
             expect(Symbol.for('symbol-with-key').constructor === Symbol).toBeTrue();
         `);
     });
-
     it('blue Symbol class properties are inherited in red environments', () => {
         const symbol = Symbol('method');
         let successful = false;
