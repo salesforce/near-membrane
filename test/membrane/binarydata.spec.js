@@ -122,22 +122,16 @@ describe('TypedArray', () => {
             }
         `);
     });
-    it('should support in bound index access with modified prototype', () => {
+    it('should support in bound index access with modified prototypes', () => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
         });
 
         env.evaluate(`
             const buffer = new ArrayBuffer(8);
-            const bigIntTypedArrays = [
+            const typedArrays = [
                 new BigInt64Array(buffer),
                 new BigUint64Array(buffer),
-            ];
-            for (const bigIntTypedArray of bigIntTypedArrays) {
-                Reflect.setPrototypeOf(bigIntTypedArray, { length: 0 });
-                expect(typeof bigIntTypedArray[0]).toBe('bigint');
-            }
-            const typedArrays = [
                 new Float32Array(buffer),
                 new Float64Array(buffer),
                 new Int8Array(buffer),
@@ -150,7 +144,39 @@ describe('TypedArray', () => {
             ];
             for (const typedArray of typedArrays) {
                 Reflect.setPrototypeOf(typedArray, { length: 0 });
-                expect(typeof typedArray[0]).toBe('number');
+                expect(typedArray[0]).toBeDefined();
+            }
+        `);
+    });
+    it('should support setting in bound index values on subclasses', () => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ expect }),
+        });
+
+        env.evaluate(`
+            const buffer = new ArrayBuffer(8);
+            const Ctors = [
+                BigInt64Array,
+                BigUint64Array,
+                Float32Array,
+                Float64Array,
+                Int8Array,
+                Int16Array,
+                Int32Array,
+                Uint8Array,
+                Uint8ClampedArray,
+                Uint16Array,
+                Uint32Array,
+            ];
+            for (const Ctor of Ctors) {
+                class Subclass extends Ctor {
+                    constructor(arrayBuffer) {
+                        super(arrayBuffer);
+                        this[0] = this[0];
+                    }
+                }
+                const subclassed = new Subclass(buffer);
+                expect(subclassed[0]).toBeDefined();
             }
         `);
     });
