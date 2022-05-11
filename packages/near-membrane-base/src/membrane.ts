@@ -2884,11 +2884,16 @@ export function createMembraneMarshall(
                       if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                           activity = startActivity('Reflect.get');
                       }
-                      const { foreignTargetPointer, foreignTargetTraits } = this;
-                      // Inline getTransferableValue().
+                      const { foreignTargetPointer, foreignTargetTraits, proxy } = this;
+                      if (typeof receiver === 'undefined') {
+                          receiver = proxy;
+                      }
                       const transferableReceiver =
-                          (typeof receiver === 'object' && receiver !== null) ||
-                          typeof receiver === 'function'
+                          proxy === receiver
+                              ? foreignTargetPointer
+                              : // Inline getTransferableValue().
+                              (typeof receiver === 'object' && receiver !== null) ||
+                                typeof receiver === 'function'
                               ? getTransferablePointer(receiver)
                               : receiver;
                       let result: any;
@@ -3189,13 +3194,7 @@ export function createMembraneMarshall(
                 receiver: any
             ): boolean {
                 lastProxyTrapCalled = ProxyHandlerTraps.Set;
-                const {
-                    foreignTargetPointer,
-                    foreignTargetTraits,
-                    foreignTargetTypedArrayLength,
-                    proxy,
-                    shadowTarget,
-                } = this;
+                const { foreignTargetPointer, proxy, shadowTarget } = this;
                 // Intentionally ignoring `document.all`.
                 // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
                 // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
@@ -3214,37 +3213,17 @@ export function createMembraneMarshall(
                 }
                 let result = false;
                 if (isFastPath) {
-                    let transferableValue;
-                    let transferableReceiver;
-                    if (
-                        foreignTargetTraits & TargetTraits.IsTypedArray &&
-                        typeof key === 'string' &&
-                        (typeof value === 'number' || typeof value === 'bigint') &&
-                        (key as unknown as number) > -1 &&
-                        (key as unknown as number) < foreignTargetTypedArrayLength &&
-                        ReflectApply(RegExpProtoTest, INDEX_REGEXP, [key])
-                    ) {
-                        transferableValue = value;
-                    } else {
-                        transferableValue =
-                            // Inline getTransferableValue().
-                            (typeof value === 'object' && value !== null) ||
-                            typeof value === 'function'
-                                ? getTransferablePointer(value)
-                                : value;
-                        transferableReceiver =
-                            // Inline getTransferableValue().
-                            (typeof receiver === 'object' && receiver !== null) ||
-                            typeof receiver === 'function'
-                                ? getTransferablePointer(receiver)
-                                : receiver;
-                    }
+                    const transferableValue =
+                        // Inline getTransferableValue().
+                        (typeof value === 'object' && value !== null) || typeof value === 'function'
+                            ? getTransferablePointer(value)
+                            : value;
                     try {
                         result = foreignCallableSet(
                             foreignTargetPointer,
                             key,
                             transferableValue,
-                            transferableReceiver
+                            foreignTargetPointer
                         );
                     } catch (error: any) {
                         const errorToThrow = selectedTarget ?? error;
