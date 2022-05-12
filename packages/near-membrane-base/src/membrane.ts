@@ -2043,14 +2043,6 @@ export function createMembraneMarshall(
               }
             : noop;
 
-        function lockShadowTarget(shadowTarget: ShadowTarget, foreignTargetPointer: Pointer): void {
-            copyForeignOwnPropertyDescriptorsAndPrototypeToShadowTarget(
-                foreignTargetPointer,
-                shadowTarget
-            );
-            ReflectPreventExtensions(shadowTarget);
-        }
-
         function lookupForeignDescriptor(
             foreignTargetPointer: Pointer,
             shadowTarget: ShadowTarget,
@@ -2102,13 +2094,11 @@ export function createMembraneMarshall(
             if (safeDesc === undefined) {
                 // Avoiding calling the has trap for any proto chain operation,
                 // instead we implement the regular logic here in this trap.
-                let currentObject: any;
+                let currentObject: any = null;
                 if (typeof protoPointerOrNull === 'function') {
                     protoPointerOrNull();
                     currentObject = selectedTarget;
                     selectedTarget = undefined;
-                } else {
-                    currentObject = protoPointerOrNull;
                 }
                 while (currentObject) {
                     safeDesc = ReflectGetOwnPropertyDescriptor(currentObject, key);
@@ -2728,13 +2718,11 @@ export function createMembraneMarshall(
                       } else {
                           // Avoiding calling the has trap for any proto chain operation,
                           // instead we implement the regular logic here in this trap.
-                          let currentObject: any;
+                          let currentObject: any = null;
                           if (typeof trueOrProtoPointerOrNull === 'function') {
                               trueOrProtoPointerOrNull();
                               currentObject = selectedTarget;
                               selectedTarget = undefined;
-                          } else {
-                              currentObject = trueOrProtoPointerOrNull;
                           }
                           while (currentObject) {
                               if (ReflectApply(ObjectProtoHasOwnProperty, currentObject, [key])) {
@@ -2767,7 +2755,7 @@ export function createMembraneMarshall(
                 const { foreignTargetPointer, nonConfigurableDescriptorCallback } = this;
                 const safePartialDesc = unsafePartialDesc;
                 ReflectSetPrototypeOf(safePartialDesc, null);
-                const { value, get: getter, set: setter } = safePartialDesc;
+                const { get: getter, set: setter, value } = safePartialDesc;
                 const valuePointer =
                     'value' in safePartialDesc
                         ? // Inline getTransferableValue().
@@ -3010,9 +2998,7 @@ export function createMembraneMarshall(
                 if (ReflectIsExtensible(shadowTarget)) {
                     const { foreignTargetPointer } = this;
                     try {
-                        if (foreignCallableIsExtensible(foreignTargetPointer)) {
-                            result = true;
-                        }
+                        result = foreignCallableIsExtensible(foreignTargetPointer);
                     } catch (error: any) {
                         const errorToThrow = selectedTarget ?? error;
                         selectedTarget = undefined;
@@ -3022,7 +3008,11 @@ export function createMembraneMarshall(
                         throw errorToThrow;
                     }
                     if (!result) {
-                        lockShadowTarget(shadowTarget, foreignTargetPointer);
+                        copyForeignOwnPropertyDescriptorsAndPrototypeToShadowTarget(
+                            foreignTargetPointer,
+                            shadowTarget
+                        );
+                        ReflectPreventExtensions(shadowTarget);
                     }
                 }
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
@@ -3122,10 +3112,9 @@ export function createMembraneMarshall(
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                     activity = startActivity('Reflect.preventExtensions');
                 }
-                const { shadowTarget } = this;
+                const { foreignTargetPointer, shadowTarget } = this;
                 let result = true;
                 if (ReflectIsExtensible(shadowTarget)) {
-                    const { foreignTargetPointer } = this;
                     let resultEnum = PreventExtensionsResult.None;
                     try {
                         resultEnum = foreignCallablePreventExtensions(foreignTargetPointer);
@@ -3137,17 +3126,17 @@ export function createMembraneMarshall(
                         }
                         throw errorToThrow;
                     }
-                    if (resultEnum & PreventExtensionsResult.False) {
-                        if (!(resultEnum & PreventExtensionsResult.Extensible)) {
-                            // If the target is a proxy manually created, it might
-                            // reject the preventExtension call, in which case we
-                            // should not attempt to lock down the shadow target.
-                            lockShadowTarget(shadowTarget, foreignTargetPointer);
-                        }
-                        result = false;
-                    } else {
-                        lockShadowTarget(shadowTarget, foreignTargetPointer);
+                    // If the target is a proxy it might reject the
+                    // preventExtension call, in which case we should not
+                    // attempt to lock down the shadow target.
+                    if (!(resultEnum & PreventExtensionsResult.Extensible)) {
+                        copyForeignOwnPropertyDescriptorsAndPrototypeToShadowTarget(
+                            foreignTargetPointer,
+                            shadowTarget
+                        );
+                        ReflectPreventExtensions(shadowTarget);
                     }
+                    result = !(resultEnum & PreventExtensionsResult.False);
                 }
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                     activity.stop();
@@ -3212,44 +3201,32 @@ export function createMembraneMarshall(
                     );
                 }
                 let result = false;
-                if (isFastPath) {
-                    const transferableValue =
-                        // Inline getTransferableValue().
-                        (typeof value === 'object' && value !== null) || typeof value === 'function'
-                            ? getTransferablePointer(value)
-                            : value;
-                    try {
-                        result = foreignCallableSet(
-                            foreignTargetPointer,
-                            key,
-                            transferableValue,
-                            foreignTargetPointer
-                        );
-                    } catch (error: any) {
-                        const errorToThrow = selectedTarget ?? error;
-                        selectedTarget = undefined;
-                        if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                            activity.error(errorToThrow);
-                        }
-                        throw errorToThrow;
+                try {
+                    result = isFastPath
+                        ? foreignCallableSet(
+                              foreignTargetPointer,
+                              key,
+                              // Inline getTransferableValue().
+                              (typeof value === 'object' && value !== null) ||
+                                  typeof value === 'function'
+                                  ? getTransferablePointer(value)
+                                  : value,
+                              foreignTargetPointer
+                          )
+                        : passthruForeignTraversedSet(
+                              foreignTargetPointer,
+                              shadowTarget,
+                              key,
+                              value,
+                              receiver
+                          );
+                } catch (error: any) {
+                    const errorToThrow = selectedTarget ?? error;
+                    selectedTarget = undefined;
+                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        activity.error(errorToThrow);
                     }
-                } else {
-                    try {
-                        result = passthruForeignTraversedSet(
-                            foreignTargetPointer,
-                            shadowTarget,
-                            key,
-                            value,
-                            receiver
-                        );
-                    } catch (error: any) {
-                        const errorToThrow = selectedTarget ?? error;
-                        selectedTarget = undefined;
-                        if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                            activity.error(errorToThrow);
-                        }
-                        throw errorToThrow;
-                    }
+                    throw errorToThrow;
                 }
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                     activity.stop();
@@ -3496,16 +3473,17 @@ export function createMembraneMarshall(
             // callableEvaluate
             IS_IN_SHADOW_REALM
                 ? (sourceText: string): PointerOrPrimitive => {
+                      let result: PointerOrPrimitive;
                       try {
-                          const result = localEval!(sourceText);
-                          // Inline getTransferableValue().
-                          return (typeof result === 'object' && result !== null) ||
-                              typeof result === 'function'
-                              ? getTransferablePointer(result)
-                              : result;
+                          result = localEval!(sourceText);
                       } catch (error: any) {
                           throw pushErrorAcrossBoundary(error);
                       }
+                      // Inline getTransferableValue().
+                      return (typeof result === 'object' && result !== null) ||
+                          typeof result === 'function'
+                          ? getTransferablePointer(result)
+                          : result;
                   }
                 : (noop as CallableEvaluate),
             // callableLinkPointers: this callable function allows the foreign
@@ -3651,20 +3629,17 @@ export function createMembraneMarshall(
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
+                const safePartialDesc = createDescriptorFromMeta(
+                    configurable,
+                    enumerable,
+                    writable,
+                    valuePointer,
+                    getPointer,
+                    setPointer
+                );
                 let result = false;
                 try {
-                    result = ReflectDefineProperty(
-                        target,
-                        key,
-                        createDescriptorFromMeta(
-                            configurable,
-                            enumerable,
-                            writable,
-                            valuePointer,
-                            getPointer,
-                            setPointer
-                        )
-                    );
+                    result = ReflectDefineProperty(target, key, safePartialDesc);
                 } catch (error: any) {
                     throw pushErrorAcrossBoundary(error);
                 }
@@ -3678,7 +3653,7 @@ export function createMembraneMarshall(
                     if (safeDesc) {
                         ReflectSetPrototypeOf(safeDesc, null);
                         if (safeDesc.configurable === false) {
-                            const { value, get: getter, set: setter } = safeDesc;
+                            const { get: getter, set: setter, value } = safeDesc;
                             foreignCallableNonConfigurableDescriptorCallback(
                                 key,
                                 false, // configurable
@@ -3801,7 +3776,7 @@ export function createMembraneMarshall(
                 }
                 if (safeDesc) {
                     ReflectSetPrototypeOf(safeDesc, null);
-                    const { value, get: getter, set: setter } = safeDesc;
+                    const { get: getter, set: setter, value } = safeDesc;
                     foreignCallableDescriptorCallback(
                         key,
                         'configurable' in safeDesc
@@ -3908,8 +3883,7 @@ export function createMembraneMarshall(
                 try {
                     if (ReflectPreventExtensions(target)) {
                         result = PreventExtensionsResult.True;
-                    }
-                    if (result & PreventExtensionsResult.False && ReflectIsExtensible(target)) {
+                    } else if (ReflectIsExtensible(target)) {
                         result |= PreventExtensionsResult.Extensible;
                     }
                 } catch (error: any) {
@@ -4088,7 +4062,11 @@ export function createMembraneMarshall(
                       targetPointer();
                       const target = selectedTarget!;
                       selectedTarget = undefined;
-                      return target[index];
+                      try {
+                          return target[index];
+                      } catch (error: any) {
+                          throw pushErrorAcrossBoundary(error);
+                      }
                   }
                 : (noop as unknown as CallableGetTypedArrayIndexedValue),
             // callableInstallErrorPrepareStackTrace
@@ -4292,7 +4270,7 @@ export function createMembraneMarshall(
                     const ownKey = ownKeys[i];
                     const safeDesc = (unsafeDescMap as any)[ownKey];
                     ReflectSetPrototypeOf(safeDesc, null);
-                    const { value, get: getter, set: setter } = safeDesc;
+                    const { get: getter, set: setter, value } = safeDesc;
                     descriptorTuples[j] = ownKey;
                     descriptorTuples[j + 1] =
                         'configurable' in safeDesc
@@ -4389,7 +4367,7 @@ export function createMembraneMarshall(
                 }
                 if (safeDesc) {
                     ReflectSetPrototypeOf(safeDesc, null);
-                    const { value, get: getter, set: setter } = safeDesc;
+                    const { get: getter, set: setter, value } = safeDesc;
                     foreignCallableDescriptorCallback(
                         key,
                         'configurable' in safeDesc
