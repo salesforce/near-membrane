@@ -1,9 +1,6 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-// outer element declaration
-class Base extends HTMLElement {}
-
-customElements.define('x-base', Base);
+customElements.define('x-base', class Base extends HTMLElement {});
 
 const envOptions = {
     globalObjectShape: window,
