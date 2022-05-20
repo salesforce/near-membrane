@@ -16,9 +16,9 @@ distortionMap.set(assignedElements, () => {
 });
 
 function evaluateInNewSandbox(sourceText) {
-    const env = createVirtualEnvironment(window, window, {
+    const env = createVirtualEnvironment(window, {
         distortionCallback(v) {
-            return distortionMap.get(v) || v;
+            return distortionMap.get(v) ?? v;
         },
     });
     env.evaluate(sourceText);

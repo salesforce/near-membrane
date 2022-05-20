@@ -1,6 +1,6 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-const env = createVirtualEnvironment(window, window);
+const env = createVirtualEnvironment(window);
 
 // listening for x from outer realm
 document.body.addEventListener('x', (e) => {

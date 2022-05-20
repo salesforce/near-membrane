@@ -11,7 +11,7 @@ const distortionMap = new Map([
 
 const env = createVirtualEnvironment(window, {
     distortionCallback(v) {
-        return distortionMap.get(v) || v;
+        return distortionMap.get(v) ?? v;
     },
     globalObjectShape: window,
 });

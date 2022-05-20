@@ -22,7 +22,7 @@ describe('membrane', () => {
 
         const env = createVirtualEnvironment(window, {
             distortionCallback(v) {
-                return distortionMap.get(v) || v;
+                return distortionMap.get(v) ?? v;
             },
             endowments: Object.getOwnPropertyDescriptors({ expect }),
         });

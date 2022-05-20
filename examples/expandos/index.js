@@ -1,6 +1,6 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-const env = createVirtualEnvironment(window, window);
+const env = createVirtualEnvironment(window);
 env.evaluate(`
     debugger;
 
