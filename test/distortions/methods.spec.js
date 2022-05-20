@@ -12,7 +12,7 @@ const distortionMap = new Map([
 describe('Method Distortion', () => {
     const envOptions = {
         distortionCallback(v) {
-            return distortionMap.get(v) || v;
+            return distortionMap.get(v) ?? v;
         },
         globalObjectShape: window,
     };

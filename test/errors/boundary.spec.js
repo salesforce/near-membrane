@@ -99,7 +99,7 @@ describe('The Error Boundary', () => {
         }).toThrowError(Error);
     });
     it('should protect from leaking sandbox errors during evaluation', () => {
-        const env = createVirtualEnvironment(window, envOptions);
+        const env = createVirtualEnvironment(window);
 
         expect(() => {
             env.evaluate(`
@@ -108,7 +108,7 @@ describe('The Error Boundary', () => {
         }).toThrowError(TypeError);
     });
     it('should protect from leaking sandbox errors during parsing', () => {
-        const env = createVirtualEnvironment(window, envOptions);
+        const env = createVirtualEnvironment(window);
 
         expect(() => {
             env.evaluate(`
