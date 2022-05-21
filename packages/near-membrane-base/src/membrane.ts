@@ -202,6 +202,7 @@ export function createMembraneMarshall(
     const ArrayCtor = Array;
     const ArrayBufferCtor = ArrayBuffer;
     const ErrorCtor = Error;
+    const NumberCtor = Number;
     const ObjectCtor = Object;
     const ProxyCtor = Proxy;
     const ReflectRef = Reflect;
@@ -296,7 +297,6 @@ export function createMembraneMarshall(
     // BigInt is not supported in Safari 13.1.
     // https://caniuse.com/bigint
     const SUPPORTS_BIG_INT = typeof BigInt === 'function';
-    const INDEX_REGEXP = /^(?:[0-9]|[1-9][0-9]+)$/;
     const FLAGS_REG_EXP = IS_IN_SHADOW_REALM ? /\w*$/ : undefined;
     const { isArray: isArrayOrThrowForRevoked } = ArrayCtor;
     const {
@@ -313,7 +313,8 @@ export function createMembraneMarshall(
     const { toString: ErrorProtoToString } = ErrorCtor.prototype;
     const { bind: FunctionProtoBind, toString: FunctionProtoToString } = Function.prototype;
     const { stringify: JSONStringify } = JSON;
-    const { valueOf: NumberProtoValueOf } = Number.prototype;
+    const { isInteger: NumberIsInteger } = NumberCtor;
+    const { valueOf: NumberProtoValueOf } = NumberCtor.prototype;
     const { revocable: ProxyRevocable } = ProxyCtor;
     const { prototype: RegExpProto } = RegExpCtor;
     const {
@@ -2644,12 +2645,12 @@ export function createMembraneMarshall(
                       }
                       const { foreignTargetPointer, foreignTargetTypedArrayLength, shadowTarget } =
                           this;
+                      const possibleIndex = typeof key === 'string' ? +key : -1;
                       let result: any;
                       if (
-                          typeof key === 'string' &&
-                          (key as unknown as number) > -1 &&
-                          (key as unknown as number) < foreignTargetTypedArrayLength &&
-                          ReflectApply(RegExpProtoTest, INDEX_REGEXP, [key])
+                          possibleIndex > -1 &&
+                          possibleIndex < foreignTargetTypedArrayLength &&
+                          NumberIsInteger(possibleIndex)
                       ) {
                           try {
                               result = foreignCallableGetTypedArrayIndexedValue(
