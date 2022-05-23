@@ -211,6 +211,56 @@ export function createMembraneMarshall(
     const TypeErrorCtor = TypeError;
     const WeakMapCtor = WeakMap;
     const { for: SymbolFor, toStringTag: TO_STRING_TAG_SYMBOL } = SymbolCtor;
+    const {
+        // eslint-disable-next-line @typescript-eslint/no-shadow, no-shadow
+        apply: ReflectApply,
+        construct: ReflectConstruct,
+        defineProperty: ReflectDefineProperty,
+        deleteProperty: ReflectDeleteProperty,
+        get: ReflectGet,
+        getOwnPropertyDescriptor: ReflectGetOwnPropertyDescriptor,
+        getPrototypeOf: ReflectGetPrototypeOf,
+        has: ReflectHas,
+        isExtensible: ReflectIsExtensible,
+        ownKeys: ReflectOwnKeys,
+        preventExtensions: ReflectPreventExtensions,
+        set: ReflectSet,
+        // eslint-disable-next-line @typescript-eslint/no-shadow, no-shadow
+        setPrototypeOf: ReflectSetPrototypeOf,
+    } = ReflectRef;
+    const {
+        assign: ObjectAssign,
+        defineProperties: ObjectDefineProperties,
+        freeze: ObjectFreeze,
+        getOwnPropertyDescriptor: ObjectGetOwnPropertyDescriptor,
+        getOwnPropertyDescriptors: ObjectGetOwnPropertyDescriptors,
+        isFrozen: ObjectIsFrozen,
+        isSealed: ObjectIsSealed,
+        keys: ObjectKeys,
+        prototype: ObjectProto,
+        seal: ObjectSeal,
+    } = ObjectCtor;
+    const {
+        hasOwnProperty: ObjectProtoHasOwnProperty,
+        propertyIsEnumerable: ObjectProtoPropertyIsEnumerable,
+        toString: ObjectProtoToString,
+    } = ObjectProto;
+    const { hasOwn: OriginalObjectHasOwn } = ObjectCtor as any;
+    const {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        __defineGetter__: ObjectProto__defineGetter__,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        __defineSetter__: ObjectProto__defineSetter__,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        __lookupGetter__: ObjectProto__lookupGetter__,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        __lookupSetter__: ObjectProto__lookupSetter__,
+    } = ObjectProto as any;
+    const ObjectHasOwn =
+        typeof OriginalObjectHasOwn === 'function'
+            ? (OriginalObjectHasOwn as (object: any, key: PropertyKey) => boolean)
+            : (object: any, key: PropertyKey): boolean =>
+                  ReflectApply(ObjectProtoHasOwnProperty, object, [key]);
     // @rollup/plugin-replace replaces `DEV_MODE` references.
     const DEV_MODE = true;
     const IS_IN_SHADOW_REALM = typeof globalObject !== 'object' || globalObject === null;
@@ -248,48 +298,6 @@ export function createMembraneMarshall(
     const SUPPORTS_BIG_INT = typeof BigInt === 'function';
     const INDEX_REGEXP = /^(?:[0-9]|[1-9][0-9]+)$/;
     const FLAGS_REG_EXP = IS_IN_SHADOW_REALM ? /\w*$/ : undefined;
-    const {
-        assign: ObjectAssign,
-        defineProperties: ObjectDefineProperties,
-        freeze: ObjectFreeze,
-        getOwnPropertyDescriptor: ObjectGetOwnPropertyDescriptor,
-        getOwnPropertyDescriptors: ObjectGetOwnPropertyDescriptors,
-        isFrozen: ObjectIsFrozen,
-        isSealed: ObjectIsSealed,
-        keys: ObjectKeys,
-        prototype: ObjectProto,
-        seal: ObjectSeal,
-    } = ObjectCtor;
-    const {
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        __defineGetter__: ObjectProto__defineGetter__,
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        __defineSetter__: ObjectProto__defineSetter__,
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        __lookupGetter__: ObjectProto__lookupGetter__,
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        __lookupSetter__: ObjectProto__lookupSetter__,
-        hasOwnProperty: ObjectProtoHasOwnProperty,
-        propertyIsEnumerable: ObjectProtoPropertyIsEnumerable,
-        toString: ObjectProtoToString,
-    } = ObjectProto as any;
-    const {
-        // eslint-disable-next-line @typescript-eslint/no-shadow, no-shadow
-        apply: ReflectApply,
-        construct: ReflectConstruct,
-        defineProperty: ReflectDefineProperty,
-        deleteProperty: ReflectDeleteProperty,
-        get: ReflectGet,
-        getOwnPropertyDescriptor: ReflectGetOwnPropertyDescriptor,
-        getPrototypeOf: ReflectGetPrototypeOf,
-        has: ReflectHas,
-        isExtensible: ReflectIsExtensible,
-        ownKeys: ReflectOwnKeys,
-        preventExtensions: ReflectPreventExtensions,
-        set: ReflectSet,
-        // eslint-disable-next-line @typescript-eslint/no-shadow, no-shadow
-        setPrototypeOf: ReflectSetPrototypeOf,
-    } = ReflectRef;
     const { isArray: isArrayOrThrowForRevoked } = ArrayCtor;
     const {
         includes: ArrayProtoIncludes,
@@ -843,11 +851,7 @@ export function createMembraneMarshall(
         let checkDebugMode = LOCKER_DEBUGGABLE_FLAG
             ? () => {
                   try {
-                      if (
-                          ReflectApply(ObjectProtoHasOwnProperty, globalThisRef, [
-                              LOCKER_DEBUG_MODE_SYMBOL,
-                          ])
-                      ) {
+                      if (ObjectHasOwn(globalThisRef, LOCKER_DEBUG_MODE_SYMBOL!)) {
                           checkDebugMode = () => true;
                           installErrorPrepareStackTrace();
                           foreignCallableInstallErrorPrepareStackTrace();
@@ -2725,7 +2729,7 @@ export function createMembraneMarshall(
                               selectedTarget = undefined;
                           }
                           while (currentObject) {
-                              if (ReflectApply(ObjectProtoHasOwnProperty, currentObject, [key])) {
+                              if (ObjectHasOwn(currentObject, key)) {
                                   result = true;
                                   break;
                               }
@@ -4192,9 +4196,7 @@ export function createMembraneMarshall(
                                   // eslint-disable-next-line no-empty
                               } catch {}
                           }
-                          return ReflectApply(ObjectProtoHasOwnProperty, target, [
-                              LOCKER_LIVE_VALUE_MARKER_SYMBOL,
-                          ]);
+                          return ObjectHasOwn(target, LOCKER_LIVE_VALUE_MARKER_SYMBOL!);
                           // eslint-disable-next-line no-empty
                       } catch {}
                       return false;
@@ -4335,7 +4337,7 @@ export function createMembraneMarshall(
                 selectedTarget = undefined;
                 let proto;
                 try {
-                    if (ReflectApply(ObjectProtoHasOwnProperty, target, [key])) {
+                    if (ObjectHasOwn(target, key)) {
                         return true;
                     }
                     proto = ReflectGetPrototypeOf(target);
