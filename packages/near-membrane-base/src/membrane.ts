@@ -24,7 +24,7 @@
  */
 
 import { Instrumentation } from './instrumentation';
-import { PropertyKey, PropertyKeys } from './types';
+import { Getter, PropertyKey, PropertyKeys, Setter } from './types';
 
 type CallablePushTarget = (
     foreignTargetPointer: () => void,
@@ -149,7 +149,7 @@ export type CallableSetPrototypeOf = (
     protoPointerOrNull: Pointer | null
 ) => boolean;
 export type DistortionCallback = (target: ProxyTarget) => ProxyTarget;
-export type GetSelectedTarget = () => any;
+export type GetSelectedTarget = Getter;
 export type GetTransferableValue = (value: any) => PointerOrPrimitive;
 export type HooksCallback = (
     globalThisPointer: Pointer | undefined,
@@ -1563,19 +1563,19 @@ export function createMembraneMarshall(
                 safeDesc.writable = writable as boolean;
             }
             if (getterPointerOrPrimitive !== LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL) {
-                let getter: (() => any) | undefined;
+                let getter: Getter | undefined;
                 if (typeof getterPointerOrPrimitive === 'function') {
                     getterPointerOrPrimitive();
-                    getter = selectedTarget as () => any;
+                    getter = selectedTarget as Getter;
                     selectedTarget = undefined;
                 }
                 safeDesc.get = getter;
             }
             if (setterPointerOrPrimitive !== LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL) {
-                let setter: ((value: any) => void) | undefined;
+                let setter: Setter | undefined;
                 if (typeof setterPointerOrPrimitive === 'function') {
                     setterPointerOrPrimitive();
-                    setter = selectedTarget as (value: any) => void;
+                    setter = selectedTarget as Setter;
                     selectedTarget = undefined;
                 }
                 safeDesc.set = setter;
@@ -1809,13 +1809,13 @@ export function createMembraneMarshall(
                       ? (key: PropertyKey): (() => typeof globalThis) => {
                             let globalThisGetter = keyToGlobalThisGetterRegistry![key];
                             if (globalThisGetter === undefined) {
-                                // Use `FunctionProtoBind` to make the getter
-                                // look native.
+                                // Wrap `unboundGlobalThisGetter` in bound function
+                                // to obscure the getter source as "[native code]".
                                 globalThisGetter = ReflectApply(
                                     FunctionProtoBind,
                                     unboundGlobalThisGetter,
                                     []
-                                );
+                                ) as Getter;
                                 // Preserve identity continuity of getters.
                                 keyToGlobalThisGetterRegistry![key] = globalThisGetter;
                             }
@@ -1824,14 +1824,14 @@ export function createMembraneMarshall(
                       : undefined;
 
                   const lookupFixedGetter = shouldFixChromeBug
-                      ? (target: any, key: PropertyKey): (() => any | undefined) =>
+                      ? (target: any, key: PropertyKey): Getter | undefined =>
                             ReflectApply(ArrayProtoIncludes, unforgeableGlobalThisKeys, [key])
                                 ? getUnforgeableGlobalThisGetter!(key)
                                 : ReflectApply(ObjectProto__lookupGetter__, target, [key])
                       : undefined;
 
                   const lookupFixedSetter = shouldFixChromeBug
-                      ? (target: any, key: PropertyKey): (() => any | undefined) =>
+                      ? (target: any, key: PropertyKey): Getter | undefined =>
                             ReflectApply(ArrayProtoIncludes, unforgeableGlobalThisKeys, [key])
                                 ? undefined
                                 : ReflectApply(ObjectProto__lookupSetter__, target, [key])
