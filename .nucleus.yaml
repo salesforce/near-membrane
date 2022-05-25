@@ -2,6 +2,7 @@
 # notifications:
 #   slack:
 #     channel: locker-release
+$bug bounty test
 enforce-work-item-for-pr: false
 branches:
   ~DEFAULT~:
