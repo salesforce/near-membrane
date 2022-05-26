@@ -51,8 +51,8 @@ type CallableDefineProperty = (
     enumerable: boolean | symbol,
     writable: boolean | symbol,
     valuePointer: PointerOrPrimitive,
-    getPointer: PointerOrPrimitive,
-    setPointer: PointerOrPrimitive,
+    getterPointer: PointerOrPrimitive,
+    setterPointer: PointerOrPrimitive,
     foreignCallableNonConfigurableDescriptorCallback: CallableNonConfigurableDescriptorCallback
 ) => boolean;
 type CallableDeleteProperty = (targetPointer: Pointer, key: PropertyKey) => boolean;
@@ -118,13 +118,16 @@ type CallableDescriptorCallback = (
     enumerable: boolean | symbol,
     writable: boolean | symbol,
     valuePointer: PointerOrPrimitive,
-    getPointer: PointerOrPrimitive,
-    setPointer: PointerOrPrimitive
+    getterPointer: PointerOrPrimitive,
+    setterPointer: PointerOrPrimitive
 ) => void;
 type CallableDescriptorsCallback = (
     ...descriptorTuples: [...Parameters<CallableDescriptorCallback>]
 ) => void;
 type CallableNonConfigurableDescriptorCallback = CallableDescriptorCallback;
+interface ForeignPropertyDescriptor extends PropertyDescriptor {
+    foreign?: boolean;
+}
 interface HooksOptions {
     distortionCallback?: DistortionCallback;
     instrumentation?: Instrumentation;
@@ -248,14 +251,10 @@ export function createMembraneMarshall(
     } = ObjectProto;
     const { hasOwn: OriginalObjectHasOwn } = ObjectCtor as any;
     const {
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        __defineGetter__: ObjectProto__defineGetter__,
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        __defineSetter__: ObjectProto__defineSetter__,
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        __lookupGetter__: ObjectProto__lookupGetter__,
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        __lookupSetter__: ObjectProto__lookupSetter__,
+        __defineGetter__: ObjectProtoDefineGetter,
+        __defineSetter__: ObjectProtoDefineSetter,
+        __lookupGetter__: ObjectProtoLookupGetter,
+        __lookupSetter__: ObjectProtoLookupSetter,
     } = ObjectProto as any;
     const ObjectHasOwn =
         typeof OriginalObjectHasOwn === 'function'
@@ -306,7 +305,7 @@ export function createMembraneMarshall(
     } = ArrayCtor.prototype;
     const { isView: ArrayBufferIsView } = ArrayBufferCtor;
     const ArrayBufferProtoByteLengthGetter = !IS_IN_SHADOW_REALM
-        ? ReflectApply(ObjectProto__lookupGetter__, ArrayBufferCtor.prototype, ['byteLength'])!
+        ? ReflectApply(ObjectProtoLookupGetter, ArrayBufferCtor.prototype, ['byteLength'])!
         : undefined;
     const BigIntProtoValueOf = SUPPORTS_BIG_INT ? BigInt.prototype.valueOf : undefined;
     const { valueOf: BooleanProtoValueOf } = Boolean.prototype;
@@ -325,15 +324,13 @@ export function createMembraneMarshall(
     // Edge 15 does not support RegExp.prototype.flags.
     // https://caniuse.com/mdn-javascript_builtins_regexp_flags
     const RegExpProtoFlagsGetter: (() => string) | undefined = IS_IN_SHADOW_REALM
-        ? ReflectApply(ObjectProto__lookupGetter__, RegExpProto, ['flags']) ??
+        ? ReflectApply(ObjectProtoLookupGetter, RegExpProto, ['flags']) ??
           function flags(this: RegExp) {
               const string = ReflectApply(RegExProtoToString, this, []);
               return ReflectApply(RegExpProtoExec, FLAGS_REG_EXP!, [string])[0] as string;
           }
         : undefined;
-    const RegExpProtoSourceGetter = ReflectApply(ObjectProto__lookupGetter__, RegExpProto, [
-        'source',
-    ])!;
+    const RegExpProtoSourceGetter = ReflectApply(ObjectProtoLookupGetter, RegExpProto, ['source'])!;
     const {
         replace: StringProtoReplace,
         slice: StringProtoSlice,
@@ -341,7 +338,7 @@ export function createMembraneMarshall(
     } = StringCtor.prototype;
     const { toString: SymbolProtoToString, valueOf: SymbolProtoValueOf } = SymbolCtor.prototype;
     const TypedArrayProtoLengthGetter = ReflectApply(
-        ObjectProto__lookupGetter__,
+        ObjectProtoLookupGetter,
         // eslint-disable-next-line no-proto
         (Uint8Array.prototype as any).__proto__,
         ['length']
@@ -358,6 +355,7 @@ export function createMembraneMarshall(
     const globalThisRef =
         globalObject ??
         // Support for globalThis was added in Chrome 71.
+        // https://caniuse.com/mdn-javascript_builtins_globalthisfor
         (typeof globalThis !== 'undefined' ? globalThis : undefined) ??
         // However, environments like Android emulators are running Chrome 69.
         // eslint-disable-next-line no-restricted-globals
@@ -823,16 +821,16 @@ export function createMembraneMarshall(
                               enumerable,
                               writable,
                               valuePointer,
-                              getPointer,
-                              setPointer
+                              getterPointer,
+                              setterPointer
                           ) => {
                               safeDesc = createDescriptorFromMeta(
                                   configurable,
                                   enumerable,
                                   writable,
                                   valuePointer,
-                                  getPointer,
-                                  setPointer
+                                  getterPointer,
+                                  setterPointer
                               );
                           }
                       );
@@ -887,8 +885,8 @@ export function createMembraneMarshall(
                                 descriptorTuples[i + 2] as boolean | symbol, // enumerable
                                 descriptorTuples[i + 3] as boolean | symbol, // writable
                                 descriptorTuples[i + 4] as PointerOrPrimitive, // valuePointer
-                                descriptorTuples[i + 5] as PointerOrPrimitive, // getPointer
-                                descriptorTuples[i + 6] as PointerOrPrimitive // setPointer
+                                descriptorTuples[i + 5] as PointerOrPrimitive, // getterPointer
+                                descriptorTuples[i + 6] as PointerOrPrimitive // setterPointer
                             );
                         }
                         // Use `ObjectDefineProperties()` instead of individual
@@ -949,9 +947,9 @@ export function createMembraneMarshall(
                 // @ts-ignore: Prevent private property access error.
                 const { foreignTargetPointer } = this;
                 const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
-                let result: any;
+                let pointerOrPrimitive: PointerOrPrimitive;
                 try {
-                    const pointerOrPrimitive = foreignCallableApplyOrConstruct(
+                    pointerOrPrimitive = foreignCallableApplyOrConstruct(
                         foreignTargetPointer,
                         // Inline getTransferableValue().
                         (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
@@ -964,13 +962,6 @@ export function createMembraneMarshall(
                             ? undefined
                             : thisArgOrNewTarget
                     );
-                    if (typeof pointerOrPrimitive === 'function') {
-                        pointerOrPrimitive();
-                        result = selectedTarget;
-                        selectedTarget = undefined;
-                    } else {
-                        result = pointerOrPrimitive;
-                    }
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
@@ -978,6 +969,14 @@ export function createMembraneMarshall(
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
+                }
+                let result: any;
+                if (typeof pointerOrPrimitive === 'function') {
+                    pointerOrPrimitive();
+                    result = selectedTarget;
+                    selectedTarget = undefined;
+                } else {
+                    result = pointerOrPrimitive;
                 }
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                     activity.stop();
@@ -988,7 +987,7 @@ export function createMembraneMarshall(
 
         function createApplyOrConstructTrapForOneOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(1 arg)`;
+            const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(1)`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
                 : arityToConstructTrapNameRegistry;
@@ -1017,10 +1016,10 @@ export function createMembraneMarshall(
                 // @ts-ignore: Prevent private property access error.
                 const { foreignTargetPointer } = this;
                 const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
-                let result: any;
+                let pointerOrPrimitive: PointerOrPrimitive;
                 try {
                     const { 0: arg0 } = args;
-                    const pointerOrPrimitive = foreignCallableApplyOrConstruct(
+                    pointerOrPrimitive = foreignCallableApplyOrConstruct(
                         foreignTargetPointer,
                         // Inline getTransferableValue().
                         (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
@@ -1042,13 +1041,6 @@ export function createMembraneMarshall(
                             ? undefined
                             : arg0
                     );
-                    if (typeof pointerOrPrimitive === 'function') {
-                        pointerOrPrimitive();
-                        result = selectedTarget;
-                        selectedTarget = undefined;
-                    } else {
-                        result = pointerOrPrimitive;
-                    }
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
@@ -1056,6 +1048,14 @@ export function createMembraneMarshall(
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
+                }
+                let result: any;
+                if (typeof pointerOrPrimitive === 'function') {
+                    pointerOrPrimitive();
+                    result = selectedTarget;
+                    selectedTarget = undefined;
+                } else {
+                    result = pointerOrPrimitive;
                 }
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                     activity.stop();
@@ -1066,7 +1066,7 @@ export function createMembraneMarshall(
 
         function createApplyOrConstructTrapForTwoOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(2 args)`;
+            const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(2)`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
                 : arityToConstructTrapNameRegistry;
@@ -1095,10 +1095,10 @@ export function createMembraneMarshall(
                 // @ts-ignore: Prevent private property access error.
                 const { foreignTargetPointer } = this;
                 const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
-                let result: any;
+                let pointerOrPrimitive: PointerOrPrimitive;
                 try {
                     const { 0: arg0, 1: arg1 } = args;
-                    const pointerOrPrimitive = foreignCallableApplyOrConstruct(
+                    pointerOrPrimitive = foreignCallableApplyOrConstruct(
                         foreignTargetPointer,
                         // Inline getTransferableValue().
                         (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
@@ -1129,13 +1129,6 @@ export function createMembraneMarshall(
                             ? undefined
                             : arg1
                     );
-                    if (typeof pointerOrPrimitive === 'function') {
-                        pointerOrPrimitive();
-                        result = selectedTarget;
-                        selectedTarget = undefined;
-                    } else {
-                        result = pointerOrPrimitive;
-                    }
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
@@ -1143,6 +1136,14 @@ export function createMembraneMarshall(
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
+                }
+                let result: any;
+                if (typeof pointerOrPrimitive === 'function') {
+                    pointerOrPrimitive();
+                    result = selectedTarget;
+                    selectedTarget = undefined;
+                } else {
+                    result = pointerOrPrimitive;
                 }
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                     activity.stop();
@@ -1153,7 +1154,7 @@ export function createMembraneMarshall(
 
         function createApplyOrConstructTrapForThreeOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(3 args)`;
+            const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(3)`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
                 : arityToConstructTrapNameRegistry;
@@ -1182,10 +1183,10 @@ export function createMembraneMarshall(
                 // @ts-ignore: Prevent private property access error.
                 const { foreignTargetPointer } = this;
                 const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
-                let result: any;
+                let pointerOrPrimitive: PointerOrPrimitive;
                 try {
                     const { 0: arg0, 1: arg1, 2: arg2 } = args;
-                    const pointerOrPrimitive = foreignCallableApplyOrConstruct(
+                    pointerOrPrimitive = foreignCallableApplyOrConstruct(
                         foreignTargetPointer,
                         // Inline getTransferableValue().
                         (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
@@ -1225,13 +1226,6 @@ export function createMembraneMarshall(
                             ? undefined
                             : arg2
                     );
-                    if (typeof pointerOrPrimitive === 'function') {
-                        pointerOrPrimitive();
-                        result = selectedTarget;
-                        selectedTarget = undefined;
-                    } else {
-                        result = pointerOrPrimitive;
-                    }
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
@@ -1239,6 +1233,14 @@ export function createMembraneMarshall(
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
+                }
+                let result: any;
+                if (typeof pointerOrPrimitive === 'function') {
+                    pointerOrPrimitive();
+                    result = selectedTarget;
+                    selectedTarget = undefined;
+                } else {
+                    result = pointerOrPrimitive;
                 }
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                     activity.stop();
@@ -1249,7 +1251,7 @@ export function createMembraneMarshall(
 
         function createApplyOrConstructTrapForFourOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(4 args)`;
+            const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(4)`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
                 : arityToConstructTrapNameRegistry;
@@ -1278,10 +1280,10 @@ export function createMembraneMarshall(
                 // @ts-ignore: Prevent private property access error.
                 const { foreignTargetPointer } = this;
                 const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
-                let result: any;
+                let pointerOrPrimitive: PointerOrPrimitive;
                 try {
                     const { 0: arg0, 1: arg1, 2: arg2, 3: arg3 } = args;
-                    const pointerOrPrimitive = foreignCallableApplyOrConstruct(
+                    pointerOrPrimitive = foreignCallableApplyOrConstruct(
                         foreignTargetPointer,
                         // Inline getTransferableValue().
                         (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
@@ -1330,13 +1332,6 @@ export function createMembraneMarshall(
                             ? undefined
                             : arg3
                     );
-                    if (typeof pointerOrPrimitive === 'function') {
-                        pointerOrPrimitive();
-                        result = selectedTarget;
-                        selectedTarget = undefined;
-                    } else {
-                        result = pointerOrPrimitive;
-                    }
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
@@ -1344,6 +1339,14 @@ export function createMembraneMarshall(
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
+                }
+                let result: any;
+                if (typeof pointerOrPrimitive === 'function') {
+                    pointerOrPrimitive();
+                    result = selectedTarget;
+                    selectedTarget = undefined;
+                } else {
+                    result = pointerOrPrimitive;
                 }
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                     activity.stop();
@@ -1354,7 +1357,7 @@ export function createMembraneMarshall(
 
         function createApplyOrConstructTrapForFiveOrMoreArgs(proxyTrapEnum: ProxyHandlerTraps) {
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
-            const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(5 args)`;
+            const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(5)`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
                 ? arityToApplyTrapNameRegistry
                 : arityToConstructTrapNameRegistry;
@@ -1383,10 +1386,10 @@ export function createMembraneMarshall(
                 // @ts-ignore: Prevent private property access error.
                 const { foreignTargetPointer } = this;
                 const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
-                let result: any;
+                let pointerOrPrimitive: PointerOrPrimitive;
                 try {
                     const { 0: arg0, 1: arg1, 2: arg2, 3: arg3, 4: arg4 } = args;
-                    const pointerOrPrimitive = foreignCallableApplyOrConstruct(
+                    pointerOrPrimitive = foreignCallableApplyOrConstruct(
                         foreignTargetPointer,
                         // Inline getTransferableValue().
                         (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
@@ -1444,13 +1447,6 @@ export function createMembraneMarshall(
                             ? undefined
                             : arg4
                     );
-                    if (typeof pointerOrPrimitive === 'function') {
-                        pointerOrPrimitive();
-                        result = selectedTarget;
-                        selectedTarget = undefined;
-                    } else {
-                        result = pointerOrPrimitive;
-                    }
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
@@ -1458,6 +1454,14 @@ export function createMembraneMarshall(
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
+                }
+                let result: any;
+                if (typeof pointerOrPrimitive === 'function') {
+                    pointerOrPrimitive();
+                    result = selectedTarget;
+                    selectedTarget = undefined;
+                } else {
+                    result = pointerOrPrimitive;
                 }
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                     activity.stop();
@@ -1486,13 +1490,13 @@ export function createMembraneMarshall(
                 const { length } = args;
                 let activity: any;
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
-                    activity = startActivity(`Reflect.${nativeMethodName}(${length} args)`);
+                    activity = startActivity(`Reflect.${nativeMethodName}(${length})`);
                 }
                 const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
                 let combinedOffset = 2;
                 const combinedArgs = new ArrayCtor(length + combinedOffset);
                 combinedArgs[0] = foreignTargetPointer;
-                let result: any;
+                let pointerOrPrimitive: PointerOrPrimitive;
                 try {
                     combinedArgs[1] =
                         (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
@@ -1517,18 +1521,11 @@ export function createMembraneMarshall(
                                 ? undefined
                                 : arg;
                     }
-                    const pointerOrPrimitive: PointerOrPrimitive = ReflectApply(
+                    pointerOrPrimitive = ReflectApply(
                         foreignCallableApplyOrConstruct,
                         undefined,
                         combinedArgs
                     );
-                    if (typeof pointerOrPrimitive === 'function') {
-                        pointerOrPrimitive();
-                        result = selectedTarget;
-                        selectedTarget = undefined;
-                    } else {
-                        result = pointerOrPrimitive;
-                    }
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
@@ -1536,6 +1533,14 @@ export function createMembraneMarshall(
                         activity.error(errorToThrow);
                     }
                     throw errorToThrow;
+                }
+                let result: any;
+                if (typeof pointerOrPrimitive === 'function') {
+                    pointerOrPrimitive();
+                    result = selectedTarget;
+                    selectedTarget = undefined;
+                } else {
+                    result = pointerOrPrimitive;
                 }
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                     activity.stop();
@@ -1563,33 +1568,31 @@ export function createMembraneMarshall(
                 safeDesc.writable = writable as boolean;
             }
             if (getterPointerOrPrimitive !== LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL) {
-                let getter: Getter | undefined;
                 if (typeof getterPointerOrPrimitive === 'function') {
                     getterPointerOrPrimitive();
-                    getter = selectedTarget as Getter;
-                    selectedTarget = undefined;
-                }
-                safeDesc.get = getter;
-            }
-            if (setterPointerOrPrimitive !== LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL) {
-                let setter: Setter | undefined;
-                if (typeof setterPointerOrPrimitive === 'function') {
-                    setterPointerOrPrimitive();
-                    setter = selectedTarget as Setter;
-                    selectedTarget = undefined;
-                }
-                safeDesc.set = setter;
-            }
-            if (valuePointerOrPrimitive !== LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL) {
-                let value: any;
-                if (typeof valuePointerOrPrimitive === 'function') {
-                    valuePointerOrPrimitive();
-                    value = selectedTarget;
+                    safeDesc.get = selectedTarget as Getter;
                     selectedTarget = undefined;
                 } else {
-                    value = valuePointerOrPrimitive;
+                    safeDesc.get = undefined;
                 }
-                safeDesc.value = value;
+            }
+            if (setterPointerOrPrimitive !== LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL) {
+                if (typeof setterPointerOrPrimitive === 'function') {
+                    setterPointerOrPrimitive();
+                    safeDesc.set = selectedTarget as Setter;
+                    selectedTarget = undefined;
+                } else {
+                    safeDesc.set = undefined;
+                }
+            }
+            if (valuePointerOrPrimitive !== LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL) {
+                if (typeof valuePointerOrPrimitive === 'function') {
+                    valuePointerOrPrimitive();
+                    safeDesc.value = selectedTarget;
+                    selectedTarget = undefined;
+                } else {
+                    safeDesc.value = valuePointerOrPrimitive;
+                }
             }
             return safeDesc;
         }
@@ -1827,14 +1830,14 @@ export function createMembraneMarshall(
                       ? (target: any, key: PropertyKey): Getter | undefined =>
                             ReflectApply(ArrayProtoIncludes, unforgeableGlobalThisKeys, [key])
                                 ? getUnforgeableGlobalThisGetter!(key)
-                                : ReflectApply(ObjectProto__lookupGetter__, target, [key])
+                                : ReflectApply(ObjectProtoLookupGetter, target, [key])
                       : undefined;
 
                   const lookupFixedSetter = shouldFixChromeBug
                       ? (target: any, key: PropertyKey): Getter | undefined =>
                             ReflectApply(ArrayProtoIncludes, unforgeableGlobalThisKeys, [key])
                                 ? undefined
-                                : ReflectApply(ObjectProto__lookupSetter__, target, [key])
+                                : ReflectApply(ObjectProtoLookupSetter, target, [key])
                       : undefined;
 
                   const unboundGlobalThisGetter = shouldFixChromeBug
@@ -1871,7 +1874,7 @@ export function createMembraneMarshall(
                   };
 
                   const wrapLookupAccessor = (
-                      originalFunc: typeof ObjectProto__lookupGetter__,
+                      originalFunc: typeof ObjectProtoLookupGetter,
                       lookupFixedAccessor?: typeof lookupFixedGetter
                   ) =>
                       new ProxyCtor(originalFunc, {
@@ -2017,22 +2020,20 @@ export function createMembraneMarshall(
                   } catch {}
                   try {
                       // eslint-disable-next-line @typescript-eslint/naming-convention, no-restricted-properties, no-underscore-dangle
-                      (ObjectProto as any).__defineGetter__ = wrapDefineAccessOrProperty(
-                          ObjectProto__defineGetter__
-                      );
+                      (ObjectProto as any).__defineGetter__ =
+                          wrapDefineAccessOrProperty(ObjectProtoDefineGetter);
                       // eslint-disable-next-line no-empty
                   } catch {}
                   try {
                       // eslint-disable-next-line @typescript-eslint/naming-convention, no-restricted-properties, no-underscore-dangle
-                      (ObjectProto as any).__defineSetter__ = wrapDefineAccessOrProperty(
-                          ObjectProto__defineSetter__
-                      );
+                      (ObjectProto as any).__defineSetter__ =
+                          wrapDefineAccessOrProperty(ObjectProtoDefineSetter);
                       // eslint-disable-next-line no-empty
                   } catch {}
                   try {
                       // eslint-disable-next-line @typescript-eslint/naming-convention, no-underscore-dangle
                       (ObjectProto as any).__lookupGetter__ = wrapLookupAccessor(
-                          ObjectProto__lookupGetter__,
+                          ObjectProtoLookupGetter,
                           lookupFixedGetter
                       );
                       // eslint-disable-next-line no-empty
@@ -2040,7 +2041,7 @@ export function createMembraneMarshall(
                   try {
                       // eslint-disable-next-line @typescript-eslint/naming-convention, no-underscore-dangle
                       (ObjectProto as any).__lookupSetter__ = wrapLookupAccessor(
-                          ObjectProto__lookupSetter__,
+                          ObjectProtoLookupSetter,
                           lookupFixedSetter
                       );
                       // eslint-disable-next-line no-empty
@@ -2052,13 +2053,13 @@ export function createMembraneMarshall(
             foreignTargetPointer: Pointer,
             shadowTarget: ShadowTarget,
             key: PropertyKey
-        ): PropertyDescriptor | undefined {
+        ): ForeignPropertyDescriptor | undefined {
             let activity: any;
             if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                 activity = startActivity('lookupForeignDescriptor');
             }
             let protoPointerOrNull;
-            let safeDesc;
+            let safeDesc: ForeignPropertyDescriptor | undefined;
             try {
                 protoPointerOrNull =
                     foreignCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor(
@@ -2069,23 +2070,27 @@ export function createMembraneMarshall(
                             configurable,
                             enumerable,
                             writable,
-                            valuePointer,
-                            getPointer,
-                            setPointer
+                            valuePointerOrPrimitive,
+                            getterPointerOrPrimitive,
+                            setterPointerOrPrimitive
                         ) => {
                             safeDesc = createDescriptorFromMeta(
                                 configurable,
                                 enumerable,
                                 writable,
-                                valuePointer,
-                                getPointer,
-                                setPointer
+                                valuePointerOrPrimitive,
+                                getterPointerOrPrimitive,
+                                setterPointerOrPrimitive
                             );
-                            if (safeDesc.configurable === false) {
+                            if (configurable === false) {
                                 // Update the descriptor to non-configurable on
                                 // the shadow target.
                                 ReflectDefineProperty(shadowTarget, key, safeDesc);
                             }
+                            // Assign the "foreign" property after the call to
+                            // `ReflectDefineProperty()` to preserve the call
+                            // site signature.
+                            (safeDesc as any).foreign = true;
                         }
                     );
             } catch (error: any) {
@@ -2135,12 +2140,38 @@ export function createMembraneMarshall(
                 if ('get' in safeDesc || 'set' in safeDesc) {
                     const { set: setter } = safeDesc;
                     if (setter) {
-                        // Even though the setter function exists, we can't
-                        // use `ReflectSet()` because there might be a
-                        // distortion for that setter function, in which
-                        // case we must resolve the local setter and call
-                        // it instead.
-                        ReflectApply(setter, receiver, [value]);
+                        if (safeDesc.foreign) {
+                            foreignCallableApply(
+                                getTransferablePointer(setter),
+                                // Inline getTransferableValue().
+                                (typeof receiver === 'object' && receiver !== null) ||
+                                    typeof receiver === 'function'
+                                    ? getTransferablePointer(receiver)
+                                    : // Intentionally ignoring `document.all`.
+                                    // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                                    // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                                    typeof receiver === 'undefined'
+                                    ? undefined
+                                    : receiver,
+                                // Inline getTransferableValue().
+                                (typeof value === 'object' && value !== null) ||
+                                    typeof value === 'function'
+                                    ? getTransferablePointer(value)
+                                    : // Intentionally ignoring `document.all`.
+                                    // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                                    // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                                    typeof value === 'undefined'
+                                    ? undefined
+                                    : value
+                            );
+                        } else {
+                            // Even though the setter function exists, we can't
+                            // use `ReflectSet()` because there might be a
+                            // distortion for that setter function, in which
+                            // case we must resolve the local setter and call
+                            // it instead.
+                            ReflectApply(setter, receiver, [value]);
+                        }
                         // If there is a setter, it either throw or we can assume
                         // the value was set.
                         return true;
@@ -2376,8 +2407,8 @@ export function createMembraneMarshall(
                     enumerable,
                     writable,
                     valuePointer,
-                    getPointer,
-                    setPointer
+                    getterPointer,
+                    setterPointer
                 ) => {
                     // Update the descriptor to non-configurable on the shadow
                     // target.
@@ -2389,8 +2420,8 @@ export function createMembraneMarshall(
                             enumerable,
                             writable,
                             valuePointer,
-                            getPointer,
-                            setPointer
+                            getterPointer,
+                            setterPointer
                         )
                     );
                 };
@@ -2444,7 +2475,7 @@ export function createMembraneMarshall(
                         // Lazily define serializedValue.
                         let serializedValue: SerializedValue | undefined | symbol =
                             LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
-                        ReflectApply(ObjectProto__defineGetter__, this, [
+                        ReflectApply(ObjectProtoDefineGetter, this, [
                             'serializedValue',
                             () => {
                                 if (
@@ -2582,7 +2613,8 @@ export function createMembraneMarshall(
                       if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                           activity = startActivity('hybridGetTrap');
                       }
-                      const { foreignTargetPointer, foreignTargetTraits, shadowTarget } = this;
+                      const { foreignTargetPointer, foreignTargetTraits, proxy, shadowTarget } =
+                          this;
                       const safeDesc = lookupForeignDescriptor(
                           foreignTargetPointer,
                           shadowTarget,
@@ -2592,12 +2624,45 @@ export function createMembraneMarshall(
                       if (safeDesc) {
                           const { get: getter, value: localValue } = safeDesc;
                           if (getter) {
-                              // Even though the getter function exists,
-                              // we can't use `ReflectGet()` because there
-                              // might be a distortion for that getter function,
-                              // in which case we must resolve the local getter
-                              // and call it instead.
-                              result = ReflectApply(getter, receiver, []);
+                              if (safeDesc.foreign) {
+                                  const foreignGetterPointer = getTransferablePointer(getter);
+                                  const transferableReceiver =
+                                      proxy === receiver
+                                          ? foreignTargetPointer
+                                          : // Inline getTransferableValue().
+                                          (typeof receiver === 'object' && receiver !== null) ||
+                                            typeof receiver === 'function'
+                                          ? getTransferablePointer(receiver)
+                                          : receiver;
+                                  let pointerOrPrimitive: PointerOrPrimitive;
+                                  try {
+                                      pointerOrPrimitive = foreignCallableApply(
+                                          foreignGetterPointer,
+                                          transferableReceiver
+                                      );
+                                  } catch (error: any) {
+                                      const errorToThrow = selectedTarget ?? error;
+                                      selectedTarget = undefined;
+                                      if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                                          activity.error(errorToThrow);
+                                      }
+                                      throw errorToThrow;
+                                  }
+                                  if (typeof pointerOrPrimitive === 'function') {
+                                      pointerOrPrimitive();
+                                      result = selectedTarget;
+                                      selectedTarget = undefined;
+                                  } else {
+                                      result = pointerOrPrimitive;
+                                  }
+                              } else {
+                                  // Even though the getter function exists,
+                                  // we can't use `ReflectGet()` because there
+                                  // might be a distortion for that getter function,
+                                  // in which case we must resolve the local getter
+                                  // and call it instead.
+                                  result = ReflectApply(getter, receiver, []);
+                              }
                           } else {
                               result = localValue;
                           }
@@ -2643,8 +2708,12 @@ export function createMembraneMarshall(
                       if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                           activity = startActivity('hybridGetTrapForTypedArray');
                       }
-                      const { foreignTargetPointer, foreignTargetTypedArrayLength, shadowTarget } =
-                          this;
+                      const {
+                          foreignTargetPointer,
+                          foreignTargetTypedArrayLength,
+                          proxy,
+                          shadowTarget,
+                      } = this;
                       const possibleIndex = typeof key === 'string' ? +key : -1;
                       let result: any;
                       if (
@@ -2673,13 +2742,47 @@ export function createMembraneMarshall(
                           );
                           if (safeDesc) {
                               const { get: getter, value: localValue } = safeDesc;
+
                               if (getter) {
-                                  // Even though the getter function exists,
-                                  // we can't use `ReflectGet()` because there
-                                  // might be a distortion for that getter function,
-                                  // in which case we must resolve the local getter
-                                  // and call it instead.
-                                  result = ReflectApply(getter, receiver, []);
+                                  if (safeDesc.foreign) {
+                                      const foreignGetterPointer = getTransferablePointer(getter);
+                                      const transferableReceiver =
+                                          proxy === receiver
+                                              ? foreignTargetPointer
+                                              : // Inline getTransferableValue().
+                                              (typeof receiver === 'object' && receiver !== null) ||
+                                                typeof receiver === 'function'
+                                              ? getTransferablePointer(receiver)
+                                              : receiver;
+                                      let pointerOrPrimitive: PointerOrPrimitive;
+                                      try {
+                                          pointerOrPrimitive = foreignCallableApply(
+                                              foreignGetterPointer,
+                                              transferableReceiver
+                                          );
+                                      } catch (error: any) {
+                                          const errorToThrow = selectedTarget ?? error;
+                                          selectedTarget = undefined;
+                                          if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                                              activity.error(errorToThrow);
+                                          }
+                                          throw errorToThrow;
+                                      }
+                                      if (typeof pointerOrPrimitive === 'function') {
+                                          pointerOrPrimitive();
+                                          result = selectedTarget;
+                                          selectedTarget = undefined;
+                                      } else {
+                                          result = pointerOrPrimitive;
+                                      }
+                                  } else {
+                                      // Even though the getter function exists,
+                                      // we can't use `ReflectGet()` because there
+                                      // might be a distortion for that getter function,
+                                      // in which case we must resolve the local getter
+                                      // and call it instead.
+                                      result = ReflectApply(getter, receiver, []);
+                                  }
                               } else {
                                   result = localValue;
                               }
@@ -2774,7 +2877,7 @@ export function createMembraneMarshall(
                             ? undefined
                             : value
                         : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
-                const getPointer =
+                const getterPointer =
                     'get' in safePartialDesc
                         ? // Inline getTransferableValue().
                           (typeof getter === 'object' && getter !== null) ||
@@ -2782,7 +2885,7 @@ export function createMembraneMarshall(
                             ? getTransferablePointer(getter)
                             : getter
                         : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
-                const setPointer =
+                const setterPointer =
                     'set' in safePartialDesc
                         ? // Inline getTransferableValue().
                           (typeof setter === 'object' && setter !== null) ||
@@ -2805,8 +2908,8 @@ export function createMembraneMarshall(
                             ? !!safePartialDesc.writable
                             : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
                         valuePointer,
-                        getPointer,
-                        setPointer,
+                        getterPointer,
+                        setterPointer,
                         nonConfigurableDescriptorCallback
                     );
                 } catch (error: any) {
@@ -2883,27 +2986,20 @@ export function createMembraneMarshall(
                       }
                       const transferableReceiver =
                           proxy === receiver
-                              ? foreignTargetPointer
+                              ? LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
                               : // Inline getTransferableValue().
                               (typeof receiver === 'object' && receiver !== null) ||
                                 typeof receiver === 'function'
                               ? getTransferablePointer(receiver)
                               : receiver;
-                      let result: any;
+                      let pointerOrPrimitive: PointerOrPrimitive;
                       try {
-                          const pointerOrPrimitive = foreignCallableGet(
+                          pointerOrPrimitive = foreignCallableGet(
                               foreignTargetPointer,
                               foreignTargetTraits,
                               key,
                               transferableReceiver
                           );
-                          if (typeof pointerOrPrimitive === 'function') {
-                              pointerOrPrimitive();
-                              result = selectedTarget;
-                              selectedTarget = undefined;
-                          } else {
-                              result = pointerOrPrimitive;
-                          }
                       } catch (error: any) {
                           const errorToThrow = selectedTarget ?? error;
                           selectedTarget = undefined;
@@ -2911,6 +3007,14 @@ export function createMembraneMarshall(
                               activity.error(errorToThrow);
                           }
                           throw errorToThrow;
+                      }
+                      let result: any;
+                      if (typeof pointerOrPrimitive === 'function') {
+                          pointerOrPrimitive();
+                          result = selectedTarget;
+                          selectedTarget = undefined;
+                      } else {
+                          result = pointerOrPrimitive;
                       }
                       if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                           activity.stop();
@@ -3076,16 +3180,16 @@ export function createMembraneMarshall(
                             enumerable,
                             writable,
                             valuePointer,
-                            getPointer,
-                            setPointer
+                            getterPointer,
+                            setterPointer
                         ) => {
                             safeDesc = createDescriptorFromMeta(
                                 configurable,
                                 enumerable,
                                 writable,
                                 valuePointer,
-                                getPointer,
-                                setPointer
+                                getterPointer,
+                                setterPointer
                             );
                             if (safeDesc.configurable === false) {
                                 // Update the descriptor to non-configurable on
@@ -3216,7 +3320,7 @@ export function createMembraneMarshall(
                                   typeof value === 'function'
                                   ? getTransferablePointer(value)
                                   : value,
-                              foreignTargetPointer
+                              LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
                           )
                         : passthruForeignTraversedSet(
                               foreignTargetPointer,
@@ -3627,8 +3731,8 @@ export function createMembraneMarshall(
                 enumerable: boolean | symbol,
                 writable: boolean | symbol,
                 valuePointer: PointerOrPrimitive,
-                getPointer: PointerOrPrimitive,
-                setPointer: PointerOrPrimitive,
+                getterPointer: PointerOrPrimitive,
+                setterPointer: PointerOrPrimitive,
                 foreignCallableNonConfigurableDescriptorCallback: CallableDescriptorCallback
             ): boolean => {
                 targetPointer();
@@ -3639,8 +3743,8 @@ export function createMembraneMarshall(
                     enumerable,
                     writable,
                     valuePointer,
-                    getPointer,
-                    setPointer
+                    getterPointer,
+                    setterPointer
                 );
                 let result = false;
                 try {
@@ -3722,7 +3826,10 @@ export function createMembraneMarshall(
                     receiver = selectedTarget;
                     selectedTarget = undefined;
                 } else {
-                    receiver = receiverPointerOrPrimitive;
+                    receiver =
+                        receiverPointerOrPrimitive === LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
+                            ? target
+                            : receiverPointerOrPrimitive;
                 }
                 let result;
                 try {
@@ -3920,7 +4027,10 @@ export function createMembraneMarshall(
                     receiver = selectedTarget;
                     selectedTarget = undefined;
                 } else {
-                    receiver = receiverPointerOrPrimitive;
+                    receiver =
+                        receiverPointerOrPrimitive === LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
+                            ? target
+                            : receiverPointerOrPrimitive;
                 }
                 try {
                     return ReflectSet(target, key, value, receiver);
@@ -3987,8 +4097,8 @@ export function createMembraneMarshall(
                                   descriptorTuples[i + 2] as boolean | symbol, // enumerable
                                   descriptorTuples[i + 3] as boolean | symbol, // writable
                                   descriptorTuples[i + 4] as PointerOrPrimitive, // valuePointer
-                                  descriptorTuples[i + 5] as PointerOrPrimitive, // getPointer
-                                  descriptorTuples[i + 6] as PointerOrPrimitive // setPointer
+                                  descriptorTuples[i + 5] as PointerOrPrimitive, // getterPointer
+                                  descriptorTuples[i + 6] as PointerOrPrimitive // setterPointer
                               )
                           );
                       }

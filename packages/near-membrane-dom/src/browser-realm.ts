@@ -35,27 +35,23 @@ const { remove: ElementProtoRemove, setAttribute: ElementProtoSetAttribute } = E
 const { appendChild: NodeProtoAppendChild } = NodeProto;
 const { assign: ObjectAssign } = ObjectCtor;
 // eslint-disable-next-line @typescript-eslint/naming-convention
-const { __lookupGetter__: ObjectProto__lookupGetter__ } = ObjectCtor.prototype as any;
+const { __lookupGetter__: ObjectProtoLookupGetter } = ObjectCtor.prototype as any;
 const { apply: ReflectApply } = Reflect;
 const {
     close: DocumentProtoClose,
     createElement: DocumentProtoCreateElement,
     open: DocumentProtoOpen,
 } = DocumentProto;
-const DocumentProtoBodyGetter = ReflectApply(ObjectProto__lookupGetter__, DocumentProto, ['body'])!;
-const HTMLElementProtoStyleGetter = ReflectApply(
-    ObjectProto__lookupGetter__,
-    HTMLElement.prototype,
-    ['style']
-)!;
+const DocumentProtoBodyGetter = ReflectApply(ObjectProtoLookupGetter, DocumentProto, ['body'])!;
+const HTMLElementProtoStyleGetter = ReflectApply(ObjectProtoLookupGetter, HTMLElement.prototype, [
+    'style',
+])!;
 const HTMLIFrameElementProtoContentWindowGetter = ReflectApply(
-    ObjectProto__lookupGetter__,
+    ObjectProtoLookupGetter,
     HTMLIFrameElement.prototype,
     ['contentWindow']
 )!;
-const NodeProtoLastChildGetter = ReflectApply(ObjectProto__lookupGetter__, NodeProto, [
-    'lastChild',
-])!;
+const NodeProtoLastChildGetter = ReflectApply(ObjectProtoLookupGetter, NodeProto, ['lastChild'])!;
 const docRef = document;
 
 let defaultGlobalOwnKeys: PropertyKeys | null = null;
