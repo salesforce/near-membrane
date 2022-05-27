@@ -22,7 +22,7 @@
  *    argument of the foreign callable for proxies, and the other side can use
  *    it via `selectedTarget!`.
  */
-
+import { toSafeWeakMap } from './utils';
 import { Instrumentation } from './instrumentation';
 import { Getter, PropertyKey, PropertyKeys, Setter } from './types';
 
@@ -195,7 +195,9 @@ export type HooksCallback = (
 export type Pointer = CallableFunction;
 export type ProxyTarget = CallableFunction | any[] | object;
 
-const proxyTargetToLazyPropertyDescriptorStateMap: WeakMap<ProxyTarget, object> = new WeakMap();
+const proxyTargetToLazyPropertyDescriptorStateMap: WeakMap<ProxyTarget, object> = toSafeWeakMap(
+    new WeakMap()
+);
 
 // istanbul ignore next
 export function createMembraneMarshall(
@@ -214,7 +216,7 @@ export function createMembraneMarshall(
     const SymbolCtor = Symbol;
     const TypeErrorCtor = TypeError;
     const WeakMapCtor = WeakMap;
-    const { for: SymbolFor, toStringTag: TO_STRING_TAG_SYMBOL } = SymbolCtor;
+    const { for: SymbolFor, toStringTag: SymbolToStringTag } = SymbolCtor;
     const {
         // eslint-disable-next-line @typescript-eslint/no-shadow, no-shadow
         apply: ReflectApply,
@@ -343,8 +345,13 @@ export function createMembraneMarshall(
         (Uint8Array.prototype as any).__proto__,
         ['length']
     )!;
-    // eslint-disable-next-line @typescript-eslint/no-shadow, no-shadow
-    const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMapCtor.prototype;
+    const { prototype: WeakMapProto } = WeakMapCtor;
+    const {
+        delete: WeakMapProtoDelete,
+        has: WeakMapProtoHas,
+        set: WeakMapProtoSet,
+        [SymbolToStringTag]: WeakMapProtoSymbolToStringTag,
+    } = WeakMapProto as any;
     const consoleObject =
         !IS_IN_SHADOW_REALM && typeof console === 'object' && console !== null
             ? console
@@ -725,6 +732,18 @@ export function createMembraneMarshall(
         return '[Object Unknown]';
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-shadow, no-shadow
+    function toSafeWeakMap<T extends WeakMap<any, any>>(weakMap: T): T {
+        ReflectSetPrototypeOf(weakMap, null);
+        weakMap.constructor = WeakMapCtor;
+        weakMap.delete = WeakMapProtoDelete;
+        weakMap.has = WeakMapProtoHas;
+        weakMap.set = WeakMapProtoSet;
+        weakMap[SymbolToStringTag] = WeakMapProtoSymbolToStringTag;
+        ReflectSetPrototypeOf(weakMap, WeakMapProto);
+        return weakMap;
+    }
+
     return function createHooksCallback(
         color: string,
         foreignCallableHooksCallback: HooksCallback,
@@ -764,10 +783,11 @@ export function createMembraneMarshall(
             n: undefined,
         };
 
-        const localProxyTargetToLazyPropertyDescriptorStateMap: WeakMap<ProxyTarget, object> =
-            new WeakMapCtor();
+        const localProxyTargetToLazyPropertyDescriptorStateMap = toSafeWeakMap(
+            new WeakMapCtor<ProxyTarget, object>()
+        );
 
-        const proxyTargetToPointerMap: WeakMap<ProxyTarget, Pointer> = new WeakMapCtor();
+        const proxyTargetToPointerMap = toSafeWeakMap(new WeakMapCtor<ProxyTarget, Pointer>());
 
         const startActivity: any = LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG
             ? instrumentation!.startActivity
@@ -1612,11 +1632,7 @@ export function createMembraneMarshall(
 
         const getLazyPropertyDescriptorStateByTarget = IS_IN_SHADOW_REALM
             ? (target: ProxyTarget): object | undefined => {
-                  let state: any = ReflectApply(
-                      WeakMapProtoGet,
-                      localProxyTargetToLazyPropertyDescriptorStateMap,
-                      [target]
-                  );
+                  let state: any = localProxyTargetToLazyPropertyDescriptorStateMap.get(target);
                   if (state === undefined) {
                       const statePointerOrUndefined =
                           foreignCallableGetLazyPropertyDescriptorStateByTarget(
@@ -1627,11 +1643,7 @@ export function createMembraneMarshall(
                           state = selectedTarget;
                           selectedTarget = undefined;
                           if (state) {
-                              ReflectApply(
-                                  WeakMapProtoSet,
-                                  localProxyTargetToLazyPropertyDescriptorStateMap,
-                                  [target, state]
-                              );
+                              localProxyTargetToLazyPropertyDescriptorStateMap.set(target, state);
                           }
                       }
                   }
@@ -1643,9 +1655,7 @@ export function createMembraneMarshall(
             originalTarget: ProxyTarget,
             foreignCallablePusher = foreignCallablePushTarget
         ): Pointer {
-            let proxyPointer = ReflectApply(WeakMapProtoGet, proxyTargetToPointerMap, [
-                originalTarget,
-            ]);
+            let proxyPointer = proxyTargetToPointerMap.get(originalTarget);
             if (proxyPointer) {
                 return proxyPointer;
             }
@@ -1740,7 +1750,7 @@ export function createMembraneMarshall(
             // but implies that for every distorted value where are two proxies
             // that are not ===, which is weird. Guaranteeing this is not easy
             // because it means auditing the code.
-            ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [originalTarget, proxyPointer]);
+            proxyTargetToPointerMap.set(originalTarget, proxyPointer);
             return proxyPointer;
         }
 
@@ -2118,6 +2128,14 @@ export function createMembraneMarshall(
                     }
                     currentObject = ReflectGetPrototypeOf(currentObject);
                 }
+                if (safeDesc) {
+                    const { get: getter, set: setter, value: localValue } = safeDesc;
+                    const possibleProxy = getter ?? setter ?? localValue;
+                    safeDesc.foreign =
+                        ((typeof possibleProxy === 'object' && possibleProxy !== null) ||
+                            typeof possibleProxy === 'function') &&
+                        proxyTargetToPointerMap.get(possibleProxy) !== undefined;
+                }
             }
             if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                 activity.stop();
@@ -2252,16 +2270,13 @@ export function createMembraneMarshall(
                 foreignTargetFunctionName,
                 foreignTargetTypedArrayLength
             );
-            ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [proxy, foreignTargetPointer]);
+            proxyTargetToPointerMap.set(proxy, foreignTargetPointer);
             return createPointer(proxy);
         }
 
         const setLazyPropertyDescriptorStateByTarget = IS_IN_SHADOW_REALM
             ? (target: ProxyTarget, state: object) => {
-                  ReflectApply(WeakMapProtoSet, localProxyTargetToLazyPropertyDescriptorStateMap, [
-                      target,
-                      state,
-                  ]);
+                  localProxyTargetToLazyPropertyDescriptorStateMap.set(target, state);
                   foreignCallableSetLazyPropertyDescriptorStateByTarget(
                       getTransferablePointer(target),
                       getTransferablePointer(state)
@@ -2563,7 +2578,7 @@ export function createMembraneMarshall(
                 }
                 if (
                     foreignTargetTraits & TargetTraits.IsObject &&
-                    !ReflectHas(shadowTarget, TO_STRING_TAG_SYMBOL)
+                    !ReflectHas(shadowTarget, SymbolToStringTag)
                 ) {
                     let toStringTag = 'Object';
                     try {
@@ -2667,7 +2682,7 @@ export function createMembraneMarshall(
                               result = localValue;
                           }
                       } else if (
-                          key === TO_STRING_TAG_SYMBOL &&
+                          key === SymbolToStringTag &&
                           foreignTargetTraits & TargetTraits.IsObject
                       ) {
                           let toStringTag;
@@ -3461,7 +3476,7 @@ export function createMembraneMarshall(
                       const result = ReflectGet(shadowTarget, key, receiver);
                       if (
                           result === undefined &&
-                          key === TO_STRING_TAG_SYMBOL &&
+                          key === SymbolToStringTag &&
                           foreignTargetTraits & TargetTraits.IsObject &&
                           // The default language toStringTag is "Object". If we
                           // receive "Object" we return `undefined` to let the
@@ -3605,7 +3620,7 @@ export function createMembraneMarshall(
                     (typeof target === 'object' && target !== null) ||
                     typeof target === 'function'
                 ) {
-                    ReflectApply(WeakMapProtoSet, proxyTargetToPointerMap, [target, newPointer]);
+                    proxyTargetToPointerMap.set(target, newPointer);
                 }
             },
             // callablePushErrorTarget
@@ -3846,7 +3861,7 @@ export function createMembraneMarshall(
                 }
                 if (
                     result === undefined &&
-                    key === TO_STRING_TAG_SYMBOL &&
+                    key === SymbolToStringTag &&
                     targetTraits & TargetTraits.IsObject
                 ) {
                     try {
@@ -4110,13 +4125,9 @@ export function createMembraneMarshall(
                       targetPointer();
                       const target = selectedTarget!;
                       selectedTarget = undefined;
-                      // We don't wrap the `WeakMapProtoGet` call in a try-catch
+                      // We don't wrap the weak map `get()` call in a try-catch
                       // because we know `target` is an object.
-                      const state = ReflectApply(
-                          WeakMapProtoGet,
-                          proxyTargetToLazyPropertyDescriptorStateMap,
-                          [target]
-                      );
+                      const state = proxyTargetToLazyPropertyDescriptorStateMap.get(target);
                       return state ? getTransferablePointer(state) : state;
                   }
                 : (noop as CallableGetLazyPropertyDescriptorStateByTarget),
@@ -4334,7 +4345,7 @@ export function createMembraneMarshall(
                       const target = selectedTarget!;
                       selectedTarget = undefined;
                       try {
-                          return ReflectHas(target, TO_STRING_TAG_SYMBOL)
+                          return ReflectHas(target, SymbolToStringTag)
                               ? serializeTargetByTrialAndError(target)
                               : // Fast path.
                                 serializeTargetByBrand(target);
@@ -4352,12 +4363,9 @@ export function createMembraneMarshall(
                       statePointer();
                       const state = selectedTarget!;
                       selectedTarget = undefined;
-                      // We don't wrap the `WeakMapProtoSet` call in a try-catch
+                      // We don't wrap the weak map `set()` call in a try-catch
                       // because we know `target` is an object.
-                      ReflectApply(WeakMapProtoSet, proxyTargetToLazyPropertyDescriptorStateMap, [
-                          target,
-                          state,
-                      ]);
+                      proxyTargetToLazyPropertyDescriptorStateMap.set(target, state);
                   }
                 : (noop as CallableSetLazyPropertyDescriptorStateByTarget),
             // callableBatchGetPrototypeOfAndGetOwnPropertyDescriptors
