@@ -2118,6 +2118,22 @@ export function createMembraneMarshall(
                     }
                     currentObject = ReflectGetPrototypeOf(currentObject);
                 }
+                if (safeDesc) {
+                    safeDesc.foreign = false;
+                    if (!IS_IN_SHADOW_REALM) {
+                        const { get: getter, set: setter, value: localValue } = safeDesc;
+                        const possibleProxy = getter ?? setter ?? localValue;
+                        safeDesc.foreign =
+                            ((typeof possibleProxy === 'object' && possibleProxy !== null) ||
+                                typeof possibleProxy === 'function') &&
+                            // Detect whether the value is a proxy by triggering
+                            // the BoundaryProxyHandler.has trap followed by the
+                            // BoundaryProxyHandler.get trap for the near-membrane
+                            // symbol.
+                            !(LOCKER_NEAR_MEMBRANE_SYMBOL! in possibleProxy) &&
+                            possibleProxy[LOCKER_NEAR_MEMBRANE_SYMBOL!] === true;
+                    }
+                }
             }
             if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                 activity.stop();
