@@ -5,6 +5,7 @@ import {
     getFilteredGlobalOwnKeys,
     linkIntrinsics,
     DistortionCallback,
+    Getter,
     Instrumentation,
     PropertyKeys,
     VirtualEnvironment,
@@ -42,16 +43,22 @@ const {
     createElement: DocumentProtoCreateElement,
     open: DocumentProtoOpen,
 } = DocumentProto;
-const DocumentProtoBodyGetter = ReflectApply(ObjectProtoLookupGetter, DocumentProto, ['body'])!;
-const HTMLElementProtoStyleGetter = ReflectApply(ObjectProtoLookupGetter, HTMLElement.prototype, [
-    'style',
+const DocumentProtoBodyGetter: Getter = ReflectApply(ObjectProtoLookupGetter, DocumentProto, [
+    'body',
 ])!;
-const HTMLIFrameElementProtoContentWindowGetter = ReflectApply(
+const HTMLElementProtoStyleGetter: Getter = ReflectApply(
+    ObjectProtoLookupGetter,
+    HTMLElement.prototype,
+    ['style']
+)!;
+const HTMLIFrameElementProtoContentWindowGetter: Getter = ReflectApply(
     ObjectProtoLookupGetter,
     HTMLIFrameElement.prototype,
     ['contentWindow']
 )!;
-const NodeProtoLastChildGetter = ReflectApply(ObjectProtoLookupGetter, NodeProto, ['lastChild'])!;
+const NodeProtoLastChildGetter: Getter = ReflectApply(ObjectProtoLookupGetter, NodeProto, [
+    'lastChild',
+])!;
 const docRef = document;
 
 let defaultGlobalOwnKeys: PropertyKeys | null = null;
@@ -62,10 +69,10 @@ function createDetachableIframe(): HTMLIFrameElement {
     ]) as HTMLIFrameElement;
     // It is impossible to test whether the NodeProtoLastChildGetter branch is
     // reached in a normal Karma test environment.
-    const parent =
+    const parent: Element =
         ReflectApply(DocumentProtoBodyGetter, docRef, []) ??
         /* istanbul ignore next */ ReflectApply(NodeProtoLastChildGetter, docRef, []);
-    const style = ReflectApply(HTMLElementProtoStyleGetter, iframe, []);
+    const style: CSSStyleDeclaration = ReflectApply(HTMLElementProtoStyleGetter, iframe, []);
     style.display = 'none';
     ReflectApply(ElementProtoSetAttribute, iframe, ['sandbox', IFRAME_SANDBOX_ATTRIBUTE_VALUE]);
     ReflectApply(NodeProtoAppendChild, parent, [iframe]);
