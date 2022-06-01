@@ -1,13 +1,11 @@
-import { PropertyKeys } from '@locker/near-membrane-base';
+import { toSafeWeakMap } from '@locker/near-membrane-base';
+import { PropertyKeys } from '@locker/near-membrane-base/types';
 
-const WeakMapCtor = WeakMap;
 const {
-    apply: ReflectApply,
     deleteProperty: ReflectDeleteProperty,
     getPrototypeOf: ReflectGetPrototypeOf,
     ownKeys: ReflectOwnKeys,
 } = Reflect;
-const { get: WeakMapProtoGet, set: WeakMapProtoSet } = WeakMapCtor.prototype;
 
 /**
  * - Unforgeable object and prototype references
@@ -22,8 +20,9 @@ interface CachedBlueReferencesRecord extends Object {
     EventTargetProtoOwnKeys: PropertyKeys;
 }
 
-const blueGlobalToRecordMap: WeakMap<typeof globalThis, CachedBlueReferencesRecord> =
-    new WeakMapCtor();
+const blueGlobalToRecordMap: WeakMap<typeof globalThis, CachedBlueReferencesRecord> = toSafeWeakMap(
+    new WeakMap()
+);
 
 // Chromium based browsers have a bug that nulls the result of `window`
 // getters in detached iframes when the property descriptor of `window.window`
@@ -60,9 +59,7 @@ export const unforgeablePoisonedWindowKeys = (() => {
 export function getCachedGlobalObjectReferences(
     globalObject: WindowProxy & typeof globalThis
 ): CachedBlueReferencesRecord {
-    let record = ReflectApply(WeakMapProtoGet, blueGlobalToRecordMap, [globalObject]) as
-        | CachedBlueReferencesRecord
-        | undefined;
+    let record = blueGlobalToRecordMap.get(globalObject) as CachedBlueReferencesRecord | undefined;
     if (record) {
         return record;
     }
@@ -81,7 +78,7 @@ export function getCachedGlobalObjectReferences(
         EventTargetProto,
         EventTargetProtoOwnKeys: ReflectOwnKeys(EventTargetProto),
     } as CachedBlueReferencesRecord;
-    ReflectApply(WeakMapProtoSet, blueGlobalToRecordMap, [globalObject, record]);
+    blueGlobalToRecordMap.set(globalObject, record);
     return record;
 }
 

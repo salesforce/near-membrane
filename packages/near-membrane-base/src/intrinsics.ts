@@ -1,9 +1,9 @@
+import { toSafeArray } from './utils';
 import { VirtualEnvironment } from './environment';
 import { PropertyKeys } from './types';
 
-const { includes: ArrayProtoIncludes } = Array.prototype;
 const { assign: ObjectAssign } = Object;
-const { apply: ReflectApply, ownKeys: ReflectOwnKeys } = Reflect;
+const { ownKeys: ReflectOwnKeys } = Reflect;
 
 /**
  * This list must be in sync with ecma-262, anything new added to the global object
@@ -119,10 +119,10 @@ const ReflectiveIntrinsicObjectNames = [
     'globalThis',
 ];
 
-const ESGlobalsAndReflectiveIntrinsicObjectNames = [
+const ESGlobalsAndReflectiveIntrinsicObjectNames = toSafeArray([
     ...ESGlobalKeys,
     ...ReflectiveIntrinsicObjectNames,
-];
+]);
 
 export function assignFilteredGlobalDescriptorsFromPropertyDescriptorMap<
     T extends PropertyDescriptorMap
@@ -133,9 +133,7 @@ export function assignFilteredGlobalDescriptorsFromPropertyDescriptorMap<
         // Avoid overriding ECMAScript global names that correspond to
         // global intrinsics. This guarantee that those entries will be
         // ignored if present in the source property descriptor map.
-        if (
-            !ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveIntrinsicObjectNames, [ownKey])
-        ) {
+        if (!ESGlobalsAndReflectiveIntrinsicObjectNames.includes(ownKey as any)) {
             const unsafeDesc = (source as any)[ownKey];
             if (unsafeDesc) {
                 // Avoid poisoning by only installing own properties from
@@ -158,9 +156,7 @@ export function getFilteredGlobalOwnKeys(source: object): PropertyKeys {
         // Avoid overriding ECMAScript global names that correspond to global
         // intrinsics. This guarantees that those entries will be ignored if
         // present in the source object.
-        if (
-            !ReflectApply(ArrayProtoIncludes, ESGlobalsAndReflectiveIntrinsicObjectNames, [ownKey])
-        ) {
+        if (!ESGlobalsAndReflectiveIntrinsicObjectNames.includes(ownKey as any)) {
             result[resultOffset++] = ownKey;
         }
     }
