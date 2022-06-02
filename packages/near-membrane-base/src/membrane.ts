@@ -128,6 +128,7 @@ type CallableNonConfigurableDescriptorCallback = CallableDescriptorCallback;
 interface ForeignPropertyDescriptor extends PropertyDescriptor {
     foreign?: boolean;
 }
+type GlobalThisGetter = () => typeof globalThis;
 interface HooksOptions {
     distortionCallback?: DistortionCallback;
     instrumentation?: Instrumentation;
@@ -306,8 +307,8 @@ export function createMembraneMarshall(
         slice: ArrayProtoSlice,
     } = ArrayCtor.prototype;
     const { isView: ArrayBufferIsView } = ArrayBufferCtor;
-    const ArrayBufferProtoByteLengthGetter = !IS_IN_SHADOW_REALM
-        ? ReflectApply(ObjectProtoLookupGetter, ArrayBufferCtor.prototype, ['byteLength'])!
+    const ArrayBufferProtoByteLengthGetter: () => number = !IS_IN_SHADOW_REALM
+        ? ReflectApply(ObjectProtoLookupGetter, ArrayBufferCtor.prototype, ['byteLength'])
         : undefined;
     const BigIntProtoValueOf = SUPPORTS_BIG_INT ? BigInt.prototype.valueOf : undefined;
     const { valueOf: BooleanProtoValueOf } = Boolean.prototype;
@@ -332,19 +333,23 @@ export function createMembraneMarshall(
               return ReflectApply(RegExpProtoExec, FLAGS_REG_EXP!, [string])[0] as string;
           }
         : undefined;
-    const RegExpProtoSourceGetter = ReflectApply(ObjectProtoLookupGetter, RegExpProto, ['source'])!;
+    const RegExpProtoSourceGetter: () => string = ReflectApply(
+        ObjectProtoLookupGetter,
+        RegExpProto,
+        ['source']
+    );
     const {
         replace: StringProtoReplace,
         slice: StringProtoSlice,
         valueOf: StringProtoValueOf,
     } = StringCtor.prototype;
     const { toString: SymbolProtoToString, valueOf: SymbolProtoValueOf } = SymbolCtor.prototype;
-    const TypedArrayProtoLengthGetter = ReflectApply(
+    const TypedArrayProtoLengthGetter: () => number = ReflectApply(
         ObjectProtoLookupGetter,
         // eslint-disable-next-line no-proto
         (Uint8Array.prototype as any).__proto__,
         ['length']
-    )!;
+    );
     const { prototype: WeakMapProto } = WeakMapCtor;
     const {
         delete: WeakMapProtoDelete,
@@ -598,10 +603,10 @@ export function createMembraneMarshall(
               //     a. If SameValue(R, %RegExp.prototype%) is true, return "(?:)".
               //     b. Otherwise, throw a TypeError exception.
               if (value !== RegExpProto) {
-                  const source = ReflectApply(RegExpProtoSourceGetter, value, []);
+                  const source = ReflectApply(RegExpProtoSourceGetter, value, []) as string;
                   return JSONStringify({
                       __proto__: null,
-                      flags: ReflectApply(RegExpProtoFlagsGetter!, value, []),
+                      flags: ReflectApply(RegExpProtoFlagsGetter!, value, []) as string,
                       source,
                   });
               }
@@ -715,7 +720,7 @@ export function createMembraneMarshall(
         }
         try {
             if (typeof value === 'object' && value !== null) {
-                const result = ReflectApply(ObjectProtoToString, value, []);
+                const result = ReflectApply(ObjectProtoToString, value, []) as string;
                 return result === '[object Symbol]'
                     ? ReflectApply(SymbolProtoToString, value, [])
                     : result;
@@ -1717,7 +1722,7 @@ export function createMembraneMarshall(
                         TypedArrayProtoLengthGetter,
                         distortedTarget,
                         []
-                    );
+                    ) as number;
                     targetTraits |= TargetTraits.IsTypedArray;
                     // eslint-disable-next-line no-empty
                 } catch {
@@ -1799,7 +1804,7 @@ export function createMembraneMarshall(
 
                   // Lazily populated by `getUnforgeableGlobalThisGetter()`;
                   const keyToGlobalThisGetterRegistry = shouldFixChromeBug
-                      ? { __proto__: null }
+                      ? ({ __proto__: null } as unknown as Record<PropertyKey, GlobalThisGetter>)
                       : undefined;
 
                   const getFixedDescriptor = shouldFixChromeBug
@@ -1819,8 +1824,9 @@ export function createMembraneMarshall(
                       : undefined;
 
                   const getUnforgeableGlobalThisGetter = shouldFixChromeBug
-                      ? (key: PropertyKey): (() => typeof globalThis) => {
-                            let globalThisGetter = keyToGlobalThisGetterRegistry![key];
+                      ? (key: PropertyKey): GlobalThisGetter => {
+                            let globalThisGetter: GlobalThisGetter | undefined =
+                                keyToGlobalThisGetterRegistry![key];
                             if (globalThisGetter === undefined) {
                                 // Wrap `unboundGlobalThisGetter` in bound function
                                 // to obscure the getter source as "[native code]".
@@ -1828,7 +1834,7 @@ export function createMembraneMarshall(
                                     FunctionProtoBind,
                                     unboundGlobalThisGetter,
                                     []
-                                ) as Getter;
+                                ) as GlobalThisGetter;
                                 // Preserve identity continuity of getters.
                                 keyToGlobalThisGetterRegistry![key] = globalThisGetter;
                             }
@@ -1844,14 +1850,14 @@ export function createMembraneMarshall(
                       : undefined;
 
                   const lookupFixedSetter = shouldFixChromeBug
-                      ? (target: any, key: PropertyKey): Getter | undefined =>
+                      ? (target: any, key: PropertyKey): Setter | undefined =>
                             ReflectApply(ArrayProtoIncludes, unforgeableGlobalThisKeys, [key])
                                 ? undefined
                                 : ReflectApply(ObjectProtoLookupSetter, target, [key])
                       : undefined;
 
                   const unboundGlobalThisGetter = shouldFixChromeBug
-                      ? () => globalThisRef
+                      ? ((() => globalThisRef) as GlobalThisGetter)
                       : undefined;
 
                   const wrapDefineAccessOrProperty = (originalFunc: Function) => {
@@ -1885,7 +1891,7 @@ export function createMembraneMarshall(
 
                   const wrapLookupAccessor = (
                       originalFunc: typeof ObjectProtoLookupGetter,
-                      lookupFixedAccessor?: typeof lookupFixedGetter
+                      lookupFixedAccessor?: typeof lookupFixedGetter | typeof lookupFixedSetter
                   ) =>
                       new ProxyCtor(originalFunc, {
                           apply(_originalFunc: Function, thisArg: any, args: [key: PropertyKey]) {
@@ -1965,10 +1971,10 @@ export function createMembraneMarshall(
                               const state = getLazyPropertyDescriptorStateByTarget(target);
                               const isFixingChromeBug =
                                   target === globalThisRef && shouldFixChromeBug;
-                              const unsafeDescMap = isFixingChromeBug
+                              const unsafeDescMap: PropertyDescriptorMap = isFixingChromeBug
                                   ? // Create an empty property descriptor map
                                     // to populate with curated descriptors.
-                                    ({} as PropertyDescriptorMap)
+                                    {}
                                   : // Since this is not a global object it is
                                     // safe to use the native method.
                                     ReflectApply(originalFunc, thisArg, args);
@@ -3874,7 +3880,7 @@ export function createMembraneMarshall(
                             // to let the language resolve it naturally without
                             // projecting a value.
                             if (brand !== '[object Object]') {
-                                result = ReflectApply(StringProtoSlice, brand, [8, -1]);
+                                result = ReflectApply(StringProtoSlice, brand, [8, -1]) as string;
                             }
                         }
                     } catch (error: any) {
@@ -4207,9 +4213,9 @@ export function createMembraneMarshall(
                           ArrayProtoIndexOf,
                           ownKeysAndUnforgeableGlobalThisKeys,
                           [LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL]
-                      );
-                      let ownKeys;
-                      let unforgeableGlobalThisKeys;
+                      ) as number;
+                      let ownKeys: PropertyKeys;
+                      let unforgeableGlobalThisKeys: PropertyKeys | undefined;
                       if (sliceIndex === -1) {
                           ownKeys = ownKeysAndUnforgeableGlobalThisKeys;
                       } else {
@@ -4217,12 +4223,12 @@ export function createMembraneMarshall(
                               ArrayProtoSlice,
                               ownKeysAndUnforgeableGlobalThisKeys,
                               [0, sliceIndex]
-                          );
+                          ) as PropertyKeys;
                           unforgeableGlobalThisKeys = ReflectApply(
                               ArrayProtoSlice,
                               ownKeysAndUnforgeableGlobalThisKeys,
                               [sliceIndex + 1]
-                          );
+                          ) as PropertyKeys;
                       }
                       targetPointer();
                       const target = selectedTarget!;
