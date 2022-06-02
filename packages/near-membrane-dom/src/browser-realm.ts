@@ -64,9 +64,7 @@ const docRef = document;
 let defaultGlobalOwnKeys: PropertyKeys | null = null;
 
 function createDetachableIframe(): HTMLIFrameElement {
-    const iframe = ReflectApply(DocumentProtoCreateElement, docRef, [
-        'iframe',
-    ]) as HTMLIFrameElement;
+    const iframe: HTMLIFrameElement = ReflectApply(DocumentProtoCreateElement, docRef, ['iframe']);
     // It is impossible to test whether the NodeProtoLastChildGetter branch is
     // reached in a normal Karma test environment.
     const parent: Element =

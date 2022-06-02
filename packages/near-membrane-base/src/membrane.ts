@@ -307,7 +307,7 @@ export function createMembraneMarshall(
         slice: ArrayProtoSlice,
     } = ArrayCtor.prototype;
     const { isView: ArrayBufferIsView } = ArrayBufferCtor;
-    const ArrayBufferProtoByteLengthGetter: () => number = !IS_IN_SHADOW_REALM
+    const ArrayBufferProtoByteLengthGetter: (() => number) | undefined = !IS_IN_SHADOW_REALM
         ? ReflectApply(ObjectProtoLookupGetter, ArrayBufferCtor.prototype, ['byteLength'])
         : undefined;
     const BigIntProtoValueOf = SUPPORTS_BIG_INT ? BigInt.prototype.valueOf : undefined;
@@ -475,7 +475,7 @@ export function createMembraneMarshall(
                       ReflectApply(StringProtoReplace, LOCKER_IDENTIFIER_MARKER, [
                           /[\\^$.*+?()[\]{}|]/g,
                           '\\$&',
-                      ])
+                      ]) as string
                       // Function name references in call sites also contain
                       // the name of the class they belong to,
                       // e.g. myClassName.myFunctionName.
@@ -489,29 +489,39 @@ export function createMembraneMarshall(
                   // https://chromium.googlesource.com/v8/v8.git/+/refs/heads/main/src/execution/messages.cc#371
                   let stackTrace = '';
                   try {
-                      stackTrace = ReflectApply(ErrorProtoToString, error, []);
+                      stackTrace = ReflectApply(ErrorProtoToString, error, []) as string;
                   } catch {
                       stackTrace = '<error>';
                   }
                   let consecutive = false;
                   for (let i = 0, { length } = callSites; i < length; i += 1) {
                       const callSite = callSites[i];
-                      const funcName = ReflectApply(CallSiteProtoGetFunctionName, callSite, []);
+                      const funcName: string | undefined = ReflectApply(
+                          CallSiteProtoGetFunctionName,
+                          callSite,
+                          []
+                      );
                       let isMarked = false;
                       if (
                           typeof funcName === 'string' &&
                           funcName !== 'eval' &&
-                          ReflectApply(RegExpProtoTest, lockerFunctionNameMarkerRegExp, [funcName])
+                          (ReflectApply(RegExpProtoTest, lockerFunctionNameMarkerRegExp, [
+                              funcName,
+                          ]) as boolean)
                       ) {
                           isMarked = true;
                       }
                       if (!isMarked) {
-                          const evalOrigin = ReflectApply(CallSiteProtoGetEvalOrigin, callSite, []);
+                          const evalOrigin: string | undefined = ReflectApply(
+                              CallSiteProtoGetEvalOrigin,
+                              callSite,
+                              []
+                          );
                           if (
                               typeof evalOrigin === 'string' &&
-                              ReflectApply(RegExpProtoTest, lockerFunctionNameMarkerRegExp, [
+                              (ReflectApply(RegExpProtoTest, lockerFunctionNameMarkerRegExp, [
                                   evalOrigin,
-                              ])
+                              ]) as boolean)
                           ) {
                               isMarked = true;
                           }
@@ -527,11 +537,9 @@ export function createMembraneMarshall(
                           consecutive = false;
                       }
                       try {
-                          stackTrace += `\n    at ${ReflectApply(
-                              CallSiteProtoToString,
-                              callSite,
-                              []
-                          )}`;
+                          stackTrace += `\n    at ${
+                              ReflectApply(CallSiteProtoToString, callSite, []) as string
+                          }`;
                           // eslint-disable-next-line no-empty
                       } catch {}
                   }
@@ -603,7 +611,7 @@ export function createMembraneMarshall(
               //     a. If SameValue(R, %RegExp.prototype%) is true, return "(?:)".
               //     b. Otherwise, throw a TypeError exception.
               if (value !== RegExpProto) {
-                  const source = ReflectApply(RegExpProtoSourceGetter, value, []) as string;
+                  const source: string = ReflectApply(RegExpProtoSourceGetter, value, []);
                   return JSONStringify({
                       __proto__: null,
                       flags: ReflectApply(RegExpProtoFlagsGetter!, value, []) as string,
@@ -636,7 +644,7 @@ export function createMembraneMarshall(
 
     const serializeTargetByBrand = IS_IN_SHADOW_REALM
         ? (target: ProxyTarget): SerializedValue | undefined => {
-              const brand = ReflectApply(ObjectProtoToString, target, []);
+              const brand: string = ReflectApply(ObjectProtoToString, target, []);
               switch (brand) {
                   // The brand checks below represent boxed primitives of
                   // `ESGlobalKeys` in packages/near-membrane-base/src/intrinsics.ts
@@ -720,7 +728,7 @@ export function createMembraneMarshall(
         }
         try {
             if (typeof value === 'object' && value !== null) {
-                const result = ReflectApply(ObjectProtoToString, value, []) as string;
+                const result: string = ReflectApply(ObjectProtoToString, value, []);
                 return result === '[object Symbol]'
                     ? ReflectApply(SymbolProtoToString, value, [])
                     : result;
@@ -1550,7 +1558,7 @@ export function createMembraneMarshall(
                         foreignCallableApplyOrConstruct,
                         undefined,
                         combinedArgs
-                    );
+                    ) as PointerOrPrimitive;
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
@@ -3687,7 +3695,7 @@ export function createMembraneMarshall(
                         selectedTarget = undefined;
                     }
                 }
-                let result;
+                let result: any;
                 try {
                     result = ReflectApply(func, thisArg, args);
                 } catch (error: any) {
@@ -3874,7 +3882,7 @@ export function createMembraneMarshall(
                         if (!ReflectHas(target, key)) {
                             // Section 19.1.3.6 Object.prototype.toString()
                             // https://tc39.github.io/ecma262/#sec-object.prototype.tostring
-                            const brand = ReflectApply(ObjectProtoToString, target, []) as string;
+                            const brand: string = ReflectApply(ObjectProtoToString, target, []);
                             // The default language toStringTag is "Object". If
                             // we receive "[object Object]" we return `undefined`
                             // to let the language resolve it naturally without
@@ -4209,11 +4217,11 @@ export function createMembraneMarshall(
                       targetPointer: Pointer,
                       ...ownKeysAndUnforgeableGlobalThisKeys: PropertyKeys
                   ) => {
-                      const sliceIndex = ReflectApply(
+                      const sliceIndex: number = ReflectApply(
                           ArrayProtoIndexOf,
                           ownKeysAndUnforgeableGlobalThisKeys,
                           [LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL]
-                      ) as number;
+                      );
                       let ownKeys: PropertyKeys;
                       let unforgeableGlobalThisKeys: PropertyKeys | undefined;
                       if (sliceIndex === -1) {
