@@ -2098,23 +2098,60 @@ export function createMembraneMarshall(
                             getterPointerOrPrimitive,
                             setterPointerOrPrimitive
                         ) => {
-                            safeDesc = createDescriptorFromMeta(
-                                configurable,
-                                enumerable,
-                                writable,
-                                valuePointerOrPrimitive,
-                                getterPointerOrPrimitive,
-                                setterPointerOrPrimitive
-                            );
+                            safeDesc = {
+                                __proto__: null,
+                                foreign: true,
+                            } as PropertyDescriptor;
+                            if (configurable !== LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL) {
+                                safeDesc.configurable = configurable as boolean;
+                            }
+                            if (enumerable !== LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL) {
+                                safeDesc.enumerable = enumerable as boolean;
+                            }
+                            if (writable !== LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL) {
+                                safeDesc.writable = writable as boolean;
+                            }
+                            if (
+                                getterPointerOrPrimitive !==
+                                LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
+                            ) {
+                                if (typeof getterPointerOrPrimitive === 'function') {
+                                    getterPointerOrPrimitive();
+                                    safeDesc.get = selectedTarget as Getter;
+                                    selectedTarget = undefined;
+                                } else {
+                                    safeDesc.get = undefined;
+                                }
+                            }
+                            if (
+                                setterPointerOrPrimitive !==
+                                LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
+                            ) {
+                                if (typeof setterPointerOrPrimitive === 'function') {
+                                    setterPointerOrPrimitive();
+                                    safeDesc.set = selectedTarget as Setter;
+                                    selectedTarget = undefined;
+                                } else {
+                                    safeDesc.set = undefined;
+                                }
+                            }
+                            if (
+                                valuePointerOrPrimitive !==
+                                LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
+                            ) {
+                                if (typeof valuePointerOrPrimitive === 'function') {
+                                    valuePointerOrPrimitive();
+                                    safeDesc.value = selectedTarget;
+                                    selectedTarget = undefined;
+                                } else {
+                                    safeDesc.value = valuePointerOrPrimitive;
+                                }
+                            }
                             if (configurable === false) {
                                 // Update the descriptor to non-configurable on
                                 // the shadow target.
                                 ReflectDefineProperty(shadowTarget, key, safeDesc);
                             }
-                            // Assign the "foreign" property after the call to
-                            // `ReflectDefineProperty()` to preserve the call
-                            // site signature.
-                            (safeDesc as any).foreign = true;
                         }
                     );
             } catch (error: any) {
@@ -2128,11 +2165,13 @@ export function createMembraneMarshall(
             if (safeDesc === undefined) {
                 // Avoiding calling the has trap for any proto chain operation,
                 // instead we implement the regular logic here in this trap.
-                let currentObject: any = null;
+                let currentObject: any;
                 if (typeof protoPointerOrNull === 'function') {
                     protoPointerOrNull();
                     currentObject = selectedTarget;
                     selectedTarget = undefined;
+                } else {
+                    currentObject = null;
                 }
                 while (currentObject) {
                     safeDesc = ReflectGetOwnPropertyDescriptor(currentObject, key);
@@ -2592,7 +2631,7 @@ export function createMembraneMarshall(
                 }
                 if (
                     foreignTargetTraits & TargetTraits.IsObject &&
-                    !ReflectHas(shadowTarget, SymbolToStringTag)
+                    !(SymbolToStringTag in shadowTarget)
                 ) {
                     let toStringTag = 'Object';
                     try {
@@ -2855,11 +2894,13 @@ export function createMembraneMarshall(
                       } else {
                           // Avoiding calling the has trap for any proto chain operation,
                           // instead we implement the regular logic here in this trap.
-                          let currentObject: any = null;
+                          let currentObject: any;
                           if (typeof trueOrProtoPointerOrNull === 'function') {
                               trueOrProtoPointerOrNull();
                               currentObject = selectedTarget;
                               selectedTarget = undefined;
+                          } else {
+                              currentObject = null;
                           }
                           while (currentObject) {
                               if (ObjectHasOwn(currentObject, key)) {
@@ -3497,7 +3538,7 @@ export function createMembraneMarshall(
                           // language resolve it naturally without projecting a
                           // value.
                           staticToStringTag !== 'Object' &&
-                          !ReflectHas(shadowTarget, key)
+                          !(key in shadowTarget)
                       ) {
                           return staticToStringTag;
                       }
@@ -3879,7 +3920,7 @@ export function createMembraneMarshall(
                     targetTraits & TargetTraits.IsObject
                 ) {
                     try {
-                        if (!ReflectHas(target, key)) {
+                        if (!(key in target)) {
                             // Section 19.1.3.6 Object.prototype.toString()
                             // https://tc39.github.io/ecma262/#sec-object.prototype.tostring
                             const brand: string = ReflectApply(ObjectProtoToString, target, []);
@@ -3983,7 +4024,7 @@ export function createMembraneMarshall(
                 const target = selectedTarget!;
                 selectedTarget = undefined;
                 try {
-                    return ReflectHas(target, key);
+                    return key in target;
                 } catch (error: any) {
                     throw pushErrorAcrossBoundary(error);
                 }
@@ -4287,54 +4328,77 @@ export function createMembraneMarshall(
                       targetPointer();
                       const target = selectedTarget!;
                       selectedTarget = undefined;
-                      if (target === ObjectProto) {
+                      if (
+                          target === null ||
+                          target === undefined ||
+                          target === ObjectProto ||
+                          target === RegExpProto
+                      ) {
                           return false;
                       }
-                      try {
-                          if (typeof target === 'object') {
-                              const { constructor } = target;
+                      if (typeof target === 'function') {
+                          try {
+                              return ObjectHasOwn(target, LOCKER_LIVE_VALUE_MARKER_SYMBOL!);
+                              // eslint-disable-next-line no-empty
+                          } catch {}
+                          return false;
+                      }
+                      if (typeof target === 'object') {
+                          let constructor;
+                          try {
+                              ({ constructor } = target);
                               if (constructor === ObjectCtor) {
                                   // If the constructor, own or inherited, points to `Object`
                                   // then `value` is not likely a prototype object.
                                   return true;
                               }
-                              if (ReflectGetPrototypeOf(target) === null) {
-                                  // Ensure `value` is not an `Object.prototype` from an iframe.
-                                  if (
-                                      typeof constructor !== 'function' ||
-                                      constructor.prototype !== target
-                                  ) {
-                                      return true;
-                                  }
+                              // eslint-disable-next-line no-empty
+                          } catch {}
+                          try {
+                              if (ObjectHasOwn(target, LOCKER_LIVE_VALUE_MARKER_SYMBOL!)) {
+                                  return true;
                               }
-                              // We only check for array buffers and regexp here
-                              // since plain arrays and array buffer views are
-                              // marked as live in the BoundaryProxyHandler
-                              // constructor.
-                              try {
-                                  // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
-                                  // https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.bytelength
-                                  // Step 2: Perform ? RequireInternalSlot(O, [[ArrayBufferData]]).
+                              // eslint-disable-next-line no-empty
+                          } catch {}
+                          try {
+                              if (
+                                  ReflectGetPrototypeOf(target) === null &&
+                                  // Ensure `value` is not an `Object.prototype` from an iframe.
+                                  (typeof constructor !== 'function' ||
+                                      constructor.prototype !== target)
+                              ) {
+                                  return true;
+                              }
+                              // eslint-disable-next-line no-empty
+                          } catch {}
+                          // We only check for regexp and array buffers here
+                          // since plain arrays and array buffer views are
+                          // marked as live in the BoundaryProxyHandler
+                          // constructor.
+                          //
+                          // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
+                          // https://tc39.es/ecma262/#sec-get-regexp.prototype.source
+                          // Step 3: If R does not have an [[OriginalSource]] internal slot, then
+                          //     a. If SameValue(R, %RegExp.prototype%) is true, return "(?:)".
+                          //     b. Otherwise, throw a TypeError exception.
+                          try {
+                              if (ObjectHasOwn(target, 'lastIndex')) {
+                                  ReflectApply(RegExpProtoSourceGetter, target, []);
+                                  return true;
+                              }
+                              // eslint-disable-next-line no-empty
+                          } catch {}
+                          // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
+                          // https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.bytelength
+                          // Step 2: Perform ? RequireInternalSlot(O, [[ArrayBufferData]]).
+                          try {
+                              if ('byteLength' in target) {
                                   ReflectApply(ArrayBufferProtoByteLengthGetter!, target, []);
                                   return true;
-                                  // eslint-disable-next-line no-empty
-                              } catch {}
-                              try {
-                                  // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
-                                  // https://tc39.es/ecma262/#sec-get-regexp.prototype.source
-                                  // Step 3: If R does not have an [[OriginalSource]] internal slot, then
-                                  //     a. If SameValue(R, %RegExp.prototype%) is true, return "(?:)".
-                                  //     b. Otherwise, throw a TypeError exception.
-                                  if (target !== RegExpProto) {
-                                      ReflectApply(RegExpProtoSourceGetter, target, []);
-                                      return true;
-                                  }
-                                  // eslint-disable-next-line no-empty
-                              } catch {}
-                          }
-                          return ObjectHasOwn(target, LOCKER_LIVE_VALUE_MARKER_SYMBOL!);
-                          // eslint-disable-next-line no-empty
-                      } catch {}
+                              }
+                              // eslint-disable-next-line no-empty
+                          } catch {}
+                      }
                       return false;
                   }
                 : (alwaysFalse as CallableIsTargetLive),
@@ -4359,7 +4423,7 @@ export function createMembraneMarshall(
                       const target = selectedTarget!;
                       selectedTarget = undefined;
                       try {
-                          return ReflectHas(target, SymbolToStringTag)
+                          return SymbolToStringTag in target
                               ? serializeTargetByTrialAndError(target)
                               : // Fast path.
                                 serializeTargetByBrand(target);
