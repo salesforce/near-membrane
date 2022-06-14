@@ -6,12 +6,12 @@ export type Connector = ReturnType<typeof createMembraneMarshall>;
 const TypeErrorCtor = TypeError;
 const WeakMapCtor = WeakMap;
 
-const evaluatorToRedCreateHooksCallbackMap = toSafeWeakMap(
+const evaluatorToBlueCreateHooksCallbackMap = toSafeWeakMap(
     new WeakMapCtor<typeof eval, Connector>()
 );
 
-const globalThisToBlueCreateHooksCallbackMap = toSafeWeakMap(
-    new WeakMapCtor<typeof globalThis, Connector>()
+const evaluatorToRedCreateHooksCallbackMap = toSafeWeakMap(
+    new WeakMapCtor<typeof eval, Connector>()
 );
 
 const createMembraneMarshallSourceInStrictMode = `
@@ -22,10 +22,14 @@ export function createBlueConnector(globalObject: typeof globalThis): Connector 
     if (typeof globalObject !== 'object' || globalObject === null) {
         throw new TypeErrorCtor('Missing globalObject.');
     }
-    let createHooksCallback = globalThisToBlueCreateHooksCallbackMap.get(globalObject);
+    const { eval: evaluator } = globalObject;
+    if (typeof evaluator !== 'function') {
+        throw new TypeErrorCtor('Missing evaluator function.');
+    }
+    let createHooksCallback = evaluatorToBlueCreateHooksCallbackMap.get(evaluator);
     if (createHooksCallback === undefined) {
         createHooksCallback = createMembraneMarshall(globalObject);
-        globalThisToBlueCreateHooksCallbackMap.set(globalObject, createHooksCallback);
+        evaluatorToBlueCreateHooksCallbackMap.set(evaluator, createHooksCallback);
     }
     return createHooksCallback;
 }
