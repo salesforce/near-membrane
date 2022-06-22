@@ -1,13 +1,15 @@
 import {
     assignFilteredGlobalDescriptorsFromPropertyDescriptorMap,
+    Connector,
     createBlueConnector,
     createRedConnector,
-    getFilteredGlobalOwnKeys,
-    linkIntrinsics,
     DistortionCallback,
+    getFilteredGlobalOwnKeys,
     Getter,
     Instrumentation,
+    linkIntrinsics,
     PropertyKeys,
+    toSafeWeakMap,
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
 
@@ -30,6 +32,7 @@ const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 
 const ObjectCtor = Object;
 const TypeErrorCtor = TypeError;
+const WeakMapCtor = WeakMap;
 const { prototype: DocumentProto } = Document;
 const { prototype: NodeProto } = Node;
 const { remove: ElementProtoRemove, setAttribute: ElementProtoSetAttribute } = Element.prototype;
@@ -60,6 +63,10 @@ const NodeProtoLastChildGetter: Getter = ReflectApply(ObjectProtoLookupGetter, N
     'lastChild',
 ])!;
 const docRef = document;
+
+const documentToBlueCreateHooksCallbackMap = toSafeWeakMap(
+    new WeakMapCtor<typeof document, Connector>()
+);
 
 let defaultGlobalOwnKeys: PropertyKeys | null = null;
 
@@ -104,8 +111,18 @@ function createIframeVirtualEnvironment(
         defaultGlobalOwnKeys = filterWindowKeys(getFilteredGlobalOwnKeys(redWindow));
     }
     const blueRefs = getCachedGlobalObjectReferences(globalObject);
+    if (typeof blueRefs !== 'object' || blueRefs === null) {
+        throw new TypeErrorCtor('Invalid virtualization target.');
+    }
+    let blueConnector = documentToBlueCreateHooksCallbackMap.get(blueRefs.document) as
+        | Connector
+        | undefined;
+    if (blueConnector === undefined) {
+        blueConnector = createBlueConnector(globalObject);
+        documentToBlueCreateHooksCallbackMap.set(blueRefs.document, blueConnector);
+    }
     const env = new VirtualEnvironment({
-        blueConnector: createBlueConnector(globalObject),
+        blueConnector,
         distortionCallback,
         instrumentation,
         redConnector: createRedConnector(redWindow.eval),

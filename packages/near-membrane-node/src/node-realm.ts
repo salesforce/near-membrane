@@ -1,5 +1,6 @@
 import {
     assignFilteredGlobalDescriptorsFromPropertyDescriptorMap,
+    Connector,
     createBlueConnector,
     createRedConnector,
     DistortionCallback,
@@ -7,6 +8,7 @@ import {
     Instrumentation,
     linkIntrinsics,
     PropertyKeys,
+    toSafeWeakMap,
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
 
@@ -19,11 +21,16 @@ export interface NodeEnvironmentOptions {
     instrumentation?: Instrumentation;
 }
 
-let defaultGlobalOwnKeys: PropertyKeys | null = null;
-
 const ObjectCtor = Object;
 const { assign: ObjectAssign } = ObjectCtor;
 const TypeErrorCtor = TypeError;
+const WeakMapCtor = WeakMap;
+
+const globalObjectToBlueCreateHooksCallbackMap = toSafeWeakMap(
+    new WeakMapCtor<typeof globalThis, Connector>()
+);
+
+let defaultGlobalOwnKeys: PropertyKeys | null = null;
 
 export default function createVirtualEnvironment(
     globalObject: typeof globalThis,
@@ -36,9 +43,16 @@ export default function createVirtualEnvironment(
         { __proto__: null },
         options
     ) as NodeEnvironmentOptions;
+    let blueConnector = globalObjectToBlueCreateHooksCallbackMap.get(globalObject) as
+        | Connector
+        | undefined;
+    if (blueConnector === undefined) {
+        blueConnector = createBlueConnector(globalObject);
+        globalObjectToBlueCreateHooksCallbackMap.set(globalObject, blueConnector);
+    }
     const redGlobalObject = runInNewContext('globalThis');
     const env = new VirtualEnvironment({
-        blueConnector: createBlueConnector(globalObject),
+        blueConnector,
         distortionCallback,
         instrumentation,
         redConnector: createRedConnector(redGlobalObject.eval),

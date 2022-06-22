@@ -20,7 +20,7 @@ interface CachedBlueReferencesRecord extends Object {
     EventTargetProtoOwnKeys: PropertyKeys;
 }
 
-const blueGlobalToRecordMap: WeakMap<typeof globalThis, CachedBlueReferencesRecord> = toSafeWeakMap(
+const blueDocumentToRecordMap: WeakMap<typeof document, CachedBlueReferencesRecord> = toSafeWeakMap(
     new WeakMap()
 );
 
@@ -58,37 +58,38 @@ export const unforgeablePoisonedWindowKeys = (() => {
 
 export function getCachedGlobalObjectReferences(
     globalObject: WindowProxy & typeof globalThis
-): CachedBlueReferencesRecord {
-    let record = blueGlobalToRecordMap.get(globalObject) as CachedBlueReferencesRecord | undefined;
+): CachedBlueReferencesRecord | undefined {
+    const { window } = globalObject;
+    let record: CachedBlueReferencesRecord | undefined;
+    let document: Document | undefined;
+    // Suppress errors thrown on cross-origin opaque windows.
+    try {
+        ({ document } = globalObject);
+        record = blueDocumentToRecordMap.get(document) as CachedBlueReferencesRecord | undefined;
+        // eslint-disable-next-line no-empty
+    } catch {
+        return undefined;
+    }
     if (record) {
         return record;
     }
     // Cache references to object values that can't be replaced
     // window -> Window -> WindowProperties -> EventTarget
-    const { document, window } = globalObject;
     const WindowProto = ReflectGetPrototypeOf(window)!;
     const WindowPropertiesProto = ReflectGetPrototypeOf(WindowProto)!;
     const EventTargetProto = ReflectGetPrototypeOf(WindowPropertiesProto)!;
     record = {
         document,
-        DocumentProto: ReflectGetPrototypeOf(document)!,
+        DocumentProto: ReflectGetPrototypeOf(document!)!,
         window,
-        WindowProto,
-        WindowPropertiesProto,
+        WindowProto: ReflectGetPrototypeOf(window)!,
+        WindowPropertiesProto: ReflectGetPrototypeOf(WindowProto)!,
         EventTargetProto,
         EventTargetProtoOwnKeys: ReflectOwnKeys(EventTargetProto),
     } as CachedBlueReferencesRecord;
-    blueGlobalToRecordMap.set(globalObject, record);
+    blueDocumentToRecordMap.set(document, record);
     return record;
 }
-
-/**
- * Initialization operation to capture and cache all unforgeable references
- * and their respective descriptor maps before any other code runs, this
- * usually help because this library runs before anything else that can poison
- * the environment.
- */
-getCachedGlobalObjectReferences(window);
 
 export function filterWindowKeys(keys: PropertyKeys): PropertyKeys {
     const result: PropertyKeys = [];
@@ -147,3 +148,11 @@ export function removeWindowDescriptors<T extends PropertyDescriptorMap>(unsafeD
     ReflectDeleteProperty(unsafeDescMap, 'chrome');
     return unsafeDescMap;
 }
+
+/**
+ * Initialization operation to capture and cache all unforgeable references
+ * and their respective descriptor maps before any other code runs, this
+ * usually help because this library runs before anything else that can poison
+ * the environment.
+ */
+getCachedGlobalObjectReferences(window);

@@ -6,6 +6,14 @@ describe('createVirtualEnvironment', () => {
             it('no globalObject is provided', () => {
                 expect(() => createVirtualEnvironment()).toThrow();
             });
+            it('an opaque globalObject is provided', () => {
+                expect.assertions(1);
+                const iframe = document.createElement('iframe');
+                iframe.setAttribute('sandbox', '');
+                document.body.appendChild(iframe);
+                expect(() => createVirtualEnvironment(iframe.contentWindow)).toThrow();
+                iframe.remove();
+            });
         });
         describe('creates an environment when', () => {
             it('no options are provided', () => {
