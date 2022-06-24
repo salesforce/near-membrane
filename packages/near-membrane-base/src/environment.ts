@@ -274,16 +274,18 @@ export class VirtualEnvironment {
         ownKeys: PropertyKeys,
         unforgeableGlobalThisKeys?: PropertyKeys
     ) {
-        const targetPointer = this.blueGetTransferableValue(target) as Pointer;
-        const args: Parameters<CallableInstallLazyPropertyDescriptors> = [targetPointer];
-        ReflectApply(ArrayProtoPush, args, ownKeys);
-        if (unforgeableGlobalThisKeys?.length) {
-            // Use `LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL` to delimit
-            // `ownKeys` and `unforgeableGlobalThisKeys`.
-            args[args.length] = LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
-            ReflectApply(ArrayProtoPush, args, unforgeableGlobalThisKeys);
+        if ((typeof target === 'object' && target !== null) || typeof target === 'function') {
+            const targetPointer = this.blueGetTransferableValue(target) as Pointer;
+            const args: Parameters<CallableInstallLazyPropertyDescriptors> = [targetPointer];
+            ReflectApply(ArrayProtoPush, args, ownKeys);
+            if (unforgeableGlobalThisKeys?.length) {
+                // Use `LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL` to delimit
+                // `ownKeys` and `unforgeableGlobalThisKeys`.
+                args[args.length] = LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
+                ReflectApply(ArrayProtoPush, args, unforgeableGlobalThisKeys);
+            }
+            ReflectApply(this.redCallableInstallLazyPropertyDescriptors, undefined, args);
         }
-        ReflectApply(this.redCallableInstallLazyPropertyDescriptors, undefined, args);
     }
 
     link(...keys: PropertyKeys) {
@@ -299,51 +301,57 @@ export class VirtualEnvironment {
     }
 
     remapProperties(target: ProxyTarget, unsafeBlueDescMap: PropertyDescriptorMap) {
-        const targetPointer = this.blueGetTransferableValue(target) as Pointer;
-        const ownKeys = ReflectOwnKeys(unsafeBlueDescMap);
-        const { length } = ownKeys;
-        const args = new ArrayCtor(1 + length * 7) as Parameters<CallableDefineProperties>;
-        args[0] = targetPointer;
-        for (let i = 0, j = 1; i < length; i += 1, j += 7) {
-            const ownKey = ownKeys[i];
-            const unsafeBlueDesc = (unsafeBlueDescMap as any)[ownKey];
-            // Avoid poisoning by only installing own properties from unsafeBlueDescMap.
-            // We don't use a toSafeDescriptor() style helper since that mutates
-            // the unsafeBlueDesc.
-            // eslint-disable-next-line prefer-object-spread
-            const safeBlueDesc = ObjectAssign({ __proto__: null }, unsafeBlueDesc);
-            args[j] = ownKey;
-            args[j + 1] =
-                'configurable' in safeBlueDesc
-                    ? !!safeBlueDesc.configurable
-                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
-            args[j + 2] =
-                'enumerable' in safeBlueDesc
-                    ? !!safeBlueDesc.enumerable
-                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
-            args[j + 3] =
-                'writable' in safeBlueDesc
-                    ? !!safeBlueDesc.writable
-                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
-            args[j + 4] =
-                'value' in safeBlueDesc
-                    ? this.blueGetTransferableValue(safeBlueDesc.value)
-                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
-            args[j + 5] =
-                'get' in safeBlueDesc
-                    ? (this.blueGetTransferableValue(safeBlueDesc.get) as Pointer)
-                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
-            args[j + 6] =
-                'set' in safeBlueDesc
-                    ? (this.blueGetTransferableValue(safeBlueDesc.set) as Pointer)
-                    : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
+        if ((typeof target === 'object' && target !== null) || typeof target === 'function') {
+            const targetPointer = this.blueGetTransferableValue(target) as Pointer;
+            const ownKeys = ReflectOwnKeys(unsafeBlueDescMap);
+            const { length } = ownKeys;
+            const args = new ArrayCtor(1 + length * 7) as Parameters<CallableDefineProperties>;
+            args[0] = targetPointer;
+            for (let i = 0, j = 1; i < length; i += 1, j += 7) {
+                const ownKey = ownKeys[i];
+                const unsafeBlueDesc = (unsafeBlueDescMap as any)[ownKey];
+                // Avoid poisoning by only installing own properties from unsafeBlueDescMap.
+                // We don't use a toSafeDescriptor() style helper since that mutates
+                // the unsafeBlueDesc.
+                // eslint-disable-next-line prefer-object-spread
+                const safeBlueDesc = ObjectAssign({ __proto__: null }, unsafeBlueDesc);
+                args[j] = ownKey;
+                args[j + 1] =
+                    'configurable' in safeBlueDesc
+                        ? !!safeBlueDesc.configurable
+                        : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
+                args[j + 2] =
+                    'enumerable' in safeBlueDesc
+                        ? !!safeBlueDesc.enumerable
+                        : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
+                args[j + 3] =
+                    'writable' in safeBlueDesc
+                        ? !!safeBlueDesc.writable
+                        : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
+                args[j + 4] =
+                    'value' in safeBlueDesc
+                        ? this.blueGetTransferableValue(safeBlueDesc.value)
+                        : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
+                args[j + 5] =
+                    'get' in safeBlueDesc
+                        ? (this.blueGetTransferableValue(safeBlueDesc.get) as Pointer)
+                        : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
+                args[j + 6] =
+                    'set' in safeBlueDesc
+                        ? (this.blueGetTransferableValue(safeBlueDesc.set) as Pointer)
+                        : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
+            }
+            ReflectApply(this.redCallableDefineProperties, this, args);
         }
-        ReflectApply(this.redCallableDefineProperties, this, args);
     }
 
     remapProto(target: ProxyTarget, proto: object | null) {
-        const foreignTargetPointer = this.blueGetTransferableValue(target) as Pointer;
-        const transferableProto = proto ? (this.blueGetTransferableValue(proto) as Pointer) : proto;
-        this.redCallableSetPrototypeOf(foreignTargetPointer, transferableProto);
+        if ((typeof target === 'object' && target !== null) || typeof target === 'function') {
+            const foreignTargetPointer = this.blueGetTransferableValue(target) as Pointer;
+            const transferableProto = proto
+                ? (this.blueGetTransferableValue(proto) as Pointer)
+                : proto;
+            this.redCallableSetPrototypeOf(foreignTargetPointer, transferableProto);
+        }
     }
 }
