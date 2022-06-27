@@ -2950,7 +2950,6 @@ export function createMembraneMarshall(
                 const getterPointer =
                     'get' in safePartialDesc
                         ? // Inline getTransferableValue().
-                          (typeof getter === 'object' && getter !== null) ||
                           typeof getter === 'function'
                             ? getTransferablePointer(getter)
                             : getter
@@ -2958,7 +2957,6 @@ export function createMembraneMarshall(
                 const setterPointer =
                     'set' in safePartialDesc
                         ? // Inline getTransferableValue().
-                          (typeof setter === 'object' && setter !== null) ||
                           typeof setter === 'function'
                             ? getTransferablePointer(setter)
                             : setter
@@ -3851,14 +3849,12 @@ export function createMembraneMarshall(
                                     : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
                                 'get' in safeDesc
                                     ? // Inline getTransferableValue().
-                                      (typeof getter === 'object' && getter !== null) ||
                                       typeof getter === 'function'
                                         ? getTransferablePointer(getter)
                                         : getter
                                     : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
                                 'set' in safeDesc
                                     ? // Inline getTransferableValue().
-                                      (typeof setter === 'object' && setter !== null) ||
                                       typeof setter === 'function'
                                         ? getTransferablePointer(setter)
                                         : setter
@@ -3984,14 +3980,12 @@ export function createMembraneMarshall(
                             : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
                         'get' in safeDesc
                             ? // Inline getTransferableValue().
-                              (typeof getter === 'object' && getter !== null) ||
                               typeof getter === 'function'
                                 ? getTransferablePointer(getter)
                                 : getter
                             : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
                         'set' in safeDesc
                             ? // Inline getTransferableValue().
-                              (typeof setter === 'object' && setter !== null) ||
                               typeof setter === 'function'
                                 ? getTransferablePointer(setter)
                                 : setter
@@ -4494,7 +4488,6 @@ export function createMembraneMarshall(
                     descriptorTuples[j + 5] =
                         'get' in safeDesc
                             ? // Inline getTransferableValue().
-                              (typeof getter === 'object' && getter !== null) ||
                               typeof getter === 'function'
                                 ? getTransferablePointer(getter)
                                 : getter
@@ -4502,7 +4495,6 @@ export function createMembraneMarshall(
                     descriptorTuples[j + 6] =
                         'set' in safeDesc
                             ? // Inline getTransferableValue().
-                              (typeof setter === 'object' && setter !== null) ||
                               typeof setter === 'function'
                                 ? getTransferablePointer(setter)
                                 : setter
@@ -4592,14 +4584,12 @@ export function createMembraneMarshall(
                             : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
                         'get' in safeDesc
                             ? // Inline getTransferableValue().
-                              (typeof getter === 'object' && getter !== null) ||
                               typeof getter === 'function'
                                 ? getTransferablePointer(getter)
                                 : getter
                             : LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL,
                         'set' in safeDesc
                             ? // Inline getTransferableValue().
-                              (typeof setter === 'object' && setter !== null) ||
                               typeof setter === 'function'
                                 ? getTransferablePointer(setter)
                                 : setter
