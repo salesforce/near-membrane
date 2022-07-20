@@ -20,7 +20,7 @@ interface CachedBlueReferencesRecord extends Object {
     EventTargetProtoOwnKeys: PropertyKeys;
 }
 
-const blueDocumentToRecordMap: WeakMap<typeof document, CachedBlueReferencesRecord> = toSafeWeakMap(
+const blueDocumentToRecordMap: WeakMap<Document, CachedBlueReferencesRecord> = toSafeWeakMap(
     new WeakMap()
 );
 
