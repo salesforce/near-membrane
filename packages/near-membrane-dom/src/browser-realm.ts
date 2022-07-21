@@ -62,21 +62,20 @@ const HTMLIFrameElementProtoContentWindowGetter: Getter = ReflectApply(
 const NodeProtoLastChildGetter: Getter = ReflectApply(ObjectProtoLookupGetter, NodeProto, [
     'lastChild',
 ])!;
-const docRef = document;
 
-const documentToBlueCreateHooksCallbackMap = toSafeWeakMap(
-    new WeakMapCtor<typeof document, Connector>()
+const blueDocumentToBlueCreateHooksCallbackMap = toSafeWeakMap(
+    new WeakMapCtor<Document, Connector>()
 );
 
 let defaultGlobalOwnKeys: PropertyKeys | null = null;
 
-function createDetachableIframe(): HTMLIFrameElement {
-    const iframe: HTMLIFrameElement = ReflectApply(DocumentProtoCreateElement, docRef, ['iframe']);
+function createDetachableIframe(doc: Document): HTMLIFrameElement {
+    const iframe: HTMLIFrameElement = ReflectApply(DocumentProtoCreateElement, doc, ['iframe']);
     // It is impossible to test whether the NodeProtoLastChildGetter branch is
     // reached in a normal Karma test environment.
     const parent: Element =
-        ReflectApply(DocumentProtoBodyGetter, docRef, []) ??
-        /* istanbul ignore next */ ReflectApply(NodeProtoLastChildGetter, docRef, []);
+        ReflectApply(DocumentProtoBodyGetter, doc, []) ??
+        /* istanbul ignore next */ ReflectApply(NodeProtoLastChildGetter, doc, []);
     const style: CSSStyleDeclaration = ReflectApply(HTMLElementProtoStyleGetter, iframe, []);
     style.display = 'none';
     ReflectApply(ElementProtoSetAttribute, iframe, ['sandbox', IFRAME_SANDBOX_ATTRIBUTE_VALUE]);
@@ -91,6 +90,10 @@ function createIframeVirtualEnvironment(
     if (typeof globalObject !== 'object' || globalObject === null) {
         throw new TypeErrorCtor('Missing global object virtualization target.');
     }
+    const blueRefs = getCachedGlobalObjectReferences(globalObject);
+    if (typeof blueRefs !== 'object' || blueRefs === null) {
+        throw new TypeErrorCtor('Invalid virtualization target.');
+    }
     const {
         distortionCallback,
         endowments,
@@ -99,7 +102,7 @@ function createIframeVirtualEnvironment(
         keepAlive = false,
         // eslint-disable-next-line prefer-object-spread
     } = ObjectAssign({ __proto__: null }, options);
-    const iframe = createDetachableIframe();
+    const iframe = createDetachableIframe(blueRefs.document);
     const redWindow: Window & typeof globalThis = ReflectApply(
         HTMLIFrameElementProtoContentWindowGetter,
         iframe,
@@ -110,16 +113,12 @@ function createIframeVirtualEnvironment(
     if (shouldUseDefaultGlobalOwnKeys && defaultGlobalOwnKeys === null) {
         defaultGlobalOwnKeys = filterWindowKeys(getFilteredGlobalOwnKeys(redWindow));
     }
-    const blueRefs = getCachedGlobalObjectReferences(globalObject);
-    if (typeof blueRefs !== 'object' || blueRefs === null) {
-        throw new TypeErrorCtor('Invalid virtualization target.');
-    }
-    let blueConnector = documentToBlueCreateHooksCallbackMap.get(blueRefs.document) as
+    let blueConnector = blueDocumentToBlueCreateHooksCallbackMap.get(blueRefs.document) as
         | Connector
         | undefined;
     if (blueConnector === undefined) {
         blueConnector = createBlueConnector(globalObject);
-        documentToBlueCreateHooksCallbackMap.set(blueRefs.document, blueConnector);
+        blueDocumentToBlueCreateHooksCallbackMap.set(blueRefs.document, blueConnector);
     }
     const env = new VirtualEnvironment({
         blueConnector,
