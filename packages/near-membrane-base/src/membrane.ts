@@ -298,8 +298,14 @@ export function createMembraneMarshall(
     const LOCKER_DEBUGGABLE_FLAG = LOCKER_UNMINIFIED_FLAG && !IS_IN_SHADOW_REALM;
     // BigInt is not supported in Safari 13.1.
     // https://caniuse.com/bigint
-    const SUPPORTS_BIG_INT = typeof BigInt === 'function';
     const FLAGS_REG_EXP = IS_IN_SHADOW_REALM ? /\w*$/ : undefined;
+    // Minification safe reference to the private `BoundaryProxyHandler`
+    // 'serializedValue' property name.
+    let MINIFICATION_SAFE_SERIALIZED_VALUE_PROPERTY_NAME: PropertyKey | undefined;
+    // Minification safe references to the private `BoundaryProxyHandler`
+    // 'apply' and 'construct' trap variant's property names.
+    let MINIFICATION_SAFE_TRAP_PROPERTY_NAMES: PropertyKeys | undefined;
+    const SUPPORTS_BIG_INT = typeof BigInt === 'function';
     const { isArray: isArrayOrThrowForRevoked } = ArrayCtor;
     const {
         includes: ArrayProtoIncludes,
@@ -2541,19 +2547,28 @@ export function createMembraneMarshall(
                 } else {
                     if (foreignTargetTraits & TargetTraits.IsObject) {
                         // Lazily define serializedValue.
-                        let serializedValue: SerializedValue | undefined | symbol =
+                        let cachedSerializedValue: SerializedValue | undefined | symbol =
                             LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
+                        const { serializedValue } = this;
+                        if (MINIFICATION_SAFE_SERIALIZED_VALUE_PROPERTY_NAME === undefined) {
+                            // A minification safe way to get the 'serializedValue'
+                            // property name.
+                            ({ 0: MINIFICATION_SAFE_SERIALIZED_VALUE_PROPERTY_NAME } = ObjectKeys({
+                                serializedValue,
+                            }));
+                        }
                         ReflectApply(ObjectProtoDefineGetter, this, [
-                            'serializedValue',
+                            MINIFICATION_SAFE_SERIALIZED_VALUE_PROPERTY_NAME,
                             () => {
                                 if (
-                                    serializedValue === LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
+                                    cachedSerializedValue ===
+                                    LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
                                 ) {
-                                    serializedValue = foreignCallableSerializeTarget(
+                                    cachedSerializedValue = foreignCallableSerializeTarget(
                                         this.foreignTargetPointer
                                     );
                                 }
-                                return serializedValue;
+                                return cachedSerializedValue;
                             },
                         ]);
                     }
@@ -4698,37 +4713,40 @@ export function createMembraneMarshall(
             const constructTrapForAnyNumberOfArgs = createApplyOrConstructTrapForAnyNumberOfArgs(
                 ProxyHandlerTraps.Construct
             );
-            // A minification friendly way to get the trap names.
-            const trapNames = ObjectKeys({
-                applyTrapForZeroOrMoreArgs,
-                applyTrapForOneOrMoreArgs,
-                applyTrapForTwoOrMoreArgs,
-                applyTrapForThreeOrMoreArgs,
-                applyTrapForFourOrMoreArgs,
-                applyTrapForFiveOrMoreArgs,
-                applyTrapForAnyNumberOfArgs,
-                constructTrapForZeroOrMoreArgs,
-                constructTrapForOneOrMoreArgs,
-                constructTrapForTwoOrMoreArgs,
-                constructTrapForThreeOrMoreArgs,
-                constructTrapForFourOrMoreArgs,
-                constructTrapForFiveOrMoreArgs,
-                constructTrapForAnyNumberOfArgs,
-            });
-            arityToApplyTrapNameRegistry[0] = trapNames[0];
-            arityToApplyTrapNameRegistry[1] = trapNames[1];
-            arityToApplyTrapNameRegistry[2] = trapNames[2];
-            arityToApplyTrapNameRegistry[3] = trapNames[3];
-            arityToApplyTrapNameRegistry[4] = trapNames[4];
-            arityToApplyTrapNameRegistry[5] = trapNames[5];
-            arityToApplyTrapNameRegistry.n = trapNames[6];
-            arityToConstructTrapNameRegistry[0] = trapNames[7];
-            arityToConstructTrapNameRegistry[1] = trapNames[8];
-            arityToConstructTrapNameRegistry[2] = trapNames[9];
-            arityToConstructTrapNameRegistry[3] = trapNames[10];
-            arityToConstructTrapNameRegistry[4] = trapNames[11];
-            arityToConstructTrapNameRegistry[5] = trapNames[12];
-            arityToConstructTrapNameRegistry.n = trapNames[13];
+            if (MINIFICATION_SAFE_TRAP_PROPERTY_NAMES === undefined) {
+                // A minification safe way to get the 'apply' and 'construct'
+                // trap property names.
+                MINIFICATION_SAFE_TRAP_PROPERTY_NAMES = ObjectKeys({
+                    applyTrapForZeroOrMoreArgs,
+                    applyTrapForOneOrMoreArgs,
+                    applyTrapForTwoOrMoreArgs,
+                    applyTrapForThreeOrMoreArgs,
+                    applyTrapForFourOrMoreArgs,
+                    applyTrapForFiveOrMoreArgs,
+                    applyTrapForAnyNumberOfArgs,
+                    constructTrapForZeroOrMoreArgs,
+                    constructTrapForOneOrMoreArgs,
+                    constructTrapForTwoOrMoreArgs,
+                    constructTrapForThreeOrMoreArgs,
+                    constructTrapForFourOrMoreArgs,
+                    constructTrapForFiveOrMoreArgs,
+                    constructTrapForAnyNumberOfArgs,
+                });
+            }
+            arityToApplyTrapNameRegistry[0] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[0];
+            arityToApplyTrapNameRegistry[1] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[1];
+            arityToApplyTrapNameRegistry[2] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[2];
+            arityToApplyTrapNameRegistry[3] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[3];
+            arityToApplyTrapNameRegistry[4] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[4];
+            arityToApplyTrapNameRegistry[5] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[5];
+            arityToApplyTrapNameRegistry.n = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[6];
+            arityToConstructTrapNameRegistry[0] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[7];
+            arityToConstructTrapNameRegistry[1] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[8];
+            arityToConstructTrapNameRegistry[2] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[9];
+            arityToConstructTrapNameRegistry[3] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[10];
+            arityToConstructTrapNameRegistry[4] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[11];
+            arityToConstructTrapNameRegistry[5] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[12];
+            arityToConstructTrapNameRegistry.n = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[13];
 
             const { prototype: BoundaryProxyHandlerProto } = BoundaryProxyHandler;
             BoundaryProxyHandlerProto[arityToApplyTrapNameRegistry[0]] = applyTrapForZeroOrMoreArgs;
