@@ -4,6 +4,11 @@ const mergeOptions = require('merge-options');
 const typescriptPlugin = require('@rollup/plugin-typescript');
 const { getBabelOutputPlugin } = require('../plugins/babel-output.cjs');
 
+const mergeOptionsConfig = {
+    concatArrays: true,
+    ignoreUndefined: true,
+};
+
 function createConfig({
     // prettier-ignore
     input = 'src/index.ts',
@@ -13,7 +18,7 @@ function createConfig({
     const isCJS = format === 'cjs';
 
     return mergeOptions.call(
-        { concatArrays: true },
+        mergeOptionsConfig,
         {
             input,
             external: [],
@@ -36,10 +41,10 @@ function createConfig({
 }
 
 module.exports = {
-    rollupConfig(options = {}) {
+    rollupConfig(providedOptions) {
         return [
-            createConfig({ ...options, format: 'es' }),
-            createConfig({ ...options, format: 'cjs' }),
+            createConfig({ ...providedOptions, format: 'es' }),
+            createConfig({ ...providedOptions, format: 'cjs' }),
         ];
     },
 };
