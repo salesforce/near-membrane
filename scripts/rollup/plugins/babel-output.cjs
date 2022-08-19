@@ -8,15 +8,16 @@ const path = require('path');
 
 const rootPath = path.resolve(__dirname, '../../../');
 
+const mergeOptionsConfig = {
+    ignoreUndefined: true,
+};
+
 module.exports = {
-    getBabelOutputPlugin(providedOptions = {}) {
-        const options = {
-            __proto__: null,
-            ...providedOptions,
-        };
-        const { banner, footer } = options;
-        delete options.banner;
-        delete options.footer;
+    getBabelOutputPlugin(providedOptions) {
+        const clonedOptions = { ...providedOptions };
+        const { banner, footer } = clonedOptions;
+        delete clonedOptions.banner;
+        delete clonedOptions.footer;
         let babelOutputHooks;
         return {
             name: 'babel-output',
@@ -31,14 +32,15 @@ module.exports = {
                     // https://github.com/babel/babel/blob/v7.15.6/packages/babel-core/src/config/files/configuration.ts#L24
                     const configPath =
                         // prettier-ignore
-                        options.configFile ??
+                        clonedOptions.configFile ??
                         (await globby([`${path.resolve('.babelrc')}{,.js,.cjs,.mjs,.json}`]))[0] ??
                         (await globby([`${path.resolve(rootPath, 'babel.config')}{.js,.cjs,.mjs,.json}`]))[0];
                     const config =
                         path.extname(configPath) === '.json'
                             ? await fs.readJSON(configPath)
                             : (await import(configPath)).default;
-                    const mergedOptions = mergeOptions(
+                    const mergedOptions = mergeOptions.call(
+                        mergeOptionsConfig,
                         {
                             allowAllFormats: true,
                             babelrc: false,
@@ -47,7 +49,7 @@ module.exports = {
                             presets: [],
                         },
                         config,
-                        options,
+                        clonedOptions,
                         {
                             configFile: false,
                         }
