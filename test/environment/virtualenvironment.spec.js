@@ -8,7 +8,7 @@ import {
     These tests are exercising the BUILT near-membrane-base,
     ie. package/near-membrane-base/dist/index.js
 */
-describe('Implementing an environment with VirtualEnvironment', () => {
+describe('VirtualEnvironment', () => {
     const blueGlobalThis = globalThis;
     let redGlobalThis;
 
@@ -24,12 +24,91 @@ describe('Implementing an environment with VirtualEnvironment', () => {
         iframe.remove();
     });
 
-    it('throws when options bag is missing', () => {
-        expect.assertions(1);
-        expect(() => {
-            // eslint-disable-next-line no-new
-            new VirtualEnvironment();
-        }).toThrow();
+    describe('constructor', () => {
+        it('throws when options is missing', () => {
+            expect.assertions(1);
+            expect(() => {
+                // eslint-disable-next-line no-new
+                new VirtualEnvironment();
+            }).toThrow();
+        });
+    });
+
+    describe('distortionCallback', () => {
+        it('distorts getters', () => {
+            expect.assertions(3);
+
+            const aGetter = () => 'a';
+            const bGetter = () => 'b';
+            const cGetter = () => 'c';
+
+            const ve = new VirtualEnvironment({
+                blueConnector: createBlueConnector(blueGlobalThis),
+                redConnector: createRedConnector(redGlobalThis.eval),
+                distortionCallback(v) {
+                    if (v === aGetter) {
+                        return bGetter;
+                    }
+                    if (v === bGetter) {
+                        return aGetter;
+                    }
+                    return v;
+                },
+            });
+            ve.link('globalThis');
+            ve.remapProperties(blueGlobalThis, {
+                a: {
+                    get: aGetter,
+                    configurable: true,
+                },
+                b: {
+                    get: bGetter,
+                    configurable: true,
+                },
+                c: {
+                    get: cGetter,
+                    configurable: true,
+                },
+            });
+
+            expect(ve.evaluate('a')).toBe('b');
+            expect(ve.evaluate('b')).toBe('a');
+            expect(ve.evaluate('c')).toBe('c');
+        });
+    });
+
+    describe('liveTargetCallback', () => {
+        it('affects target liveness', () => {
+            expect.assertions(2);
+
+            const a = { foo: 1 };
+            const b = { foo: 1 };
+
+            const ve = new VirtualEnvironment({
+                blueConnector: createBlueConnector(blueGlobalThis),
+                redConnector: createRedConnector(redGlobalThis.eval),
+                liveTargetCallback(v) {
+                    return v === a;
+                },
+            });
+            ve.link('globalThis');
+            ve.remapProperties(blueGlobalThis, {
+                a: {
+                    value: a,
+                    configurable: true,
+                },
+                b: {
+                    value: b,
+                    configurable: true,
+                },
+            });
+
+            ve.evaluate('a.bar = 2');
+            ve.evaluate('b.bar = 2');
+
+            expect(a).toEqual({ foo: 1, bar: 2 });
+            expect(b).toEqual({ foo: 1 });
+        });
     });
 
     describe('VirtualEnvironment.prototype.evaluate', () => {
@@ -40,7 +119,6 @@ describe('Implementing an environment with VirtualEnvironment', () => {
                 blueConnector: createBlueConnector(blueGlobalThis),
                 redConnector: createRedConnector(redGlobalThis.eval),
             });
-            ve.link('globalThis');
 
             const sourceTextToEvaluate = 'Hello!';
             ve.redCallableEvaluate = (sourceText) => {
@@ -56,14 +134,14 @@ describe('Implementing an environment with VirtualEnvironment', () => {
                 blueConnector: createBlueConnector(blueGlobalThis),
                 redConnector: createRedConnector(redGlobalThis.eval),
             });
-            ve.link('globalThis');
 
             expect(() => {
                 ve.evaluate('a_very_specific_string');
             }).toThrowMatching(
                 (thrown) =>
-                    // Since this is tested against two different browsers, which both have different error message
-                    // strings, the test here is to vaguely assess that error is "probably" correct.
+                    // Since this is tested against two different browsers,
+                    // which both have different error message strings, the test
+                    // here is to vaguely assess that error is "probably" correct.
                     String(thrown).includes('ReferenceError') &&
                     String(thrown).includes('a_very_specific_string')
             );
@@ -75,7 +153,6 @@ describe('Implementing an environment with VirtualEnvironment', () => {
                 blueConnector: createBlueConnector(blueGlobalThis),
                 redConnector: createRedConnector(redGlobalThis.eval),
             });
-            ve.link('globalThis');
 
             const ExpectedError = class extends Error {};
             const error = new ExpectedError();
@@ -97,8 +174,10 @@ describe('Implementing an environment with VirtualEnvironment', () => {
             const ve = new VirtualEnvironment({
                 blueConnector: createBlueConnector(blueGlobalThis),
                 redConnector: createRedConnector(redGlobalThis.eval),
+                liveTargetCallback() {
+                    return true;
+                },
             });
-            ve.link('globalThis');
 
             const redValue = {};
             ve.remapProperties(redValue, Object.getOwnPropertyDescriptors({ 0: 'foo' }));
@@ -111,8 +190,10 @@ describe('Implementing an environment with VirtualEnvironment', () => {
             const ve = new VirtualEnvironment({
                 blueConnector: createBlueConnector(blueGlobalThis),
                 redConnector: createRedConnector(redGlobalThis.eval),
+                liveTargetCallback() {
+                    return true;
+                },
             });
-            ve.link('globalThis');
 
             const redValue = {};
             Object.defineProperty(redValue, 'a', {
@@ -126,14 +207,13 @@ describe('Implementing an environment with VirtualEnvironment', () => {
     });
 
     describe('VirtualEnvironment.prototype.remapProto', () => {
-        it('calls blueGetTransferableValue with both args', () => {
+        it('calls `blueGetTransferableValue` for `target` and `proto` arguments', () => {
             expect.assertions(2);
 
             const ve = new VirtualEnvironment({
                 blueConnector: createBlueConnector(blueGlobalThis),
                 redConnector: createRedConnector(redGlobalThis.eval),
             });
-            ve.link('globalThis');
 
             const a = {};
             const b = {};

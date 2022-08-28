@@ -5,5 +5,6 @@ export type {
     Connector,
     DistortionCallback,
     Instrumentation,
+    LiveTargetCallback,
     ProxyTarget,
 } from '@locker/near-membrane-base/types';

@@ -12,12 +12,61 @@ describe('VirtualEnvironment', () => {
         jest.resetAllMocks();
     });
 
-    it('throws when options bag is missing', () => {
-        expect.assertions(1);
-        expect(() => {
-            // eslint-disable-next-line no-new
-            new VirtualEnvironment();
-        }).toThrow(/Missing VirtualEnvironmentOptions options bag/);
+    describe('constructor', () => {
+        it('throws when options is missing', () => {
+            expect.assertions(1);
+            expect(() => {
+                // eslint-disable-next-line no-new
+                new VirtualEnvironment();
+            }).toThrow();
+        });
+    });
+
+    describe('distortionCallback', () => {
+        it('distorts getters', () => {
+            expect.assertions(3);
+
+            const aGetter = () => 'a';
+            const bGetter = () => 'b';
+            const cGetter = () => 'c';
+
+            const ve = new VirtualEnvironment({
+                blueConnector: createBlueConnector(globalThis),
+                redConnector: createRedConnector(globalThis.eval),
+                distortionCallback(v) {
+                    if (v === aGetter) {
+                        return bGetter;
+                    }
+                    if (v === bGetter) {
+                        return aGetter;
+                    }
+                    return v;
+                },
+            });
+            ve.link('globalThis');
+            ve.remapProperties(globalThis, {
+                a: {
+                    get: aGetter,
+                    configurable: true,
+                },
+                b: {
+                    get: bGetter,
+                    configurable: true,
+                },
+                c: {
+                    get: cGetter,
+                    configurable: true,
+                },
+            });
+
+            expect(globalThis.a).toBe('b');
+            expect(globalThis.b).toBe('a');
+            expect(globalThis.c).toBe('c');
+
+            delete globalThis.a;
+            delete globalThis.b;
+            delete globalThis.c;
+        });
     });
 
     describe('VirtualEnvironment.prototype.evaluate', () => {
@@ -28,7 +77,6 @@ describe('VirtualEnvironment', () => {
                 blueConnector: createBlueConnector(globalThis),
                 redConnector: createRedConnector(globalThis.eval),
             });
-            ve.link('globalThis');
 
             const sourceTextToEvaluate = '"Hello!"';
             ve.redCallableEvaluate = (sourceText) => {
@@ -44,7 +92,6 @@ describe('VirtualEnvironment', () => {
                 blueConnector: createBlueConnector(globalThis),
                 redConnector: createRedConnector(globalThis.eval),
             });
-            ve.link('globalThis');
 
             expect(() => {
                 ve.evaluate('foo');
@@ -57,10 +104,10 @@ describe('VirtualEnvironment', () => {
                 blueConnector: createBlueConnector(globalThis),
                 redConnector: createRedConnector(globalThis.eval),
             });
-            ve.link('globalThis');
 
             const ExpectedError = class extends Error {};
             const error = new ExpectedError();
+
             ve.redCallableEvaluate = (_sourceText) => {
                 throw error;
             };
@@ -77,7 +124,6 @@ describe('VirtualEnvironment', () => {
                 blueConnector: createBlueConnector(globalThis),
                 redConnector: createRedConnector(globalThis.eval),
             });
-            ve.link('globalThis');
 
             expect(ve.evaluate('["a"]')).toEqual(['a']);
             expect(ve.evaluate('true')).toBe(true);
@@ -103,8 +149,10 @@ describe('VirtualEnvironment', () => {
             const ve = new VirtualEnvironment({
                 blueConnector: createBlueConnector(globalThis),
                 redConnector: createRedConnector(globalThis.eval),
+                liveTargetCallback() {
+                    return true;
+                },
             });
-            ve.link('globalThis');
 
             const redValue = {};
             ve.remapProperties(redValue, Object.getOwnPropertyDescriptors({ 0: 'foo' }));
@@ -118,9 +166,8 @@ describe('VirtualEnvironment', () => {
                 blueConnector: createBlueConnector(globalThis),
                 redConnector: createRedConnector(globalThis.eval),
             });
-            ve.link('globalThis');
 
-            const redValue = {} as any;
+            const redValue = {};
             Object.defineProperty(redValue, 'a', {
                 value: 0,
                 configurable: false,
@@ -139,16 +186,13 @@ describe('VirtualEnvironment', () => {
                 redConnector: createRedConnector(globalThis.eval),
                 distortionCallback(v) {
                     count += 1;
-                    // This ignore is to suppress the following:
-                    //  "Not all constituents of type 'RedProxyTarget' are callable."
-                    // Which is generally true, but not in this case.
                     expect(v()).toBe(1);
                     return v;
                 },
             });
             ve.link('globalThis');
             ve.remapProperties(globalThis, {
-                b: {
+                d: {
                     get() {
                         count += 1;
                         return 1;
@@ -157,8 +201,10 @@ describe('VirtualEnvironment', () => {
                 },
             });
 
-            expect(globalThis.b).toBe(1);
+            expect(globalThis.d).toBe(1);
             expect(count).toBe(3);
+
+            delete globalThis.d;
         });
         it('calls a lazy endowment setter', () => {
             expect.assertions(7);
@@ -172,7 +218,7 @@ describe('VirtualEnvironment', () => {
             });
             ve.link('globalThis');
             ve.remapProperties(globalThis, {
-                c: {
+                e: {
                     get() {
                         // This WILL be reached, but only until the setter is called
                         count += 1;
@@ -183,33 +229,35 @@ describe('VirtualEnvironment', () => {
                         blueSetValue = v;
                         count += 1;
                     },
+                    configurable: true,
                 },
             });
 
-            expect(globalThis.c).toBe(1); // count + 1
-            expect(globalThis.c).toBe(1); // count + 1
-            expect(globalThis.c).toBe(1); // count + 1
+            expect(globalThis.e).toBe(1); // count + 1
+            expect(globalThis.e).toBe(1); // count + 1
+            expect(globalThis.e).toBe(1); // count + 1
             expect(count).toBe(3);
-            globalThis.c = 99;
-            expect(globalThis.c).toBe(1);
+            globalThis.e = 99;
+            expect(globalThis.e).toBe(1);
             expect(blueSetValue).toBe(99);
             expect(count).toBe(6);
+
+            delete globalThis.e;
         });
     });
 
     describe('VirtualEnvironment.prototype.remapProto', () => {
-        it('calls blueGetTransferableValue with both args', () => {
+        it('calls `blueGetTransferableValue` for `target` and `proto` arguments', () => {
             expect.assertions(2);
 
             const ve = new VirtualEnvironment({
                 blueConnector: createBlueConnector(globalThis),
                 redConnector: createRedConnector(globalThis.eval),
             });
-            ve.link('globalThis');
 
             const a = {};
             const b = {};
-            const calledWith: any[] = [];
+            const calledWith = [];
             ve.blueGetTransferableValue = (value) => {
                 calledWith.push(value);
                 return value;

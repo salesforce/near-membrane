@@ -4,6 +4,9 @@ const LOCKER_LIVE_VALUE_MARKER_SYMBOL = Symbol.for('@@lockerLiveValue');
 
 const env = createVirtualEnvironment(window, {
     endowments: Object.getOwnPropertyDescriptors(window),
+    liveTargetCallback(target) {
+        return Object.hasOwn(target, LOCKER_LIVE_VALUE_MARKER_SYMBOL);
+    },
 });
 
 describe('@@lockerLiveValue', () => {
@@ -55,6 +58,9 @@ describe('@@lockerLiveValue', () => {
                     new Y();
                 },
             }),
+            liveTargetCallback(target) {
+                return Object.hasOwn(target, LOCKER_LIVE_VALUE_MARKER_SYMBOL);
+            },
         });
 
         env.evaluate(`

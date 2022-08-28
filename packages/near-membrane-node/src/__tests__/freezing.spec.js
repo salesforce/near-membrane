@@ -86,6 +86,9 @@ describe('Freezing', () => {
 
             const env = createVirtualEnvironment(globalThis, {
                 globalObjectShape: globalThis,
+                liveTargetCallback() {
+                    return true;
+                },
             });
 
             // Check the state of plainObject in the sandbox.
