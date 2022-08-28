@@ -48,7 +48,7 @@ const {
 } = ArrayProto as any;
 
 const ArrayUnscopables = Object.freeze(
-    Object.assign({ __proto__: null }, ArrayProto[SymbolUnscopables])
+    Object.assign({ __proto__: null }, (ArrayProto as any)[SymbolUnscopables])
 );
 
 const { prototype: WeakMapProto } = WeakMapCtor;
@@ -105,8 +105,8 @@ export function toSafeArray<T extends any[]>(array: T): T {
     array.toString = ArrayProtoToString;
     array.unshift = ArrayProtoUnshift;
     array.values = ArrayProtoValues;
-    array[SymbolIterator] = ArrayProtoSymbolIterator;
-    array[SymbolUnscopables] = ArrayUnscopables;
+    (array as any)[SymbolIterator] = ArrayProtoSymbolIterator;
+    (array as any)[SymbolUnscopables] = ArrayUnscopables;
     ReflectSetPrototypeOf(array, ArrayProto);
     return array;
 }
@@ -117,7 +117,7 @@ export function toSafeWeakMap<T extends WeakMap<any, any>>(weakMap: T): T {
     weakMap.get = WeakMapProtoGet;
     weakMap.has = WeakMapProtoHas;
     weakMap.set = WeakMapProtoSet;
-    weakMap[SymbolToStringTag] = WeakMapProtoSymbolToStringTag;
+    (weakMap as any)[SymbolToStringTag] = WeakMapProtoSymbolToStringTag;
     ReflectSetPrototypeOf(weakMap, WeakMapProto);
     return weakMap;
 }

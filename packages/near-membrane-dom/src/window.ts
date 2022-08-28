@@ -7,9 +7,6 @@ const {
     ownKeys: ReflectOwnKeys,
 } = Reflect;
 
-/**
- * - Unforgeable object and prototype references
- */
 interface CachedBlueReferencesRecord extends Object {
     document: Document;
     DocumentProto: object;

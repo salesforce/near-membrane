@@ -7,7 +7,7 @@
     "main": "dist/index.cjs.js",
     "module": "dist/index.js",
     "sideEffects": false,
-    "types": "types/index.d.ts",
+    "typings": "types/index.d.ts",
     "scripts": {
         "clean": "rimraf dist types",
         "build": "tsc --project tsconfig.types.json && rollup --config .rolluprc.cjs",

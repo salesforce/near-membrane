@@ -1,32 +1,21 @@
 import {
     assignFilteredGlobalDescriptorsFromPropertyDescriptorMap,
-    Connector,
     createBlueConnector,
     createRedConnector,
-    DistortionCallback,
     getFilteredGlobalOwnKeys,
-    Getter,
-    Instrumentation,
     linkIntrinsics,
-    PropertyKeys,
     toSafeWeakMap,
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
+import type { Connector, Getter, PropertyKeys } from '@locker/near-membrane-base/types';
 
+import type { BrowserEnvironmentOptions } from './types';
 import {
     getCachedGlobalObjectReferences,
     filterWindowKeys,
     removeWindowDescriptors,
     unforgeablePoisonedWindowKeys,
 } from './window';
-
-export interface BrowserEnvironmentOptions {
-    distortionCallback?: DistortionCallback;
-    endowments?: PropertyDescriptorMap;
-    globalObjectShape?: object;
-    keepAlive?: boolean;
-    instrumentation?: Instrumentation;
-}
 
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 
