@@ -754,7 +754,6 @@ export function createMembraneMarshall(
     // eslint-disable-next-line @typescript-eslint/no-shadow, no-shadow
     function toSafeWeakMap<T extends WeakMap<any, any>>(weakMap: T): T {
         ReflectSetPrototypeOf(weakMap, null);
-        weakMap.constructor = WeakMapCtor;
         weakMap.delete = WeakMapProtoDelete;
         weakMap.has = WeakMapProtoHas;
         weakMap.set = WeakMapProtoSet;
