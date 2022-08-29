@@ -65,7 +65,16 @@ export function toSafeArray<T extends any[]>(array: T): T {
     ReflectSetPrototypeOf(array, null);
     array.at = ArrayProtoAt;
     array.concat = ArrayProtoConcat;
-    array.constructor = ArrayCtor;
+    // *** DO NOT SET THE ARRAY CONSTRUCTOR PROPERTY ***
+    // https://bugs.chromium.org/p/v8/issues/detail?id=13202
+    // https://source.chromium.org/chromium/chromium/src/+/main:v8/src/objects/lookup.cc;l=196-215?q=IsArraySpeciesLookupChainIntact
+    //
+    // In V8 setting the constructor property of an array, promise, regexp, or
+    // typed array triggers a de-opt because it could change an instance's
+    // @@species. This de-opt affects at least `Array#splice` and occurs even
+    // if the prototype of the array is change or nulled beforehand. Further,
+    // the de-opt persists after a page refresh. It is not until navigating to
+    // a different page that the performance of `Array#splice` is restored.
     array.copyWithin = ArrayProtoCopyWithin;
     array.entries = ArrayProtoEntries;
     array.every = ArrayProtoEvery;
@@ -104,7 +113,6 @@ export function toSafeArray<T extends any[]>(array: T): T {
 
 export function toSafeWeakMap<T extends WeakMap<any, any>>(weakMap: T): T {
     ReflectSetPrototypeOf(weakMap, null);
-    weakMap.constructor = WeakMapCtor;
     weakMap.delete = WeakMapProtoDelete;
     weakMap.get = WeakMapProtoGet;
     weakMap.has = WeakMapProtoHas;
