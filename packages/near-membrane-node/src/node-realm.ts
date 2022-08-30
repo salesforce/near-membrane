@@ -1,25 +1,15 @@
 import {
     assignFilteredGlobalDescriptorsFromPropertyDescriptorMap,
-    Connector,
     createBlueConnector,
     createRedConnector,
-    DistortionCallback,
     getFilteredGlobalOwnKeys,
-    Instrumentation,
     linkIntrinsics,
-    PropertyKeys,
     toSafeWeakMap,
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
-
+import type { Connector, PropertyKeys } from '@locker/near-membrane-base/types';
 import { runInNewContext } from 'vm';
-
-export interface NodeEnvironmentOptions {
-    distortionCallback?: DistortionCallback;
-    endowments?: PropertyDescriptorMap;
-    globalObjectShape?: object;
-    instrumentation?: Instrumentation;
-}
+import type { NodeEnvironmentOptions } from './types';
 
 const ObjectCtor = Object;
 const { assign: ObjectAssign } = ObjectCtor;

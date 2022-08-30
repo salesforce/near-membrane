@@ -1,31 +1,18 @@
-import {
+import type {
     CallableDefineProperties,
     CallableEvaluate,
     CallableGetPropertyValuePointer,
     CallableInstallLazyPropertyDescriptors,
     CallableLinkPointers,
     CallableSetPrototypeOf,
-    DistortionCallback,
     GetSelectedTarget,
     GetTransferableValue,
     HooksCallback,
     Pointer,
     ProxyTarget,
-} from './membrane';
-import { Connector } from './connector';
-import { Instrumentation } from './instrumentation';
-import { PropertyKeys } from './types';
-
-export interface VirtualEnvironmentOptions {
-    // Blue connector factory.
-    blueConnector: Connector;
-    // Optional distortion callback to tame functionalities observed through the membrane.
-    distortionCallback?: DistortionCallback;
-    // Red connector factory.
-    redConnector: Connector;
-    // Instrumentation library object.
-    instrumentation?: Instrumentation;
-}
+    PropertyKeys,
+    VirtualEnvironmentOptions,
+} from './types';
 
 const LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL = Symbol.for(
     '@@lockerNearMembraneUndefinedValue'

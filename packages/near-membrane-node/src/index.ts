@@ -1,8 +1,9 @@
 // eslint-disable-next-line no-restricted-exports
-export { default, NodeEnvironmentOptions } from './node-realm';
-export {
+export { default } from './node-realm';
+export * from './types';
+export type {
     Connector,
     DistortionCallback,
     Instrumentation,
     ProxyTarget,
-} from '@locker/near-membrane-base';
+} from '@locker/near-membrane-base/types';

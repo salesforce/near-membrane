@@ -23,178 +23,57 @@
  *    it via `selectedTarget!`.
  */
 import { toSafeWeakMap } from './utils';
-import { Activity, Instrumentation } from './instrumentation';
-import { Getter, PropertyKey, PropertyKeys, Setter } from './types';
-
-type CallablePushTarget = (
-    foreignTargetPointer: () => void,
-    foreignTargetTraits: number,
-    foreignTargetFunctionArity: number,
-    foreignTargetFunctionName: string,
-    foreignTargetTypedArrayLength: number
-) => Pointer;
-type CallablePushErrorTarget = CallablePushTarget;
-type CallableApply = (
-    targetPointer: Pointer,
-    thisArgPointerOrUndefined: PointerOrPrimitive,
-    ...args: PointerOrPrimitive[]
-) => PointerOrPrimitive;
-type CallableConstruct = (
-    targetPointer: Pointer,
-    newTargetPointer: PointerOrPrimitive,
-    ...args: PointerOrPrimitive[]
-) => PointerOrPrimitive;
-type CallableDefineProperty = (
-    targetPointer: Pointer,
-    key: PropertyKey,
-    configurable: boolean | symbol,
-    enumerable: boolean | symbol,
-    writable: boolean | symbol,
-    valuePointer: PointerOrPrimitive,
-    getterPointer: PointerOrPrimitive,
-    setterPointer: PointerOrPrimitive,
-    foreignCallableNonConfigurableDescriptorCallback: CallableNonConfigurableDescriptorCallback
-) => boolean;
-type CallableDeleteProperty = (targetPointer: Pointer, key: PropertyKey) => boolean;
-type CallableGet = (
-    targetPointer: Pointer,
-    targetTraits: number,
-    key: PropertyKey,
-    receiverPointerOrPrimitive: PointerOrPrimitive
-) => PointerOrPrimitive;
-type CallableGetOwnPropertyDescriptor = (
-    targetPointer: Pointer,
-    key: PropertyKey,
-    foreignCallableDescriptorCallback: CallableDescriptorCallback
-) => void;
-type CallableGetPrototypeOf = (targetPointer: Pointer) => PointerOrPrimitive;
-type CallableHas = (targetPointer: Pointer, key: PropertyKey) => boolean;
-type CallableIsExtensible = (targetPointer: Pointer) => boolean;
-type CallableOwnKeys = (
-    targetPointer: Pointer,
-    foreignCallableKeysCallback: (...args: ReturnType<typeof Reflect.ownKeys>) => void
-) => void;
-type CallablePreventExtensions = (targetPointer: Pointer) => number;
-type CallableSet = (
-    targetPointer: Pointer,
-    key: PropertyKey,
-    valuePointerOrPrimitive: PointerOrPrimitive,
-    receiverPointerOrPrimitive: PointerOrPrimitive
-) => boolean;
-type CallableDebugInfo = (...args: Parameters<typeof console.info>) => void;
-type CallableGetLazyPropertyDescriptorStateByTarget = (
-    targetPointer: Pointer
-) => PointerOrPrimitive;
-type CallableGetTargetIntegrityTraits = (targetPointer: Pointer) => number;
-type CallableGetToStringTagOfTarget = (targetPointer: Pointer) => string;
-type CallableGetTypedArrayIndexedValue = (
-    targetPointer: Pointer,
-    index: PropertyKey
-) => number | bigint;
-type CallableInstallErrorPrepareStackTrace = () => void;
-type CallableIsTargetLive = (targetPointer: Pointer) => boolean;
-type CallableIsTargetRevoked = (targetPointer: Pointer) => boolean;
-type CallableSerializeTarget = (targetPointer: Pointer) => SerializedValue | undefined;
-type CallableSetLazyPropertyDescriptorStateByTarget = (
-    targetPointer: Pointer,
-    statePointer: Pointer
-) => void;
-type CallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors = (
-    targetPointer: Pointer,
-    foreignCallableDescriptorsCallback: CallableDescriptorsCallback
-) => PointerOrPrimitive;
-type CallableBatchGetPrototypeOfWhenHasNoOwnProperty = (
-    targetPointer: Pointer,
-    key: PropertyKey
-) => PointerOrPrimitive;
-type CallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor = (
-    targetPointer: Pointer,
-    key: PropertyKey,
-    foreignCallableDescriptorCallback: CallableDescriptorCallback
-) => PointerOrPrimitive;
-type CallableDescriptorCallback = (
-    key: PropertyKey,
-    configurable: boolean | symbol,
-    enumerable: boolean | symbol,
-    writable: boolean | symbol,
-    valuePointer: PointerOrPrimitive,
-    getterPointer: PointerOrPrimitive,
-    setterPointer: PointerOrPrimitive
-) => void;
-type CallableDescriptorsCallback = (
-    ...descriptorTuples: [...Parameters<CallableDescriptorCallback>]
-) => void;
-type CallableNonConfigurableDescriptorCallback = CallableDescriptorCallback;
-interface ForeignPropertyDescriptor extends PropertyDescriptor {
-    foreign?: boolean;
-}
-type GlobalThisGetter = () => typeof globalThis;
-interface HooksOptions {
-    distortionCallback?: DistortionCallback;
-    instrumentation?: Instrumentation;
-}
-type PointerOrPrimitive = Pointer | Primitive;
-type Primitive = bigint | boolean | null | number | string | symbol | undefined;
-type SerializedValue = bigint | boolean | number | string | symbol;
-type ShadowTarget = ProxyTarget;
-export type CallableDefineProperties = (
-    targetPointer: Pointer,
-    ...descriptorTuples: [...Parameters<CallableDescriptorCallback>]
-) => void;
-export type CallableEvaluate = (sourceText: string) => PointerOrPrimitive;
-export type CallableGetPropertyValuePointer = (targetPointer: Pointer, key: PropertyKey) => Pointer;
-export type CallableInstallLazyPropertyDescriptors = (
-    targetPointer: Pointer,
-    ...ownKeysAndUnforgeableGlobalThisKeys: PropertyKeys
-) => void;
-export type CallableLinkPointers = (targetPointer: Pointer, foreignTargetPointer: Pointer) => void;
-export type CallableSetPrototypeOf = (
-    targetPointer: Pointer,
-    protoPointerOrNull: Pointer | null
-) => boolean;
-export type DistortionCallback = (target: ProxyTarget) => ProxyTarget;
-export type GetSelectedTarget = Getter;
-export type GetTransferableValue = (value: any) => PointerOrPrimitive;
-export type HooksCallback = (
-    globalThisPointer: Pointer | undefined,
-    getSelectedTarget: GetSelectedTarget | undefined,
-    getTransferableValue: GetTransferableValue | undefined,
-    callableGetPropertyValuePointer: CallableGetPropertyValuePointer | undefined,
-    callableEvaluate: CallableEvaluate | undefined,
-    callableLinkPointers: CallableLinkPointers | undefined,
-    callablePushErrorTarget: CallablePushErrorTarget,
-    callablePushTarget: CallablePushTarget,
-    callableApply: CallableApply,
-    callableConstruct: CallableConstruct,
-    callableDefineProperty: CallableDefineProperty,
-    callableDeleteProperty: CallableDeleteProperty,
-    callableGet: CallableGet,
-    callableGetOwnPropertyDescriptor: CallableGetOwnPropertyDescriptor,
-    callableGetPrototypeOf: CallableGetPrototypeOf,
-    callableHas: CallableHas,
-    callableIsExtensible: CallableIsExtensible,
-    callableOwnKeys: CallableOwnKeys,
-    callablePreventExtensions: CallablePreventExtensions,
-    callableSet: CallableSet,
-    callableSetPrototypeOf: CallableSetPrototypeOf,
-    callableDebugInfo: CallableDebugInfo,
-    callableDefineProperties: CallableDefineProperties | undefined,
-    callableGetLazyPropertyDescriptorStateByTarget: CallableGetLazyPropertyDescriptorStateByTarget,
-    callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
-    callableGetToStringTagOfTarget: CallableGetToStringTagOfTarget,
-    callableGetTypedArrayIndexedValue: CallableGetTypedArrayIndexedValue,
-    callableInstallErrorPrepareStackTrace: CallableInstallErrorPrepareStackTrace,
-    callableInstallLazyPropertyDescriptors: CallableInstallLazyPropertyDescriptors | undefined,
-    callableIsTargetLive: CallableIsTargetLive,
-    callableIsTargetRevoked: CallableIsTargetRevoked,
-    callableSerializeTarget: CallableSerializeTarget,
-    callableSetLazyPropertyDescriptorStateByTarget: CallableSetLazyPropertyDescriptorStateByTarget,
-    callableBatchGetPrototypeOfAndGetOwnPropertyDescriptors: CallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
-    callableBatchGetPrototypeOfWhenHasNoOwnProperty: CallableBatchGetPrototypeOfWhenHasNoOwnProperty,
-    callableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor: CallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
-) => void;
-export type Pointer = CallableFunction;
-export type ProxyTarget = CallableFunction | any[] | object;
+import type {
+    Activity,
+    CallableApply,
+    CallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
+    CallableBatchGetPrototypeOfWhenHasNoOwnProperty,
+    CallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
+    CallableConstruct,
+    CallableDebugInfo,
+    CallableDefineProperties,
+    CallableDefineProperty,
+    CallableDeleteProperty,
+    CallableDescriptorCallback,
+    CallableDescriptorsCallback,
+    CallableEvaluate,
+    CallableGet,
+    CallableGetLazyPropertyDescriptorStateByTarget,
+    CallableGetOwnPropertyDescriptor,
+    CallableGetPrototypeOf,
+    CallableGetTargetIntegrityTraits,
+    CallableGetToStringTagOfTarget,
+    CallableGetTypedArrayIndexedValue,
+    CallableHas,
+    CallableInstallErrorPrepareStackTrace,
+    CallableInstallLazyPropertyDescriptors,
+    CallableIsExtensible,
+    CallableIsTargetLive,
+    CallableIsTargetRevoked,
+    CallableNonConfigurableDescriptorCallback,
+    CallableOwnKeys,
+    CallablePreventExtensions,
+    CallablePushErrorTarget,
+    CallablePushTarget,
+    CallableSerializeTarget,
+    CallableSet,
+    CallableSetLazyPropertyDescriptorStateByTarget,
+    CallableSetPrototypeOf,
+    ForeignPropertyDescriptor,
+    GetSelectedTarget,
+    Getter,
+    GlobalThisGetter,
+    HooksCallback,
+    HooksOptions,
+    Pointer,
+    PointerOrPrimitive,
+    PropertyKey,
+    PropertyKeys,
+    ProxyTarget,
+    SerializedValue,
+    Setter,
+    ShadowTarget,
+} from './types';
 
 const proxyTargetToLazyPropertyDescriptorStateMap: WeakMap<ProxyTarget, object> = toSafeWeakMap(
     new WeakMap()
@@ -439,10 +318,6 @@ export function createMembraneMarshall(
 
     function alwaysFalse() {
         return false;
-    }
-
-    function identity<T>(value: T): T {
-        return value;
     }
 
     const installErrorPrepareStackTrace = LOCKER_UNMINIFIED_FLAG
@@ -757,7 +632,7 @@ export function createMembraneMarshall(
         weakMap.delete = WeakMapProtoDelete;
         weakMap.has = WeakMapProtoHas;
         weakMap.set = WeakMapProtoSet;
-        weakMap[SymbolToStringTag] = WeakMapProtoSymbolToStringTag;
+        (weakMap as any)[SymbolToStringTag] = WeakMapProtoSymbolToStringTag;
         ReflectSetPrototypeOf(weakMap, WeakMapProto);
         return weakMap;
     }
@@ -767,8 +642,11 @@ export function createMembraneMarshall(
         foreignCallableHooksCallback: HooksCallback,
         options?: HooksOptions
     ): HooksCallback {
+        if (IS_IN_SHADOW_REALM) {
+            options = undefined;
+        }
         const {
-            distortionCallback = identity,
+            distortionCallback,
             instrumentation,
             // eslint-disable-next-line prefer-object-spread
         } = ObjectAssign({ __proto__: null }, options);
@@ -846,7 +724,7 @@ export function createMembraneMarshall(
 
         const activateLazyOwnPropertyDefinition = IS_IN_SHADOW_REALM
             ? (target: object, key: PropertyKey, state: object) => {
-                  state[key] = false;
+                  (state as any)[key] = false;
                   const foreignTargetPointer = getTransferablePointer(target);
                   let safeDesc;
                   try {
@@ -973,7 +851,7 @@ export function createMembraneMarshall(
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
                 const { length } = args;
                 if (length !== 0) {
-                    return this[
+                    return (this as any)[
                         arityToApplyOrConstructTrapNameRegistry[length] ??
                             arityToApplyOrConstructTrapNameRegistry.n
                     ](shadowTarget, thisArgOrArgs, argsOrNewTarget);
@@ -1042,7 +920,7 @@ export function createMembraneMarshall(
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
                 const { length } = args;
                 if (length !== 1) {
-                    return this[
+                    return (this as any)[
                         arityToApplyOrConstructTrapNameRegistry[length] ??
                             arityToApplyOrConstructTrapNameRegistry.n
                     ](shadowTarget, thisArgOrArgs, argsOrNewTarget);
@@ -1121,7 +999,7 @@ export function createMembraneMarshall(
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
                 const { length } = args;
                 if (length !== 2) {
-                    return this[
+                    return (this as any)[
                         arityToApplyOrConstructTrapNameRegistry[length] ??
                             arityToApplyOrConstructTrapNameRegistry.n
                     ](shadowTarget, thisArgOrArgs, argsOrNewTarget);
@@ -1209,7 +1087,7 @@ export function createMembraneMarshall(
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
                 const { length } = args;
                 if (length !== 3) {
-                    return this[
+                    return (this as any)[
                         arityToApplyOrConstructTrapNameRegistry[length] ??
                             arityToApplyOrConstructTrapNameRegistry.n
                     ](shadowTarget, thisArgOrArgs, argsOrNewTarget);
@@ -1306,7 +1184,7 @@ export function createMembraneMarshall(
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
                 const { length } = args;
                 if (length !== 4) {
-                    return this[
+                    return (this as any)[
                         arityToApplyOrConstructTrapNameRegistry[length] ??
                             arityToApplyOrConstructTrapNameRegistry.n
                     ](shadowTarget, thisArgOrArgs, argsOrNewTarget);
@@ -1412,7 +1290,7 @@ export function createMembraneMarshall(
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
                 const { length } = args;
                 if (length !== 5) {
-                    return this[
+                    return (this as any)[
                         arityToApplyOrConstructTrapNameRegistry[length] ??
                             arityToApplyOrConstructTrapNameRegistry.n
                     ](shadowTarget, thisArgOrArgs, argsOrNewTarget);
@@ -1677,30 +1555,33 @@ export function createMembraneMarshall(
             if (proxyPointer) {
                 return proxyPointer;
             }
-            const distortedTarget: ProxyTarget = IS_IN_SHADOW_REALM
-                ? originalTarget
-                : distortionCallback(originalTarget);
-            // If a distortion entry is found, it must be a valid proxy target.
-            if (
-                distortedTarget !== originalTarget &&
-                typeof distortedTarget !== typeof originalTarget
-            ) {
-                throw new TypeErrorCtor(
-                    `Invalid distortion ${toSafeTemplateStringValue(originalTarget)}.`
-                );
+            let distortionTarget: ProxyTarget;
+            if (distortionCallback) {
+                distortionTarget = distortionCallback(originalTarget);
+                // If a distortion entry is found, it must be a valid proxy target.
+                if (
+                    distortionTarget !== originalTarget &&
+                    typeof distortionTarget !== typeof originalTarget
+                ) {
+                    throw new TypeErrorCtor(
+                        `Invalid distortion ${toSafeTemplateStringValue(originalTarget)}.`
+                    );
+                }
+            } else {
+                distortionTarget = originalTarget;
             }
             let isPossiblyRevoked = true;
             let targetFunctionArity = 0;
             let targetFunctionName = '';
             let targetTypedArrayLength = 0;
             let targetTraits = TargetTraits.IsObject;
-            if (typeof distortedTarget === 'function') {
+            if (typeof distortionTarget === 'function') {
                 isPossiblyRevoked = false;
                 targetFunctionArity = 0;
                 targetTraits = TargetTraits.IsFunction;
                 try {
                     // Detect arrow functions.
-                    if (!('prototype' in distortedTarget)) {
+                    if (!('prototype' in distortionTarget)) {
                         targetTraits |= TargetTraits.IsArrowFunction;
                     }
                     const safeLengthDesc = ReflectGetOwnPropertyDescriptor(
@@ -1727,13 +1608,13 @@ export function createMembraneMarshall(
                 } catch {
                     isPossiblyRevoked = true;
                 }
-            } else if (ArrayBufferIsView(distortedTarget)) {
+            } else if (ArrayBufferIsView(distortionTarget)) {
                 isPossiblyRevoked = false;
                 targetTraits = TargetTraits.IsArrayBufferView;
                 try {
                     targetTypedArrayLength = ReflectApply(
                         TypedArrayProtoLengthGetter,
-                        distortedTarget,
+                        distortionTarget,
                         []
                     ) as number;
                     targetTraits |= TargetTraits.IsTypedArray;
@@ -1745,7 +1626,7 @@ export function createMembraneMarshall(
             }
             if (isPossiblyRevoked) {
                 try {
-                    if (isArrayOrThrowForRevoked(distortedTarget)) {
+                    if (isArrayOrThrowForRevoked(distortionTarget)) {
                         targetTraits = TargetTraits.IsArray;
                     }
                 } catch {
@@ -1753,7 +1634,7 @@ export function createMembraneMarshall(
                 }
             }
             proxyPointer = foreignCallablePusher(
-                createPointer(distortedTarget),
+                createPointer(distortionTarget),
                 targetTraits,
                 targetFunctionArity,
                 targetFunctionName,
@@ -1889,7 +1770,7 @@ export function createMembraneMarshall(
                                   ) {
                                       const key = useThisArgAsTarget ? args[0] : args[1];
                                       const state = getLazyPropertyDescriptorStateByTarget(target);
-                                      if (state?.[key]) {
+                                      if ((state as any)?.[key]) {
                                           // Activate the descriptor by triggering
                                           // its getter.
                                           // eslint-disable-next-line @typescript-eslint/no-unused-expressions
@@ -1915,7 +1796,7 @@ export function createMembraneMarshall(
                               ) {
                                   const { 0: key } = args;
                                   const state = getLazyPropertyDescriptorStateByTarget(thisArg);
-                                  if (state?.[key]) {
+                                  if ((state as any)?.[key]) {
                                       // Activate the descriptor by triggering
                                       // its getter.
                                       // eslint-disable-next-line @typescript-eslint/no-unused-expressions
@@ -1945,11 +1826,11 @@ export function createMembraneMarshall(
                                       typeof target === 'function'
                                   ) {
                                       const state = getLazyPropertyDescriptorStateByTarget(target);
-                                      if (state?.[key]) {
+                                      if ((state as any)?.[key]) {
                                           // Activate the descriptor by triggering
                                           // its getter.
                                           // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-                                          target[key];
+                                          (target as any)[key];
                                       }
                                       if (shouldFixChromeBug && target === globalThisRef) {
                                           return getFixedDescriptor!(target, key);
@@ -2001,12 +1882,12 @@ export function createMembraneMarshall(
                               );
                               for (let i = 0, { length } = ownKeys; i < length; i += 1) {
                                   const ownKey = ownKeys[i];
-                                  const isLazyProp = !!state?.[ownKey];
+                                  const isLazyProp = !!(state as any)?.[ownKey];
                                   if (isLazyProp) {
                                       // Activate the descriptor by triggering
                                       // its getter.
                                       // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-                                      target[ownKey];
+                                      (target as any)[ownKey];
                                   }
                                   if (isLazyProp || isFixingChromeBug) {
                                       const unsafeDesc = isFixingChromeBug
@@ -2505,16 +2386,14 @@ export function createMembraneMarshall(
                 this.staticToStringTag = 'Object';
                 // Define traps.
                 if (isForeignTargetFunction) {
-                    this.apply =
-                        this[
-                            arityToApplyTrapNameRegistry[foreignTargetFunctionArity] ??
-                                arityToApplyTrapNameRegistry.n
-                        ];
-                    this.construct =
-                        this[
-                            arityToConstructTrapNameRegistry[foreignTargetFunctionArity] ??
-                                arityToConstructTrapNameRegistry.n
-                        ];
+                    this.apply = (this as any)[
+                        arityToApplyTrapNameRegistry[foreignTargetFunctionArity] ??
+                            arityToApplyTrapNameRegistry.n
+                    ];
+                    this.construct = (this as any)[
+                        arityToConstructTrapNameRegistry[foreignTargetFunctionArity] ??
+                            arityToConstructTrapNameRegistry.n
+                    ];
                 }
                 this.defineProperty = BoundaryProxyHandler.defaultDefinePropertyTrap;
                 this.deleteProperty = BoundaryProxyHandler.defaultDeletePropertyTrap;
@@ -3655,7 +3534,7 @@ export function createMembraneMarshall(
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
-                const value = target?.[key];
+                const value = (target as any)?.[key];
                 // Intentionally ignoring `document.all`.
                 // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
                 // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
@@ -3711,8 +3590,10 @@ export function createMembraneMarshall(
                           return pointer();
                       };
                       if (DEV_MODE) {
-                          pointerWrapper['[[OriginalTarget]]'] = pointer['[[OriginalTarget]]'];
-                          pointerWrapper['[[Color]]'] = pointer['[[Color]]'];
+                          pointerWrapper['[[OriginalTarget]]'] = (pointer as any)[
+                              '[[OriginalTarget]]'
+                          ];
+                          pointerWrapper['[[Color]]'] = (pointer as any)['[[Color]]'];
                       }
                       return pointerWrapper;
                   }
@@ -4252,7 +4133,7 @@ export function createMembraneMarshall(
                       const target = selectedTarget!;
                       selectedTarget = undefined;
                       try {
-                          return target[index];
+                          return (target as any)[index];
                       } catch (error: any) {
                           throw pushErrorAcrossBoundary(error);
                       }
@@ -4297,7 +4178,7 @@ export function createMembraneMarshall(
                       }
                       for (let i = 0, { length } = ownKeys; i < length; i += 1) {
                           const ownKey = ownKeys[i];
-                          state[ownKey] = true;
+                          (state as any)[ownKey] = true;
                           ReflectDefineProperty(
                               target,
                               ownKey,
@@ -4318,7 +4199,7 @@ export function createMembraneMarshall(
                                   // as non-enumerable.
                                   get(): any {
                                       activateLazyOwnPropertyDefinition(target, ownKey, state!);
-                                      return target[ownKey];
+                                      return (target as any)[ownKey];
                                   },
                                   set(value: any) {
                                       activateLazyOwnPropertyDefinition(target, ownKey, state!);
@@ -4748,27 +4629,33 @@ export function createMembraneMarshall(
             arityToConstructTrapNameRegistry.n = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[13];
 
             const { prototype: BoundaryProxyHandlerProto } = BoundaryProxyHandler;
-            BoundaryProxyHandlerProto[arityToApplyTrapNameRegistry[0]] = applyTrapForZeroOrMoreArgs;
-            BoundaryProxyHandlerProto[arityToApplyTrapNameRegistry[1]] = applyTrapForOneOrMoreArgs;
-            BoundaryProxyHandlerProto[arityToApplyTrapNameRegistry[2]] = applyTrapForTwoOrMoreArgs;
-            BoundaryProxyHandlerProto[arityToApplyTrapNameRegistry[3]] =
+            (BoundaryProxyHandlerProto as any)[arityToApplyTrapNameRegistry[0]] =
+                applyTrapForZeroOrMoreArgs;
+            (BoundaryProxyHandlerProto as any)[arityToApplyTrapNameRegistry[1]] =
+                applyTrapForOneOrMoreArgs;
+            (BoundaryProxyHandlerProto as any)[arityToApplyTrapNameRegistry[2]] =
+                applyTrapForTwoOrMoreArgs;
+            (BoundaryProxyHandlerProto as any)[arityToApplyTrapNameRegistry[3]] =
                 applyTrapForThreeOrMoreArgs;
-            BoundaryProxyHandlerProto[arityToApplyTrapNameRegistry[4]] = applyTrapForFourOrMoreArgs;
-            BoundaryProxyHandlerProto[arityToApplyTrapNameRegistry[5]] = applyTrapForFiveOrMoreArgs;
-            BoundaryProxyHandlerProto[arityToApplyTrapNameRegistry.n] = applyTrapForAnyNumberOfArgs;
-            BoundaryProxyHandlerProto[arityToConstructTrapNameRegistry[0]] =
+            (BoundaryProxyHandlerProto as any)[arityToApplyTrapNameRegistry[4]] =
+                applyTrapForFourOrMoreArgs;
+            (BoundaryProxyHandlerProto as any)[arityToApplyTrapNameRegistry[5]] =
+                applyTrapForFiveOrMoreArgs;
+            (BoundaryProxyHandlerProto as any)[arityToApplyTrapNameRegistry.n] =
+                applyTrapForAnyNumberOfArgs;
+            (BoundaryProxyHandlerProto as any)[arityToConstructTrapNameRegistry[0]] =
                 constructTrapForZeroOrMoreArgs;
-            BoundaryProxyHandlerProto[arityToConstructTrapNameRegistry[1]] =
+            (BoundaryProxyHandlerProto as any)[arityToConstructTrapNameRegistry[1]] =
                 constructTrapForOneOrMoreArgs;
-            BoundaryProxyHandlerProto[arityToConstructTrapNameRegistry[2]] =
+            (BoundaryProxyHandlerProto as any)[arityToConstructTrapNameRegistry[2]] =
                 constructTrapForTwoOrMoreArgs;
-            BoundaryProxyHandlerProto[arityToConstructTrapNameRegistry[3]] =
+            (BoundaryProxyHandlerProto as any)[arityToConstructTrapNameRegistry[3]] =
                 constructTrapForThreeOrMoreArgs;
-            BoundaryProxyHandlerProto[arityToConstructTrapNameRegistry[4]] =
+            (BoundaryProxyHandlerProto as any)[arityToConstructTrapNameRegistry[4]] =
                 constructTrapForFourOrMoreArgs;
-            BoundaryProxyHandlerProto[arityToConstructTrapNameRegistry[5]] =
+            (BoundaryProxyHandlerProto as any)[arityToConstructTrapNameRegistry[5]] =
                 constructTrapForFiveOrMoreArgs;
-            BoundaryProxyHandlerProto[arityToConstructTrapNameRegistry.n] =
+            (BoundaryProxyHandlerProto as any)[arityToConstructTrapNameRegistry.n] =
                 constructTrapForAnyNumberOfArgs;
             if (DEV_MODE) {
                 // @ts-ignore: Prevent read-only property error.

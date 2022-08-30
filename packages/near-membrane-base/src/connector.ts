@@ -1,6 +1,5 @@
 import { createMembraneMarshall } from './membrane';
-
-export type Connector = ReturnType<typeof createMembraneMarshall>;
+import type { Connector } from './types';
 
 const TypeErrorCtor = TypeError;
 

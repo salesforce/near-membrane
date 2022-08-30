@@ -4,7 +4,7 @@
     "private": true,
     "scripts": {
         "clean": "rimraf */bundle.js",
-        "build": "rollup -c"
+        "build": "rollup --config .rolluprc.cjs"
     },
     "dependencies": {
         "@locker/near-membrane-dom": "0.11.1"

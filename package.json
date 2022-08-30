@@ -8,7 +8,7 @@
   ],
   "description": "JavaScript Near Membrane Library to create a sandboxed environment",
   "module": "dist/index.js",
-  "types": "types/index.js",
+  "typings": "types/index.js",
   "scripts": {
     "clean": "lerna run clean --stream",
     "build": "lerna run build --stream",

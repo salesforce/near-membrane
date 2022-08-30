@@ -1,6 +1,6 @@
 import { toSafeArray } from './utils';
 import { VirtualEnvironment } from './environment';
-import { PropertyKeys } from './types';
+import type { PropertyKeys } from './types';
 
 const { assign: ObjectAssign } = Object;
 const { ownKeys: ReflectOwnKeys } = Reflect;
@@ -167,7 +167,7 @@ export function linkIntrinsics(env: VirtualEnvironment, globalObject: typeof glo
     // Remap intrinsics that are realm agnostic.
     for (let i = 0, { length } = ReflectiveIntrinsicObjectNames; i < length; i += 1) {
         const globalName = ReflectiveIntrinsicObjectNames[i];
-        const reflectiveValue = globalObject[globalName];
+        const reflectiveValue = (globalObject as any)[globalName];
         if (reflectiveValue) {
             // Proxy.prototype is undefined.
             if (reflectiveValue.prototype) {
