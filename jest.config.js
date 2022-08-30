@@ -10,6 +10,8 @@ module.exports = {
     },
     roots: ['<rootDir>/packages/near-membrane-base', '<rootDir>/packages/near-membrane-node'],
     testEnvironment: 'jsdom',
-    testURL: 'http://localhost/',
+    testEnvironmentOptions: {
+        url: 'http://localhost/',
+    },
     verbose: true,
 };
