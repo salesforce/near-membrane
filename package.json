@@ -76,7 +76,7 @@
     "karma-coverage": "2.2.0",
     "karma-firefox-launcher": "2.1.2",
     "karma-jasmine": "5.1.0",
-    "karma-rollup-preprocessor": "7.0.8",
+    "karma-rollup-preprocessor": "7.0.7",
     "karma-safari-launcher": "1.0.0",
     "lerna": "5.5.0",
     "lint-staged": "13.0.3",
