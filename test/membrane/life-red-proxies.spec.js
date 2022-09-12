@@ -61,6 +61,15 @@ const env = createVirtualEnvironment(window, {
         uint16Array,
         uint32Array,
     }),
+    liveTargetCallback(target) {
+        return (
+            Object.hasOwn(target, LOCKER_LIVE_VALUE_MARKER_SYMBOL) ||
+            Reflect.getPrototypeOf(target) === Object.prototype ||
+            Reflect.getPrototypeOf(target) === null ||
+            target instanceof ArrayBuffer ||
+            target instanceof RegExp
+        );
+    },
 });
 
 describe('a live red proxy', () => {

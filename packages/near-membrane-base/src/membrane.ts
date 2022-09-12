@@ -150,9 +150,6 @@ export function createMembraneMarshall(
         ? SymbolFor('@@lockerDebugMode')
         : undefined;
     const LOCKER_IDENTIFIER_MARKER = '$LWS';
-    const LOCKER_LIVE_VALUE_MARKER_SYMBOL = !IS_IN_SHADOW_REALM
-        ? SymbolFor('@@lockerLiveValue')
-        : undefined;
     const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = !IS_IN_SHADOW_REALM
         ? SymbolFor('@@lockerNearMembraneSerializedValue')
         : undefined;
@@ -192,9 +189,6 @@ export function createMembraneMarshall(
         slice: ArrayProtoSlice,
     } = ArrayCtor.prototype;
     const { isView: ArrayBufferIsView } = ArrayBufferCtor;
-    const ArrayBufferProtoByteLengthGetter: (() => number) | undefined = !IS_IN_SHADOW_REALM
-        ? ReflectApply(ObjectProtoLookupGetter, ArrayBufferCtor.prototype, ['byteLength'])
-        : undefined;
     const BigIntProtoValueOf = SUPPORTS_BIG_INT ? BigInt.prototype.valueOf : undefined;
     const { valueOf: BooleanProtoValueOf } = Boolean.prototype;
     const { toString: ErrorProtoToString } = ErrorCtor.prototype;
@@ -307,6 +301,7 @@ export function createMembraneMarshall(
     }
     // eslint-disable-next-line no-shadow
     const enum TargetTraits {
+        None,
         IsArray = 1 << 0,
         IsArrayBufferView = 1 << 1,
         IsFunction = 1 << 2,
@@ -648,6 +643,7 @@ export function createMembraneMarshall(
         const {
             distortionCallback,
             instrumentation,
+            liveTargetCallback,
             // eslint-disable-next-line prefer-object-spread
         } = ObjectAssign({ __proto__: null }, options);
 
@@ -3315,7 +3311,12 @@ export function createMembraneMarshall(
                   ): ReturnType<typeof Reflect.defineProperty> {
                       // We don't wrap `foreignCallableIsTargetLive()` in a
                       // try-catch because it cannot throw.
-                      if (foreignCallableIsTargetLive(this.foreignTargetPointer)) {
+                      if (
+                          foreignCallableIsTargetLive(
+                              this.foreignTargetPointer,
+                              this.foreignTargetTraits
+                          )
+                      ) {
                           this.makeProxyLive();
                       } else {
                           this.makeProxyStatic();
@@ -3332,7 +3333,12 @@ export function createMembraneMarshall(
                   ): ReturnType<typeof Reflect.deleteProperty> {
                       // We don't wrap `foreignCallableIsTargetLive()` in a
                       // try-catch because it cannot throw.
-                      if (foreignCallableIsTargetLive(this.foreignTargetPointer)) {
+                      if (
+                          foreignCallableIsTargetLive(
+                              this.foreignTargetPointer,
+                              this.foreignTargetTraits
+                          )
+                      ) {
                           this.makeProxyLive();
                       } else {
                           this.makeProxyStatic();
@@ -3348,7 +3354,12 @@ export function createMembraneMarshall(
                   ): ReturnType<typeof Reflect.preventExtensions> {
                       // We don't wrap `foreignCallableIsTargetLive()` in a
                       // try-catch because it cannot throw.
-                      if (foreignCallableIsTargetLive(this.foreignTargetPointer)) {
+                      if (
+                          foreignCallableIsTargetLive(
+                              this.foreignTargetPointer,
+                              this.foreignTargetTraits
+                          )
+                      ) {
                           this.makeProxyLive();
                       } else {
                           this.makeProxyStatic();
@@ -3365,7 +3376,12 @@ export function createMembraneMarshall(
                   ): ReturnType<typeof Reflect.setPrototypeOf> {
                       // We don't wrap `foreignCallableIsTargetLive()` in a
                       // try-catch because it cannot throw.
-                      if (foreignCallableIsTargetLive(this.foreignTargetPointer)) {
+                      if (
+                          foreignCallableIsTargetLive(
+                              this.foreignTargetPointer,
+                              this.foreignTargetTraits
+                          )
+                      ) {
                           this.makeProxyLive();
                       } else {
                           this.makeProxyStatic();
@@ -3384,7 +3400,12 @@ export function createMembraneMarshall(
                   ): ReturnType<typeof Reflect.set> {
                       // We don't wrap `foreignCallableIsTargetLive()` in a
                       // try-catch because it cannot throw.
-                      if (foreignCallableIsTargetLive(this.foreignTargetPointer)) {
+                      if (
+                          foreignCallableIsTargetLive(
+                              this.foreignTargetPointer,
+                              this.foreignTargetTraits
+                          )
+                      ) {
                           this.makeProxyLive();
                       } else {
                           this.makeProxyStatic();
@@ -4212,82 +4233,15 @@ export function createMembraneMarshall(
                   }
                 : (noop as CallableInstallLazyPropertyDescriptors),
             // callableIsTargetLive
-            !IS_IN_SHADOW_REALM
-                ? (targetPointer: Pointer): boolean => {
+            !IS_IN_SHADOW_REALM && liveTargetCallback
+                ? (targetPointer: Pointer, targetTraits: TargetTraits): boolean => {
                       targetPointer();
                       const target = selectedTarget!;
                       selectedTarget = undefined;
-                      if (
-                          target === null ||
-                          target === undefined ||
-                          target === ObjectProto ||
-                          target === RegExpProto
-                      ) {
-                          return false;
-                      }
-                      if (typeof target === 'function') {
-                          try {
-                              return ObjectHasOwn(target, LOCKER_LIVE_VALUE_MARKER_SYMBOL!);
-                              // eslint-disable-next-line no-empty
-                          } catch {}
-                          return false;
-                      }
-                      if (typeof target === 'object') {
-                          let constructor;
-                          try {
-                              ({ constructor } = target);
-                              if (constructor === ObjectCtor) {
-                                  // If the constructor, own or inherited, points to `Object`
-                                  // then `value` is not likely a prototype object.
-                                  return true;
-                              }
-                              // eslint-disable-next-line no-empty
-                          } catch {}
-                          try {
-                              if (ObjectHasOwn(target, LOCKER_LIVE_VALUE_MARKER_SYMBOL!)) {
-                                  return true;
-                              }
-                              // eslint-disable-next-line no-empty
-                          } catch {}
-                          try {
-                              if (
-                                  ReflectGetPrototypeOf(target) === null &&
-                                  // Ensure `value` is not an `Object.prototype` from an iframe.
-                                  (typeof constructor !== 'function' ||
-                                      constructor.prototype !== target)
-                              ) {
-                                  return true;
-                              }
-                              // eslint-disable-next-line no-empty
-                          } catch {}
-                          // We only check for regexp and array buffers here
-                          // since plain arrays and array buffer views are
-                          // marked as live in the BoundaryProxyHandler
-                          // constructor.
-                          //
-                          // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
-                          // https://tc39.es/ecma262/#sec-get-regexp.prototype.source
-                          // Step 3: If R does not have an [[OriginalSource]] internal slot, then
-                          //     a. If SameValue(R, %RegExp.prototype%) is true, return "(?:)".
-                          //     b. Otherwise, throw a TypeError exception.
-                          try {
-                              if (ObjectHasOwn(target, 'lastIndex')) {
-                                  ReflectApply(RegExpProtoSourceGetter, target, []);
-                                  return true;
-                              }
-                              // eslint-disable-next-line no-empty
-                          } catch {}
-                          // Section 25.1.5.1 get ArrayBuffer.prototype.byteLength
-                          // https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.bytelength
-                          // Step 2: Perform ? RequireInternalSlot(O, [[ArrayBufferData]]).
-                          try {
-                              if ('byteLength' in target) {
-                                  ReflectApply(ArrayBufferProtoByteLengthGetter!, target, []);
-                                  return true;
-                              }
-                              // eslint-disable-next-line no-empty
-                          } catch {}
-                      }
+                      try {
+                          return liveTargetCallback(target, targetTraits);
+                          // eslint-disable-next-line no-empty
+                      } catch {}
                       return false;
                   }
                 : (alwaysFalse as CallableIsTargetLive),

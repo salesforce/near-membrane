@@ -89,6 +89,7 @@ function createIframeVirtualEnvironment(
         globalObjectShape,
         instrumentation,
         keepAlive = false,
+        liveTargetCallback,
         // eslint-disable-next-line prefer-object-spread
     } = ObjectAssign({ __proto__: null }, options);
     const iframe = createDetachableIframe(blueRefs.document);
@@ -113,6 +114,7 @@ function createIframeVirtualEnvironment(
         blueConnector,
         distortionCallback,
         instrumentation,
+        liveTargetCallback,
         redConnector: createRedConnector(redWindow.eval),
     });
     linkIntrinsics(env, globalObject);

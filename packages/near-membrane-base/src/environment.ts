@@ -51,13 +51,14 @@ export class VirtualEnvironment {
 
     constructor(options: VirtualEnvironmentOptions) {
         if (options === undefined) {
-            throw new ErrorCtor('Missing VirtualEnvironmentOptions options bag.');
+            throw new ErrorCtor('Missing required VirtualEnvironment options.');
         }
         // prettier-ignore
         const {
             blueConnector,
             distortionCallback,
             instrumentation,
+            liveTargetCallback,
             redConnector,
             // eslint-disable-next-line prefer-object-spread
         } = ObjectAssign({ __proto__: null }, options);
@@ -70,6 +71,7 @@ export class VirtualEnvironment {
             {
                 distortionCallback,
                 instrumentation,
+                liveTargetCallback,
             }
         );
         const {

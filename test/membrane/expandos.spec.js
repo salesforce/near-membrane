@@ -18,6 +18,9 @@ describe('The membrane', () => {
         const env = createVirtualEnvironment(window, {
             // Provides plainObject & exoticObject
             globalObjectShape: window,
+            liveTargetCallback(target) {
+                return Reflect.getPrototypeOf(target) === Object.prototype;
+            },
         });
 
         env.evaluate(`

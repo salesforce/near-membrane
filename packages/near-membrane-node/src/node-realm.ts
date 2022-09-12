@@ -29,10 +29,13 @@ export default function createVirtualEnvironment(
     if (typeof globalObject !== 'object' || globalObject === null) {
         throw new TypeErrorCtor('Missing global object virtualization target.');
     }
-    const { distortionCallback, endowments, globalObjectShape, instrumentation } = ObjectAssign(
-        { __proto__: null },
-        options
-    ) as NodeEnvironmentOptions;
+    const {
+        distortionCallback,
+        endowments,
+        globalObjectShape,
+        instrumentation,
+        liveTargetCallback,
+    } = ObjectAssign({ __proto__: null }, options) as NodeEnvironmentOptions;
     let blueConnector = globalObjectToBlueCreateHooksCallbackMap.get(globalObject) as
         | Connector
         | undefined;
@@ -45,6 +48,7 @@ export default function createVirtualEnvironment(
         blueConnector,
         distortionCallback,
         instrumentation,
+        liveTargetCallback,
         redConnector: createRedConnector(redGlobalObject.eval),
     });
     linkIntrinsics(env, globalObject);

@@ -84,7 +84,7 @@ export type CallableInstallLazyPropertyDescriptors = (
     ...ownKeysAndUnforgeableGlobalThisKeys: PropertyKeys
 ) => void;
 export type CallableIsExtensible = (targetPointer: Pointer) => boolean;
-export type CallableIsTargetLive = (targetPointer: Pointer) => boolean;
+export type CallableIsTargetLive = (targetPointer: Pointer, targetTraits: number) => boolean;
 export type CallableIsTargetRevoked = (targetPointer: Pointer) => boolean;
 export type CallableLinkPointers = (targetPointer: Pointer, foreignTargetPointer: Pointer) => void;
 export type CallableNonConfigurableDescriptorCallback = CallableDescriptorCallback;
@@ -171,12 +171,14 @@ export type HooksCallback = (
 export interface HooksOptions {
     distortionCallback?: DistortionCallback;
     instrumentation?: Instrumentation;
+    liveTargetCallback?: LiveTargetCallback;
 }
 export interface Instrumentation {
     startActivity(activityName: string, data?: DataType): Activity;
     log(data?: DataType): void;
     error(data?: DataType): void;
 }
+export type LiveTargetCallback = (target: ProxyTarget, targetTraits: number) => boolean;
 export type Pointer = CallableFunction;
 export type PointerOrPrimitive = Pointer | Primitive;
 export type Primitive = bigint | boolean | null | number | string | symbol | undefined;
@@ -191,4 +193,5 @@ export interface VirtualEnvironmentOptions {
     redConnector: Connector;
     distortionCallback?: DistortionCallback;
     instrumentation?: Instrumentation;
+    liveTargetCallback?: LiveTargetCallback;
 }
