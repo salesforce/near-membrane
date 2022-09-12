@@ -1,9 +1,12 @@
-import createSecureEnvironment from "../../lib/browser-realm.js";
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-describe("Promise", () => {
-    it("can be constructed", (done) => {
-        const evalScript = createSecureEnvironment({ endowments: { done, expect }});
-        evalScript(`
+describe('Promise', () => {
+    it('can be constructed', (done) => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ done, expect }),
+        });
+
+        env.evaluate(`
             const p = new Promise(resolve => {
                 resolve(1);
             });
@@ -13,9 +16,12 @@ describe("Promise", () => {
             });
         `);
     });
-    it(".resolve() should be supported", (done) => {
-        const evalScript = createSecureEnvironment({ endowments: { done, expect }});
-        evalScript(`
+    it('.resolve() should be supported', (done) => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ done, expect }),
+        });
+
+        env.evaluate(`
             const p = Promise.resolve(1);
             p.then((value) => {
                 expect(value).toBe(1);
@@ -23,9 +29,12 @@ describe("Promise", () => {
             });
         `);
     });
-    it(".reject() should be supported", (done) => {
-        const evalScript = createSecureEnvironment({ endowments: { done, expect }});
-        evalScript(`
+    it('.reject() should be supported', (done) => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ done, expect }),
+        });
+
+        env.evaluate(`
             const p = Promise.reject(new Error('foo'));
             p.catch((e) => {
                 expect(e.message).toBe('foo');
@@ -33,9 +42,12 @@ describe("Promise", () => {
             });
         `);
     });
-    it("throw should be supported with errors", (done) => {
-        const evalScript = createSecureEnvironment({ endowments: { done, expect }});
-        evalScript(`
+    it('throw should be supported with errors', (done) => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ done, expect }),
+        });
+
+        env.evaluate(`
             const p = new Promise(() => {
                 throw new Error('foo');
             });
@@ -45,9 +57,12 @@ describe("Promise", () => {
             });
         `);
     });
-    it("throw should be supported with non-errors", (done) => {
-        const evalScript = createSecureEnvironment({ endowments: { done, expect }});
-        evalScript(`
+    it('throw should be supported with non-errors', (done) => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ done, expect }),
+        });
+
+        env.evaluate(`
             const p = new Promise(() => {
                 throw { foo: 'bar' };
             });

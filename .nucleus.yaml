@@ -1,0 +1,17 @@
+# This is a draft that is copied from the LWC project and modified.
+# notifications:
+#   slack:
+#     channel: locker-release
+enforce-work-item-for-pr: false
+branches:
+  ~DEFAULT~:
+    pull-request: &branch-definition
+      auto-start: true
+      auto-start-from-forks: false
+      merge-method: disabled # Do not auto-merge. We'll do it ourselves.
+      validate-downstream-deps: false
+      ignore-downstream-dep-failures: true
+# Only needed in the future for release and patch branches.
+#   somebranch:
+#     pull-request:
+#     <<: *branch-definition

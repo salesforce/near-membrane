@@ -1,4 +1,4 @@
-import createSecureEnvironment from '../../lib/browser-realm.js';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 const blue = [1, 2, 3];
 
@@ -9,8 +9,11 @@ function saveFoo(arg) {
 
 describe('arrays', () => {
     it('should preserve the length behavior across the membrane', () => {
-        const evalScript = createSecureEnvironment({ endowments: { blue, saveFoo, expect }});
-        evalScript(`
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ blue, expect, saveFoo }),
+        });
+
+        env.evaluate(`
             saveFoo(['a', 'b', 'c']);
             expect(blue.length).toBe(3);
             expect(blue[2]).toBe(3);
@@ -18,10 +21,11 @@ describe('arrays', () => {
             expect(blue.length).toBe(4);
             expect(blue[3]).toBe(4);
         `);
-        // the blue mutation from red realm should not leak into blue realm
-        expect(blue.length).toBe(3);
-        expect(blue[3]).toBe(undefined);
-        // mutating red from blue realm
+
+        // Blue mutation from red realm should leak into blue realm.
+        expect(blue.length).toBe(4);
+        expect(blue[3]).toBe(4);
+        // Mutate red from blue realm.
         expect(red.length).toBe(3);
         expect(red[2]).toBe('c');
         red[3] = 'd';

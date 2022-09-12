@@ -1,32 +1,44 @@
-import createSecureEnvironment from "../../lib/browser-realm.js";
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-describe("Reversed Proxy constructor", () => {
-    it("can be constructed", () => {
-        const evalScript = createSecureEnvironment({
-            endowments: {
+describe('Reversed Proxy constructor', () => {
+    it('can be constructed', () => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({
                 test({ Proxy }) {
-                    const p = new Proxy({}, {
-                        get() { return 1 }
-                    });
+                    const p = new Proxy(
+                        {},
+                        {
+                            get() {
+                                return 1;
+                            },
+                        }
+                    );
                     expect(p.a).toBe(1);
                 },
-            },
+            }),
         });
-        evalScript(`test({ Proxy });`);
+
+        env.evaluate(`test({ Proxy });`);
     });
-    it(".revocable() should be supported", () => {
-        const evalScript = createSecureEnvironment({
-            endowments: {
+    it('.revocable() should be supported', () => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({
                 test({ Proxy }) {
-                    const { proxy, revoke } = Proxy.revocable({}, {
-                        get() { return 1 }
-                    });
+                    const { proxy, revoke } = Proxy.revocable(
+                        {},
+                        {
+                            get() {
+                                return 1;
+                            },
+                        }
+                    );
                     expect(proxy.a).toBe(1);
                     revoke();
                     expect(() => proxy.a).toThrowError(TypeError);
                 },
-            },
+            }),
         });
-        evalScript(`test({ Proxy });`);
+
+        env.evaluate(`test({ Proxy });`);
     });
 });

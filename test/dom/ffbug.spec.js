@@ -1,10 +1,11 @@
-import createSecureEnvironment from '../../lib/browser-realm.js';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('FF BugFix 543435', () => {
-    it('should preserve the document reference in the next turn', function(done) {
-        // expect.assertions(3);
-        const evalScript = createSecureEnvironment({
-            endowments: {
+    it('should preserve the document reference in the next turn', (done) => {
+        expect.assertions(3);
+
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({
                 validateSyncDocumentReference(redDoc) {
                     expect(redDoc).toBe(document);
                 },
@@ -15,16 +16,17 @@ describe('FF BugFix 543435', () => {
                     expect(redDoc).toBe(document);
                     done();
                 },
-            },
+            }),
             keepAlive: true,
         });
-        evalScript(`
+
+        env.evaluate(`
             validateSyncDocumentReference(document);
             Promise.resolve().then(() => {
-                validateMicroTaskDocumentReference(document);   
+                validateMicroTaskDocumentReference(document);
             });
             setTimeout(() => {
-                validateMacroTaskDocumentReference(document); 
+                validateMacroTaskDocumentReference(document);
             }, 1);
         `);
     });
