@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "name": "@locker/scripts",
+  "version": "0.11.4",
+  "description": "Locker scripts"
+}

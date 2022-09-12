@@ -1,39 +1,57 @@
-import createSecureEnvironment from '../../lib/browser-realm.js';
-
-// patching the outer realm before extracting the descriptors
-window.originalFetch = fetch;
-window.wrappedFetch = (...args) => fetch(...args);
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 const distortionMap = new Map([
-    [fetch, () => {
-        throw new Error('forbidden');
-    }],
+    [
+        fetch,
+        () => {
+            throw new Error('forbidden');
+        },
+    ],
 ]);
-const evalScript = createSecureEnvironment({ distortionMap, endowments: window });
 
 describe('Method Distortion', () => {
-    it('should be invoked when invoked directly', function() {
-        // expect.assertions(1);
-        evalScript(`
+    const envOptions = {
+        distortionCallback(v) {
+            return distortionMap.get(v) ?? v;
+        },
+        globalObjectShape: window,
+    };
+
+    it('should be invoked when invoked directly', () => {
+        expect.assertions(1);
+
+        const env = createVirtualEnvironment(window, envOptions);
+
+        env.evaluate(`
             expect(() => {
                 fetch('./invalid-network-request.json');
-            }).toThrow();    
+            }).toThrow();
         `);
     });
-    it('should be invoked when invoked indirectly', function() {
-        // expect.assertions(1);
-        evalScript(`
+    it('should be invoked when invoked indirectly', () => {
+        expect.assertions(1);
+
+        window.originalFetch = fetch;
+
+        const env = createVirtualEnvironment(window, envOptions);
+
+        env.evaluate(`
             expect(() => {
                 originalFetch('./invalid-fetch.html');
-            }).toThrow();    
+            }).toThrow();
         `);
     });
-    it('should bypass the restriction because fetch ref never goes throw the membrane', function() {
-        // expect.assertions(1);
-        evalScript(`
+    it('should bypass the restriction because fetch ref never goes throw the membrane', () => {
+        expect.assertions(1);
+
+        window.wrappedFetch = (...args) => fetch(...args);
+
+        const env = createVirtualEnvironment(window, envOptions);
+
+        env.evaluate(`
             expect(() => {
                 wrappedFetch('./invalid-fetch.html');
-            }).not.toThrow();    
+            }).not.toThrow();
         `);
     });
 });

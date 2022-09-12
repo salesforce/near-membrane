@@ -1,21 +1,20 @@
-import createSecureEnvironment from '../../lib/browser-realm.js';
-
-let obj;
-function saveObject(o) {
-    obj = o;
-}
-
-const endowments = {
-    saveObject,
-    expect
-};
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('Blue Proxies', () => {
-    it('should be preserved the JS Object semantics by allowing writable objects to change', () => {
-        'use strict';
-        // expect.assertions(9);
-        const evalScript = createSecureEnvironment({ endowments });
-        evalScript(`
+    it('should allow writable objects to change', () => {
+        expect.assertions(9);
+
+        let obj;
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({
+                expect,
+                saveObject(o) {
+                    obj = o;
+                },
+            }),
+        });
+
+        env.evaluate(`
             'use strict';
             const obj = {
                 mutate() {
@@ -31,12 +30,14 @@ describe('Blue Proxies', () => {
             });
             saveObject(obj);
         `);
+
         expect(obj.x).toBe(1);
         expect(Object.getOwnPropertyDescriptor(obj, 'x').value).toBe(1);
         obj.x = 2;
         expect(obj.x).toBe(2);
         expect(Object.getOwnPropertyDescriptor(obj, 'x').value).toBe(2);
         obj.mutate();
+        // eslint-disable-next-line no-unused-expressions
         obj.x;
         expect(obj.x).toBe(3);
         expect(Object.getOwnPropertyDescriptor(obj, 'x').value).toBe(3);
@@ -46,4 +47,4 @@ describe('Blue Proxies', () => {
         expect(obj.x).toBe(3);
         expect(Object.getOwnPropertyDescriptor(obj, 'x').value).toBe(3);
     });
-}); 
+});

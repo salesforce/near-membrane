@@ -1,0 +1,10 @@
+{
+    "extends": "../../tsconfig.types.json",
+    "compilerOptions": {
+        "declarationDir": "types",
+    },
+    "include": ["src/"],
+    "exclude": [
+        "**/__tests__"
+    ]
+}

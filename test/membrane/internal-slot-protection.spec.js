@@ -1,19 +1,36 @@
-import createSecureEnvironment from '../../lib/browser-realm.js';
+import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('membrane', () => {
-    it('should prevent attacks that are changing the prototype for impersonation', function() {
-        // expect.assertions(4);
-        const { set } = Object.getOwnPropertyDescriptor(Element.prototype, 'setAttribute');
-        const distortionMap = new Map(set, function (attributeName, value) {
-            expect(attributeName).toBe('rel');
-            expect(value).toBe('import');
-            expect(this instanceof HTMLLinkElement).toBeTrue();
+    it('should prevent attacks that are changing the prototype for impersonation', () => {
+        expect.assertions(4);
+
+        const { value: setAttribute } = Object.getOwnPropertyDescriptor(
+            Element.prototype,
+            'setAttribute'
+        );
+
+        const distortionMap = new Map([
+            [
+                setAttribute,
+                function (attributeName, value) {
+                    expect(attributeName).toBe('rel');
+                    expect(value).toBe('import');
+                    expect(this instanceof HTMLLinkElement).toBeTrue();
+                },
+            ],
+        ]);
+
+        const env = createVirtualEnvironment(window, {
+            distortionCallback(v) {
+                return distortionMap.get(v) ?? v;
+            },
+            endowments: Object.getOwnPropertyDescriptors({ expect }),
         });
-        const evalScript = createSecureEnvironment({ distortionMap, endowments: window });
-        evalScript(`
+
+        env.evaluate(`
             'use strict';
 
-            const originalProto = HTMLLinkElement.prototype;
+            const { prototype: originalProto } = HTMLLinkElement;
             const link = document.createElement('link');
             link.__proto__ = HTMLElement.prototype;
             // this attack is trying to change the proto chain, and therefore the instanceof checks and such on distortions,

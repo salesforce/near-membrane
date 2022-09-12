@@ -1,0 +1,14 @@
+{
+    "globals": {
+      "jasmine": true
+    },
+    "ignorePatterns": [".eslintrc.js"],
+    "overrides": [
+        {
+            "files": ["**/*.{js,ts}"],
+            "rules": {
+                "import/no-extraneous-dependencies": "off"
+            }
+        }
+    ]
+}

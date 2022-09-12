@@ -1,0 +1,6 @@
+bugs/
+coverage/
+coverage-merged/
+dist/
+node_modules/
+types/
