@@ -3,8 +3,8 @@
 const fs = require('fs-extra');
 const globby = require('globby');
 const mergeOptions = require('merge-options');
-const Module = require('module');
-const path = require('path');
+const Module = require('node:module');
+const path = require('node:path');
 
 const rootPath = path.resolve(__dirname, '../../../');
 
