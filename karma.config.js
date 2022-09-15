@@ -5,7 +5,7 @@
 const globby = require('globby');
 const istanbul = require('rollup-plugin-istanbul');
 const { nodeResolve } = require('@rollup/plugin-node-resolve');
-const path = require('path');
+const path = require('node:path');
 
 process.env.CHROME_BIN = require('puppeteer').executablePath();
 
