@@ -2623,14 +2623,23 @@ export function createMembraneMarshall(
                           } else {
                               result = localValue;
                           }
-                      } else if (
-                          key === SymbolToStringTag &&
-                          foreignTargetTraits & TargetTraits.IsObject
-                      ) {
-                          let toStringTag;
+                      } else {
+                          const transferableReceiver =
+                              proxy === receiver
+                                  ? foreignTargetPointer
+                                  : // Inline getTransferableValue().
+                                  (typeof receiver === 'object' && receiver !== null) ||
+                                    typeof receiver === 'function'
+                                  ? getTransferablePointer(receiver)
+                                  : receiver;
+                          let pointerOrPrimitive: PointerOrPrimitive;
                           try {
-                              toStringTag =
-                                  foreignCallableGetToStringTagOfTarget(foreignTargetPointer);
+                              pointerOrPrimitive = foreignCallableGet(
+                                  foreignTargetPointer,
+                                  foreignTargetTraits,
+                                  key,
+                                  transferableReceiver
+                              );
                           } catch (error: any) {
                               const errorToThrow = selectedTarget ?? error;
                               selectedTarget = undefined;
@@ -2639,12 +2648,37 @@ export function createMembraneMarshall(
                               }
                               throw errorToThrow;
                           }
-                          // The default language toStringTag is "Object". If we
-                          // receive "Object" we return `undefined` to let the
-                          // language resolve it naturally without projecting a
-                          // value.
-                          if (toStringTag !== 'Object') {
-                              result = toStringTag;
+                          if (typeof pointerOrPrimitive === 'function') {
+                              pointerOrPrimitive();
+                              result = selectedTarget;
+                              selectedTarget = undefined;
+                          } else {
+                              result = pointerOrPrimitive;
+                          }
+                          if (
+                              result === undefined &&
+                              key === SymbolToStringTag &&
+                              foreignTargetTraits & TargetTraits.IsObject
+                          ) {
+                              let toStringTag;
+                              try {
+                                  toStringTag =
+                                      foreignCallableGetToStringTagOfTarget(foreignTargetPointer);
+                              } catch (error: any) {
+                                  const errorToThrow = selectedTarget ?? error;
+                                  selectedTarget = undefined;
+                                  if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                                      activity!.error(errorToThrow);
+                                  }
+                                  throw errorToThrow;
+                              }
+                              // The default language toStringTag is "Object". If we
+                              // receive "Object" we return `undefined` to let the
+                              // language resolve it naturally without projecting a
+                              // value.
+                              if (toStringTag !== 'Object') {
+                                  result = toStringTag;
+                              }
                           }
                       }
                       if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
@@ -2699,7 +2733,6 @@ export function createMembraneMarshall(
                           );
                           if (safeDesc) {
                               const { get: getter, value: localValue } = safeDesc;
-
                               if (getter) {
                                   if (safeDesc.foreign) {
                                       const foreignGetterPointer = getTransferablePointer(getter);
