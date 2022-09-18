@@ -1,6 +1,7 @@
 'use strict';
 
 const mergeOptions = require('merge-options');
+const fs = require('fs-extra');
 const typescriptPlugin = require('@rollup/plugin-typescript');
 const { getBabelOutputPlugin } = require('../plugins/babel-output.cjs');
 
@@ -16,12 +17,16 @@ function createConfig({
     ...rollupOverrides
 } = {}) {
     const isCJS = format === 'cjs';
+    const packageJSONPath = 'package.json';
 
-    return mergeOptions.call(
+    const packageJSON = fs.readJSONSync(packageJSONPath);
+    const { dependencies } = packageJSON;
+
+    const mergedRollupOptions = mergeOptions.call(
         mergeOptionsConfig,
         {
             input,
-            external: [],
+            external: undefined,
             output: {
                 exports: 'auto',
                 file: `dist/index${isCJS ? '.cjs' : ''}.js`,
@@ -38,6 +43,12 @@ function createConfig({
         },
         rollupOverrides
     );
+
+    if (!mergedRollupOptions.external && dependencies) {
+        mergedRollupOptions.external = Object.keys(dependencies);
+    }
+
+    return mergedRollupOptions;
 }
 
 module.exports = {

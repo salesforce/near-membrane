@@ -1,7 +1,6 @@
+import { TypeErrorCtor } from '@locker/near-membrane-shared';
 import { createMembraneMarshall } from './membrane';
 import type { Connector } from './types';
-
-const TypeErrorCtor = TypeError;
 
 const createMembraneMarshallSourceInStrictMode = `
 'use strict';

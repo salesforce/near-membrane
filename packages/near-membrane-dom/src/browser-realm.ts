@@ -4,11 +4,29 @@ import {
     createRedConnector,
     getFilteredGlobalOwnKeys,
     linkIntrinsics,
-    toSafeWeakMap,
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
-import type { Connector, Getter, PropertyKeys } from '@locker/near-membrane-base/types';
-
+import {
+    ObjectAssign,
+    ReflectApply,
+    toSafeWeakMap,
+    TypeErrorCtor,
+    WeakMapCtor,
+} from '@locker/near-membrane-shared';
+import {
+    DocumentProtoBodyGetter,
+    DocumentProtoClose,
+    DocumentProtoCreateElement,
+    DocumentProtoOpen,
+    ElementProtoRemove,
+    ElementProtoSetAttribute,
+    HTMLElementProtoStyleGetter,
+    HTMLIFrameElementProtoContentWindowGetter,
+    NodeProtoAppendChild,
+    NodeProtoLastChildGetter,
+} from '@locker/near-membrane-shared-dom';
+import type { GlobalObject } from '@locker/near-membrane-shared-dom/types';
+import type { Connector } from '@locker/near-membrane-base/types';
 import type { BrowserEnvironmentOptions } from './types';
 import {
     getCachedGlobalObjectReferences,
@@ -19,44 +37,11 @@ import {
 
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 
-const ObjectCtor = Object;
-const TypeErrorCtor = TypeError;
-const WeakMapCtor = WeakMap;
-const { prototype: DocumentProto } = Document;
-const { prototype: NodeProto } = Node;
-const { remove: ElementProtoRemove, setAttribute: ElementProtoSetAttribute } = Element.prototype;
-const { appendChild: NodeProtoAppendChild } = NodeProto;
-const { assign: ObjectAssign } = ObjectCtor;
-// eslint-disable-next-line @typescript-eslint/naming-convention
-const { __lookupGetter__: ObjectProtoLookupGetter } = ObjectCtor.prototype as any;
-const { apply: ReflectApply } = Reflect;
-const {
-    close: DocumentProtoClose,
-    createElement: DocumentProtoCreateElement,
-    open: DocumentProtoOpen,
-} = DocumentProto;
-const DocumentProtoBodyGetter: Getter = ReflectApply(ObjectProtoLookupGetter, DocumentProto, [
-    'body',
-])!;
-const HTMLElementProtoStyleGetter: Getter = ReflectApply(
-    ObjectProtoLookupGetter,
-    HTMLElement.prototype,
-    ['style']
-)!;
-const HTMLIFrameElementProtoContentWindowGetter: Getter = ReflectApply(
-    ObjectProtoLookupGetter,
-    HTMLIFrameElement.prototype,
-    ['contentWindow']
-)!;
-const NodeProtoLastChildGetter: Getter = ReflectApply(ObjectProtoLookupGetter, NodeProto, [
-    'lastChild',
-])!;
-
 const blueDocumentToBlueCreateHooksCallbackMap = toSafeWeakMap(
     new WeakMapCtor<Document, Connector>()
 );
 
-let defaultGlobalOwnKeys: PropertyKeys | null = null;
+let defaultGlobalOwnKeys: PropertyKey[] | null = null;
 
 function createDetachableIframe(doc: Document): HTMLIFrameElement {
     const iframe: HTMLIFrameElement = ReflectApply(DocumentProtoCreateElement, doc, ['iframe']);
@@ -93,7 +78,7 @@ function createIframeVirtualEnvironment(
         // eslint-disable-next-line prefer-object-spread
     } = ObjectAssign({ __proto__: null }, options);
     const iframe = createDetachableIframe(blueRefs.document);
-    const redWindow: Window & typeof globalThis = ReflectApply(
+    const redWindow: GlobalObject = ReflectApply(
         HTMLIFrameElementProtoContentWindowGetter,
         iframe,
         []
@@ -137,7 +122,7 @@ function createIframeVirtualEnvironment(
     env.lazyRemapProperties(
         blueRefs.window,
         shouldUseDefaultGlobalOwnKeys
-            ? (defaultGlobalOwnKeys as PropertyKeys)
+            ? (defaultGlobalOwnKeys as PropertyKey[])
             : filterWindowKeys(getFilteredGlobalOwnKeys(globalObjectShape)),
         // Chromium based browsers have a bug that nulls the result of `window`
         // getters in detached iframes when the property descriptor of `window.window`

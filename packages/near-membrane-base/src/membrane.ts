@@ -22,7 +22,8 @@
  *    argument of the foreign callable for proxies, and the other side can use
  *    it via `selectedTarget!`.
  */
-import { toSafeWeakMap } from './utils';
+import { toSafeWeakMap, WeakMapCtor } from '@locker/near-membrane-shared';
+import type { Getter, ProxyTarget, Setter } from '@locker/near-membrane-shared/types';
 import type {
     Activity,
     CallableApply,
@@ -61,22 +62,17 @@ import type {
     CallableSetPrototypeOf,
     ForeignPropertyDescriptor,
     GetSelectedTarget,
-    Getter,
     GlobalThisGetter,
     HooksCallback,
     HooksOptions,
     Pointer,
     PointerOrPrimitive,
-    PropertyKey,
-    PropertyKeys,
-    ProxyTarget,
     SerializedValue,
-    Setter,
     ShadowTarget,
 } from './types';
 
 const proxyTargetToLazyPropertyDescriptorStateMap: WeakMap<ProxyTarget, object> = toSafeWeakMap(
-    new WeakMap()
+    new WeakMapCtor()
 );
 
 // istanbul ignore next
@@ -95,6 +91,7 @@ export function createMembraneMarshall(
     const StringCtor = String;
     const SymbolCtor = Symbol;
     const TypeErrorCtor = TypeError;
+    // eslint-disable-next-line @typescript-eslint/no-shadow, no-shadow
     const WeakMapCtor = WeakMap;
     const { for: SymbolFor, toStringTag: SymbolToStringTag } = SymbolCtor;
     const {
@@ -180,7 +177,7 @@ export function createMembraneMarshall(
     let MINIFICATION_SAFE_SERIALIZED_VALUE_PROPERTY_NAME: PropertyKey | undefined;
     // Minification safe references to the private `BoundaryProxyHandler`
     // 'apply' and 'construct' trap variant's property names.
-    let MINIFICATION_SAFE_TRAP_PROPERTY_NAMES: PropertyKeys | undefined;
+    let MINIFICATION_SAFE_TRAP_PROPERTY_NAMES: PropertyKey[] | undefined;
     const SUPPORTS_BIG_INT = typeof BigInt === 'function';
     const { isArray: isArrayOrThrowForRevoked } = ArrayCtor;
     const {
@@ -1650,7 +1647,7 @@ export function createMembraneMarshall(
         }
 
         const installPropertyDescriptorMethodWrappers = IS_IN_SHADOW_REALM
-            ? (unforgeableGlobalThisKeys?: PropertyKeys) => {
+            ? (unforgeableGlobalThisKeys?: PropertyKey[]) => {
                   if (installedPropertyDescriptorMethodWrappersFlag) {
                       return;
                   }
@@ -3354,7 +3351,11 @@ export function createMembraneMarshall(
                       } else {
                           this.makeProxyStatic();
                       }
-                      return this.defineProperty!(shadowTarget, key, unsafePartialDesc);
+                      return this.defineProperty!(
+                          shadowTarget,
+                          key as string | symbol,
+                          unsafePartialDesc
+                      );
                   }
                 : (alwaysFalse as typeof Reflect.defineProperty);
 
@@ -3376,7 +3377,7 @@ export function createMembraneMarshall(
                       } else {
                           this.makeProxyStatic();
                       }
-                      return this.deleteProperty!(shadowTarget, key);
+                      return this.deleteProperty!(shadowTarget, key as string | symbol);
                   }
                 : (alwaysFalse as typeof Reflect.deleteProperty);
 
@@ -3443,7 +3444,7 @@ export function createMembraneMarshall(
                       } else {
                           this.makeProxyStatic();
                       }
-                      return this.set!(shadowTarget, key, value, receiver);
+                      return this.set!(shadowTarget, key as string | symbol, value, receiver);
                   }
                 : (alwaysFalse as typeof Reflect.set);
 
@@ -4199,15 +4200,15 @@ export function createMembraneMarshall(
             IS_IN_SHADOW_REALM
                 ? (
                       targetPointer: Pointer,
-                      ...ownKeysAndUnforgeableGlobalThisKeys: PropertyKeys
+                      ...ownKeysAndUnforgeableGlobalThisKeys: PropertyKey[]
                   ) => {
                       const sliceIndex: number = ReflectApply(
                           ArrayProtoIndexOf,
                           ownKeysAndUnforgeableGlobalThisKeys,
                           [LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL]
                       );
-                      let ownKeys: PropertyKeys;
-                      let unforgeableGlobalThisKeys: PropertyKeys | undefined;
+                      let ownKeys: PropertyKey[];
+                      let unforgeableGlobalThisKeys: PropertyKey[] | undefined;
                       if (sliceIndex === -1) {
                           ownKeys = ownKeysAndUnforgeableGlobalThisKeys;
                       } else {
@@ -4215,12 +4216,12 @@ export function createMembraneMarshall(
                               ArrayProtoSlice,
                               ownKeysAndUnforgeableGlobalThisKeys,
                               [0, sliceIndex]
-                          ) as PropertyKeys;
+                          ) as PropertyKey[];
                           unforgeableGlobalThisKeys = ReflectApply(
                               ArrayProtoSlice,
                               ownKeysAndUnforgeableGlobalThisKeys,
                               [sliceIndex + 1]
-                          ) as PropertyKeys;
+                          ) as PropertyKey[];
                       }
                       targetPointer();
                       const target = selectedTarget!;

@@ -8,13 +8,13 @@
     },
     "license": "MIT",
     "author": "Caridy Patiño <caridy@gmail.com>",
-    "description": "JavaScript DOM Membrane Library to create a sandboxed environment in the browser",
+    "description": "DOM membrane library to create sandboxed environments in the browser",
     "main": "dist/index.cjs.js",
     "module": "dist/index.js",
     "sideEffects": false,
     "typings": "types/index.d.ts",
     "scripts": {
-        "clean": "rimraf dist types",
+        "clean": "locker-trash dist types",
         "build": "tsc --project tsconfig.types.json && rollup --config .rolluprc.cjs",
         "build:dev": "cross-env NODE_ENV=development yarn build"
     },
@@ -26,6 +26,8 @@
         "access": "public"
     },
     "dependencies": {
-        "@locker/near-membrane-base": "0.11.4"
+        "@locker/near-membrane-base": "0.11.4",
+        "@locker/near-membrane-shared": "0.11.4",
+        "@locker/near-membrane-shared-dom": "0.11.4"
     }
 }

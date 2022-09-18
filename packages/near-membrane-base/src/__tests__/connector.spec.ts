@@ -1,4 +1,4 @@
-import { createBlueConnector, createRedConnector } from '../index';
+import { createBlueConnector, createRedConnector } from '../../dist/index';
 
 describe('createBlueConnector()', () => {
     it('throws when globalObject is not provided', () => {
