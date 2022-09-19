@@ -1,0 +1,31 @@
+{
+    "name": "@locker/near-membrane-shared-dom",
+    "version": "0.11.4",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/salesforce/near-membrane.git",
+        "directory": "packages/near-membrane-shared-dom"
+    },
+    "license": "MIT",
+    "author": "Caridy Patiño <caridy@gmail.com>",
+    "description": "Near-membrane shared DOM utilities",
+    "main": "dist/index.cjs.js",
+    "module": "dist/index.js",
+    "sideEffects": false,
+    "typings": "types/index.d.ts",
+    "scripts": {
+        "clean": "locker-trash dist types",
+        "build": "tsc --project tsconfig.types.json && rollup --config .rolluprc.cjs",
+        "build:dev": "cross-env NODE_ENV=development yarn build"
+    },
+    "files": [
+        "dist/",
+        "types/"
+    ],
+    "publishConfig": {
+        "access": "public"
+    },
+    "dependencies": {
+        "@locker/near-membrane-shared": "0.11.4"
+    }
+}

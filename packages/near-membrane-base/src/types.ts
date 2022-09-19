@@ -1,3 +1,9 @@
+import type {
+    Getter,
+    NearMembraneSerializedValue as SerializedValue,
+    ProxyTarget,
+} from '@locker/near-membrane-shared/types';
+
 export interface Activity {
     stop(data?: DataType): void;
     error(data?: DataType): void;
@@ -81,7 +87,7 @@ export type CallableHas = (targetPointer: Pointer, key: PropertyKey) => boolean;
 export type CallableInstallErrorPrepareStackTrace = () => void;
 export type CallableInstallLazyPropertyDescriptors = (
     targetPointer: Pointer,
-    ...ownKeysAndUnforgeableGlobalThisKeys: PropertyKeys
+    ...ownKeysAndUnforgeableGlobalThisKeys: PropertyKey[]
 ) => void;
 export type CallableIsExtensible = (targetPointer: Pointer) => boolean;
 export type CallableIsTargetLive = (targetPointer: Pointer, targetTraits: number) => boolean;
@@ -127,16 +133,15 @@ export interface ForeignPropertyDescriptor extends PropertyDescriptor {
     foreign?: boolean;
 }
 export type GetSelectedTarget = Getter;
-export type Getter = () => any;
 export type GetTransferableValue = (value: any) => PointerOrPrimitive;
 export type GlobalThisGetter = () => typeof globalThis;
 export type HooksCallback = (
-    globalThisPointer: Pointer | undefined,
-    getSelectedTarget: GetSelectedTarget | undefined,
-    getTransferableValue: GetTransferableValue | undefined,
-    callableGetPropertyValuePointer: CallableGetPropertyValuePointer | undefined,
-    callableEvaluate: CallableEvaluate | undefined,
-    callableLinkPointers: CallableLinkPointers | undefined,
+    globalThisPointer: Pointer,
+    getSelectedTarget: GetSelectedTarget,
+    getTransferableValue: GetTransferableValue,
+    callableGetPropertyValuePointer: CallableGetPropertyValuePointer,
+    callableEvaluate: CallableEvaluate,
+    callableLinkPointers: CallableLinkPointers,
     callablePushErrorTarget: CallablePushErrorTarget,
     callablePushTarget: CallablePushTarget,
     callableApply: CallableApply,
@@ -153,13 +158,13 @@ export type HooksCallback = (
     callableSet: CallableSet,
     callableSetPrototypeOf: CallableSetPrototypeOf,
     callableDebugInfo: CallableDebugInfo,
-    callableDefineProperties: CallableDefineProperties | undefined,
+    callableDefineProperties: CallableDefineProperties,
     callableGetLazyPropertyDescriptorStateByTarget: CallableGetLazyPropertyDescriptorStateByTarget,
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableGetToStringTagOfTarget: CallableGetToStringTagOfTarget,
     callableGetTypedArrayIndexedValue: CallableGetTypedArrayIndexedValue,
     callableInstallErrorPrepareStackTrace: CallableInstallErrorPrepareStackTrace,
-    callableInstallLazyPropertyDescriptors: CallableInstallLazyPropertyDescriptors | undefined,
+    callableInstallLazyPropertyDescriptors: CallableInstallLazyPropertyDescriptors,
     callableIsTargetLive: CallableIsTargetLive,
     callableIsTargetRevoked: CallableIsTargetRevoked,
     callableSerializeTarget: CallableSerializeTarget,
@@ -182,11 +187,7 @@ export type LiveTargetCallback = (target: ProxyTarget, targetTraits: number) => 
 export type Pointer = CallableFunction;
 export type PointerOrPrimitive = Pointer | Primitive;
 export type Primitive = bigint | boolean | null | number | string | symbol | undefined;
-export type PropertyKey = string | symbol;
-export type PropertyKeys = PropertyKey[];
-export type ProxyTarget = CallableFunction | any[] | object;
-export type SerializedValue = bigint | boolean | number | string | symbol;
-export type Setter = (value: any) => void;
+export type { SerializedValue };
 export type ShadowTarget = ProxyTarget;
 export interface VirtualEnvironmentOptions {
     blueConnector: Connector;

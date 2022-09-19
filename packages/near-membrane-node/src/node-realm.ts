@@ -4,23 +4,23 @@ import {
     createRedConnector,
     getFilteredGlobalOwnKeys,
     linkIntrinsics,
-    toSafeWeakMap,
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
-import type { Connector, PropertyKeys } from '@locker/near-membrane-base/types';
-import { runInNewContext } from 'vm';
+import {
+    ObjectAssign,
+    toSafeWeakMap,
+    TypeErrorCtor,
+    WeakMapCtor,
+} from '@locker/near-membrane-shared';
+import type { Connector } from '@locker/near-membrane-base/types';
+import { runInNewContext } from 'node:vm';
 import type { NodeEnvironmentOptions } from './types';
-
-const ObjectCtor = Object;
-const { assign: ObjectAssign } = ObjectCtor;
-const TypeErrorCtor = TypeError;
-const WeakMapCtor = WeakMap;
 
 const globalObjectToBlueCreateHooksCallbackMap = toSafeWeakMap(
     new WeakMapCtor<typeof globalThis, Connector>()
 );
 
-let defaultGlobalOwnKeys: PropertyKeys | null = null;
+let defaultGlobalOwnKeys: PropertyKey[] | null = null;
 
 export default function createVirtualEnvironment(
     globalObject: typeof globalThis,
@@ -62,7 +62,7 @@ export default function createVirtualEnvironment(
     env.lazyRemapProperties(
         globalObject,
         shouldUseDefaultGlobalOwnKeys
-            ? (defaultGlobalOwnKeys as PropertyKeys)
+            ? (defaultGlobalOwnKeys as PropertyKey[])
             : getFilteredGlobalOwnKeys(globalObjectShape)
     );
 

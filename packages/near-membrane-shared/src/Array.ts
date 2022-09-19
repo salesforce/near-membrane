@@ -1,13 +1,8 @@
-const ArrayCtor = Array;
-const WeakMapCtor = WeakMap;
+import { ObjectAssign, ObjectFreeze } from './Object';
+import { ReflectSetPrototypeOf } from './Reflect';
+import { SymbolIterator, SymbolUnscopables } from './Symbol';
 
-const { setPrototypeOf: ReflectSetPrototypeOf } = Reflect;
-
-const {
-    iterator: SymbolIterator,
-    toStringTag: SymbolToStringTag,
-    unscopables: SymbolUnscopables,
-} = Symbol;
+export const ArrayCtor = Array;
 
 const { prototype: ArrayProto } = ArrayCtor;
 
@@ -31,7 +26,6 @@ const {
     lastIndexOf: ArrayProtoLastIndexOf,
     map: ArrayProtoMap,
     pop: ArrayProtoPop,
-    push: ArrayProtoPush,
     reduce: ArrayProtoReduce,
     reduceRight: ArrayProtoReduceRight,
     reverse: ArrayProtoReverse,
@@ -44,22 +38,16 @@ const {
     toString: ArrayProtoToString,
     unshift: ArrayProtoUnshift,
     values: ArrayProtoValues,
-    [SymbolIterator]: ArrayProtoSymbolIterator,
-} = ArrayProto as any;
+    [SymbolIterator as any]: ArrayProtoSymbolIterator,
+} = ArrayProto;
 
-const ArrayUnscopables = Object.freeze(
-    Object.assign({ __proto__: null }, (ArrayProto as any)[SymbolUnscopables])
+const ArrayUnscopables = ObjectFreeze(
+    ObjectAssign({ __proto__: null }, ArrayProto[SymbolUnscopables as any])
 );
 
-const { prototype: WeakMapProto } = WeakMapCtor;
+export const { push: ArrayProtoPush } = ArrayProto;
 
-const {
-    delete: WeakMapProtoDelete,
-    get: WeakMapProtoGet,
-    has: WeakMapProtoHas,
-    set: WeakMapProtoSet,
-    [SymbolToStringTag]: WeakMapProtoSymbolToStringTag,
-} = WeakMapProto as any;
+export const { isArray: ArrayIsArray } = ArrayCtor;
 
 export function toSafeArray<T extends any[]>(array: T): T {
     ReflectSetPrototypeOf(array, null);
@@ -75,10 +63,10 @@ export function toSafeArray<T extends any[]>(array: T): T {
     // if the prototype of the array is change or nulled beforehand. Further,
     // the de-opt persists after a page refresh. It is not until navigating to
     // a different page that the performance of `Array#splice` is restored.
-    array.copyWithin = ArrayProtoCopyWithin;
+    array.copyWithin = ArrayProtoCopyWithin as any;
     array.entries = ArrayProtoEntries;
     array.every = ArrayProtoEvery;
-    array.fill = ArrayProtoFill;
+    array.fill = ArrayProtoFill as any;
     array.filter = ArrayProtoFilter;
     array.find = ArrayProtoFind;
     array.findIndex = ArrayProtoFindIndex;
@@ -99,25 +87,14 @@ export function toSafeArray<T extends any[]>(array: T): T {
     array.shift = ArrayProtoShift;
     array.slice = ArrayProtoSlice;
     array.some = ArrayProtoSome;
-    array.sort = ArrayProtoSort;
+    array.sort = ArrayProtoSort as any;
     array.splice = ArrayProtoSplice;
     array.toLocaleString = ArrayProtoToLocaleString;
     array.toString = ArrayProtoToString;
     array.unshift = ArrayProtoUnshift;
     array.values = ArrayProtoValues;
-    (array as any)[SymbolIterator] = ArrayProtoSymbolIterator;
-    (array as any)[SymbolUnscopables] = ArrayUnscopables;
+    array[SymbolIterator as any] = ArrayProtoSymbolIterator;
+    array[SymbolUnscopables as any] = ArrayUnscopables;
     ReflectSetPrototypeOf(array, ArrayProto);
     return array;
-}
-
-export function toSafeWeakMap<T extends WeakMap<any, any>>(weakMap: T): T {
-    ReflectSetPrototypeOf(weakMap, null);
-    weakMap.delete = WeakMapProtoDelete;
-    weakMap.get = WeakMapProtoGet;
-    weakMap.has = WeakMapProtoHas;
-    weakMap.set = WeakMapProtoSet;
-    (weakMap as any)[SymbolToStringTag] = WeakMapProtoSymbolToStringTag;
-    ReflectSetPrototypeOf(weakMap, WeakMapProto);
-    return weakMap;
 }

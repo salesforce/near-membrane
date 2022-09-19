@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { createBlueConnector, createRedConnector, VirtualEnvironment } from '../index';
+import { createBlueConnector, createRedConnector, VirtualEnvironment } from '../../dist/index';
 
 const { toString: ObjectProtoToString } = Object.prototype;
 

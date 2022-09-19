@@ -3,7 +3,7 @@
     "version": "0.11.4",
     "private": true,
     "scripts": {
-        "clean": "rimraf */bundle.js",
+        "clean": "locker-trash */bundle.js",
         "build": "rollup --config .rolluprc.cjs"
     },
     "dependencies": {

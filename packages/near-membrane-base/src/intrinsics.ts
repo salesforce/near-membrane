@@ -1,9 +1,5 @@
-import { toSafeArray } from './utils';
+import { ObjectAssign, ReflectOwnKeys, toSafeArray } from '@locker/near-membrane-shared';
 import { VirtualEnvironment } from './environment';
-import type { PropertyKeys } from './types';
-
-const { assign: ObjectAssign } = Object;
-const { ownKeys: ReflectOwnKeys } = Reflect;
 
 /**
  * This list must be in sync with ecma-262, anything new added to the global object
@@ -147,8 +143,8 @@ export function assignFilteredGlobalDescriptorsFromPropertyDescriptorMap<
     return descMap;
 }
 
-export function getFilteredGlobalOwnKeys(source: object): PropertyKeys {
-    const result: PropertyKeys = [];
+export function getFilteredGlobalOwnKeys(source: object): PropertyKey[] {
+    const result: PropertyKey[] = [];
     let resultOffset = 0;
     const ownKeys = ReflectOwnKeys(source);
     for (let i = 0, { length } = ownKeys; i < length; i += 1) {

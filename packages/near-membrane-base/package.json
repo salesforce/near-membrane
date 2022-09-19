@@ -8,13 +8,13 @@
     },
     "license": "MIT",
     "author": "Caridy Patiño <caridy@gmail.com>",
-    "description": "JavaScript Near Membrane Library to create a sandboxed environment",
+    "description": "Base membrane library to create sandboxed environments",
     "main": "dist/index.cjs.js",
     "module": "dist/index.js",
     "sideEffects": false,
     "typings": "types/index.d.ts",
     "scripts": {
-        "clean": "rimraf dist types",
+        "clean": "locker-trash dist types",
         "build": "tsc --project tsconfig.types.json && rollup --config .rolluprc.cjs",
         "build:dev": "cross-env NODE_ENV=development yarn build"
     },
@@ -24,5 +24,8 @@
     ],
     "publishConfig": {
         "access": "public"
+    },
+    "dependencies": {
+        "@locker/near-membrane-shared": "0.11.4"
     }
 }

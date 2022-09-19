@@ -1,3 +1,13 @@
+import {
+    ArrayCtor,
+    ArrayProtoPush,
+    ErrorCtor,
+    noop,
+    ObjectAssign,
+    ReflectApply,
+    ReflectOwnKeys,
+} from '@locker/near-membrane-shared';
+import type { ProxyTarget } from '@locker/near-membrane-shared/types';
 import type {
     CallableDefineProperties,
     CallableEvaluate,
@@ -9,20 +19,12 @@ import type {
     GetTransferableValue,
     HooksCallback,
     Pointer,
-    ProxyTarget,
-    PropertyKeys,
     VirtualEnvironmentOptions,
 } from './types';
 
 const LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL = Symbol.for(
     '@@lockerNearMembraneUndefinedValue'
 );
-const ArrayCtor = Array;
-const ErrorCtor = Error;
-const ObjectCtor = Object;
-const { push: ArrayProtoPush } = ArrayCtor.prototype;
-const { assign: ObjectAssign } = ObjectCtor;
-const { apply: ReflectApply, ownKeys: ReflectOwnKeys } = Reflect;
 
 export class VirtualEnvironment {
     private readonly blueCallableGetPropertyValuePointer: CallableGetPropertyValuePointer;
@@ -155,12 +157,12 @@ export class VirtualEnvironment {
             35: redCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
         } = redHooks!;
         blueConnect(
-            undefined, // redGlobalThisPointer,
-            undefined, // redGetSelectedTarget,
-            undefined, // redGetTransferableValue,
-            undefined, // redCallableGetPropertyValuePointer,
-            undefined, // redCallableEvaluate,
-            undefined, // redCallableLinkPointers,
+            noop, // redGlobalThisPointer,
+            noop, // redGetSelectedTarget,
+            noop as GetTransferableValue, // redGetTransferableValue,
+            noop as unknown as CallableGetPropertyValuePointer, // redCallableGetPropertyValuePointer,
+            noop as CallableEvaluate, // redCallableEvaluate,
+            noop, // redCallableLinkPointers,
             redCallablePushErrorTarget,
             redCallablePushTarget,
             redCallableApply,
@@ -177,13 +179,13 @@ export class VirtualEnvironment {
             redCallableSet,
             redCallableSetPrototypeOf,
             redCallableDebugInfo,
-            undefined, // redCallableDefineProperties,
+            noop, // redCallableDefineProperties,
             redCallableGetLazyPropertyDescriptorStateByTarget,
             redCallableGetTargetIntegrityTraits,
             redCallableGetToStringTagOfTarget,
             redCallableGetTypedArrayIndexedValue,
             redCallableInstallErrorPrepareStackTrace,
-            undefined, // redCallableInstallLazyPropertyDescriptors,
+            noop, // redCallableInstallLazyPropertyDescriptors,
             redCallableIsTargetLive,
             redCallableIsTargetRevoked,
             redCallableSerializeTarget,
@@ -193,12 +195,12 @@ export class VirtualEnvironment {
             redCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
         );
         redConnect(
-            undefined, // blueGlobalThisPointer,
-            undefined, // blueGetSelectedTarget,
-            undefined, // blueGetTransferableValue,
-            undefined, // blueCallableGetPropertyValuePointer,
-            undefined, // blueCallableEvaluate,
-            undefined, // blueCallableLinkPointers,
+            noop, // blueGlobalThisPointer,
+            noop, // blueGetSelectedTarget,
+            noop as GetTransferableValue, // blueGetTransferableValue,
+            noop as unknown as CallableGetPropertyValuePointer, // blueCallableGetPropertyValuePointer,
+            noop as CallableEvaluate, // blueCallableEvaluate,
+            noop, // blueCallableLinkPointers,
             blueCallablePushErrorTarget,
             blueCallablePushTarget,
             blueCallableApply,
@@ -215,13 +217,13 @@ export class VirtualEnvironment {
             blueCallableSet,
             blueCallableSetPrototypeOf,
             blueCallableDebugInfo,
-            undefined, // blueCallableDefineProperties,
+            noop, // blueCallableDefineProperties,
             blueCallableGetLazyPropertyDescriptorStateByTarget,
             blueCallableGetTargetIntegrityTraits,
             blueCallableGetToStringTagOfTarget,
             blueCallableGetTypedArrayIndexedValue,
             blueCallableInstallErrorPrepareStackTrace,
-            undefined, // blueCallableInstallLazyPropertyDescriptors,
+            noop, // blueCallableInstallLazyPropertyDescriptors,
             blueCallableIsTargetLive,
             blueCallableIsTargetRevoked,
             blueCallableSerializeTarget,
@@ -260,12 +262,13 @@ export class VirtualEnvironment {
 
     lazyRemapProperties(
         target: ProxyTarget,
-        ownKeys: PropertyKeys,
-        unforgeableGlobalThisKeys?: PropertyKeys
+        ownKeys: PropertyKey[],
+        unforgeableGlobalThisKeys?: PropertyKey[]
     ) {
         if ((typeof target === 'object' && target !== null) || typeof target === 'function') {
-            const targetPointer = this.blueGetTransferableValue(target) as Pointer;
-            const args: Parameters<CallableInstallLazyPropertyDescriptors> = [targetPointer];
+            const args: Parameters<CallableInstallLazyPropertyDescriptors> = [
+                this.blueGetTransferableValue(target) as Pointer,
+            ];
             ReflectApply(ArrayProtoPush, args, ownKeys);
             if (unforgeableGlobalThisKeys?.length) {
                 // Use `LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL` to delimit
@@ -277,7 +280,7 @@ export class VirtualEnvironment {
         }
     }
 
-    link(...keys: PropertyKeys) {
+    link(...keys: PropertyKey[]) {
         let bluePointer = this.blueGlobalThisPointer;
         let redPointer = this.redGlobalThisPointer;
         for (let i = 0, { length } = keys; i < length; i += 1) {

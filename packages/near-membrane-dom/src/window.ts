@@ -1,11 +1,10 @@
-import { toSafeWeakMap } from '@locker/near-membrane-base';
-import { PropertyKeys } from '@locker/near-membrane-base/types';
-
-const {
-    deleteProperty: ReflectDeleteProperty,
-    getPrototypeOf: ReflectGetPrototypeOf,
-    ownKeys: ReflectOwnKeys,
-} = Reflect;
+import {
+    ArrayIsArray,
+    ReflectDeleteProperty,
+    ReflectGetPrototypeOf,
+    ReflectOwnKeys,
+    toSafeWeakMap,
+} from '@locker/near-membrane-shared';
 
 interface CachedBlueReferencesRecord extends Object {
     document: Document;
@@ -14,7 +13,7 @@ interface CachedBlueReferencesRecord extends Object {
     WindowProto: object;
     WindowPropertiesProto: object;
     EventTargetProto: object;
-    EventTargetProtoOwnKeys: PropertyKeys;
+    EventTargetProtoOwnKeys: PropertyKey[];
 }
 
 const blueDocumentToRecordMap: WeakMap<Document, CachedBlueReferencesRecord> = toSafeWeakMap(
@@ -38,7 +37,7 @@ export const unforgeablePoisonedWindowKeys = (() => {
     if (
         // While experimental, `navigator.userAgentData.brands` may be defined
         // as an empty array in headless Chromium based browsers.
-        Array.isArray(brands) && brands.length
+        ArrayIsArray(brands) && brands.length
             ? // Use user-agent client hints API if available to avoid
               // deprecation warnings.
               // https://developer.mozilla.org/en-US/docs/Web/API/User-Agent_Client_Hints_API
@@ -88,8 +87,8 @@ export function getCachedGlobalObjectReferences(
     return record;
 }
 
-export function filterWindowKeys(keys: PropertyKeys): PropertyKeys {
-    const result: PropertyKeys = [];
+export function filterWindowKeys(keys: PropertyKey[]): PropertyKey[] {
+    const result: PropertyKey[] = [];
     let resultOffset = 0;
     for (let i = 0, { length } = keys; i < length; i += 1) {
         const key = keys[i];
