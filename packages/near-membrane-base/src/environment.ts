@@ -20,6 +20,7 @@ import type {
     HooksCallback,
     Pointer,
     VirtualEnvironmentOptions,
+    CallableTrackAsFastTarget,
 } from './types';
 
 const LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL = Symbol.for(
@@ -49,6 +50,8 @@ export class VirtualEnvironment {
 
     private readonly redCallableInstallLazyPropertyDescriptors: CallableInstallLazyPropertyDescriptors;
 
+    private readonly redCallableTrackAsFastTarget: CallableTrackAsFastTarget;
+
     private readonly redGlobalThisPointer: Pointer;
 
     constructor(options: VirtualEnvironmentOptions) {
@@ -67,7 +70,7 @@ export class VirtualEnvironment {
         let blueHooks: Parameters<HooksCallback>;
         const blueConnect = blueConnector(
             'blue',
-            (...hooks) => {
+            (...hooks: Parameters<HooksCallback>) => {
                 blueHooks = hooks;
             },
             {
@@ -101,21 +104,22 @@ export class VirtualEnvironment {
             21: blueCallableDebugInfo,
             // 22: blueCallableDefineProperties,
             23: blueCallableGetLazyPropertyDescriptorStateByTarget,
-            24: blueCallableGetTargetIntegrityTraits,
-            25: blueCallableGetToStringTagOfTarget,
-            26: blueCallableGetTypedArrayIndexedValue,
+            24: blueCallableGetPropertyValue,
+            25: blueCallableGetTargetIntegrityTraits,
+            26: blueCallableGetToStringTagOfTarget,
             27: blueCallableInstallErrorPrepareStackTrace,
             // 28: blueCallableInstallLazyPropertyDescriptors,
             29: blueCallableIsTargetLive,
             30: blueCallableIsTargetRevoked,
             31: blueCallableSerializeTarget,
             32: blueCallableSetLazyPropertyDescriptorStateByTarget,
-            33: blueCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
-            34: blueCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
-            35: blueCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
+            // 33: blueTrackAsFastTarget,
+            34: blueCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
+            35: blueCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
+            36: blueCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
         } = blueHooks!;
         let redHooks: Parameters<HooksCallback>;
-        const redConnect = redConnector('red', (...hooks) => {
+        const redConnect = redConnector('red', (...hooks: Parameters<HooksCallback>) => {
             redHooks = hooks;
         });
         const {
@@ -143,18 +147,19 @@ export class VirtualEnvironment {
             21: redCallableDebugInfo,
             22: redCallableDefineProperties,
             23: redCallableGetLazyPropertyDescriptorStateByTarget,
-            24: redCallableGetTargetIntegrityTraits,
-            25: redCallableGetToStringTagOfTarget,
-            26: redCallableGetTypedArrayIndexedValue,
+            24: redCallableGetPropertyValue,
+            25: redCallableGetTargetIntegrityTraits,
+            26: redCallableGetToStringTagOfTarget,
             27: redCallableInstallErrorPrepareStackTrace,
             28: redCallableInstallLazyPropertyDescriptors,
             29: redCallableIsTargetLive,
             30: redCallableIsTargetRevoked,
             31: redCallableSerializeTarget,
             32: redCallableSetLazyPropertyDescriptorStateByTarget,
-            33: redCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
-            34: redCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
-            35: redCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
+            33: redCallableTrackAsFastTarget,
+            34: redCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
+            35: redCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
+            36: redCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
         } = redHooks!;
         blueConnect(
             noop, // redGlobalThisPointer,
@@ -181,15 +186,16 @@ export class VirtualEnvironment {
             redCallableDebugInfo,
             noop, // redCallableDefineProperties,
             redCallableGetLazyPropertyDescriptorStateByTarget,
+            redCallableGetPropertyValue,
             redCallableGetTargetIntegrityTraits,
             redCallableGetToStringTagOfTarget,
-            redCallableGetTypedArrayIndexedValue,
             redCallableInstallErrorPrepareStackTrace,
             noop, // redCallableInstallLazyPropertyDescriptors,
             redCallableIsTargetLive,
             redCallableIsTargetRevoked,
             redCallableSerializeTarget,
             redCallableSetLazyPropertyDescriptorStateByTarget,
+            redCallableTrackAsFastTarget,
             redCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
             redCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
             redCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
@@ -219,15 +225,16 @@ export class VirtualEnvironment {
             blueCallableDebugInfo,
             noop, // blueCallableDefineProperties,
             blueCallableGetLazyPropertyDescriptorStateByTarget,
+            blueCallableGetPropertyValue,
             blueCallableGetTargetIntegrityTraits,
             blueCallableGetToStringTagOfTarget,
-            blueCallableGetTypedArrayIndexedValue,
             blueCallableInstallErrorPrepareStackTrace,
             noop, // blueCallableInstallLazyPropertyDescriptors,
             blueCallableIsTargetLive,
             blueCallableIsTargetRevoked,
             blueCallableSerializeTarget,
             blueCallableSetLazyPropertyDescriptorStateByTarget,
+            noop, // blueCallableTrackAsFastTarget,
             blueCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
             blueCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
             blueCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
@@ -245,6 +252,7 @@ export class VirtualEnvironment {
         this.redCallableSetPrototypeOf = redCallableSetPrototypeOf;
         this.redCallableDefineProperties = redCallableDefineProperties!;
         this.redCallableInstallLazyPropertyDescriptors = redCallableInstallLazyPropertyDescriptors!;
+        this.redCallableTrackAsFastTarget = redCallableTrackAsFastTarget!;
     }
 
     evaluate(sourceText: string): any {
@@ -344,6 +352,12 @@ export class VirtualEnvironment {
                 ? (this.blueGetTransferableValue(proto) as Pointer)
                 : proto;
             this.redCallableSetPrototypeOf(foreignTargetPointer, transferableProto);
+        }
+    }
+
+    trackAsFastTarget(target: ProxyTarget) {
+        if ((typeof target === 'object' && target !== null) || typeof target === 'function') {
+            this.redCallableTrackAsFastTarget(this.blueGetTransferableValue(target) as Pointer);
         }
     }
 }

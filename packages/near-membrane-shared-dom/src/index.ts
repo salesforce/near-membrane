@@ -4,3 +4,4 @@ export * from './HTMLElement';
 export * from './HTMLIFrameElement';
 export * from './Node';
 export * from './types';
+export * from './Window';
