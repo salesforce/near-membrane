@@ -67,6 +67,10 @@ export type CallableGet = (
     key: PropertyKey,
     receiverPointerOrPrimitive: PointerOrPrimitive
 ) => PointerOrPrimitive;
+export type CallableGetPropertyValue = (
+    targetPointer: Pointer,
+    index: PropertyKey
+) => PointerOrPrimitive;
 export type CallableGetLazyPropertyDescriptorStateByTarget = (
     targetPointer: Pointer
 ) => PointerOrPrimitive;
@@ -79,10 +83,6 @@ export type CallableGetPropertyValuePointer = (targetPointer: Pointer, key: Prop
 export type CallableGetPrototypeOf = (targetPointer: Pointer) => PointerOrPrimitive;
 export type CallableGetTargetIntegrityTraits = (targetPointer: Pointer) => number;
 export type CallableGetToStringTagOfTarget = (targetPointer: Pointer) => string;
-export type CallableGetTypedArrayIndexedValue = (
-    targetPointer: Pointer,
-    index: PropertyKey
-) => number | bigint;
 export type CallableHas = (targetPointer: Pointer, key: PropertyKey) => boolean;
 export type CallableInstallErrorPrepareStackTrace = () => void;
 export type CallableInstallLazyPropertyDescriptors = (
@@ -122,6 +122,7 @@ export type CallableSetPrototypeOf = (
     targetPointer: Pointer,
     protoPointerOrNull: Pointer | null
 ) => boolean;
+export type CallableTrackAsFastTarget = (targetPointer: Pointer) => void;
 export type Connector = (
     color: string,
     foreignCallableHooksCallback: HooksCallback,
@@ -160,15 +161,16 @@ export type HooksCallback = (
     callableDebugInfo: CallableDebugInfo,
     callableDefineProperties: CallableDefineProperties,
     callableGetLazyPropertyDescriptorStateByTarget: CallableGetLazyPropertyDescriptorStateByTarget,
+    callableGetPropertyValue: CallableGetPropertyValue,
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableGetToStringTagOfTarget: CallableGetToStringTagOfTarget,
-    callableGetTypedArrayIndexedValue: CallableGetTypedArrayIndexedValue,
     callableInstallErrorPrepareStackTrace: CallableInstallErrorPrepareStackTrace,
     callableInstallLazyPropertyDescriptors: CallableInstallLazyPropertyDescriptors,
     callableIsTargetLive: CallableIsTargetLive,
     callableIsTargetRevoked: CallableIsTargetRevoked,
     callableSerializeTarget: CallableSerializeTarget,
     callableSetLazyPropertyDescriptorStateByTarget: CallableSetLazyPropertyDescriptorStateByTarget,
+    callableTrackAsFastTarget: CallableTrackAsFastTarget,
     callableBatchGetPrototypeOfAndGetOwnPropertyDescriptors: CallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
     callableBatchGetPrototypeOfWhenHasNoOwnProperty: CallableBatchGetPrototypeOfWhenHasNoOwnProperty,
     callableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor: CallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
