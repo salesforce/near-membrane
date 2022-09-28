@@ -21,7 +21,7 @@ const boundaryHooks = {
     },
 };
 
-describe('The Error Boundary', () => {
+describe('The error boundary', () => {
     const envOptions = {
         globalObjectShape: window,
     };

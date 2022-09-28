@@ -1,6 +1,6 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-describe('Reversed Proxy constructor', () => {
+describe('Reversed proxy constructor', () => {
     it('can be constructed', () => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({

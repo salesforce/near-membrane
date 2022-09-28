@@ -8,8 +8,8 @@ class ExoticObject {
     }
 }
 
-describe('The membrane', () => {
-    it('should allow global inside the sandbox', () => {
+describe('Expandos', () => {
+    it('should be settable for plain and exotic objects', () => {
         expect.assertions(6);
 
         window.plainObject = { x: 1 };

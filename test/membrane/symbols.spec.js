@@ -6,7 +6,7 @@ describe('Symbols', () => {
         globalObjectShape: window,
     };
 
-    it('should support symbols', () => {
+    it('should be supported', () => {
         expect.assertions(6);
 
         const env = createVirtualEnvironment(window, envOptions);
@@ -20,7 +20,7 @@ describe('Symbols', () => {
             expect(Symbol().constructor.__proto__.constructor('return this')() === globalThis).toBeTrue();
         `);
     });
-    it('should allow access to symbols defined in outer realm', () => {
+    it('should be accessible when defined in the outer realm', () => {
         expect.assertions(3);
 
         // eslint-disable-next-line symbol-description
@@ -36,7 +36,7 @@ describe('Symbols', () => {
             expect(typeof globalThis.symbolWithKey).toBe('symbol');
         `);
     });
-    it('should not leak outer realm global reference via symbols', () => {
+    it('should not leak outer realm global references', () => {
         expect.assertions(2);
 
         // eslint-disable-next-line symbol-description
@@ -49,7 +49,7 @@ describe('Symbols', () => {
             expect(globalThis.regularSymbol.constructor.__proto__.constructor('return this')() === globalThis).toBeTrue();
         `);
     });
-    it('should not leak outer realm global reference via Symbol.for()', () => {
+    it('should not leak outer realm global references via Symbol.for()', () => {
         expect.assertions(3);
 
         const env = createVirtualEnvironment(window, envOptions);
@@ -60,7 +60,7 @@ describe('Symbols', () => {
             expect(Symbol.for('symbol-with-key').constructor === Symbol).toBeTrue();
         `);
     });
-    it('blue Symbol class properties are inherited in red environments', () => {
+    it('blue class properties are inherited in red realms', () => {
         const symbol = Symbol('method');
         let successful = false;
 

@@ -5,7 +5,6 @@ describe('createRedConnector()', () => {
         // Ignoring "Property 'assertions' does not exist on type '{...}'."
         // @ts-ignore
         expect.assertions(1);
-
         // @ts-ignore
         expect(() => createRedConnector()).toThrow();
     });

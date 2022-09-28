@@ -108,7 +108,7 @@ describe('VirtualEnvironment', () => {
             const ExpectedError = class extends Error {};
             const error = new ExpectedError();
 
-            ve.redCallableEvaluate = (_sourceText) => {
+            ve.redCallableEvaluate = () => {
                 throw error;
             };
             ve.blueGetSelectedTarget = () => undefined;
