@@ -84,7 +84,7 @@ const ESGlobalKeys = [
 
     // *** 18.4 Other Properties of the Global Object
     // 'Atomics', // Remapped
-    'JSON',
+    // 'JSON', // Remapped to distort JSON.parse
     'Math',
     'Reflect',
 
