@@ -1,1 +1,1 @@
-export const selfWindow = window;
+export const rootWindow = window;
