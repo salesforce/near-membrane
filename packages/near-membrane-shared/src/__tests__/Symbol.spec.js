@@ -1,6 +1,9 @@
-import { SymbolIterator, SymbolToStringTag, SymbolUnscopables } from '../../dist/index';
+import { SymbolFor, SymbolIterator, SymbolToStringTag, SymbolUnscopables } from '../../dist/index';
 
 describe('Symbol', () => {
+    it('SymbolFor', () => {
+        expect(SymbolFor).toBe(Symbol.for);
+    });
     it('SymbolIterator', () => {
         expect(SymbolIterator).toBe(Symbol.iterator);
     });

@@ -1,4 +1,12 @@
-import { ArrayCtor, ArrayIsArray, ArrayProtoPush, toSafeArray } from '../../dist/index';
+import {
+    ArrayCtor,
+    ArrayIsArray,
+    ArrayProtoIncludes,
+    ArrayProtoPush,
+    ArrayProtoSort,
+    ArrayProtoUnshift,
+    toSafeArray,
+} from '../../dist/index';
 
 describe('Array', () => {
     it('ArrayCtor', () => {
@@ -7,8 +15,17 @@ describe('Array', () => {
     it('ArrayIsArray', () => {
         expect(ArrayIsArray).toBe(Array.isArray);
     });
+    it('ArrayProtoIncludes', () => {
+        expect(ArrayProtoIncludes).toBe(Array.prototype.includes);
+    });
     it('ArrayProtoPush', () => {
         expect(ArrayProtoPush).toBe(Array.prototype.push);
+    });
+    it('ArrayProtoSort', () => {
+        expect(ArrayProtoSort).toBe(Array.prototype.sort);
+    });
+    it('ArrayProtoUnshift', () => {
+        expect(ArrayProtoUnshift).toBe(Array.prototype.unshift);
     });
     it('toSafeArray', () => {
         const array = [];

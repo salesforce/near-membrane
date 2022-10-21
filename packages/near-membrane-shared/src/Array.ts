@@ -13,13 +13,11 @@ const {
     entries: ArrayProtoEntries,
     every: ArrayProtoEvery,
     fill: ArrayProtoFill,
-    filter: ArrayProtoFilter,
     find: ArrayProtoFind,
     findIndex: ArrayProtoFindIndex,
     flat: ArrayProtoFlat,
     flatMap: ArrayProtoFlatMap,
     forEach: ArrayProtoForEach,
-    includes: ArrayProtoIncludes,
     indexOf: ArrayProtoIndexOf,
     join: ArrayProtoJoin,
     keys: ArrayProtoKeys,
@@ -32,11 +30,9 @@ const {
     shift: ArrayProtoShift,
     slice: ArrayProtoSlice,
     some: ArrayProtoSome,
-    sort: ArrayProtoSort,
     splice: ArrayProtoSplice,
     toLocaleString: ArrayProtoToLocaleString,
     toString: ArrayProtoToString,
-    unshift: ArrayProtoUnshift,
     values: ArrayProtoValues,
     [SymbolIterator as any]: ArrayProtoSymbolIterator,
 } = ArrayProto;
@@ -44,6 +40,13 @@ const {
 const ArrayUnscopables = ObjectFreeze(
     ObjectAssign({ __proto__: null }, ArrayProto[SymbolUnscopables as any])
 );
+
+export const {
+    filter: ArrayProtoFilter,
+    includes: ArrayProtoIncludes,
+    sort: ArrayProtoSort,
+    unshift: ArrayProtoUnshift,
+} = ArrayProto;
 
 export const { push: ArrayProtoPush } = ArrayProto;
 
