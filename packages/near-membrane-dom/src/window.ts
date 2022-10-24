@@ -5,7 +5,7 @@ import {
     ReflectOwnKeys,
     toSafeWeakMap,
 } from '@locker/near-membrane-shared';
-import { selfWindow } from '@locker/near-membrane-shared-dom';
+import { rootWindow } from '@locker/near-membrane-shared-dom';
 
 interface CachedBlueReferencesRecord extends Object {
     document: Document;
@@ -31,7 +31,7 @@ export const unforgeablePoisonedWindowKeys = (() => {
         // to avoid triggering its getter.
         navigator,
         navigator: { userAgentData },
-    }: any = selfWindow;
+    }: any = rootWindow;
     // The user-agent client hints API is experimental and subject to change.
     // https://caniuse.com/mdn-api_navigator_useragentdata
     const brands: { brand: string; version: string }[] = userAgentData?.brands;
@@ -152,4 +152,4 @@ export function removeWindowDescriptors<T extends PropertyDescriptorMap>(unsafeD
  * usually help because this library runs before anything else that can poison
  * the environment.
  */
-getCachedGlobalObjectReferences(selfWindow);
+getCachedGlobalObjectReferences(rootWindow);

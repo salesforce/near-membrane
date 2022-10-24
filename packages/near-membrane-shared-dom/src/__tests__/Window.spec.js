@@ -1,7 +1,7 @@
-import { selfWindow } from '../../dist/index';
+import { rootWindow } from '../../dist/index';
 
 describe('Window', () => {
-    it('selfWindow', () => {
-        expect(selfWindow).toBe(window);
+    it('rootWindow', () => {
+        expect(rootWindow).toBe(window);
     });
 });
