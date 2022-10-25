@@ -756,8 +756,8 @@ export function createMembraneMarshall(
         let foreignPointerUint32ArrayProto: Pointer;
         let selectedTarget: undefined | ProxyTarget;
 
-        let useFastForeignTargetPath = true;
-        let useFastForeignTargetPathForTypedArrays = true;
+        let useFastForeignTargetPath = IS_IN_SHADOW_REALM;
+        let useFastForeignTargetPathForTypedArrays = IS_IN_SHADOW_REALM;
         let nearMembraneSymbolFlag = false;
         let lastProxyTrapCalled: ProxyHandlerTraps = 0;
 
