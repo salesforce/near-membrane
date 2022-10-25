@@ -4,7 +4,7 @@ import type { Getter, Setter } from './types';
 const ObjectCtor = Object;
 const { prototype: ObjectProto } = ObjectCtor;
 
-export const { assign: ObjectAssign, freeze: ObjectFreeze } = ObjectCtor;
+export const { assign: ObjectAssign, freeze: ObjectFreeze, keys: ObjectKeys } = ObjectCtor;
 
 const { hasOwn: OriginalObjectHasOwn } = ObjectCtor as any;
 
@@ -23,6 +23,12 @@ const ObjectHasOwn: (object: any, key: PropertyKey) => boolean =
           ): boolean {
               return ReflectApply(ObjectProtoHasOwnProperty, object, [key]);
           };
+
+export const { toString: ObjectProtoToString } = ObjectProto;
+
+export function isObject(value: any): boolean {
+    return typeof value === 'object' && value !== null;
+}
 
 export function ObjectLookupOwnGetter(object: any, key: PropertyKey): Getter | undefined {
     return object === null || object === undefined || !ObjectHasOwn(object, key)

@@ -14,6 +14,7 @@ function createConfig({
     // prettier-ignore
     input = 'src/index.ts',
     format = 'cjs',
+    outputBasename = 'index',
     ...rollupOverrides
 } = {}) {
     const isCJS = format === 'cjs';
@@ -29,7 +30,7 @@ function createConfig({
             external: undefined,
             output: {
                 exports: 'auto',
-                file: `dist/index${isCJS ? '.cjs' : ''}.js`,
+                file: `dist/${outputBasename}${isCJS ? '.cjs' : ''}.js`,
                 format,
                 // prettier-ignore
                 plugins: [
@@ -52,6 +53,7 @@ function createConfig({
 }
 
 module.exports = {
+    createConfig,
     rollupConfig(providedOptions) {
         return [
             createConfig({ ...providedOptions, format: 'es' }),

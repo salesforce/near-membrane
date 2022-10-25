@@ -1,5 +1,6 @@
 import {
     ReflectApply,
+    ReflectDefineProperty,
     ReflectDeleteProperty,
     ReflectGetPrototypeOf,
     ReflectOwnKeys,
@@ -9,6 +10,9 @@ import {
 describe('Reflect', () => {
     it('ReflectApply', () => {
         expect(ReflectApply).toBe(Reflect.apply);
+    });
+    it('ReflectDefineProperty', () => {
+        expect(ReflectDefineProperty).toBe(Reflect.defineProperty);
     });
     it('ReflectDeleteProperty', () => {
         expect(ReflectDeleteProperty).toBe(Reflect.deleteProperty);

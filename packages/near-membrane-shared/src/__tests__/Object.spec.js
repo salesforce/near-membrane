@@ -1,16 +1,35 @@
 import {
+    isObject,
     ObjectAssign,
     ObjectFreeze,
+    ObjectKeys,
     ObjectLookupOwnGetter,
     ObjectLookupOwnSetter,
+    ObjectProtoToString,
 } from '../../dist/index';
 
 describe('Object', () => {
+    it('isObject', () => {
+        expect(isObject(true)).toBe(false);
+        expect(isObject('')).toBe(false);
+        expect(isObject(42)).toBe(false);
+        expect(isObject(null)).toBe(false);
+        expect(isObject(undefined)).toBe(false);
+        expect(isObject(() => {})).toBe(false);
+        expect(isObject(class {})).toBe(false);
+        expect(isObject({ x: 1 })).toBe(true);
+        expect(isObject([])).toBe(true);
+        expect(isObject({})).toBe(true);
+        expect(isObject(Object.create(null))).toBe(true);
+    });
     it('ObjectAssign', () => {
         expect(ObjectAssign).toBe(Object.assign);
     });
     it('ObjectFreeze', () => {
         expect(ObjectFreeze).toBe(Object.freeze);
+    });
+    it('ObjectKeys', () => {
+        expect(ObjectKeys).toBe(Object.keys);
     });
     it('ObjectLookupOwnGetter', () => {
         expect(ObjectLookupOwnGetter(undefined, undefined)).toBe(undefined);
@@ -56,5 +75,8 @@ describe('Object', () => {
         expect(ObjectLookupOwnSetter(o, 'x')).toBe(xSetter);
         expect(ObjectLookupOwnSetter(o, 'x')).toBe(xSetter);
         expect(ObjectLookupOwnSetter(Object.create(o), 'x')).toBe(undefined);
+    });
+    it('ObjectProtoToString', () => {
+        expect(ObjectProtoToString).toBe(Object.prototype.toString);
     });
 });
