@@ -25,7 +25,7 @@ module.exports = [
         plugins: [
             replacePlugin({
                 preventAssignment: true,
-                [customDevtoolsFormatterFileName]: `${customDevtoolsFormatterBasename}.js`,
+                [customDevtoolsFormatterFileName]: `${customDevtoolsFormatterBasename}.mjs`,
             }),
         ],
     }),
@@ -35,7 +35,7 @@ module.exports = [
         plugins: [
             replacePlugin({
                 preventAssignment: true,
-                [customDevtoolsFormatterFileName]: `${customDevtoolsFormatterBasename}.cjs.js`,
+                [customDevtoolsFormatterFileName]: `${customDevtoolsFormatterBasename}.js`,
             }),
         ],
     }),

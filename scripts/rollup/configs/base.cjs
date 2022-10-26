@@ -30,7 +30,7 @@ function createConfig({
             external: undefined,
             output: {
                 exports: 'auto',
-                file: `dist/${outputBasename}${isCJS ? '.cjs' : ''}.js`,
+                file: `dist/${outputBasename}${isCJS ? '.js' : '.mjs'}`,
                 format,
                 // prettier-ignore
                 plugins: [
