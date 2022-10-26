@@ -25,8 +25,8 @@ import {
     NodeProtoAppendChild,
     NodeProtoLastChildGetter,
 } from '@locker/near-membrane-shared-dom';
-import type { GlobalObject } from '@locker/near-membrane-shared-dom/types';
 import type { Connector } from '@locker/near-membrane-base/types';
+import type { GlobalObject } from '@locker/near-membrane-shared-dom/types';
 import type { BrowserEnvironmentOptions } from './types';
 import {
     getCachedGlobalObjectReferences,
