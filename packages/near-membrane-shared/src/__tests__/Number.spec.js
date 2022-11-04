@@ -1,4 +1,4 @@
-import { NumberIsFinite, NumberIsInteger } from '../../dist/index';
+import { NumberIsFinite, NumberIsInteger } from '../../dist/index.mjs.js';
 
 describe('Number', () => {
     it('NumberIsFinite', () => {

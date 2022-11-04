@@ -9,8 +9,8 @@
     "license": "MIT",
     "author": "Caridy Patiño <caridy@gmail.com>",
     "description": "DOM membrane library to create sandboxed environments in the browser",
-    "main": "dist/index.js",
-    "module": "dist/index.mjs",
+    "main": "dist/index.cjs.js",
+    "module": "dist/index.mjs.js",
     "sideEffects": false,
     "typings": "types/index.d.ts",
     "scripts": {
@@ -21,13 +21,13 @@
     "exports": {
         ".": {
             "types": "./types/index.d.ts",
-            "import": "./dist/index.mjs",
-            "require": "./dist/index.js"
+            "import": "./dist/index.mjs.js",
+            "require": "./dist/index.cjs.js"
         },
         "./*.js": {
-            "import": "./dist/*.mjs",
-            "require": "./dist/*.js",
-            "default": "./dist/*.js"
+            "import": "./dist/*.mjs.js",
+            "require": "./dist/*.cjs.js",
+            "default": "./dist/*.cjs.js"
         }
     },
     "files": [

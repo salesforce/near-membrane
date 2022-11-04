@@ -3,7 +3,7 @@ import {
     DocumentProtoClose,
     DocumentProtoCreateElement,
     DocumentProtoOpen,
-} from '../../dist/index';
+} from '../../dist/index.mjs.js';
 
 describe('Document', () => {
     it('DocumentProtoClose', () => {

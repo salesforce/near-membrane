@@ -1,4 +1,4 @@
-import { ElementProtoRemove, ElementProtoSetAttribute } from '../../dist/index';
+import { ElementProtoRemove, ElementProtoSetAttribute } from '../../dist/index.mjs.js';
 
 describe('Element', () => {
     it('ElementProtoRemove', () => {

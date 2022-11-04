@@ -5,7 +5,7 @@ import {
     getFilteredGlobalOwnKeys,
     linkIntrinsics,
     VirtualEnvironment,
-} from '../../dist/index';
+} from '../../dist/index.mjs';
 
 const ESGlobalKeys = [
     // *** 19.1 Value Properties of the Global Object

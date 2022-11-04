@@ -1,4 +1,4 @@
-import { ErrorCtor, TypeErrorCtor } from '../../dist/index';
+import { ErrorCtor, TypeErrorCtor } from '../../dist/index.mjs.js';
 
 describe('Error', () => {
     it('ErrorCtor', () => {

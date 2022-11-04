@@ -9,8 +9,8 @@
     "license": "MIT",
     "author": "Caridy Patiño <caridy@gmail.com>",
     "description": "Near-membrane shared DOM utilities",
-    "main": "dist/index.js",
-    "module": "dist/index.mjs",
+    "main": "dist/index.cjs.js",
+    "module": "dist/index.mjs.js",
     "sideEffects": false,
     "typings": "types/index.d.ts",
     "scripts": {

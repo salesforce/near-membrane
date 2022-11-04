@@ -1,4 +1,4 @@
-import { MathMin } from '../../dist/index';
+import { MathMin } from '../../dist/index.mjs.js';
 
 describe('Math', () => {
     it('MathMin', () => {
