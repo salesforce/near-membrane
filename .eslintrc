@@ -70,13 +70,6 @@
       ],
       "plugins": ["@typescript-eslint"],
       "rules": {
-        "prettier/prettier": "error",
-        "comma-dangle": "off",
-        "operator-linebreak": "off",
-        "object-curly-newline": "off",
-        "import/prefer-default-export": "off",
-        "prefer-rest-params": "off", // we need to use params
-        "implicit-arrow-linebreak": "off", // conflicts with prettier
         "@typescript-eslint/no-unused-vars": [
           "warn", // @TODO: change this to "error"
           {
@@ -86,14 +79,22 @@
             "argsIgnorePattern": "^_" // tsc compatibility
           }
         ],
+        "comma-dangle": "off",
+        "implicit-arrow-linebreak": "off", // conflicts with prettier
+        "import/extensions": "off",
+        "import/prefer-default-export": "off",
+        "operator-linebreak": "off",
+        "object-curly-newline": "off",
+        "prefer-rest-params": "off", // we need to use params
+        "prettier/prettier": "error",
         // @TODO - fix files to enable rules below this line
-        "import/no-cycle": "warn",
+        "@typescript-eslint/no-shadow": "warn",
         "@typescript-eslint/no-use-before-define": "warn",
+        "import/no-cycle": "warn",
+        "no-bitwise": "off",
         "no-unsafe-finally": "warn",
         "no-param-reassign": "off",
-        "@typescript-eslint/no-shadow": "warn",
         "no-shadow": "warn",
-        "no-bitwise": "off"
       }
     }
   ]
