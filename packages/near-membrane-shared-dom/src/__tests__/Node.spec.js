@@ -1,4 +1,4 @@
-import { NodeProtoAppendChild, NodeProtoLastChildGetter } from '../../dist/index';
+import { NodeProtoAppendChild, NodeProtoLastChildGetter } from '../../dist/index.mjs.js';
 
 describe('Node', () => {
     it('NodeAppendChild', () => {

@@ -1,4 +1,4 @@
-import { noop } from '../../dist/index';
+import { noop } from '../../dist/index.mjs.js';
 
 describe('Function', () => {
     it('noop', () => {

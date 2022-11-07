@@ -6,7 +6,7 @@ import {
     ObjectLookupOwnGetter,
     ObjectLookupOwnSetter,
     ObjectProtoToString,
-} from '../../dist/index';
+} from '../../dist/index.mjs.js';
 
 describe('Object', () => {
     it('isObject', () => {

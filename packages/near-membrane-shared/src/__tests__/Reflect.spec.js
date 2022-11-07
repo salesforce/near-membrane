@@ -5,7 +5,7 @@ import {
     ReflectGetPrototypeOf,
     ReflectOwnKeys,
     ReflectSetPrototypeOf,
-} from '../../dist/index';
+} from '../../dist/index.mjs.js';
 
 describe('Reflect', () => {
     it('ReflectApply', () => {

@@ -1,4 +1,4 @@
-import { toSafeWeakMap, WeakMapCtor } from '../../dist/index';
+import { toSafeWeakMap, WeakMapCtor } from '../../dist/index.mjs.js';
 
 describe('WeakMap', () => {
     it('toSafeWeakMap', () => {

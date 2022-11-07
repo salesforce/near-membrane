@@ -1,4 +1,4 @@
-import { getNearMembraneSerializedValue, isNearMembrane } from '../../dist/index';
+import { getNearMembraneSerializedValue, isNearMembrane } from '../../dist/index.mjs.js';
 
 const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = Symbol.for(
     '@@lockerNearMembraneSerializedValue'

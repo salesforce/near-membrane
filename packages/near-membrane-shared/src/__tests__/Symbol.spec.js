@@ -1,4 +1,9 @@
-import { SymbolFor, SymbolIterator, SymbolToStringTag, SymbolUnscopables } from '../../dist/index';
+import {
+    SymbolFor,
+    SymbolIterator,
+    SymbolToStringTag,
+    SymbolUnscopables,
+} from '../../dist/index.mjs.js';
 
 describe('Symbol', () => {
     it('SymbolFor', () => {

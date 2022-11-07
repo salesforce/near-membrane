@@ -1,4 +1,4 @@
-import { StringCtor, StringProtoSlice } from '../../dist/index';
+import { StringCtor, StringProtoSlice } from '../../dist/index.mjs.js';
 
 describe('String', () => {
     it('StringCtor', () => {

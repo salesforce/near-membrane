@@ -1,5 +1,9 @@
 // @ts-nocheck
-import { createBlueConnector, createRedConnector, VirtualEnvironment } from '../../dist/index';
+import {
+    createBlueConnector,
+    createRedConnector,
+    VirtualEnvironment,
+} from '../../dist/index.mjs.js';
 
 const { toString: ObjectProtoToString } = Object.prototype;
 
@@ -176,7 +180,7 @@ describe('VirtualEnvironment', () => {
 
             expect(redValue.a).toBe(0);
         });
-        it('calls a lazy endowment getter', () => {
+        it('calls an endowment getter', () => {
             expect.assertions(3);
 
             let count = 0;
@@ -185,7 +189,6 @@ describe('VirtualEnvironment', () => {
                 blueConnector: createBlueConnector(globalThis),
                 redConnector: createRedConnector(globalThis.eval),
                 distortionCallback(v) {
-                    count += 1;
                     expect(v()).toBe(1);
                     return v;
                 },
@@ -202,14 +205,13 @@ describe('VirtualEnvironment', () => {
             });
 
             expect(globalThis.d).toBe(1);
-            expect(count).toBe(3);
+            expect(count).toBe(2);
 
             delete globalThis.d;
         });
-        it('calls a lazy endowment setter', () => {
-            expect.assertions(7);
+        it('calls an endowment setter', () => {
+            expect.assertions(2);
 
-            let count = 0;
             let blueSetValue = null;
 
             const ve = new VirtualEnvironment({
@@ -220,27 +222,19 @@ describe('VirtualEnvironment', () => {
             ve.remapProperties(globalThis, {
                 e: {
                     get() {
-                        // This WILL be reached, but only until the setter is called
-                        count += 1;
-                        return 1;
+                        return blueSetValue;
                     },
                     set(v) {
-                        // This should NOT be reached
                         blueSetValue = v;
-                        count += 1;
                     },
                     configurable: true,
                 },
             });
 
-            expect(globalThis.e).toBe(1); // count + 1
-            expect(globalThis.e).toBe(1); // count + 1
-            expect(globalThis.e).toBe(1); // count + 1
-            expect(count).toBe(3);
             globalThis.e = 99;
-            expect(globalThis.e).toBe(1);
             expect(blueSetValue).toBe(99);
-            expect(count).toBe(6);
+            globalThis.e = 100;
+            expect(blueSetValue).toBe(100);
 
             delete globalThis.e;
         });

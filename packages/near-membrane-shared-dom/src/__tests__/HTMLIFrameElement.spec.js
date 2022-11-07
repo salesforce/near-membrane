@@ -1,4 +1,4 @@
-import { HTMLIFrameElementProtoContentWindowGetter } from '../../dist/index';
+import { HTMLIFrameElementProtoContentWindowGetter } from '../../dist/index.mjs.js';
 
 describe('HTMLIFrameElement', () => {
     it('HTMLIFrameElementProtoContentWindowGetter', () => {

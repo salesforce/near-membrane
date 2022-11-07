@@ -6,7 +6,7 @@ import {
     ArrayProtoSort,
     ArrayProtoUnshift,
     toSafeArray,
-} from '../../dist/index';
+} from '../../dist/index.mjs.js';
 
 describe('Array', () => {
     it('ArrayCtor', () => {

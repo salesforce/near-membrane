@@ -1,4 +1,4 @@
-import { JSONStringify } from '../../dist/index';
+import { JSONStringify } from '../../dist/index.mjs.js';
 
 describe('JSON', () => {
     it('JSONStringify', () => {
