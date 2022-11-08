@@ -13,7 +13,6 @@ const {
     entries: ArrayProtoEntries,
     every: ArrayProtoEvery,
     fill: ArrayProtoFill,
-    find: ArrayProtoFind,
     findIndex: ArrayProtoFindIndex,
     flat: ArrayProtoFlat,
     flatMap: ArrayProtoFlatMap,
@@ -43,6 +42,7 @@ const ArrayUnscopables = ObjectFreeze(
 
 export const {
     filter: ArrayProtoFilter,
+    find: ArrayProtoFind,
     includes: ArrayProtoIncludes,
     sort: ArrayProtoSort,
     unshift: ArrayProtoUnshift,
