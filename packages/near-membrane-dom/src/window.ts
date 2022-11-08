@@ -1,11 +1,10 @@
 import {
-    ArrayIsArray,
     ReflectDeleteProperty,
     ReflectGetPrototypeOf,
     ReflectOwnKeys,
     toSafeWeakMap,
 } from '@locker/near-membrane-shared';
-import { rootWindow } from '@locker/near-membrane-shared-dom';
+import { IS_CHROMIUM_BROWSER, rootWindow } from '@locker/near-membrane-shared-dom';
 
 interface CachedBlueReferencesRecord extends Object {
     document: Document;
@@ -25,33 +24,7 @@ const blueDocumentToRecordMap: WeakMap<Document, CachedBlueReferencesRecord> = t
 // getters in detached iframes when the property descriptor of `window.window`
 // is retrieved.
 // https://bugs.chromium.org/p/chromium/issues/detail?id=1305302
-export const unforgeablePoisonedWindowKeys = (() => {
-    const {
-        // We don't cherry-pick the 'userAgent' property from `navigator` here
-        // to avoid triggering its getter.
-        navigator,
-        navigator: { userAgentData },
-    }: any = rootWindow;
-    // The user-agent client hints API is experimental and subject to change.
-    // https://caniuse.com/mdn-api_navigator_useragentdata
-    const brands: { brand: string; version: string }[] = userAgentData?.brands;
-    if (
-        // While experimental, `navigator.userAgentData.brands` may be defined
-        // as an empty array in headless Chromium based browsers.
-        ArrayIsArray(brands) && brands.length
-            ? // Use user-agent client hints API if available to avoid
-              // deprecation warnings.
-              // https://developer.mozilla.org/en-US/docs/Web/API/User-Agent_Client_Hints_API
-              brands.find((item) => item?.brand === 'Chromium')
-            : // Fallback to a standard user-agent string sniff.
-              // Note: Chromium identifies itself as Chrome in its user-agent string.
-              // https://developer.mozilla.org/en-US/docs/Web/HTTP/Browser_detection_using_the_user_agent
-              / (?:Headless)?Chrome\/\d+/.test(navigator.userAgent)
-    ) {
-        return ['window'];
-    }
-    return undefined;
-})();
+export const unforgeablePoisonedWindowKeys = IS_CHROMIUM_BROWSER ? ['window'] : undefined;
 
 export function getCachedGlobalObjectReferences(
     globalObject: WindowProxy & typeof globalThis

@@ -1,3 +1,4 @@
+export * from './constants';
 export * from './Document';
 export * from './Element';
 export * from './HTMLElement';

@@ -1,6 +1,7 @@
 import {
     ArrayCtor,
     ArrayIsArray,
+    ArrayProtoFind,
     ArrayProtoIncludes,
     ArrayProtoPush,
     ArrayProtoSort,
@@ -14,6 +15,9 @@ describe('Array', () => {
     });
     it('ArrayIsArray', () => {
         expect(ArrayIsArray).toBe(Array.isArray);
+    });
+    it('ArrayProtoFind', () => {
+        expect(ArrayProtoFind).toBe(Array.prototype.find);
     });
     it('ArrayProtoIncludes', () => {
         expect(ArrayProtoIncludes).toBe(Array.prototype.includes);

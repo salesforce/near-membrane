@@ -8,6 +8,7 @@ export * from './NearMembrane';
 export * from './Number';
 export * from './Object';
 export * from './Reflect';
+export * from './RegExp';
 export * from './String';
 export * from './Symbol';
 export * from './types';
