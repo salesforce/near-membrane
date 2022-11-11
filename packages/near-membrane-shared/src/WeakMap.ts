@@ -5,10 +5,11 @@ export const WeakMapCtor = WeakMap;
 
 const { prototype: WeakMapProto } = WeakMapCtor;
 
+export const { has: WeakMapProtoHas } = WeakMapProto;
+
 const {
     delete: WeakMapProtoDelete,
     get: WeakMapProtoGet,
-    has: WeakMapProtoHas,
     set: WeakMapProtoSet,
     [SymbolToStringTag]: WeakMapProtoSymbolToStringTag,
 } = WeakMapProto as any;

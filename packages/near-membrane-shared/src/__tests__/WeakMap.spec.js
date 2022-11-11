@@ -1,4 +1,4 @@
-import { toSafeWeakMap, WeakMapCtor } from '../../dist/index.mjs.js';
+import { toSafeWeakMap, WeakMapCtor, WeakMapProtoHas } from '../../dist/index.mjs.js';
 
 describe('WeakMap', () => {
     it('toSafeWeakMap', () => {
@@ -26,5 +26,8 @@ describe('WeakMap', () => {
     });
     it('WeakMapCtor', () => {
         expect(WeakMapCtor).toBe(WeakMap);
+    });
+    it('WeakMapProtoHas', () => {
+        expect(WeakMapProtoHas).toBe(WeakMap.prototype.has);
     });
 });
