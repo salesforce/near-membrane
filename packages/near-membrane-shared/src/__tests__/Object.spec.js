@@ -2,6 +2,7 @@ import {
     isObject,
     ObjectAssign,
     ObjectFreeze,
+    ObjectHasOwn,
     ObjectKeys,
     ObjectLookupOwnGetter,
     ObjectLookupOwnSetter,
@@ -27,6 +28,13 @@ describe('Object', () => {
     });
     it('ObjectFreeze', () => {
         expect(ObjectFreeze).toBe(Object.freeze);
+    });
+    it('ObjectHasOwn', () => {
+        expect(() => ObjectHasOwn(null, 'x')).toThrowError();
+        expect(() => ObjectHasOwn(undefined, 'x')).toThrowError();
+        expect(ObjectHasOwn({}, 'x')).toBe(false);
+        expect(ObjectHasOwn({ __proto__: { x: undefined } }, 'x')).toBe(false);
+        expect(ObjectHasOwn({ x: undefined }, 'x')).toBe(true);
     });
     it('ObjectKeys', () => {
         expect(ObjectKeys).toBe(Object.keys);

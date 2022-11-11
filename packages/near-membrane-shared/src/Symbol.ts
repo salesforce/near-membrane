@@ -1,6 +1,10 @@
+const SymbolCtor = Symbol;
+
 export const {
     for: SymbolFor,
     iterator: SymbolIterator,
     toStringTag: SymbolToStringTag,
     unscopables: SymbolUnscopables,
-} = Symbol;
+} = SymbolCtor;
+
+export const { valueOf: SymbolProtoValueOf } = SymbolCtor.prototype;

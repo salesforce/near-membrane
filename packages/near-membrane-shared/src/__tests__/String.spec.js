@@ -1,4 +1,4 @@
-import { StringCtor, StringProtoSlice } from '../../dist/index.mjs.js';
+import { StringCtor, StringProtoSlice, StringProtoValueOf } from '../../dist/index.mjs.js';
 
 describe('String', () => {
     it('StringCtor', () => {
@@ -6,5 +6,8 @@ describe('String', () => {
     });
     it('StringProtoSlice', () => {
         expect(StringProtoSlice).toBe(String.prototype.slice);
+    });
+    it('StringProtoValueOf', () => {
+        expect(StringProtoValueOf).toBe(String.prototype.valueOf);
     });
 });

@@ -1,4 +1,4 @@
-import { NumberIsFinite, NumberIsInteger } from '../../dist/index.mjs.js';
+import { NumberIsFinite, NumberIsInteger, NumberProtoValueOf } from '../../dist/index.mjs.js';
 
 describe('Number', () => {
     it('NumberIsFinite', () => {
@@ -6,5 +6,8 @@ describe('Number', () => {
     });
     it('NumberIsInteger', () => {
         expect(NumberIsInteger).toBe(Number.isInteger);
+    });
+    it('NumberProtoValueOf', () => {
+        expect(NumberProtoValueOf).toBe(Number.prototype.valueOf);
     });
 });

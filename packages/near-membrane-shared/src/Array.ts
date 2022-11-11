@@ -26,7 +26,6 @@ const {
     reduce: ArrayProtoReduce,
     reduceRight: ArrayProtoReduceRight,
     reverse: ArrayProtoReverse,
-    shift: ArrayProtoShift,
     slice: ArrayProtoSlice,
     some: ArrayProtoSome,
     splice: ArrayProtoSplice,
@@ -44,6 +43,7 @@ export const {
     filter: ArrayProtoFilter,
     find: ArrayProtoFind,
     includes: ArrayProtoIncludes,
+    shift: ArrayProtoShift,
     sort: ArrayProtoSort,
     unshift: ArrayProtoUnshift,
 } = ArrayProto;

@@ -1,10 +1,14 @@
 import { ReflectApply } from './Reflect';
 import type { Getter, Setter } from './types';
 
-const ObjectCtor = Object;
-const { prototype: ObjectProto } = ObjectCtor;
+export const ObjectCtor = Object;
 
-export const { assign: ObjectAssign, freeze: ObjectFreeze, keys: ObjectKeys } = ObjectCtor;
+export const {
+    assign: ObjectAssign,
+    freeze: ObjectFreeze,
+    keys: ObjectKeys,
+    prototype: ObjectProto,
+} = ObjectCtor;
 
 const { hasOwn: OriginalObjectHasOwn } = ObjectCtor as any;
 
@@ -14,7 +18,7 @@ const {
     hasOwnProperty: ObjectProtoHasOwnProperty,
 } = ObjectProto as any;
 
-const ObjectHasOwn: (object: any, key: PropertyKey) => boolean =
+export const ObjectHasOwn: (object: any, key: PropertyKey) => boolean =
     typeof OriginalObjectHasOwn === 'function'
         ? OriginalObjectHasOwn
         : /* istanbul ignore next: currently unreachable via tests */ function ObjectHasOwn(
