@@ -1,6 +1,6 @@
 {
     "globals": {
-      "jasmine": true
+      "jasmine": "readonly"
     },
     "ignorePatterns": [".eslintrc.js"],
     "overrides": [
