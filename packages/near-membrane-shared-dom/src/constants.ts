@@ -46,3 +46,9 @@ export const IS_CHROMIUM_BROWSER =
           ]) !== undefined
         : // Fallback to a standard user-agent string sniff.
           ReflectApply(RegExpProtoTest, chromiumUserAgentRegExp, [getUserAgent()]);
+
+export const IS_OLD_CHROMIUM_BROWSER =
+    IS_CHROMIUM_BROWSER &&
+    // Chromium added support for `navigator.userAgentData` in v90.
+    // https://caniuse.com/mdn-api_navigator_useragentdata
+    userAgentData === undefined;
