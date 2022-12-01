@@ -2534,9 +2534,6 @@ export function createMembraneMarshall(
                 this.setPrototypeOf = BoundaryProxyHandler.defaultSetPrototypeOfTrap;
                 this.set = BoundaryProxyHandler.defaultSetTrap;
                 if (foreignTargetTraits & TargetTraits.Revoked) {
-                    // Future optimization: Hoping proxies with frozen handlers
-                    // can be faster.
-                    ObjectFreeze(this);
                     this.revoke();
                 } else if (IS_IN_SHADOW_REALM) {
                     if (
@@ -2573,11 +2570,6 @@ export function createMembraneMarshall(
                             },
                         ]);
                     }
-                    // Future optimization: Hoping proxies with frozen handlers
-                    // can be faster. If local mutations are not trapped, then
-                    // freezing the handler is ok because it is not expecting to
-                    // change in the future.
-                    ObjectFreeze(this);
                 }
             }
 
@@ -2591,9 +2583,6 @@ export function createMembraneMarshall(
                 this.preventExtensions = BoundaryProxyHandler.passthruPreventExtensionsTrap;
                 this.set = BoundaryProxyHandler.passthruSetTrap;
                 this.setPrototypeOf = BoundaryProxyHandler.passthruSetPrototypeOfTrap;
-                // Future optimization: Hoping proxies with frozen handlers can
-                // be faster.
-                ObjectFreeze(this);
             }
 
             private makeProxyStatic() {
@@ -2622,9 +2611,6 @@ export function createMembraneMarshall(
                 const targetIntegrityTraits =
                     foreignCallableGetTargetIntegrityTraits(foreignTargetPointer);
                 if (targetIntegrityTraits & TargetIntegrityTraits.Revoked) {
-                    // Future optimization: Hoping proxies with frozen
-                    // handlers can be faster.
-                    ObjectFreeze(this);
                     // the target is a revoked proxy, in which case we revoke
                     // this proxy as well.
                     this.revoke();
@@ -2641,9 +2627,6 @@ export function createMembraneMarshall(
                     // We don't wrap `foreignCallableIsTargetRevoked()` in a
                     // try-catch because it cannot throw.
                     if (foreignCallableIsTargetRevoked(foreignTargetPointer)) {
-                        // Future optimization: Hoping proxies with frozen
-                        // handlers can be faster.
-                        ObjectFreeze(this);
                         this.revoke();
                         return;
                     }
@@ -2679,9 +2662,6 @@ export function createMembraneMarshall(
                         );
                     }
                 }
-                // Future optimization: Hoping proxies with frozen handlers can
-                // be faster.
-                ObjectFreeze(this);
             }
 
             // Logic implementation of all traps.
@@ -4851,8 +4831,6 @@ export function createMembraneMarshall(
                 BoundaryProxyHandlerProto.color = color;
             }
             ReflectSetPrototypeOf(BoundaryProxyHandlerProto, null);
-            // Future optimization: Hoping proxies with frozen handlers can be faster.
-            ObjectFreeze(BoundaryProxyHandlerProto);
         };
     };
     /* eslint-enable prefer-object-spread */
