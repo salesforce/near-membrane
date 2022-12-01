@@ -22,6 +22,7 @@ import {
     ElementProtoSetAttribute,
     HTMLElementProtoStyleGetter,
     HTMLIFrameElementProtoContentWindowGetter,
+    IS_OLD_CHROMIUM_BROWSER,
     NodeProtoAppendChild,
     NodeProtoLastChildGetter,
 } from '@locker/near-membrane-shared-dom';
@@ -44,7 +45,7 @@ const blueDocumentToBlueCreateHooksCallbackMap = toSafeWeakMap(
 let defaultGlobalOwnKeys: PropertyKey[] | null = null;
 
 function createDetachableIframe(doc: Document): HTMLIFrameElement {
-    const iframe: HTMLIFrameElement = ReflectApply(DocumentProtoCreateElement, doc, ['iframe']);
+    const iframe = ReflectApply(DocumentProtoCreateElement, doc, ['iframe']) as HTMLIFrameElement;
     // It is impossible to test whether the NodeProtoLastChildGetter branch is
     // reached in a normal Karma test environment.
     const parent: Element =
@@ -95,12 +96,13 @@ function createIframeVirtualEnvironment(
         blueConnector = createBlueConnector(globalObject);
         blueDocumentToBlueCreateHooksCallbackMap.set(blueRefs.document, blueConnector);
     }
+    const { eval: redIndirectEval } = redWindow;
     const env = new VirtualEnvironment({
         blueConnector,
         distortionCallback,
         instrumentation,
         liveTargetCallback,
-        redConnector: createRedConnector(redWindow.eval),
+        redConnector: createRedConnector(redIndirectEval),
     });
     linkIntrinsics(env, globalObject);
     // window
@@ -151,6 +153,12 @@ function createIframeVirtualEnvironment(
         ReflectApply(DocumentProtoOpen, redDocument, []);
         ReflectApply(DocumentProtoClose, redDocument, []);
     } else {
+        if (IS_OLD_CHROMIUM_BROWSER) {
+            // For Chromium < v86 browsers we evaluate the `window` object to
+            // kickstart the realm so that `window` persists when the iframe is
+            // removed from the document.
+            redIndirectEval('window');
+        }
         ReflectApply(ElementProtoRemove, iframe, []);
     }
     return env;
