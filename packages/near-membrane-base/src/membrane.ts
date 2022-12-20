@@ -2854,11 +2854,12 @@ export function createMembraneMarshall(
                       }
                       let result: any;
                       if (useFastPath) {
+                          let pointerOrPrimitive: PointerOrPrimitive;
                           try {
-                              result = foreignCallableGetPropertyValue(
+                              pointerOrPrimitive = foreignCallableGetPropertyValue(
                                   foreignTargetPointer,
                                   key
-                              ) as number | bigint;
+                              );
                           } catch (error: any) {
                               const errorToThrow = selectedTarget ?? error;
                               selectedTarget = undefined;
@@ -2866,6 +2867,13 @@ export function createMembraneMarshall(
                                   activity!.error(errorToThrow);
                               }
                               throw errorToThrow;
+                          }
+                          if (typeof pointerOrPrimitive === 'function') {
+                              pointerOrPrimitive();
+                              result = selectedTarget;
+                              selectedTarget = undefined;
+                          } else {
+                              result = pointerOrPrimitive;
                           }
                       } else {
                           const safeDesc = lookupForeignDescriptor(
@@ -4115,7 +4123,7 @@ export function createMembraneMarshall(
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
-                let proto;
+                let proto: object | null;
                 try {
                     proto = ReflectGetPrototypeOf(target);
                 } catch (error: any) {
@@ -4224,10 +4232,10 @@ export function createMembraneMarshall(
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
-                let proto: any;
+                let proto: object | null;
                 if (typeof protoPointerOrNull === 'function') {
                     protoPointerOrNull();
-                    proto = selectedTarget;
+                    proto = selectedTarget!;
                     selectedTarget = undefined;
                 } else {
                     proto = null;
@@ -4299,15 +4307,20 @@ export function createMembraneMarshall(
                 : (noop as CallableGetLazyPropertyDescriptorStateByTarget),
             // callableGetPropertyValue
             !IS_IN_SHADOW_REALM
-                ? (targetPointer: Pointer, index: PropertyKey) => {
+                ? (targetPointer: Pointer, key: PropertyKey): PointerOrPrimitive => {
                       targetPointer();
                       const target = selectedTarget!;
                       selectedTarget = undefined;
+                      let value: any;
                       try {
-                          return (target as any)[index];
+                          value = (target as any)[key];
                       } catch (error: any) {
                           throw pushErrorAcrossBoundary(error);
                       }
+                      return (typeof value === 'object' && value !== null) ||
+                          typeof value === 'function'
+                          ? getTransferablePointer(value)
+                          : value;
                   }
                 : (noop as unknown as CallableGetPropertyValue),
             // callableGetTargetIntegrityTraits
