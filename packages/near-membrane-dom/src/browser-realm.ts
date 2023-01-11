@@ -38,9 +38,7 @@ import {
 
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 
-const blueDocumentToBlueCreateHooksCallbackMap = toSafeWeakMap(
-    new WeakMapCtor<Document, Connector>()
-);
+const blueCreateHooksCallbackCache = toSafeWeakMap(new WeakMapCtor<Document, Connector>());
 
 let defaultGlobalOwnKeys: PropertyKey[] | null = null;
 
@@ -89,12 +87,12 @@ function createIframeVirtualEnvironment(
     if (shouldUseDefaultGlobalOwnKeys && defaultGlobalOwnKeys === null) {
         defaultGlobalOwnKeys = filterWindowKeys(getFilteredGlobalOwnKeys(redWindow));
     }
-    let blueConnector = blueDocumentToBlueCreateHooksCallbackMap.get(blueRefs.document) as
+    let blueConnector = blueCreateHooksCallbackCache.get(blueRefs.document) as
         | Connector
         | undefined;
     if (blueConnector === undefined) {
         blueConnector = createBlueConnector(globalObject);
-        blueDocumentToBlueCreateHooksCallbackMap.set(blueRefs.document, blueConnector);
+        blueCreateHooksCallbackCache.set(blueRefs.document, blueConnector);
     }
     const { eval: redIndirectEval } = redWindow;
     const env = new VirtualEnvironment({

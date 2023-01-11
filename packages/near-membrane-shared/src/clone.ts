@@ -19,7 +19,7 @@ import { ReflectApply, ReflectGetPrototypeOf } from './Reflect';
 import { RegExpCtor } from './RegExp';
 import { SetCtor, SetProtoAdd, SetProtoValues } from './Set';
 
-const SEEN_OBJECTS_MAP = toSafeMap(new MapCtor<object, object>());
+const SEEN_OBJECTS = toSafeMap(new MapCtor<object, object>());
 
 function cloneBoxedPrimitive(object: object): object {
     return ObjectCtor(getNearMembraneSerializedValue(object));
@@ -213,7 +213,7 @@ function partialStructuredCloneInternal(value: any): any {
         // To support circular references check if the original value has been
         // seen. If it has then use the clone associated with its record instead
         // of creating a new clone.
-        let cloneValue = SEEN_OBJECTS_MAP.get(originalValue);
+        let cloneValue = SEEN_OBJECTS.get(originalValue);
         if (cloneValue) {
             setter(cloneValue);
             // eslint-disable-next-line no-continue, no-extra-label, no-labels
@@ -265,7 +265,7 @@ function partialStructuredCloneInternal(value: any): any {
             // istanbul ignore else
             if (!isNearMembrane(originalValue)) {
                 // Skip cloning non-membrane proxied objects.
-                SEEN_OBJECTS_MAP.set(originalValue, originalValue);
+                SEEN_OBJECTS.set(originalValue, originalValue);
                 setter(originalValue);
                 // eslint-disable-next-line no-extra-label, no-labels
                 continue queueLoop;
@@ -301,7 +301,7 @@ function partialStructuredCloneInternal(value: any): any {
             // eslint-disable-next-line no-extra-label, no-labels
             break queueLoop;
         }
-        SEEN_OBJECTS_MAP.set(originalValue, cloneValue);
+        SEEN_OBJECTS.set(originalValue, cloneValue);
         setter(cloneValue);
     }
     return result;
@@ -313,6 +313,6 @@ export function partialStructuredClone(value: any): any {
         result = partialStructuredCloneInternal(value);
         // eslint-disable-next-line no-empty
     } catch {}
-    SEEN_OBJECTS_MAP.clear();
+    SEEN_OBJECTS.clear();
     return result;
 }

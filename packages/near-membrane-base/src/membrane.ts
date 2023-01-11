@@ -200,7 +200,7 @@ export function createMembraneMarshall(
     let MINIFICATION_SAFE_SERIALIZED_VALUE_PROPERTY_NAME: PropertyKey | undefined;
     // Minification safe references to the private `BoundaryProxyHandler`
     // 'apply' and 'construct' trap variant's property names.
-    let MINIFICATION_SAFE_TRAP_PROPERTY_NAMES: PropertyKey[] | undefined;
+    let MINIFICATION_SAFE_TRAP_PROPERTY_NAMES: string[] | undefined;
     const SUPPORTS_BIG_INT = typeof BigInt === 'function';
     const { isArray: isArrayOrThrowForRevoked } = ArrayCtor;
     const {
@@ -229,7 +229,7 @@ export function createMembraneMarshall(
         ? ReflectApply(ObjectProtoLookupGetter, RegExpProto, ['flags']) ??
           function flags(this: RegExp) {
               const string = ReflectApply(RegExProtoToString, this, []);
-              return ReflectApply(RegExpProtoExec, FLAGS_REG_EXP!, [string])[0] as string;
+              return ReflectApply(RegExpProtoExec, FLAGS_REG_EXP!, [string])![0] as string;
           }
         : undefined;
     const RegExpProtoSourceGetter: () => string = ReflectApply(
@@ -680,7 +680,7 @@ export function createMembraneMarshall(
             // removed in minified production builds.
             !IS_IN_SHADOW_REALM && typeof instrumentation === 'object' && instrumentation !== null;
 
-        const arityToApplyTrapNameRegistry: any = {
+        const applyTrapNameRegistry = {
             // Populated in the returned connector function below.
             __proto__: null,
             0: undefined,
@@ -689,9 +689,9 @@ export function createMembraneMarshall(
             3: undefined,
             4: undefined,
             n: undefined,
-        };
+        } as unknown as Record<number | string, string>;
 
-        const arityToConstructTrapNameRegistry: any = {
+        const constructTrapNameRegistry = {
             // Populated in the returned connector function below.
             __proto__: null,
             0: undefined,
@@ -700,13 +700,13 @@ export function createMembraneMarshall(
             3: undefined,
             4: undefined,
             n: undefined,
-        };
+        } as unknown as Record<number | string, string>;
 
-        const localProxyTargetToLazyPropertyDescriptorStateMap = toSafeWeakMap(
+        const lazyPropertyDescriptorStateCache = toSafeWeakMap(
             new WeakMapCtor<ProxyTarget, object>()
         );
 
-        const proxyTargetToPointerMap = toSafeWeakMap(new WeakMapCtor<ProxyTarget, Pointer>());
+        const proxyPointerCache = toSafeWeakMap(new WeakMapCtor<ProxyTarget, Pointer>());
 
         const startActivity = LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG
             ? instrumentation!.startActivity
@@ -881,8 +881,8 @@ export function createMembraneMarshall(
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
             const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}()`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
-                ? arityToApplyTrapNameRegistry
-                : arityToConstructTrapNameRegistry;
+                ? applyTrapNameRegistry
+                : constructTrapNameRegistry;
             const foreignCallableApplyOrConstruct = isApplyTrap
                 ? foreignCallableApply
                 : foreignCallableConstruct;
@@ -950,8 +950,8 @@ export function createMembraneMarshall(
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
             const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(1)`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
-                ? arityToApplyTrapNameRegistry
-                : arityToConstructTrapNameRegistry;
+                ? applyTrapNameRegistry
+                : constructTrapNameRegistry;
             const foreignCallableApplyOrConstruct = isApplyTrap
                 ? foreignCallableApply
                 : foreignCallableConstruct;
@@ -1029,8 +1029,8 @@ export function createMembraneMarshall(
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
             const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(2)`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
-                ? arityToApplyTrapNameRegistry
-                : arityToConstructTrapNameRegistry;
+                ? applyTrapNameRegistry
+                : constructTrapNameRegistry;
             const foreignCallableApplyOrConstruct = isApplyTrap
                 ? foreignCallableApply
                 : foreignCallableConstruct;
@@ -1117,8 +1117,8 @@ export function createMembraneMarshall(
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
             const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(3)`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
-                ? arityToApplyTrapNameRegistry
-                : arityToConstructTrapNameRegistry;
+                ? applyTrapNameRegistry
+                : constructTrapNameRegistry;
             const foreignCallableApplyOrConstruct = isApplyTrap
                 ? foreignCallableApply
                 : foreignCallableConstruct;
@@ -1214,8 +1214,8 @@ export function createMembraneMarshall(
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
             const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(4)`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
-                ? arityToApplyTrapNameRegistry
-                : arityToConstructTrapNameRegistry;
+                ? applyTrapNameRegistry
+                : constructTrapNameRegistry;
             const foreignCallableApplyOrConstruct = isApplyTrap
                 ? foreignCallableApply
                 : foreignCallableConstruct;
@@ -1320,8 +1320,8 @@ export function createMembraneMarshall(
             const isApplyTrap = proxyTrapEnum & ProxyHandlerTraps.Apply;
             const activityName = `Reflect.${isApplyTrap ? 'apply' : 'construct'}(5)`;
             const arityToApplyOrConstructTrapNameRegistry = isApplyTrap
-                ? arityToApplyTrapNameRegistry
-                : arityToConstructTrapNameRegistry;
+                ? applyTrapNameRegistry
+                : constructTrapNameRegistry;
             const foreignCallableApplyOrConstruct = isApplyTrap
                 ? foreignCallableApply
                 : foreignCallableConstruct;
@@ -1581,7 +1581,7 @@ export function createMembraneMarshall(
 
         const getLazyPropertyDescriptorStateByTarget = IS_IN_SHADOW_REALM
             ? (target: ProxyTarget): object | undefined => {
-                  let state: any = localProxyTargetToLazyPropertyDescriptorStateMap.get(target);
+                  let state: any = lazyPropertyDescriptorStateCache.get(target);
                   if (state === undefined) {
                       const statePointerOrUndefined =
                           foreignCallableGetLazyPropertyDescriptorStateByTarget(
@@ -1592,7 +1592,7 @@ export function createMembraneMarshall(
                           state = selectedTarget;
                           selectedTarget = undefined;
                           if (state) {
-                              localProxyTargetToLazyPropertyDescriptorStateMap.set(target, state);
+                              lazyPropertyDescriptorStateCache.set(target, state);
                           }
                       }
                   }
@@ -1674,7 +1674,7 @@ export function createMembraneMarshall(
             originalTarget: ProxyTarget,
             foreignCallablePusher = foreignCallablePushTarget
         ): Pointer {
-            let proxyPointer = proxyTargetToPointerMap.get(originalTarget);
+            let proxyPointer = proxyPointerCache.get(originalTarget);
             if (proxyPointer) {
                 return proxyPointer;
             }
@@ -1766,13 +1766,13 @@ export function createMembraneMarshall(
             // The WeakMap is populated with the original target rather then the
             // distorted one while the pointer always uses the distorted one.
             // TODO: This mechanism poses another issue, which is that the return
-            // value of selectedTarget! can never be used to call across the
+            // value of selectedTarget can never be used to call across the
             // membrane because that will cause a wrapping around the potential
             // distorted value instead of the original value. This is not fatal,
             // but implies that for every distorted value where are two proxies
             // that are not ===, which is weird. Guaranteeing this is not easy
             // because it means auditing the code.
-            proxyTargetToPointerMap.set(originalTarget, proxyPointer);
+            proxyPointerCache.set(originalTarget, proxyPointer);
             return proxyPointer;
         }
 
@@ -1988,7 +1988,7 @@ export function createMembraneMarshall(
                               const state = getLazyPropertyDescriptorStateByTarget(target);
                               const isFixingChromeBug =
                                   target === globalThisRef && shouldFixChromeBug;
-                              const unsafeDescMap: PropertyDescriptorMap = isFixingChromeBug
+                              const unsafeDescs: PropertyDescriptorMap = isFixingChromeBug
                                   ? // Create an empty property descriptor map
                                     // to populate with curated descriptors.
                                     {}
@@ -1998,10 +1998,10 @@ export function createMembraneMarshall(
                               if (!isFixingChromeBug && state === undefined) {
                                   // Exit early if the target is not a global
                                   // object and there are no lazy descriptors.
-                                  return unsafeDescMap;
+                                  return unsafeDescs;
                               }
                               const ownKeys = ReflectOwnKeys(
-                                  isFixingChromeBug ? target : unsafeDescMap
+                                  isFixingChromeBug ? target : unsafeDescs
                               );
                               for (let i = 0, { length } = ownKeys; i < length; i += 1) {
                                   const ownKey = ownKeys[i];
@@ -2018,13 +2018,13 @@ export function createMembraneMarshall(
                                           : ReflectGetOwnPropertyDescriptor(target, ownKey);
                                       // Update the descriptor map entry.
                                       if (unsafeDesc) {
-                                          unsafeDescMap[ownKey] = unsafeDesc;
+                                          unsafeDescs[ownKey] = unsafeDesc;
                                       } else if (!isFixingChromeBug) {
-                                          ReflectDeleteProperty(unsafeDescMap, ownKey);
+                                          ReflectDeleteProperty(unsafeDescs, ownKey);
                                       }
                                   }
                               }
-                              return unsafeDescMap;
+                              return unsafeDescs;
                           },
                       }) as typeof Object.getOwnPropertyDescriptors;
                   try {
@@ -2196,7 +2196,7 @@ export function createMembraneMarshall(
                     safeDesc.foreign =
                         ((typeof possibleProxy === 'object' && possibleProxy !== null) ||
                             typeof possibleProxy === 'function') &&
-                        proxyTargetToPointerMap.get(possibleProxy) !== undefined;
+                        proxyPointerCache.get(possibleProxy) !== undefined;
                 }
             }
             if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
@@ -2332,13 +2332,13 @@ export function createMembraneMarshall(
                 foreignTargetFunctionName,
                 foreignTargetTypedArrayLength
             );
-            proxyTargetToPointerMap.set(proxy, foreignTargetPointer);
+            proxyPointerCache.set(proxy, foreignTargetPointer);
             return createPointer(proxy);
         }
 
         const setLazyPropertyDescriptorStateByTarget = IS_IN_SHADOW_REALM
             ? (target: ProxyTarget, state: object) => {
-                  localProxyTargetToLazyPropertyDescriptorStateMap.set(target, state);
+                  lazyPropertyDescriptorStateCache.set(target, state);
                   foreignCallableSetLazyPropertyDescriptorStateByTarget(
                       getTransferablePointer(target),
                       getTransferablePointer(state)
@@ -2510,12 +2510,11 @@ export function createMembraneMarshall(
                 // Define traps.
                 if (isForeignTargetFunction) {
                     this.apply = (this as any)[
-                        arityToApplyTrapNameRegistry[foreignTargetFunctionArity] ??
-                            arityToApplyTrapNameRegistry.n
+                        applyTrapNameRegistry[foreignTargetFunctionArity] ?? applyTrapNameRegistry.n
                     ];
                     this.construct = (this as any)[
-                        arityToConstructTrapNameRegistry[foreignTargetFunctionArity] ??
-                            arityToConstructTrapNameRegistry.n
+                        constructTrapNameRegistry[foreignTargetFunctionArity] ??
+                            constructTrapNameRegistry.n
                     ];
                 }
                 this.defineProperty = BoundaryProxyHandler.defaultDefinePropertyTrap;
@@ -3796,7 +3795,7 @@ export function createMembraneMarshall(
                     (typeof target === 'object' && target !== null) ||
                     typeof target === 'function'
                 ) {
-                    proxyTargetToPointerMap.set(target, newPointer);
+                    proxyPointerCache.set(target, newPointer);
                 }
             },
             // callablePushErrorTarget
@@ -4524,20 +4523,20 @@ export function createMembraneMarshall(
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
-                let unsafeDescMap;
+                let unsafeDescs;
                 try {
-                    unsafeDescMap = ObjectGetOwnPropertyDescriptors(target);
+                    unsafeDescs = ObjectGetOwnPropertyDescriptors(target);
                 } catch (error: any) {
                     throw pushErrorAcrossBoundary(error);
                 }
-                const ownKeys = ReflectOwnKeys(unsafeDescMap);
+                const ownKeys = ReflectOwnKeys(unsafeDescs);
                 const { length } = ownKeys;
                 const descriptorTuples = new ArrayCtor(
                     length * 7
                 ) as Parameters<CallableDescriptorCallback>;
                 for (let i = 0, j = 0; i < length; i += 1, j += 7) {
                     const ownKey = ownKeys[i];
-                    const safeDesc = (unsafeDescMap as any)[ownKey];
+                    const safeDesc = (unsafeDescs as any)[ownKey];
                     ReflectSetPrototypeOf(safeDesc, null);
                     const { get: getter, set: setter, value } = safeDesc;
                     descriptorTuples[j] = ownKey;
@@ -4795,49 +4794,49 @@ export function createMembraneMarshall(
                     constructTrapForAnyNumberOfArgs,
                 });
             }
-            arityToApplyTrapNameRegistry[0] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[0];
-            arityToApplyTrapNameRegistry[1] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[1];
-            arityToApplyTrapNameRegistry[2] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[2];
-            arityToApplyTrapNameRegistry[3] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[3];
-            arityToApplyTrapNameRegistry[4] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[4];
-            arityToApplyTrapNameRegistry[5] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[5];
-            arityToApplyTrapNameRegistry.n = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[6];
-            arityToConstructTrapNameRegistry[0] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[7];
-            arityToConstructTrapNameRegistry[1] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[8];
-            arityToConstructTrapNameRegistry[2] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[9];
-            arityToConstructTrapNameRegistry[3] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[10];
-            arityToConstructTrapNameRegistry[4] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[11];
-            arityToConstructTrapNameRegistry[5] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[12];
-            arityToConstructTrapNameRegistry.n = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[13];
+            applyTrapNameRegistry[0] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[0];
+            applyTrapNameRegistry[1] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[1];
+            applyTrapNameRegistry[2] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[2];
+            applyTrapNameRegistry[3] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[3];
+            applyTrapNameRegistry[4] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[4];
+            applyTrapNameRegistry[5] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[5];
+            applyTrapNameRegistry.n = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[6];
+            constructTrapNameRegistry[0] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[7];
+            constructTrapNameRegistry[1] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[8];
+            constructTrapNameRegistry[2] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[9];
+            constructTrapNameRegistry[3] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[10];
+            constructTrapNameRegistry[4] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[11];
+            constructTrapNameRegistry[5] = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[12];
+            constructTrapNameRegistry.n = MINIFICATION_SAFE_TRAP_PROPERTY_NAMES[13];
 
             const { prototype: BoundaryProxyHandlerProto } = BoundaryProxyHandler;
-            (BoundaryProxyHandlerProto as any)[arityToApplyTrapNameRegistry[0]] =
+            (BoundaryProxyHandlerProto as any)[applyTrapNameRegistry[0]] =
                 applyTrapForZeroOrMoreArgs;
-            (BoundaryProxyHandlerProto as any)[arityToApplyTrapNameRegistry[1]] =
+            (BoundaryProxyHandlerProto as any)[applyTrapNameRegistry[1]] =
                 applyTrapForOneOrMoreArgs;
-            (BoundaryProxyHandlerProto as any)[arityToApplyTrapNameRegistry[2]] =
+            (BoundaryProxyHandlerProto as any)[applyTrapNameRegistry[2]] =
                 applyTrapForTwoOrMoreArgs;
-            (BoundaryProxyHandlerProto as any)[arityToApplyTrapNameRegistry[3]] =
+            (BoundaryProxyHandlerProto as any)[applyTrapNameRegistry[3]] =
                 applyTrapForThreeOrMoreArgs;
-            (BoundaryProxyHandlerProto as any)[arityToApplyTrapNameRegistry[4]] =
+            (BoundaryProxyHandlerProto as any)[applyTrapNameRegistry[4]] =
                 applyTrapForFourOrMoreArgs;
-            (BoundaryProxyHandlerProto as any)[arityToApplyTrapNameRegistry[5]] =
+            (BoundaryProxyHandlerProto as any)[applyTrapNameRegistry[5]] =
                 applyTrapForFiveOrMoreArgs;
-            (BoundaryProxyHandlerProto as any)[arityToApplyTrapNameRegistry.n] =
+            (BoundaryProxyHandlerProto as any)[applyTrapNameRegistry.n] =
                 applyTrapForAnyNumberOfArgs;
-            (BoundaryProxyHandlerProto as any)[arityToConstructTrapNameRegistry[0]] =
+            (BoundaryProxyHandlerProto as any)[constructTrapNameRegistry[0]] =
                 constructTrapForZeroOrMoreArgs;
-            (BoundaryProxyHandlerProto as any)[arityToConstructTrapNameRegistry[1]] =
+            (BoundaryProxyHandlerProto as any)[constructTrapNameRegistry[1]] =
                 constructTrapForOneOrMoreArgs;
-            (BoundaryProxyHandlerProto as any)[arityToConstructTrapNameRegistry[2]] =
+            (BoundaryProxyHandlerProto as any)[constructTrapNameRegistry[2]] =
                 constructTrapForTwoOrMoreArgs;
-            (BoundaryProxyHandlerProto as any)[arityToConstructTrapNameRegistry[3]] =
+            (BoundaryProxyHandlerProto as any)[constructTrapNameRegistry[3]] =
                 constructTrapForThreeOrMoreArgs;
-            (BoundaryProxyHandlerProto as any)[arityToConstructTrapNameRegistry[4]] =
+            (BoundaryProxyHandlerProto as any)[constructTrapNameRegistry[4]] =
                 constructTrapForFourOrMoreArgs;
-            (BoundaryProxyHandlerProto as any)[arityToConstructTrapNameRegistry[5]] =
+            (BoundaryProxyHandlerProto as any)[constructTrapNameRegistry[5]] =
                 constructTrapForFiveOrMoreArgs;
-            (BoundaryProxyHandlerProto as any)[arityToConstructTrapNameRegistry.n] =
+            (BoundaryProxyHandlerProto as any)[constructTrapNameRegistry.n] =
                 constructTrapForAnyNumberOfArgs;
             if (DEV_MODE) {
                 // @ts-ignore: Prevent read-only property error.

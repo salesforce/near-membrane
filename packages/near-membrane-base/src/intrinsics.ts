@@ -122,7 +122,7 @@ const ESGlobalsAndReflectiveIntrinsicObjectNames = toSafeArray([
 
 export function assignFilteredGlobalDescriptorsFromPropertyDescriptorMap<
     T extends PropertyDescriptorMap
->(descMap: T, source: PropertyDescriptorMap): T {
+>(descs: T, source: PropertyDescriptorMap): T {
     const ownKeys = ReflectOwnKeys(source);
     for (let i = 0, { length } = ownKeys; i < length; i += 1) {
         const ownKey = ownKeys[i];
@@ -136,11 +136,11 @@ export function assignFilteredGlobalDescriptorsFromPropertyDescriptorMap<
                 // unsafeDesc. We don't use a toSafeDescriptor() style helper
                 // since that mutates the unsafeBlueDesc.
                 // eslint-disable-next-line prefer-object-spread
-                (descMap as any)[ownKey] = ObjectAssign({ __proto__: null }, unsafeDesc);
+                (descs as any)[ownKey] = ObjectAssign({ __proto__: null }, unsafeDesc);
             }
         }
     }
-    return descMap;
+    return descs;
 }
 
 export function getFilteredGlobalOwnKeys(source: object): PropertyKey[] {
