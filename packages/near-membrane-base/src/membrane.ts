@@ -671,6 +671,7 @@ export function createMembraneMarshall(
             distortionCallback,
             instrumentation,
             liveTargetCallback,
+            revokedProxyCallback,
             // eslint-disable-next-line prefer-object-spread
         } = ObjectAssign({ __proto__: null }, options);
 
@@ -1678,7 +1679,22 @@ export function createMembraneMarshall(
             if (proxyPointer) {
                 return proxyPointer;
             }
+            let targetFunctionArity = 0;
+            let targetFunctionName = '';
+            let targetTypedArrayLength = 0;
+            if (revokedProxyCallback && revokedProxyCallback(originalTarget)) {
+                proxyPointer = foreignCallablePusher(
+                    createPointer(originalTarget),
+                    TargetTraits.Revoked,
+                    targetFunctionArity,
+                    targetFunctionName,
+                    targetTypedArrayLength
+                );
+                proxyPointerCache.set(originalTarget, proxyPointer);
+                return proxyPointer;
+            }
             let distortionTarget: ProxyTarget;
+            let targetTraits = TargetTraits.IsObject;
             if (distortionCallback) {
                 distortionTarget = distortionCallback(originalTarget);
                 // If a distortion entry is found, it must be a valid proxy target.
@@ -1694,10 +1710,6 @@ export function createMembraneMarshall(
                 distortionTarget = originalTarget;
             }
             let isPossiblyRevoked = true;
-            let targetFunctionArity = 0;
-            let targetFunctionName = '';
-            let targetTypedArrayLength = 0;
-            let targetTraits = TargetTraits.IsObject;
             if (typeof distortionTarget === 'function') {
                 isPossiblyRevoked = false;
                 targetFunctionArity = 0;

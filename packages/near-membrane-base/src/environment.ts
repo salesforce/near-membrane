@@ -61,10 +61,11 @@ export class VirtualEnvironment {
         // prettier-ignore
         const {
             blueConnector,
+            redConnector,
             distortionCallback,
             instrumentation,
             liveTargetCallback,
-            redConnector,
+            revokedProxyCallback,
             // eslint-disable-next-line prefer-object-spread
         } = ObjectAssign({ __proto__: null }, options);
         let blueHooks: Parameters<HooksCallback>;
@@ -77,6 +78,7 @@ export class VirtualEnvironment {
                 distortionCallback,
                 instrumentation,
                 liveTargetCallback,
+                revokedProxyCallback,
             }
         );
         const {

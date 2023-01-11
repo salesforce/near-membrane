@@ -10,8 +10,10 @@ import {
     ObjectAssign,
     ReflectApply,
     toSafeWeakMap,
+    toSafeWeakSet,
     TypeErrorCtor,
     WeakMapCtor,
+    WeakSetCtor,
 } from '@locker/near-membrane-shared';
 import {
     DocumentProtoBodyGetter,
@@ -27,6 +29,7 @@ import {
     NodeProtoLastChildGetter,
 } from '@locker/near-membrane-shared-dom';
 import type { Connector } from '@locker/near-membrane-base/types';
+import type { ProxyTarget } from '@locker/near-membrane-shared/types';
 import type { GlobalObject } from '@locker/near-membrane-shared-dom/types';
 import type { BrowserEnvironmentOptions } from './types';
 import {
@@ -38,6 +41,7 @@ import {
 
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 
+const aliveIframes = toSafeWeakSet(new WeakSetCtor<HTMLIFrameElement>());
 const blueCreateHooksCallbackCache = toSafeWeakMap(new WeakMapCtor<Document, Connector>());
 
 let defaultGlobalOwnKeys: PropertyKey[] | null = null;
@@ -97,10 +101,11 @@ function createIframeVirtualEnvironment(
     const { eval: redIndirectEval } = redWindow;
     const env = new VirtualEnvironment({
         blueConnector,
+        redConnector: createRedConnector(redIndirectEval),
         distortionCallback,
         instrumentation,
         liveTargetCallback,
-        redConnector: createRedConnector(redIndirectEval),
+        revokedProxyCallback: keepAlive ? revokedProxyCallback : undefined,
     });
     linkIntrinsics(env, globalObject);
     // window
@@ -145,6 +150,7 @@ function createIframeVirtualEnvironment(
     // Once we get the iframe info ready, and all mapped, we can proceed to
     // detach the iframe only if `options.keepAlive` isn't true.
     if (keepAlive) {
+        aliveIframes.add(iframe);
         // TODO: Temporary hack to preserve the document reference in Firefox.
         // https://bugzilla.mozilla.org/show_bug.cgi?id=543435
         const { document: redDocument } = redWindow;
@@ -160,6 +166,10 @@ function createIframeVirtualEnvironment(
         ReflectApply(ElementProtoRemove, iframe, []);
     }
     return env;
+}
+
+function revokedProxyCallback(value: ProxyTarget): boolean {
+    return aliveIframes.has(value as any);
 }
 
 export default createIframeVirtualEnvironment;
