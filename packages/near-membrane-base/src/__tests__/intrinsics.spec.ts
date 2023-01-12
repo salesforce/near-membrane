@@ -135,12 +135,12 @@ describe('assignFilteredGlobalDescriptorsFromPropertyDescriptorMap', () => {
             accum[key] = globalThis[key];
             return accum;
         }, {});
-        const descMap = assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
+        const descs = assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
             {},
             Object.getOwnPropertyDescriptors(shape)
         );
         for (const key of ESGlobalKeys) {
-            expect(key in descMap).toBe(false);
+            expect(key in descs).toBe(false);
         }
     });
     it('ignores Reflective ES intrinsics', () => {
@@ -152,12 +152,12 @@ describe('assignFilteredGlobalDescriptorsFromPropertyDescriptorMap', () => {
             accum[key] = globalThis[key];
             return accum;
         }, {});
-        const descMap = assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
+        const descs = assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
             {},
             Object.getOwnPropertyDescriptors(shape)
         );
         for (const key of ReflectiveIntrinsicObjectNames) {
-            expect(key in descMap).toBe(false);
+            expect(key in descs).toBe(false);
         }
     });
     it('includes Remapped ES intrinsics', () => {
@@ -169,12 +169,12 @@ describe('assignFilteredGlobalDescriptorsFromPropertyDescriptorMap', () => {
             accum[key] = globalThis[key];
             return accum;
         }, {});
-        const descMap = assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
+        const descs = assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
             {},
             Object.getOwnPropertyDescriptors(shape)
         );
         for (const key of RemappedIntrinsicObjectNames) {
-            expect(descMap[key]).toBeDefined();
+            expect(descs[key]).toBeDefined();
         }
     });
     it('should create a descriptor for non-ES built-ins', () => {
@@ -182,7 +182,7 @@ describe('assignFilteredGlobalDescriptorsFromPropertyDescriptorMap', () => {
         // @ts-ignore
         expect.assertions(1);
 
-        const descMap = assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
+        const descs = assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
             {},
             Object.getOwnPropertyDescriptors({
                 Foo: 1,
@@ -191,7 +191,7 @@ describe('assignFilteredGlobalDescriptorsFromPropertyDescriptorMap', () => {
         // Ignoring
         //  "Property 'toMatchObject' does not exist on type 'Matchers<PropertyDescriptor>'."
         // @ts-ignore
-        expect(descMap.Foo).toMatchObject({
+        expect(descs.Foo).toMatchObject({
             configurable: true,
             enumerable: true,
             value: 1,

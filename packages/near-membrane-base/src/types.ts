@@ -179,6 +179,7 @@ export interface HooksOptions {
     distortionCallback?: DistortionCallback;
     instrumentation?: Instrumentation;
     liveTargetCallback?: LiveTargetCallback;
+    revokedProxyCallback?: RevokedProxyCallback;
 }
 export interface Instrumentation {
     startActivity(activityName: string, data?: DataType): Activity;
@@ -189,6 +190,7 @@ export type LiveTargetCallback = (target: ProxyTarget, targetTraits: number) => 
 export type Pointer = CallableFunction;
 export type PointerOrPrimitive = Pointer | Primitive;
 export type Primitive = bigint | boolean | null | number | string | symbol | undefined;
+export type RevokedProxyCallback = (target: ProxyTarget) => boolean;
 export type { SerializedValue };
 export type ShadowTarget = ProxyTarget;
 export interface VirtualEnvironmentOptions {
@@ -197,4 +199,5 @@ export interface VirtualEnvironmentOptions {
     distortionCallback?: DistortionCallback;
     instrumentation?: Instrumentation;
     liveTargetCallback?: LiveTargetCallback;
+    revokedProxyCallback?: RevokedProxyCallback;
 }

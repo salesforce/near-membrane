@@ -16,9 +16,7 @@ import type { Connector } from '@locker/near-membrane-base/types';
 import { runInNewContext } from 'node:vm';
 import type { NodeEnvironmentOptions } from './types';
 
-const globalObjectToBlueCreateHooksCallbackMap = toSafeWeakMap(
-    new WeakMapCtor<typeof globalThis, Connector>()
-);
+const blueCreateHooksCallbackCache = toSafeWeakMap(new WeakMapCtor<typeof globalThis, Connector>());
 
 let defaultGlobalOwnKeys: PropertyKey[] | null = null;
 
@@ -36,12 +34,10 @@ export default function createVirtualEnvironment(
         instrumentation,
         liveTargetCallback,
     } = ObjectAssign({ __proto__: null }, options) as NodeEnvironmentOptions;
-    let blueConnector = globalObjectToBlueCreateHooksCallbackMap.get(globalObject) as
-        | Connector
-        | undefined;
+    let blueConnector = blueCreateHooksCallbackCache.get(globalObject) as Connector | undefined;
     if (blueConnector === undefined) {
         blueConnector = createBlueConnector(globalObject);
-        globalObjectToBlueCreateHooksCallbackMap.set(globalObject, blueConnector);
+        blueCreateHooksCallbackCache.set(globalObject, blueConnector);
     }
     const redGlobalObject = runInNewContext('globalThis');
     const env = new VirtualEnvironment({
