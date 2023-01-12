@@ -1,7 +1,17 @@
 import { SymbolFor } from './Symbol';
 
+// Character constants.
+export const CHAR_ELLIPSIS = '\u2026';
+
 // Locker build constants.
 export const LOCKER_IDENTIFIER_MARKER = '$LWS';
+
+// Near-membrane constants.
+export const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = SymbolFor(
+    '@@lockerNearMembraneSerializedValue'
+);
+export const LOCKER_NEAR_MEMBRANE_SYMBOL = SymbolFor('@@lockerNearMembrane');
+
 // This package is bundled by third-parties that have their own build time
 // replacement logic. Instead of customizing each build system to be aware
 // of this package we implement a two phase debug mode by performing small
@@ -15,14 +25,8 @@ export const LOCKER_UNMINIFIED_FLAG =
         return LOCKER_UNMINIFIED_FLAG.name;
     })()}`.includes('LOCKER_UNMINIFIED_FLAG');
 
-// Character constants.
-export const CHAR_ELLIPSIS = '\u2026';
-
-// Near-membrane constants.
-export const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = SymbolFor(
-    '@@lockerNearMembraneSerializedValue'
-);
-export const LOCKER_NEAR_MEMBRANE_SYMBOL = SymbolFor('@@lockerNearMembrane');
+// @ts-ignore: Prevent cannot find name 'ShadowRealm' error.
+export const SUPPORTS_SHADOW_REALM = typeof ShadowRealm === 'function';
 
 // Object brand constants.
 export const TO_STRING_BRAND_ARRAY = '[object Array]';

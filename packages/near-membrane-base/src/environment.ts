@@ -48,9 +48,9 @@ export class VirtualEnvironment {
 
     private readonly blueGetSelectedTarget: GetSelectedTarget;
 
-    private readonly blueGetTransferableValue: GetTransferableValue;
+    private blueGetTransferableValue: GetTransferableValue;
 
-    private readonly blueGlobalThisPointer: Pointer;
+    private blueGlobalThisPointer: Pointer;
 
     private readonly redCallableDefineProperties: CallableDefineProperties;
 
@@ -66,7 +66,7 @@ export class VirtualEnvironment {
 
     private readonly redCallableLinkPointers: CallableLinkPointers;
 
-    private readonly redCallableSetPrototypeOf: CallableSetPrototypeOf;
+    private redCallableSetPrototypeOf: CallableSetPrototypeOf;
 
     private readonly redCallableTrackAsFastTarget: CallableTrackAsFastTarget;
 
