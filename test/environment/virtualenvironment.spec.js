@@ -217,16 +217,14 @@ describe('VirtualEnvironment', () => {
 
             const a = {};
             const b = {};
-
             const calledWith = [];
-
-            ve.blueGetTransferableValue = (value) => {
-                calledWith.push(value);
-                return value;
+            ve.blueGetTransferableValue = (target) => {
+                calledWith.push(target);
+                return target;
             };
-            ve.redCallableSetPrototypeOf = (a, b) => {
-                expect(a).toBe(calledWith[0]);
-                expect(b).toBe(calledWith[1]);
+            ve.redCallableSetPrototypeOf = (targetPointer, protoPointerOrNull) => {
+                expect(targetPointer).toBe(calledWith[0]);
+                expect(protoPointerOrNull).toBe(calledWith[1]);
             };
 
             ve.remapProto(a, b);

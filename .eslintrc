@@ -28,7 +28,7 @@
     "no-eval": "off",
     "camelcase": ["error", { "properties": "never", "allow": [ "W[0-9]+_"] }],
     "import/extensions": "off",
-    // TODOs - Temporarily disable rules, fix this progressively
+    // @TODO: Fix the following rules progressively.
     "arrow-body-style": "warn",
     "prefer-arrow-callback": "warn",
     "prefer-object-spread": "off",
@@ -53,10 +53,9 @@
     "no-prototype-builtins": "off",
     "no-continue": "off",
     "no-shadow": "off",
-    // Rules up for discussion
+    // Rules up for discussion.
     "no-multi-assign": "off",
     "new-cap": "off"
-    // TODOs - end
   },
   "overrides": [
     {
@@ -71,30 +70,29 @@
       "plugins": ["@typescript-eslint"],
       "rules": {
         "@typescript-eslint/no-unused-vars": [
-          "warn", // @TODO: change this to "error"
+          "warn",
           {
             "vars": "all",
             "args": "after-used",
             "ignoreRestSiblings": true,
-            "argsIgnorePattern": "^_" // tsc compatibility
+            "argsIgnorePattern": "^_" // For tsc compatibility.
           }
         ],
         "comma-dangle": "off",
-        "implicit-arrow-linebreak": "off", // conflicts with prettier
+        "implicit-arrow-linebreak": "off", // Conflicts with prettier.
         "import/extensions": "off",
         "import/prefer-default-export": "off",
         "operator-linebreak": "off",
         "object-curly-newline": "off",
-        "prefer-rest-params": "off", // we need to use params
+        "prefer-rest-params": "off", // We need to use params.
         "prettier/prettier": "error",
-        // @TODO - fix files to enable rules below this line
         "@typescript-eslint/no-shadow": "warn",
-        "@typescript-eslint/no-use-before-define": "warn",
+        "@typescript-eslint/no-use-before-define": ["warn", { "functions": false }],
         "import/no-cycle": "warn",
         "no-bitwise": "off",
         "no-unsafe-finally": "warn",
         "no-param-reassign": "off",
-        "no-shadow": "warn",
+        "no-shadow": "warn"
       }
     }
   ]
