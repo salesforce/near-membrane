@@ -151,7 +151,7 @@ function createIframeVirtualEnvironment(
     // detach the iframe only if `options.keepAlive` isn't true.
     if (keepAlive) {
         aliveIframes.add(iframe);
-        // TODO: Temporary hack to preserve the document reference in Firefox.
+        // @TODO: Temporary hack to preserve the document reference in Firefox.
         // https://bugzilla.mozilla.org/show_bug.cgi?id=543435
         const { document: redDocument } = redWindow;
         ReflectApply(DocumentProtoOpen, redDocument, []);

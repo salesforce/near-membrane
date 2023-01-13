@@ -1775,15 +1775,6 @@ export function createMembraneMarshall(
                 targetFunctionName,
                 targetTypedArrayLength
             );
-            // The WeakMap is populated with the original target rather then the
-            // distorted one while the pointer always uses the distorted one.
-            // TODO: This mechanism poses another issue, which is that the return
-            // value of selectedTarget can never be used to call across the
-            // membrane because that will cause a wrapping around the potential
-            // distorted value instead of the original value. This is not fatal,
-            // but implies that for every distorted value where are two proxies
-            // that are not ===, which is weird. Guaranteeing this is not easy
-            // because it means auditing the code.
             proxyPointerCache.set(originalTarget, proxyPointer);
             return proxyPointer;
         }
@@ -1846,6 +1837,7 @@ export function createMembraneMarshall(
                                           target,
                                           [key]
                                       ),
+                                      // eslint-disable-next-line @typescript-eslint/no-use-before-define
                                       get: getUnforgeableGlobalThisGetter!(key),
                                       set: undefined,
                                   }
@@ -1861,6 +1853,7 @@ export function createMembraneMarshall(
                                 // to obscure the getter source as "[native code]".
                                 globalThisGetter = ReflectApply(
                                     FunctionProtoBind,
+                                    // eslint-disable-next-line @typescript-eslint/no-use-before-define
                                     unboundGlobalThisGetter,
                                     []
                                 ) as GlobalThisGetter;
@@ -2337,6 +2330,7 @@ export function createMembraneMarshall(
             foreignTargetFunctionName: string,
             foreignTargetTypedArrayLength: number
         ): Pointer {
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
             const { proxy } = new BoundaryProxyHandler(
                 foreignTargetPointer,
                 foreignTargetTraits,
