@@ -13,4 +13,5 @@ export interface BrowserEnvironmentOptions {
     keepAlive?: boolean;
     liveTargetCallback?: LiveTargetCallback;
     signSourceCallback?: SignSourceCallback;
+    useShadowRealm?: boolean;
 }
