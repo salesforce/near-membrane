@@ -48,9 +48,9 @@ export class VirtualEnvironment {
 
     private readonly blueGetSelectedTarget: GetSelectedTarget;
 
-    private blueGetTransferableValue: GetTransferableValue;
+    private readonly blueGetTransferableValue: GetTransferableValue;
 
-    private blueGlobalThisPointer: Pointer;
+    private readonly blueGlobalThisPointer: Pointer;
 
     private readonly redCallableDefineProperties: CallableDefineProperties;
 
@@ -66,8 +66,15 @@ export class VirtualEnvironment {
 
     private readonly redCallableLinkPointers: CallableLinkPointers;
 
-    private redCallableSetPrototypeOf: CallableSetPrototypeOf;
+    private readonly redCallableSetPrototypeOf: CallableSetPrototypeOf;
 
+<<<<<<< HEAD
+=======
+    private readonly redCallableDefineProperties: CallableDefineProperties;
+
+    private readonly redCallableInstallLazyPropertyDescriptors: CallableInstallLazyPropertyDescriptors;
+
+>>>>>>> 3cede24 (test: add minimum test for ShadowRealm virtual environment, with instructions)
     private readonly redCallableTrackAsFastTarget: CallableTrackAsFastTarget;
 
     private readonly redGlobalThisPointer: Pointer;
