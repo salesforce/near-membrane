@@ -71,6 +71,8 @@ function createIframeVirtualEnvironment(
     if (typeof blueRefs !== 'object' || blueRefs === null) {
         throw new TypeErrorCtor('Invalid virtualization target.');
     }
+
+    options = ObjectAssign({ __proto__: null }, options) as BrowserEnvironmentOptions;
     const {
         distortionCallback,
         endowments,
@@ -79,7 +81,13 @@ function createIframeVirtualEnvironment(
         keepAlive = false,
         liveTargetCallback,
         // eslint-disable-next-line prefer-object-spread
-    } = ObjectAssign({ __proto__: null }, options);
+    } = options;
+
+    const trustedCreateScript =
+        typeof options.trustedCreateScript === 'function'
+            ? options.trustedCreateScript
+            : (v: string) => v;
+
     const iframe = createDetachableIframe(blueRefs.document);
     const redWindow: GlobalObject = ReflectApply(
         HTMLIFrameElementProtoContentWindowGetter,
@@ -99,9 +107,10 @@ function createIframeVirtualEnvironment(
         blueCreateHooksCallbackCache.set(blueRefs.document, blueConnector);
     }
     const { eval: redIndirectEval } = redWindow;
+    const signedConnectorEval = (v: string) => redIndirectEval(trustedCreateScript(v));
     const env = new VirtualEnvironment({
         blueConnector,
-        redConnector: createRedConnector(redIndirectEval),
+        redConnector: createRedConnector(signedConnectorEval),
         distortionCallback,
         instrumentation,
         liveTargetCallback,
