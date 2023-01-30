@@ -84,8 +84,8 @@ function createIframeVirtualEnvironment(
         // eslint-disable-next-line prefer-object-spread
     } = options;
 
-    const trustedCreateScript =
-        typeof options.trustedCreateScript === 'function' ? options.trustedCreateScript : identity;
+    const sourceTextCallback =
+        typeof options.sourceTextCallback === 'function' ? options.sourceTextCallback : identity;
 
     const iframe = createDetachableIframe(blueRefs.document);
     const redWindow: GlobalObject = ReflectApply(
@@ -106,10 +106,10 @@ function createIframeVirtualEnvironment(
         blueCreateHooksCallbackCache.set(blueRefs.document, blueConnector);
     }
     const { eval: redIndirectEval } = redWindow;
-    const sourceTextCallback = (v: string) => redIndirectEval(trustedCreateScript(v));
+    const redEvalWithTransformations = (v: string) => redIndirectEval(sourceTextCallback(v));
     const env = new VirtualEnvironment({
         blueConnector,
-        redConnector: createRedConnector(sourceTextCallback),
+        redConnector: createRedConnector(redEvalWithTransformations),
         distortionCallback,
         instrumentation,
         liveTargetCallback,
