@@ -7,6 +7,7 @@ import {
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
 import {
+    identity,
     ObjectAssign,
     ReflectApply,
     toSafeWeakMap,
@@ -84,9 +85,7 @@ function createIframeVirtualEnvironment(
     } = options;
 
     const trustedCreateScript =
-        typeof options.trustedCreateScript === 'function'
-            ? options.trustedCreateScript
-            : (v: string) => v;
+        typeof options.trustedCreateScript === 'function' ? options.trustedCreateScript : identity;
 
     const iframe = createDetachableIframe(blueRefs.document);
     const redWindow: GlobalObject = ReflectApply(
