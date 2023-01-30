@@ -22,7 +22,7 @@ let defaultGlobalOwnKeys: PropertyKey[] | null = null;
 
 export default function createVirtualEnvironment(
     globalObject: typeof globalThis,
-    options?: NodeEnvironmentOptions
+    providedOptions?: NodeEnvironmentOptions
 ): VirtualEnvironment {
     if (typeof globalObject !== 'object' || globalObject === null) {
         throw new TypeErrorCtor('Missing global object virtualization target.');
@@ -33,7 +33,7 @@ export default function createVirtualEnvironment(
         globalObjectShape,
         instrumentation,
         liveTargetCallback,
-    } = ObjectAssign({ __proto__: null }, options) as NodeEnvironmentOptions;
+    } = ObjectAssign({ __proto__: null }, providedOptions) as NodeEnvironmentOptions;
     let blueConnector = blueCreateHooksCallbackCache.get(globalObject) as Connector | undefined;
     if (blueConnector === undefined) {
         blueConnector = createBlueConnector(globalObject);

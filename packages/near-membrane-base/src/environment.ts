@@ -2,6 +2,7 @@ import {
     ArrayCtor,
     ArrayProtoPush,
     ErrorCtor,
+    identity,
     noop,
     ObjectAssign,
     ReflectApply,
@@ -66,6 +67,7 @@ export class VirtualEnvironment {
             instrumentation,
             liveTargetCallback,
             revokedProxyCallback,
+            signSourceCallback = identity,
             // eslint-disable-next-line prefer-object-spread
         } = ObjectAssign({ __proto__: null }, options);
         let blueHooks: Parameters<HooksCallback>;
@@ -241,20 +243,21 @@ export class VirtualEnvironment {
             blueCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
             blueCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
         );
-        this.blueGlobalThisPointer = blueGlobalThisPointer!;
-        this.blueGetSelectedTarget = blueGetSelectedTarget!;
-        this.blueGetTransferableValue = blueGetTransferableValue!;
-        this.blueCallableGetPropertyValuePointer = blueCallableGetPropertyValuePointer!;
-        this.blueCallableLinkPointers = blueCallableLinkPointers!;
+        this.blueGlobalThisPointer = blueGlobalThisPointer;
+        this.blueGetSelectedTarget = blueGetSelectedTarget;
+        this.blueGetTransferableValue = blueGetTransferableValue;
+        this.blueCallableGetPropertyValuePointer = blueCallableGetPropertyValuePointer;
+        this.blueCallableLinkPointers = blueCallableLinkPointers;
 
-        this.redGlobalThisPointer = redGlobalThisPointer!;
-        this.redCallableGetPropertyValuePointer = redCallableGetPropertyValuePointer!;
-        this.redCallableEvaluate = redCallableEvaluate!;
-        this.redCallableLinkPointers = redCallableLinkPointers!;
+        this.redGlobalThisPointer = redGlobalThisPointer;
+        this.redCallableGetPropertyValuePointer = redCallableGetPropertyValuePointer;
+        this.redCallableEvaluate = (sourceText: string) =>
+            redCallableEvaluate(signSourceCallback(sourceText));
+        this.redCallableLinkPointers = redCallableLinkPointers;
         this.redCallableSetPrototypeOf = redCallableSetPrototypeOf;
-        this.redCallableDefineProperties = redCallableDefineProperties!;
-        this.redCallableInstallLazyPropertyDescriptors = redCallableInstallLazyPropertyDescriptors!;
-        this.redCallableTrackAsFastTarget = redCallableTrackAsFastTarget!;
+        this.redCallableDefineProperties = redCallableDefineProperties;
+        this.redCallableInstallLazyPropertyDescriptors = redCallableInstallLazyPropertyDescriptors;
+        this.redCallableTrackAsFastTarget = redCallableTrackAsFastTarget;
     }
 
     evaluate(sourceText: string): any {

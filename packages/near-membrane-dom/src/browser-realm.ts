@@ -63,7 +63,7 @@ function createDetachableIframe(doc: Document): HTMLIFrameElement {
 
 function createIframeVirtualEnvironment(
     globalObject: WindowProxy & typeof globalThis,
-    options?: BrowserEnvironmentOptions
+    providedOptions?: BrowserEnvironmentOptions
 ): VirtualEnvironment {
     if (typeof globalObject !== 'object' || globalObject === null) {
         throw new TypeErrorCtor('Missing global object virtualization target.');
@@ -72,8 +72,6 @@ function createIframeVirtualEnvironment(
     if (typeof blueRefs !== 'object' || blueRefs === null) {
         throw new TypeErrorCtor('Invalid virtualization target.');
     }
-
-    options = ObjectAssign({ __proto__: null }, options) as BrowserEnvironmentOptions;
     const {
         distortionCallback,
         endowments,
@@ -81,12 +79,9 @@ function createIframeVirtualEnvironment(
         instrumentation,
         keepAlive = false,
         liveTargetCallback,
+        signSourceCallback = identity,
         // eslint-disable-next-line prefer-object-spread
-    } = options;
-
-    const signSourceCallback =
-        typeof options.signSourceCallback === 'function' ? options.signSourceCallback : identity;
-
+    } = ObjectAssign({ __proto__: null }, providedOptions) as BrowserEnvironmentOptions;
     const iframe = createDetachableIframe(blueRefs.document);
     const redWindow: GlobalObject = ReflectApply(
         HTMLIFrameElementProtoContentWindowGetter,
@@ -106,14 +101,16 @@ function createIframeVirtualEnvironment(
         blueCreateHooksCallbackCache.set(blueRefs.document, blueConnector);
     }
     const { eval: redIndirectEval } = redWindow;
-    const signedRedEval = (v: string) => redIndirectEval(signSourceCallback(v));
     const env = new VirtualEnvironment({
         blueConnector,
-        redConnector: createRedConnector(signedRedEval),
+        redConnector: createRedConnector((sourceText: string) =>
+            redIndirectEval(signSourceCallback(sourceText))
+        ),
         distortionCallback,
         instrumentation,
         liveTargetCallback,
         revokedProxyCallback: keepAlive ? revokedProxyCallback : undefined,
+        signSourceCallback,
     });
     linkIntrinsics(env, globalObject);
     // window

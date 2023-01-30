@@ -191,6 +191,7 @@ export type Pointer = CallableFunction;
 export type PointerOrPrimitive = Pointer | Primitive;
 export type Primitive = bigint | boolean | null | number | string | symbol | undefined;
 export type RevokedProxyCallback = (target: ProxyTarget) => boolean;
+export type SignSourceCallback = (sourceText: string) => string;
 export type { SerializedValue };
 export type ShadowTarget = ProxyTarget;
 export interface VirtualEnvironmentOptions {
@@ -200,4 +201,5 @@ export interface VirtualEnvironmentOptions {
     instrumentation?: Instrumentation;
     liveTargetCallback?: LiveTargetCallback;
     revokedProxyCallback?: RevokedProxyCallback;
+    signSourceCallback?: SignSourceCallback;
 }

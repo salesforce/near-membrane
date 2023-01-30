@@ -2,6 +2,7 @@ import type {
     DistortionCallback,
     Instrumentation,
     LiveTargetCallback,
+    SignSourceCallback,
 } from '@locker/near-membrane-base/types';
 
 export interface BrowserEnvironmentOptions {
@@ -11,5 +12,5 @@ export interface BrowserEnvironmentOptions {
     instrumentation?: Instrumentation;
     keepAlive?: boolean;
     liveTargetCallback?: LiveTargetCallback;
-    signSourceCallback?: Function;
+    signSourceCallback?: SignSourceCallback;
 }

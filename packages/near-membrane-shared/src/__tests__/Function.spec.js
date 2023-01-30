@@ -1,6 +1,14 @@
-import { noop } from '../../dist/index.mjs.js';
+import { identity, noop } from '../../dist/index.mjs.js';
 
 describe('Function', () => {
+    it('identity', () => {
+        expect(identity()).toBe(undefined);
+        expect(identity(null)).toBe(null);
+        expect(identity(true)).toBe(true);
+        expect(identity(1)).toBe(1);
+        const o = {};
+        expect(identity(o)).toBe(o);
+    });
     it('noop', () => {
         expect(noop()).toBe(undefined);
         expect(noop(null)).toBe(undefined);
