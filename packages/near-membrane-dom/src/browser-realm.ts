@@ -107,10 +107,10 @@ function createIframeVirtualEnvironment(
         blueCreateHooksCallbackCache.set(blueRefs.document, blueConnector);
     }
     const { eval: redIndirectEval } = redWindow;
-    const signedConnectorEval = (v: string) => redIndirectEval(trustedCreateScript(v));
+    const sourceTextCallback = (v: string) => redIndirectEval(trustedCreateScript(v));
     const env = new VirtualEnvironment({
         blueConnector,
-        redConnector: createRedConnector(signedConnectorEval),
+        redConnector: createRedConnector(sourceTextCallback),
         distortionCallback,
         instrumentation,
         liveTargetCallback,
