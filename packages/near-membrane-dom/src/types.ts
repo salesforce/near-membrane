@@ -11,5 +11,5 @@ export interface BrowserEnvironmentOptions {
     instrumentation?: Instrumentation;
     keepAlive?: boolean;
     liveTargetCallback?: LiveTargetCallback;
-    sourceTextCallback?: Function;
+    signSourceCallback?: Function;
 }
