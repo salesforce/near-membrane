@@ -127,12 +127,10 @@ const RemappedIntrinsicObjectNames = [
 
 describe('assignFilteredGlobalDescriptorsFromPropertyDescriptorMap', () => {
     it('ignores non-remapped ES intrinsics', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
         expect.assertions(ESGlobalKeys.length);
 
         const shape = ESGlobalKeys.reduce((accum, key) => {
-            accum[key] = globalThis[key];
+            (accum as any)[key] = (globalThis as any)[key];
             return accum;
         }, {});
         const descs = assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
@@ -144,12 +142,10 @@ describe('assignFilteredGlobalDescriptorsFromPropertyDescriptorMap', () => {
         }
     });
     it('ignores Reflective ES intrinsics', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
         expect.assertions(ReflectiveIntrinsicObjectNames.length);
 
         const shape = ReflectiveIntrinsicObjectNames.reduce((accum, key) => {
-            accum[key] = globalThis[key];
+            (accum as any)[key] = (globalThis as any)[key];
             return accum;
         }, {});
         const descs = assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
@@ -161,12 +157,10 @@ describe('assignFilteredGlobalDescriptorsFromPropertyDescriptorMap', () => {
         }
     });
     it('includes Remapped ES intrinsics', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
         expect.assertions(RemappedIntrinsicObjectNames.length);
 
         const shape = RemappedIntrinsicObjectNames.reduce((accum, key) => {
-            accum[key] = globalThis[key];
+            (accum as any)[key] = (globalThis as any)[key];
             return accum;
         }, {});
         const descs = assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
@@ -178,19 +172,12 @@ describe('assignFilteredGlobalDescriptorsFromPropertyDescriptorMap', () => {
         }
     });
     it('should create a descriptor for non-ES built-ins', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
-        expect.assertions(1);
-
         const descs = assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
             {},
             Object.getOwnPropertyDescriptors({
                 Foo: 1,
             })
         );
-        // Ignoring
-        //  "Property 'toMatchObject' does not exist on type 'Matchers<PropertyDescriptor>'."
-        // @ts-ignore
         expect(descs.Foo).toMatchObject({
             configurable: true,
             enumerable: true,
@@ -202,12 +189,10 @@ describe('assignFilteredGlobalDescriptorsFromPropertyDescriptorMap', () => {
 
 describe('getFilteredGlobalOwnKeys', () => {
     it('ignores non-remapped ES intrinsics', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
         expect.assertions(ESGlobalKeys.length);
 
         const shape = ESGlobalKeys.reduce((accum, key) => {
-            accum[key] = globalThis[key];
+            (accum as any)[key] = (globalThis as any)[key];
             return accum;
         }, {});
         const filteredOwnKeys = getFilteredGlobalOwnKeys(shape);
@@ -216,12 +201,10 @@ describe('getFilteredGlobalOwnKeys', () => {
         }
     });
     it('ignores Reflective ES intrinsics', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
         expect.assertions(ReflectiveIntrinsicObjectNames.length);
 
         const shape = ReflectiveIntrinsicObjectNames.reduce((accum, key) => {
-            accum[key] = globalThis[key];
+            (accum as any)[key] = (globalThis as any)[key];
             return accum;
         }, {});
         const filteredOwnKeys = getFilteredGlobalOwnKeys(shape);
@@ -230,22 +213,14 @@ describe('getFilteredGlobalOwnKeys', () => {
         }
     });
     it('includes Remapped ES intrinsics', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
-        expect.assertions(1);
-
         const shape = RemappedIntrinsicObjectNames.reduce((accum, key) => {
-            accum[key] = globalThis[key];
+            (accum as any)[key] = (globalThis as any)[key];
             return accum;
         }, {});
         const filteredOwnKeys = getFilteredGlobalOwnKeys(shape);
         expect(filteredOwnKeys).toEqual(RemappedIntrinsicObjectNames);
     });
     it('should include non-ES built-ins', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
-        expect.assertions(1);
-
         const filteredOwnKeys = getFilteredGlobalOwnKeys({
             Foo: 1,
         });
@@ -255,24 +230,19 @@ describe('getFilteredGlobalOwnKeys', () => {
 
 describe('linkIntrinsics()', () => {
     it('skips reflective intrinsics that do not exist on the global object virtualization target', () => {
-        // Ignoring "Property 'assertions' does not exist on type '{...}'."
-        // @ts-ignore
-        expect.assertions(1);
-
-        const ve = new VirtualEnvironment({
+        const env = new VirtualEnvironment({
             blueConnector: createBlueConnector(globalThis as any),
             redConnector: createRedConnector(globalThis.eval),
         });
-        ve.link('globalThis');
+        env.link('globalThis');
 
         let count = 0;
         // Now overwrite it so we can ensure that it does not get called.
-        ve.link = () => {
+        env.link = () => {
             count += 1;
         };
-        // Since there are no intrinsics at all, ve.link should never get called.
-        // @ts-ignore
-        linkIntrinsics(ve, {});
+        // Since there are no intrinsics at all, env.link should never get called.
+        linkIntrinsics(env, {});
 
         expect(count).toBe(0);
     });

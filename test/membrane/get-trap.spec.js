@@ -2,8 +2,8 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('get trap', () => {
     it('does retrieve values when missing a getOwnPropertyDescriptor trap', () => {
-        const ve = createVirtualEnvironment(window);
-        const get = ve.evaluate('(object, key) => object[key]');
+        const env = createVirtualEnvironment(window);
+        const get = env.evaluate('(object, key) => object[key]');
         const proxiedObject = new Proxy(
             {},
             {

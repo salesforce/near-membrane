@@ -11,7 +11,7 @@ describe('Ensure instrumentation object usage in near-membrane', () => {
         const startActivitySpy = spyOn(mockInstrumentation, 'startActivity').and.callThrough();
         const logSpy = spyOn(mockInstrumentation, 'log').and.callThrough();
         const errorSpy = spyOn(mockInstrumentation, 'error').and.callThrough();
-        const ve = createVirtualEnvironment(window, {
+        const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({
                 setter(v) {
                     redProxy = v;
@@ -19,7 +19,7 @@ describe('Ensure instrumentation object usage in near-membrane', () => {
             }),
             instrumentation: mockInstrumentation,
         });
-        ve.evaluate(`
+        env.evaluate(`
             setter({foo: 'bar', fn: function(v) {}});
         `);
         // eslint-disable-next-line no-unused-expressions

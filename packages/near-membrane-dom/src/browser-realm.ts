@@ -7,7 +7,6 @@ import {
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
 import {
-    identity,
     ObjectAssign,
     ReflectApply,
     toSafeWeakMap,
@@ -79,7 +78,7 @@ function createIframeVirtualEnvironment(
         instrumentation,
         keepAlive = false,
         liveTargetCallback,
-        signSourceCallback = identity,
+        signSourceCallback,
         // eslint-disable-next-line prefer-object-spread
     } = ObjectAssign({ __proto__: null }, providedOptions) as BrowserEnvironmentOptions;
     const iframe = createDetachableIframe(blueRefs.document);
@@ -103,8 +102,10 @@ function createIframeVirtualEnvironment(
     const { eval: redIndirectEval } = redWindow;
     const env = new VirtualEnvironment({
         blueConnector,
-        redConnector: createRedConnector((sourceText: string) =>
-            redIndirectEval(signSourceCallback(sourceText))
+        redConnector: createRedConnector(
+            signSourceCallback
+                ? (sourceText: string) => redIndirectEval(signSourceCallback(sourceText))
+                : redIndirectEval
         ),
         distortionCallback,
         instrumentation,
