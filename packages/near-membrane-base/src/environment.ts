@@ -2,7 +2,6 @@ import {
     ArrayCtor,
     ArrayProtoPush,
     ErrorCtor,
-    identity,
     noop,
     ObjectAssign,
     ReflectApply,
@@ -67,7 +66,7 @@ export class VirtualEnvironment {
             instrumentation,
             liveTargetCallback,
             revokedProxyCallback,
-            signSourceCallback = identity,
+            signSourceCallback,
             // eslint-disable-next-line prefer-object-spread
         } = ObjectAssign({ __proto__: null }, options);
         let blueHooks: Parameters<HooksCallback>;
@@ -251,8 +250,9 @@ export class VirtualEnvironment {
 
         this.redGlobalThisPointer = redGlobalThisPointer;
         this.redCallableGetPropertyValuePointer = redCallableGetPropertyValuePointer;
-        this.redCallableEvaluate = (sourceText: string) =>
-            redCallableEvaluate(signSourceCallback(sourceText));
+        this.redCallableEvaluate = signSourceCallback
+            ? (sourceText: string) => redCallableEvaluate(signSourceCallback(sourceText))
+            : redCallableEvaluate;
         this.redCallableLinkPointers = redCallableLinkPointers;
         this.redCallableSetPrototypeOf = redCallableSetPrototypeOf;
         this.redCallableDefineProperties = redCallableDefineProperties;

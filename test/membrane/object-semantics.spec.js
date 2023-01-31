@@ -2,8 +2,6 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('Blue Proxies', () => {
     it('should allow writable objects to change', () => {
-        expect.assertions(9);
-
         let obj;
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({
@@ -13,7 +11,6 @@ describe('Blue Proxies', () => {
                 },
             }),
         });
-
         env.evaluate(`
             'use strict';
             const obj = {
@@ -30,7 +27,6 @@ describe('Blue Proxies', () => {
             });
             saveObject(obj);
         `);
-
         expect(obj.x).toBe(1);
         expect(Object.getOwnPropertyDescriptor(obj, 'x').value).toBe(1);
         obj.x = 2;

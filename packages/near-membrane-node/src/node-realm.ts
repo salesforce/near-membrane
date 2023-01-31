@@ -33,6 +33,7 @@ export default function createVirtualEnvironment(
         globalObjectShape,
         instrumentation,
         liveTargetCallback,
+        signSourceCallback,
     } = ObjectAssign({ __proto__: null }, providedOptions) as NodeEnvironmentOptions;
     let blueConnector = blueCreateHooksCallbackCache.get(globalObject) as Connector | undefined;
     if (blueConnector === undefined) {
@@ -40,12 +41,18 @@ export default function createVirtualEnvironment(
         blueCreateHooksCallbackCache.set(globalObject, blueConnector);
     }
     const redGlobalObject = runInNewContext('globalThis');
+    const { eval: redIndirectEval } = redGlobalObject;
     const env = new VirtualEnvironment({
         blueConnector,
+        redConnector: createRedConnector(
+            signSourceCallback
+                ? (sourceText: string) => redIndirectEval(signSourceCallback(sourceText))
+                : redIndirectEval
+        ),
         distortionCallback,
         instrumentation,
         liveTargetCallback,
-        redConnector: createRedConnector(redGlobalObject.eval),
+        signSourceCallback,
     });
     linkIntrinsics(env, globalObject);
 
