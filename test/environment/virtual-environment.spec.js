@@ -126,6 +126,23 @@ describe('VirtualEnvironment', () => {
                 expect(() => env.evaluate('b.foo')).not.toThrow();
             });
         });
+
+        describe('options.signSourceCallback', () => {
+            it('is called for code evaluation', () => {
+                const options = {
+                    blueConnector: createBlueConnector(blueGlobalThis),
+                    redConnector: createRedConnector(redGlobalThis.eval),
+                    signSourceCallback: (sourceText) => sourceText,
+                };
+                const signSourceCallbackSpy = spyOn(
+                    options,
+                    'signSourceCallback'
+                ).and.callThrough();
+                const env = new VirtualEnvironment(options);
+                expect(env.evaluate('1 + 2')).toBe(3);
+                expect(signSourceCallbackSpy).toHaveBeenCalledTimes(1);
+            });
+        });
     });
 
     describe('VirtualEnvironment.prototype.evaluate', () => {

@@ -157,4 +157,16 @@ describe('createVirtualEnvironment', () => {
             expect(b).toEqual({ foo: 1 });
         });
     });
+
+    describe('options.signSourceCallback', () => {
+        it('is called for code evaluation', () => {
+            const options = {
+                signSourceCallback: (sourceText) => sourceText,
+            };
+            const signSourceCallbackSpy = spyOn(options, 'signSourceCallback').and.callThrough();
+            const env = createVirtualEnvironment(window, options);
+            expect(env.evaluate('1 + 2')).toBe(3);
+            expect(signSourceCallbackSpy).toHaveBeenCalledTimes(2);
+        });
+    });
 });

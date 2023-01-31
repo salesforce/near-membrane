@@ -94,6 +94,22 @@ describe('VirtualEnvironment', () => {
                 delete globalThis.b;
             });
         });
+
+        describe('options.signSourceCallback', () => {
+            it('is called for code evaluation', () => {
+                let count = 0;
+                const env = new VirtualEnvironment({
+                    blueConnector: createBlueConnector(globalThis),
+                    redConnector: createRedConnector(globalThis.eval),
+                    signSourceCallback(sourceText) {
+                        count += 1;
+                        return sourceText;
+                    },
+                });
+                expect(env.evaluate('1 + 2')).toBe(3);
+                expect(count).toBe(1);
+            });
+        });
     });
 
     describe('VirtualEnvironment.prototype.evaluate', () => {
