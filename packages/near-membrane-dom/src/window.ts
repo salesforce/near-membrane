@@ -108,15 +108,15 @@ export function filterWindowKeys(keys: PropertyKey[]): PropertyKey[] {
  * that will be installed (via the membrane) as global descriptors in
  * the red realm.
  */
-export function removeWindowDescriptors<T extends PropertyDescriptorMap>(unsafeDescMap: T): T {
+export function removeWindowDescriptors<T extends PropertyDescriptorMap>(unsafeDescs: T): T {
     // Remove unforgeable descriptors that cannot be installed.
-    ReflectDeleteProperty(unsafeDescMap, 'document');
-    ReflectDeleteProperty(unsafeDescMap, 'location');
-    ReflectDeleteProperty(unsafeDescMap, 'top');
-    ReflectDeleteProperty(unsafeDescMap, 'window');
+    ReflectDeleteProperty(unsafeDescs, 'document');
+    ReflectDeleteProperty(unsafeDescs, 'location');
+    ReflectDeleteProperty(unsafeDescs, 'top');
+    ReflectDeleteProperty(unsafeDescs, 'window');
     // Remove other browser specific unforgeables.
-    ReflectDeleteProperty(unsafeDescMap, 'chrome');
-    return unsafeDescMap;
+    ReflectDeleteProperty(unsafeDescs, 'chrome');
+    return unsafeDescs;
 }
 
 /**

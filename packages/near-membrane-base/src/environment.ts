@@ -61,10 +61,12 @@ export class VirtualEnvironment {
         // prettier-ignore
         const {
             blueConnector,
+            redConnector,
             distortionCallback,
             instrumentation,
             liveTargetCallback,
-            redConnector,
+            revokedProxyCallback,
+            signSourceCallback,
             // eslint-disable-next-line prefer-object-spread
         } = ObjectAssign({ __proto__: null }, options);
         let blueHooks: Parameters<HooksCallback>;
@@ -77,6 +79,7 @@ export class VirtualEnvironment {
                 distortionCallback,
                 instrumentation,
                 liveTargetCallback,
+                revokedProxyCallback,
             }
         );
         const {
@@ -239,20 +242,22 @@ export class VirtualEnvironment {
             blueCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
             blueCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor
         );
-        this.blueGlobalThisPointer = blueGlobalThisPointer!;
-        this.blueGetSelectedTarget = blueGetSelectedTarget!;
-        this.blueGetTransferableValue = blueGetTransferableValue!;
-        this.blueCallableGetPropertyValuePointer = blueCallableGetPropertyValuePointer!;
-        this.blueCallableLinkPointers = blueCallableLinkPointers!;
+        this.blueGlobalThisPointer = blueGlobalThisPointer;
+        this.blueGetSelectedTarget = blueGetSelectedTarget;
+        this.blueGetTransferableValue = blueGetTransferableValue;
+        this.blueCallableGetPropertyValuePointer = blueCallableGetPropertyValuePointer;
+        this.blueCallableLinkPointers = blueCallableLinkPointers;
 
-        this.redGlobalThisPointer = redGlobalThisPointer!;
-        this.redCallableGetPropertyValuePointer = redCallableGetPropertyValuePointer!;
-        this.redCallableEvaluate = redCallableEvaluate!;
-        this.redCallableLinkPointers = redCallableLinkPointers!;
+        this.redGlobalThisPointer = redGlobalThisPointer;
+        this.redCallableGetPropertyValuePointer = redCallableGetPropertyValuePointer;
+        this.redCallableEvaluate = signSourceCallback
+            ? (sourceText: string) => redCallableEvaluate(signSourceCallback(sourceText))
+            : redCallableEvaluate;
+        this.redCallableLinkPointers = redCallableLinkPointers;
         this.redCallableSetPrototypeOf = redCallableSetPrototypeOf;
-        this.redCallableDefineProperties = redCallableDefineProperties!;
-        this.redCallableInstallLazyPropertyDescriptors = redCallableInstallLazyPropertyDescriptors!;
-        this.redCallableTrackAsFastTarget = redCallableTrackAsFastTarget!;
+        this.redCallableDefineProperties = redCallableDefineProperties;
+        this.redCallableInstallLazyPropertyDescriptors = redCallableInstallLazyPropertyDescriptors;
+        this.redCallableTrackAsFastTarget = redCallableTrackAsFastTarget;
     }
 
     evaluate(sourceText: string): any {
@@ -300,17 +305,17 @@ export class VirtualEnvironment {
         }
     }
 
-    remapProperties(target: ProxyTarget, unsafeBlueDescMap: PropertyDescriptorMap) {
+    remapProperties(target: ProxyTarget, unsafeBlueDescs: PropertyDescriptorMap) {
         if ((typeof target === 'object' && target !== null) || typeof target === 'function') {
             const targetPointer = this.blueGetTransferableValue(target) as Pointer;
-            const ownKeys = ReflectOwnKeys(unsafeBlueDescMap);
+            const ownKeys = ReflectOwnKeys(unsafeBlueDescs);
             const { length } = ownKeys;
             const args = new ArrayCtor(1 + length * 7) as Parameters<CallableDefineProperties>;
             args[0] = targetPointer;
             for (let i = 0, j = 1; i < length; i += 1, j += 7) {
                 const ownKey = ownKeys[i];
-                const unsafeBlueDesc = (unsafeBlueDescMap as any)[ownKey];
-                // Avoid poisoning by only installing own properties from unsafeBlueDescMap.
+                const unsafeBlueDesc = (unsafeBlueDescs as any)[ownKey];
+                // Avoid poisoning by only installing own properties from unsafeBlueDescs.
                 // We don't use a toSafeDescriptor() style helper since that mutates
                 // the unsafeBlueDesc.
                 // eslint-disable-next-line prefer-object-spread

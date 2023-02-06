@@ -27,37 +27,24 @@ describe('The error boundary', () => {
     };
 
     it('should preserve identity of errors after a membrane roundtrip', () => {
-        expect.assertions(3);
-
         window.boundaryHooks = boundaryHooks;
-
         const env = createVirtualEnvironment(window, envOptions);
-
         env.evaluate(`boundaryHooks.expose(() => { boundaryHooks.a })`);
-
         expect(() => {
             sandboxedValue();
         }).toThrowError(Error);
-
         env.evaluate(`boundaryHooks.expose(() => { boundaryHooks.a = 1; })`);
-
         expect(() => {
             sandboxedValue();
         }).toThrowError(Error);
-
         env.evaluate(`boundaryHooks.expose(() => { boundaryHooks.b(2); })`);
-
         expect(() => {
             sandboxedValue();
         }).toThrowError(RangeError);
     });
     it('should remap the Outer Realm Error instance to the sandbox errors', () => {
-        expect.assertions(3);
-
         window.boundaryHooks = boundaryHooks;
-
         const env = createVirtualEnvironment(window, envOptions);
-
         env.evaluate(`
             expect(() => {
                 boundaryHooks.a;
@@ -75,18 +62,13 @@ describe('The error boundary', () => {
         `);
     });
     it('should capture throwing from user proxy', () => {
-        expect.assertions(3);
-
         window.boundaryHooks = boundaryHooks;
-
         const env = createVirtualEnvironment(window, envOptions);
-
         env.evaluate(`
             const revocable = Proxy.revocable(() => undefined, {});
             revocable.revoke();
             boundaryHooks.expose(revocable.proxy);
         `);
-
         expect(() => {
             // eslint-disable-next-line no-unused-expressions
             sandboxedValue.x;
@@ -100,7 +82,6 @@ describe('The error boundary', () => {
     });
     it('should protect from leaking sandbox errors during evaluation', () => {
         const env = createVirtualEnvironment(window);
-
         expect(() => {
             env.evaluate(`
                 throw new TypeError('from sandbox');
@@ -109,7 +90,6 @@ describe('The error boundary', () => {
     });
     it('should protect from leaking sandbox errors during parsing', () => {
         const env = createVirtualEnvironment(window);
-
         expect(() => {
             env.evaluate(`
                 return; // illegal return statement

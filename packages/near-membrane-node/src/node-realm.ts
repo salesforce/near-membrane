@@ -16,15 +16,13 @@ import type { Connector } from '@locker/near-membrane-base/types';
 import { runInNewContext } from 'node:vm';
 import type { NodeEnvironmentOptions } from './types';
 
-const globalObjectToBlueCreateHooksCallbackMap = toSafeWeakMap(
-    new WeakMapCtor<typeof globalThis, Connector>()
-);
+const blueCreateHooksCallbackCache = toSafeWeakMap(new WeakMapCtor<typeof globalThis, Connector>());
 
 let defaultGlobalOwnKeys: PropertyKey[] | null = null;
 
 export default function createVirtualEnvironment(
     globalObject: typeof globalThis,
-    options?: NodeEnvironmentOptions
+    providedOptions?: NodeEnvironmentOptions
 ): VirtualEnvironment {
     if (typeof globalObject !== 'object' || globalObject === null) {
         throw new TypeErrorCtor('Missing global object virtualization target.');
@@ -35,21 +33,26 @@ export default function createVirtualEnvironment(
         globalObjectShape,
         instrumentation,
         liveTargetCallback,
-    } = ObjectAssign({ __proto__: null }, options) as NodeEnvironmentOptions;
-    let blueConnector = globalObjectToBlueCreateHooksCallbackMap.get(globalObject) as
-        | Connector
-        | undefined;
+        signSourceCallback,
+    } = ObjectAssign({ __proto__: null }, providedOptions) as NodeEnvironmentOptions;
+    let blueConnector = blueCreateHooksCallbackCache.get(globalObject) as Connector | undefined;
     if (blueConnector === undefined) {
         blueConnector = createBlueConnector(globalObject);
-        globalObjectToBlueCreateHooksCallbackMap.set(globalObject, blueConnector);
+        blueCreateHooksCallbackCache.set(globalObject, blueConnector);
     }
     const redGlobalObject = runInNewContext('globalThis');
+    const { eval: redIndirectEval } = redGlobalObject;
     const env = new VirtualEnvironment({
         blueConnector,
+        redConnector: createRedConnector(
+            signSourceCallback
+                ? (sourceText: string) => redIndirectEval(signSourceCallback(sourceText))
+                : redIndirectEval
+        ),
         distortionCallback,
         instrumentation,
         liveTargetCallback,
-        redConnector: createRedConnector(redGlobalObject.eval),
+        signSourceCallback,
     });
     linkIntrinsics(env, globalObject);
 

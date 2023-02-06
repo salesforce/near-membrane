@@ -10,8 +10,10 @@ import {
     ObjectAssign,
     ReflectApply,
     toSafeWeakMap,
+    toSafeWeakSet,
     TypeErrorCtor,
     WeakMapCtor,
+    WeakSetCtor,
 } from '@locker/near-membrane-shared';
 import {
     DocumentProtoBodyGetter,
@@ -27,6 +29,7 @@ import {
     NodeProtoLastChildGetter,
 } from '@locker/near-membrane-shared-dom';
 import type { Connector } from '@locker/near-membrane-base/types';
+import type { ProxyTarget } from '@locker/near-membrane-shared/types';
 import type { GlobalObject } from '@locker/near-membrane-shared-dom/types';
 import type { BrowserEnvironmentOptions } from './types';
 import {
@@ -38,9 +41,8 @@ import {
 
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 
-const blueDocumentToBlueCreateHooksCallbackMap = toSafeWeakMap(
-    new WeakMapCtor<Document, Connector>()
-);
+const aliveIframes = toSafeWeakSet(new WeakSetCtor<HTMLIFrameElement>());
+const blueCreateHooksCallbackCache = toSafeWeakMap(new WeakMapCtor<Document, Connector>());
 
 let defaultGlobalOwnKeys: PropertyKey[] | null = null;
 
@@ -60,7 +62,7 @@ function createDetachableIframe(doc: Document): HTMLIFrameElement {
 
 function createIframeVirtualEnvironment(
     globalObject: WindowProxy & typeof globalThis,
-    options?: BrowserEnvironmentOptions
+    providedOptions?: BrowserEnvironmentOptions
 ): VirtualEnvironment {
     if (typeof globalObject !== 'object' || globalObject === null) {
         throw new TypeErrorCtor('Missing global object virtualization target.');
@@ -76,8 +78,9 @@ function createIframeVirtualEnvironment(
         instrumentation,
         keepAlive = false,
         liveTargetCallback,
+        signSourceCallback,
         // eslint-disable-next-line prefer-object-spread
-    } = ObjectAssign({ __proto__: null }, options);
+    } = ObjectAssign({ __proto__: null }, providedOptions) as BrowserEnvironmentOptions;
     const iframe = createDetachableIframe(blueRefs.document);
     const redWindow: GlobalObject = ReflectApply(
         HTMLIFrameElementProtoContentWindowGetter,
@@ -89,20 +92,26 @@ function createIframeVirtualEnvironment(
     if (shouldUseDefaultGlobalOwnKeys && defaultGlobalOwnKeys === null) {
         defaultGlobalOwnKeys = filterWindowKeys(getFilteredGlobalOwnKeys(redWindow));
     }
-    let blueConnector = blueDocumentToBlueCreateHooksCallbackMap.get(blueRefs.document) as
+    let blueConnector = blueCreateHooksCallbackCache.get(blueRefs.document) as
         | Connector
         | undefined;
     if (blueConnector === undefined) {
         blueConnector = createBlueConnector(globalObject);
-        blueDocumentToBlueCreateHooksCallbackMap.set(blueRefs.document, blueConnector);
+        blueCreateHooksCallbackCache.set(blueRefs.document, blueConnector);
     }
     const { eval: redIndirectEval } = redWindow;
     const env = new VirtualEnvironment({
         blueConnector,
+        redConnector: createRedConnector(
+            signSourceCallback
+                ? (sourceText: string) => redIndirectEval(signSourceCallback(sourceText))
+                : redIndirectEval
+        ),
         distortionCallback,
         instrumentation,
         liveTargetCallback,
-        redConnector: createRedConnector(redIndirectEval),
+        revokedProxyCallback: keepAlive ? revokedProxyCallback : undefined,
+        signSourceCallback,
     });
     linkIntrinsics(env, globalObject);
     // window
@@ -147,7 +156,8 @@ function createIframeVirtualEnvironment(
     // Once we get the iframe info ready, and all mapped, we can proceed to
     // detach the iframe only if `options.keepAlive` isn't true.
     if (keepAlive) {
-        // TODO: Temporary hack to preserve the document reference in Firefox.
+        aliveIframes.add(iframe);
+        // @TODO: Temporary hack to preserve the document reference in Firefox.
         // https://bugzilla.mozilla.org/show_bug.cgi?id=543435
         const { document: redDocument } = redWindow;
         ReflectApply(DocumentProtoOpen, redDocument, []);
@@ -162,6 +172,10 @@ function createIframeVirtualEnvironment(
         ReflectApply(ElementProtoRemove, iframe, []);
     }
     return env;
+}
+
+function revokedProxyCallback(value: ProxyTarget): boolean {
+    return aliveIframes.has(value as any);
 }
 
 export default createIframeVirtualEnvironment;
