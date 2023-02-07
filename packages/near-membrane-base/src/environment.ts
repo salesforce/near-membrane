@@ -21,6 +21,7 @@ import type {
     Pointer,
     VirtualEnvironmentOptions,
     CallableTrackAsFastTarget,
+    CallableDescriptorCallback,
 } from './types';
 
 const LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL = Symbol.for(
@@ -248,16 +249,45 @@ export class VirtualEnvironment {
         this.blueCallableGetPropertyValuePointer = blueCallableGetPropertyValuePointer;
         this.blueCallableLinkPointers = blueCallableLinkPointers;
 
-        this.redGlobalThisPointer = redGlobalThisPointer;
-        this.redCallableGetPropertyValuePointer = redCallableGetPropertyValuePointer;
+        // Ensure the `this` context of red callable functions is `undefined`.
+        this.redGlobalThisPointer = () => redGlobalThisPointer();
+        this.redCallableGetPropertyValuePointer = (targetPointer: Pointer, key: PropertyKey) =>
+            redCallableGetPropertyValuePointer(targetPointer, key);
         this.redCallableEvaluate = signSourceCallback
             ? (sourceText: string) => redCallableEvaluate(signSourceCallback(sourceText))
-            : redCallableEvaluate;
-        this.redCallableLinkPointers = redCallableLinkPointers;
-        this.redCallableSetPrototypeOf = redCallableSetPrototypeOf;
-        this.redCallableDefineProperties = redCallableDefineProperties;
-        this.redCallableInstallLazyPropertyDescriptors = redCallableInstallLazyPropertyDescriptors;
-        this.redCallableTrackAsFastTarget = redCallableTrackAsFastTarget;
+            : (sourceText: string) => redCallableEvaluate(sourceText);
+        this.redCallableLinkPointers = (targetPointer: Pointer, foreignTargetPointer: Pointer) =>
+            redCallableLinkPointers(targetPointer, foreignTargetPointer);
+        this.redCallableSetPrototypeOf = (
+            targetPointer: Pointer,
+            protoPointerOrNull: Pointer | null
+        ) => redCallableSetPrototypeOf(targetPointer, protoPointerOrNull);
+        this.redCallableDefineProperties = (
+            targetPointer: Pointer,
+            ...descriptorTuples: [...Parameters<CallableDescriptorCallback>]
+        ) => {
+            const { length } = descriptorTuples;
+            const args = new ArrayCtor(length + 1);
+            args[0] = targetPointer;
+            for (let i = 0; i < length; i += 1) {
+                args[i + 1] = descriptorTuples[i];
+            }
+            ReflectApply(redCallableDefineProperties, undefined, args);
+        };
+        this.redCallableInstallLazyPropertyDescriptors = (
+            targetPointer: Pointer,
+            ...ownKeysAndUnforgeableGlobalThisKeys: PropertyKey[]
+        ) => {
+            const { length } = ownKeysAndUnforgeableGlobalThisKeys;
+            const args = new ArrayCtor(length + 1);
+            args[0] = targetPointer;
+            for (let i = 0; i < length; i += 1) {
+                args[i + 1] = ownKeysAndUnforgeableGlobalThisKeys[i];
+            }
+            ReflectApply(redCallableInstallLazyPropertyDescriptors, undefined, args);
+        };
+        this.redCallableTrackAsFastTarget = (targetPointer: Pointer) =>
+            redCallableTrackAsFastTarget(targetPointer);
     }
 
     evaluate(sourceText: string): any {
