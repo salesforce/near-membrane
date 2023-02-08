@@ -10,23 +10,37 @@ import {
 import type { ProxyTarget } from '@locker/near-membrane-shared/types';
 import type {
     CallableDefineProperties,
+    CallableDescriptorCallback,
     CallableEvaluate,
     CallableGetPropertyValuePointer,
+    CallableInstallDateProtoToJSON,
+    CallableInstallJSONStringify,
     CallableInstallLazyPropertyDescriptors,
+    CallableIsTargetLive,
+    CallableIsTargetRevoked,
     CallableLinkPointers,
+    CallableSerializeTarget,
     CallableSetPrototypeOf,
+    CallableTrackAsFastTarget,
     GetSelectedTarget,
     GetTransferableValue,
     HooksCallback,
     Pointer,
     VirtualEnvironmentOptions,
-    CallableTrackAsFastTarget,
-    CallableDescriptorCallback,
 } from './types';
 
 const LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL = Symbol.for(
     '@@lockerNearMembraneUndefinedValue'
 );
+
+const { prototype: DateProto } = Date;
+const { toJSON: DateProtoToJSON } = DateProto;
+const WindowJSON = JSON;
+
+const installableDateToJSON = function toJSON(this: Date) {
+    // istanbul ignore next: called within un-instrumented createMembraneMarshall
+    return ReflectApply(DateProtoToJSON, this, []);
+};
 
 export class VirtualEnvironment {
     private readonly blueCallableGetPropertyValuePointer: CallableGetPropertyValuePointer;
@@ -39,17 +53,21 @@ export class VirtualEnvironment {
 
     private readonly blueGlobalThisPointer: Pointer;
 
+    private readonly redCallableDefineProperties: CallableDefineProperties;
+
     private readonly redCallableEvaluate: CallableEvaluate;
 
     private readonly redCallableGetPropertyValuePointer: CallableGetPropertyValuePointer;
 
+    private readonly redCallableInstallDateProtoToJSON: CallableInstallDateProtoToJSON;
+
+    private readonly redCallableInstallJSONStringify: CallableInstallJSONStringify;
+
+    private readonly redCallableInstallLazyPropertyDescriptors: CallableInstallLazyPropertyDescriptors;
+
     private readonly redCallableLinkPointers: CallableLinkPointers;
 
     private readonly redCallableSetPrototypeOf: CallableSetPrototypeOf;
-
-    private readonly redCallableDefineProperties: CallableDefineProperties;
-
-    private readonly redCallableInstallLazyPropertyDescriptors: CallableInstallLazyPropertyDescriptors;
 
     private readonly redCallableTrackAsFastTarget: CallableTrackAsFastTarget;
 
@@ -105,22 +123,24 @@ export class VirtualEnvironment {
             18: blueCallablePreventExtensions,
             19: blueCallableSet,
             20: blueCallableSetPrototypeOf,
-            21: blueCallableDebugInfo,
+            // 21: blueCallableDebugInfo,
             // 22: blueCallableDefineProperties,
             23: blueCallableGetLazyPropertyDescriptorStateByTarget,
             24: blueCallableGetPropertyValue,
             25: blueCallableGetTargetIntegrityTraits,
             26: blueCallableGetToStringTagOfTarget,
-            27: blueCallableInstallErrorPrepareStackTrace,
-            // 28: blueCallableInstallLazyPropertyDescriptors,
-            29: blueCallableIsTargetLive,
-            30: blueCallableIsTargetRevoked,
-            31: blueCallableSerializeTarget,
-            32: blueCallableSetLazyPropertyDescriptorStateByTarget,
-            // 33: blueTrackAsFastTarget,
-            34: blueCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
-            35: blueCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
-            36: blueCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
+            // 27: blueCallableInstallDateProtoToJSON,
+            28: blueCallableInstallErrorPrepareStackTrace,
+            // 29: blueCallableInstallJSONStringify,
+            // 30: blueCallableInstallLazyPropertyDescriptors,
+            31: blueCallableIsTargetLive,
+            // 32: blueCallableIsTargetRevoked,
+            // 33: blueCallableSerializeTarget,
+            34: blueCallableSetLazyPropertyDescriptorStateByTarget,
+            // 35: blueTrackAsFastTarget,
+            36: blueCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
+            37: blueCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
+            38: blueCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
         } = blueHooks!;
         let redHooks: Parameters<HooksCallback>;
         const redConnect = redConnector('red', (...hooks: Parameters<HooksCallback>) => {
@@ -151,19 +171,21 @@ export class VirtualEnvironment {
             21: redCallableDebugInfo,
             22: redCallableDefineProperties,
             23: redCallableGetLazyPropertyDescriptorStateByTarget,
-            24: redCallableGetPropertyValue,
+            // 24: redCallableGetPropertyValue,
             25: redCallableGetTargetIntegrityTraits,
             26: redCallableGetToStringTagOfTarget,
-            27: redCallableInstallErrorPrepareStackTrace,
-            28: redCallableInstallLazyPropertyDescriptors,
-            29: redCallableIsTargetLive,
-            30: redCallableIsTargetRevoked,
-            31: redCallableSerializeTarget,
-            32: redCallableSetLazyPropertyDescriptorStateByTarget,
-            33: redCallableTrackAsFastTarget,
-            34: redCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
-            35: redCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
-            36: redCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
+            27: redCallableInstallDateProtoToJSON,
+            28: redCallableInstallErrorPrepareStackTrace,
+            29: redCallableInstallJSONStringify,
+            30: redCallableInstallLazyPropertyDescriptors,
+            // 31: redCallableIsTargetLive,
+            32: redCallableIsTargetRevoked,
+            33: redCallableSerializeTarget,
+            34: redCallableSetLazyPropertyDescriptorStateByTarget,
+            35: redCallableTrackAsFastTarget,
+            36: redCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
+            37: redCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
+            38: redCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
         } = redHooks!;
         blueConnect(
             noop, // redGlobalThisPointer,
@@ -190,12 +212,14 @@ export class VirtualEnvironment {
             redCallableDebugInfo,
             noop, // redCallableDefineProperties,
             redCallableGetLazyPropertyDescriptorStateByTarget,
-            redCallableGetPropertyValue,
+            noop, // redCallableGetPropertyValue,
             redCallableGetTargetIntegrityTraits,
             redCallableGetToStringTagOfTarget,
+            noop, // redCallableInstallDateProtoToJSON,
             redCallableInstallErrorPrepareStackTrace,
+            noop, // redCallableInstallJSONStringify
             noop, // redCallableInstallLazyPropertyDescriptors,
-            redCallableIsTargetLive,
+            noop as unknown as CallableIsTargetLive, // redCallableIsTargetLive,
             redCallableIsTargetRevoked,
             redCallableSerializeTarget,
             redCallableSetLazyPropertyDescriptorStateByTarget,
@@ -226,17 +250,19 @@ export class VirtualEnvironment {
             blueCallablePreventExtensions,
             blueCallableSet,
             blueCallableSetPrototypeOf,
-            blueCallableDebugInfo,
+            noop, // blueCallableDebugInfo
             noop, // blueCallableDefineProperties,
             blueCallableGetLazyPropertyDescriptorStateByTarget,
             blueCallableGetPropertyValue,
             blueCallableGetTargetIntegrityTraits,
             blueCallableGetToStringTagOfTarget,
             blueCallableInstallErrorPrepareStackTrace,
+            noop, // blueCallableInstallDateProtoToJSON
+            noop, // blueCallableInstallJSONStringify
             noop, // blueCallableInstallLazyPropertyDescriptors,
             blueCallableIsTargetLive,
-            blueCallableIsTargetRevoked,
-            blueCallableSerializeTarget,
+            noop as unknown as CallableIsTargetRevoked, // blueCallableIsTargetRevoked,
+            noop as CallableSerializeTarget, // blueCallableSerializeTarget,,
             blueCallableSetLazyPropertyDescriptorStateByTarget,
             noop, // blueCallableTrackAsFastTarget,
             blueCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
@@ -274,6 +300,8 @@ export class VirtualEnvironment {
             }
             ReflectApply(redCallableDefineProperties, undefined, args);
         };
+        this.redCallableInstallJSONStringify = (WindowJSONPointer: Pointer) =>
+            redCallableInstallJSONStringify(WindowJSONPointer);
         this.redCallableInstallLazyPropertyDescriptors = (
             targetPointer: Pointer,
             ...ownKeysAndUnforgeableGlobalThisKeys: PropertyKey[]
@@ -286,6 +314,10 @@ export class VirtualEnvironment {
             }
             ReflectApply(redCallableInstallLazyPropertyDescriptors, undefined, args);
         };
+        this.redCallableInstallDateProtoToJSON = (
+            DateProtoPointer: Pointer,
+            DataProtoToJSONPointer: Pointer
+        ) => redCallableInstallDateProtoToJSON(DateProtoPointer, DataProtoToJSONPointer);
         this.redCallableTrackAsFastTarget = (targetPointer: Pointer) =>
             redCallableTrackAsFastTarget(targetPointer);
     }
@@ -301,6 +333,16 @@ export class VirtualEnvironment {
         } catch (error: any) {
             throw this.blueGetSelectedTarget() ?? error;
         }
+    }
+
+    installRemapOverrides() {
+        const transferableWindowJSON = this.blueGetTransferableValue(WindowJSON) as Pointer;
+        this.redCallableTrackAsFastTarget(transferableWindowJSON);
+        this.redCallableInstallDateProtoToJSON(
+            this.blueGetTransferableValue(DateProto) as Pointer,
+            this.blueGetTransferableValue(installableDateToJSON) as Pointer
+        );
+        this.redCallableInstallJSONStringify(transferableWindowJSON);
     }
 
     lazyRemapProperties(

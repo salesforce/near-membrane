@@ -1,3 +1,6 @@
+import { SymbolFor } from './Symbol';
+
+// Locker build constants.
 export const LOCKER_IDENTIFIER_MARKER = '$LWS';
 // This package is bundled by third-parties that have their own build time
 // replacement logic. Instead of customizing each build system to be aware
@@ -5,13 +8,23 @@ export const LOCKER_IDENTIFIER_MARKER = '$LWS';
 // runtime checks to determine phase one, our code is unminified, and
 // phase two, the user opted-in to custom devtools formatters. Phase one
 // is used for light weight initialization time debug while phase two is
-// reserved for post initialization runtime.
+// reserved for post initialization runtime
 export const LOCKER_UNMINIFIED_FLAG =
     // eslint-disable-next-line @typescript-eslint/naming-convention
     /* istanbul ignore next */ `${(function LOCKER_UNMINIFIED_FLAG() {
         return LOCKER_UNMINIFIED_FLAG.name;
     })()}`.includes('LOCKER_UNMINIFIED_FLAG');
+
+// Character constants.
 export const CHAR_ELLIPSIS = '\u2026';
+
+// Near-membrane constants.
+export const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = SymbolFor(
+    '@@lockerNearMembraneSerializedValue'
+);
+export const LOCKER_NEAR_MEMBRANE_SYMBOL = SymbolFor('@@lockerNearMembrane');
+
+// Object brand constants.
 export const TO_STRING_BRAND_ARRAY = '[object Array]';
 export const TO_STRING_BRAND_ARRAY_BUFFER = '[object ArrayBuffer]';
 export const TO_STRING_BRAND_BIG_INT = '[object BigInt]';

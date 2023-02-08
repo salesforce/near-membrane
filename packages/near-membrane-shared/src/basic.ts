@@ -171,7 +171,7 @@ function getBrandByTrialAndError(value: any): string {
         return TO_STRING_BRAND_BOOLEAN;
         // eslint-disable-next-line no-empty
     } catch {}
-    // istanbul ignore else: All platforms that LWS runs tests in support BigInt
+    // istanbul ignore else: all platforms that LWS runs tests in support BigInt
     if (SUPPORTS_BIG_INT) {
         try {
             // Section 21.2.3 Properties of the BigInt Prototype Object

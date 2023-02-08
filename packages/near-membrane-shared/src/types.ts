@@ -1,6 +1,6 @@
 export type Getter = () => any;
 export type NearMembraneSerializedValue = bigint | boolean | number | string | symbol;
-export type ProxyTarget = CallableFunction | any[] | object;
+export type ProxyTarget = CallableFunction | NewableFunction | any[] | object;
 export type Setter = (value: any) => void;
 // eslint-disable-next-line no-shadow
 export const enum TargetTraits {
