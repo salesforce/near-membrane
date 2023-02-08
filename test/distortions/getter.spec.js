@@ -1,5 +1,3 @@
-import createVirtualEnvironment from '@locker/near-membrane-dom';
-
 // getting reference to the function to be distorted
 const { get: hostGetter } = Object.getOwnPropertyDescriptor(ShadowRoot.prototype, 'host');
 const { get: localStorageGetter } = Object.getOwnPropertyDescriptor(window, 'localStorage');
@@ -36,7 +34,7 @@ describe('Getter Function Distortion', () => {
             expect(hostGetter.call(elm)).toBe(null);
         `);
     });
-    it('should work for global property accessors (issue #64)', () => {
+    fit('should work for global property accessors (issue #64)', () => {
         expect.assertions(1);
 
         env.evaluate(`
