@@ -8,13 +8,13 @@ class ExternalElement extends HTMLElement {
     }
 }
 
+const envOptions = {
+    globalObjectShape: window,
+};
+
 customElements.define('x-external', ExternalElement);
 
 describe('Outer Realm Custom Element', () => {
-    const envOptions = {
-        globalObjectShape: window,
-    };
-
     it('should be accessible within the sandbox', () => {
         expect.assertions(3);
 

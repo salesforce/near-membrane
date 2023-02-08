@@ -60,6 +60,7 @@ import type {
     CallableSet,
     CallableSetLazyPropertyDescriptorStateByTarget,
     CallableSetPrototypeOf,
+    CallableTrackAsFastTarget,
     ForeignPropertyDescriptor,
     GetSelectedTarget,
     GlobalThisGetter,
@@ -67,9 +68,9 @@ import type {
     HooksOptions,
     Pointer,
     PointerOrPrimitive,
+    Primitive,
     SerializedValue,
     ShadowTarget,
-    CallableTrackAsFastTarget,
 } from './types';
 
 const proxyTargetToLazyPropertyDescriptorStateMap: WeakMap<ProxyTarget, object> = toSafeWeakMap(
@@ -199,9 +200,6 @@ export function createMembraneMarshall(
     // BigInt is not supported in Safari 13.1.
     // https://caniuse.com/bigint
     const FLAGS_REG_EXP = IS_IN_SHADOW_REALM ? /\w*$/ : undefined;
-    // Minification safe reference to the private `BoundaryProxyHandler`
-    // 'serializedValue' property name.
-    let MINIFICATION_SAFE_SERIALIZED_VALUE_PROPERTY_NAME: PropertyKey | undefined;
     // Minification safe references to the private `BoundaryProxyHandler`
     // 'apply' and 'construct' trap variant's property names.
     let MINIFICATION_SAFE_TRAP_PROPERTY_NAMES: string[] | undefined;
@@ -215,6 +213,9 @@ export function createMembraneMarshall(
     const { isView: ArrayBufferIsView } = ArrayBufferCtor;
     const BigIntProtoValueOf = SUPPORTS_BIG_INT ? BigInt.prototype.valueOf : undefined;
     const { valueOf: BooleanProtoValueOf } = Boolean.prototype;
+    const {
+        prototype: { toJSON: DateProtoToJSON },
+    } = Date;
     const { toString: ErrorProtoToString } = ErrorCtor.prototype;
     const { bind: FunctionProtoBind, toString: FunctionProtoToString } = Function.prototype;
     const { stringify: JSONStringify } = JSON;
@@ -287,7 +288,9 @@ export function createMembraneMarshall(
 
     // Install flags to ensure things are installed once per realm.
     let installedErrorPrepareStackTraceFlag = false;
+    let installedJSONStringify = false;
     let installedPropertyDescriptorMethodWrappersFlag = false;
+
     // eslint-disable-next-line no-shadow
     const enum PreventExtensionsResult {
         None,
@@ -334,6 +337,24 @@ export function createMembraneMarshall(
 
     function alwaysFalse() {
         return false;
+    }
+
+    function proxyMaskFunction<T extends Function>(func: Function, maskFunc: T): T {
+        const proxy = new ProxyCtor(maskFunc, {
+            apply(_target: T, thisArg: any, args: any[]) {
+                if (thisArg === proxy || thisArg === maskFunc) {
+                    thisArg = func;
+                }
+                return ReflectApply(func, thisArg, args);
+            },
+            construct(_target: T, args: any[], newTarget: Function) {
+                if (newTarget === proxy || newTarget === maskFunc) {
+                    newTarget = func;
+                }
+                return ReflectConstruct(func, args, newTarget);
+            },
+        });
+        return proxy;
     }
 
     const installErrorPrepareStackTrace = LOCKER_UNMINIFIED_FLAG
@@ -1853,7 +1874,9 @@ export function createMembraneMarshall(
                             let globalThisGetter: GlobalThisGetter | undefined =
                                 keyToGlobalThisGetterRegistry![key];
                             if (globalThisGetter === undefined) {
-                                // Wrap `unboundGlobalThisGetter` in bound function
+                                // We can't access the original getter to mask
+                                // with `proxyMaskFunction()`, so instead we wrap
+                                // `unboundGlobalThisGetter` in bound function
                                 // to obscure the getter source as "[native code]".
                                 globalThisGetter = ReflectApply(
                                     FunctionProtoBind,
@@ -2386,9 +2409,7 @@ export function createMembraneMarshall(
 
             setPrototypeOf: ProxyHandler<ShadowTarget>['setPrototypeOf'];
 
-            readonly proxy: ShadowTarget;
-
-            private serializedValue: SerializedValue | undefined;
+            private serialize: () => Primitive;
 
             private staticToStringTag: string;
 
@@ -2404,6 +2425,8 @@ export function createMembraneMarshall(
             private readonly foreignTargetTypedArrayLength: number;
 
             private readonly nonConfigurableDescriptorCallback: CallableNonConfigurableDescriptorCallback;
+
+            readonly proxy: ShadowTarget;
 
             private readonly shadowTarget: ProxyTarget;
 
@@ -2514,7 +2537,7 @@ export function createMembraneMarshall(
                 };
                 this.proxy = proxy;
                 this.revoke = revoke;
-                this.serializedValue = undefined;
+                this.serialize = noop;
                 this.shadowTarget = shadowTarget;
                 this.staticToStringTag = 'Object';
                 // Define traps.
@@ -2553,125 +2576,121 @@ export function createMembraneMarshall(
                     }
                 } else {
                     if (foreignTargetTraits & TargetTraits.IsObject) {
-                        // Lazily define serializedValue.
+                        // Lazily define serialize method.
                         let cachedSerializedValue: SerializedValue | undefined | symbol =
                             LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
-                        const { serializedValue } = this;
-                        if (MINIFICATION_SAFE_SERIALIZED_VALUE_PROPERTY_NAME === undefined) {
-                            // A minification safe way to get the 'serializedValue'
-                            // property name.
-                            ({ 0: MINIFICATION_SAFE_SERIALIZED_VALUE_PROPERTY_NAME } = ObjectKeys({
-                                serializedValue,
-                            }));
-                        }
-                        ReflectApply(ObjectProtoDefineGetter, this, [
-                            MINIFICATION_SAFE_SERIALIZED_VALUE_PROPERTY_NAME,
-                            () => {
-                                if (
-                                    cachedSerializedValue ===
-                                    LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
-                                ) {
-                                    cachedSerializedValue = foreignCallableSerializeTarget(
-                                        this.foreignTargetPointer
-                                    );
-                                }
-                                return cachedSerializedValue;
-                            },
-                        ]);
+                        this.serialize = () => {
+                            if (
+                                cachedSerializedValue ===
+                                LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL
+                            ) {
+                                cachedSerializedValue = foreignCallableSerializeTarget(
+                                    this.foreignTargetPointer
+                                );
+                            }
+                            return cachedSerializedValue;
+                        };
                     }
                 }
             }
 
-            // Internal shadow realm side utilities:
+            // Internal red/shadow realm side utilities:
 
-            private makeProxyLive() {
-                // Replace pending traps with live traps that can work with the
-                // target without taking snapshots.
-                this.deleteProperty = BoundaryProxyHandler.passthruDeletePropertyTrap;
-                this.defineProperty = BoundaryProxyHandler.passthruDefinePropertyTrap;
-                this.preventExtensions = BoundaryProxyHandler.passthruPreventExtensionsTrap;
-                this.set = BoundaryProxyHandler.passthruSetTrap;
-                this.setPrototypeOf = BoundaryProxyHandler.passthruSetPrototypeOfTrap;
-            }
+            private makeProxyLive = IS_IN_SHADOW_REALM
+                ? function (this: BoundaryProxyHandler): void {
+                      // Replace pending traps with live traps that can work with the
+                      // target without taking snapshots.
+                      this.deleteProperty = BoundaryProxyHandler.passthruDeletePropertyTrap;
+                      this.defineProperty = BoundaryProxyHandler.passthruDefinePropertyTrap;
+                      this.preventExtensions = BoundaryProxyHandler.passthruPreventExtensionsTrap;
+                      this.set = BoundaryProxyHandler.passthruSetTrap;
+                      this.setPrototypeOf = BoundaryProxyHandler.passthruSetPrototypeOfTrap;
+                  }
+                : noop;
 
-            private makeProxyStatic() {
-                // Reset all traps except apply and construct for static proxies
-                // since the proxy target is the shadow target and all operations
-                // are going to be applied to it rather than the real target.
-                this.defineProperty = BoundaryProxyHandler.staticDefinePropertyTrap;
-                this.deleteProperty = BoundaryProxyHandler.staticDeletePropertyTrap;
-                this.get = BoundaryProxyHandler.staticGetTrap;
-                this.getOwnPropertyDescriptor =
-                    BoundaryProxyHandler.staticGetOwnPropertyDescriptorTrap;
-                this.getPrototypeOf = BoundaryProxyHandler.staticGetPrototypeOfTrap;
-                this.has = BoundaryProxyHandler.staticHasTrap;
-                this.isExtensible = BoundaryProxyHandler.staticIsExtensibleTrap;
-                this.ownKeys = BoundaryProxyHandler.staticOwnKeysTrap;
-                this.preventExtensions = BoundaryProxyHandler.staticPreventExtensionsTrap;
-                this.set = BoundaryProxyHandler.staticSetTrap;
-                this.setPrototypeOf = BoundaryProxyHandler.staticSetPrototypeOfTrap;
+            private makeProxyStatic = IS_IN_SHADOW_REALM
+                ? function (this: BoundaryProxyHandler): void {
+                      // Reset all traps except apply and construct for static proxies
+                      // since the proxy target is the shadow target and all operations
+                      // are going to be applied to it rather than the real target.
+                      this.defineProperty = BoundaryProxyHandler.staticDefinePropertyTrap;
+                      this.deleteProperty = BoundaryProxyHandler.staticDeletePropertyTrap;
+                      this.get = BoundaryProxyHandler.staticGetTrap;
+                      this.getOwnPropertyDescriptor =
+                          BoundaryProxyHandler.staticGetOwnPropertyDescriptorTrap;
+                      this.getPrototypeOf = BoundaryProxyHandler.staticGetPrototypeOfTrap;
+                      this.has = BoundaryProxyHandler.staticHasTrap;
+                      this.isExtensible = BoundaryProxyHandler.staticIsExtensibleTrap;
+                      this.ownKeys = BoundaryProxyHandler.staticOwnKeysTrap;
+                      this.preventExtensions = BoundaryProxyHandler.staticPreventExtensionsTrap;
+                      this.set = BoundaryProxyHandler.staticSetTrap;
+                      this.setPrototypeOf = BoundaryProxyHandler.staticSetPrototypeOfTrap;
 
-                const { foreignTargetPointer, foreignTargetTraits, shadowTarget } = this;
-                if (useFastForeignTargetPath) {
-                    fastForeignTargetPointers!.delete(foreignTargetPointer);
-                }
-                // We don't wrap `foreignCallableGetTargetIntegrityTraits()`
-                // in a try-catch because it cannot throw.
-                const targetIntegrityTraits =
-                    foreignCallableGetTargetIntegrityTraits(foreignTargetPointer);
-                if (targetIntegrityTraits & TargetIntegrityTraits.Revoked) {
-                    // the target is a revoked proxy, in which case we revoke
-                    // this proxy as well.
-                    this.revoke();
-                    return;
-                }
-                // A proxy can revoke itself when traps are triggered and break
-                // the membrane, therefore we need protection.
-                try {
-                    copyForeignOwnPropertyDescriptorsAndPrototypeToShadowTarget(
-                        foreignTargetPointer,
-                        shadowTarget
-                    );
-                } catch {
-                    // We don't wrap `foreignCallableIsTargetRevoked()` in a
-                    // try-catch because it cannot throw.
-                    if (foreignCallableIsTargetRevoked(foreignTargetPointer)) {
-                        this.revoke();
-                        return;
-                    }
-                }
-                if (
-                    foreignTargetTraits & TargetTraits.IsObject &&
-                    !(SymbolToStringTag in shadowTarget)
-                ) {
-                    let toStringTag = 'Object';
-                    try {
-                        toStringTag = foreignCallableGetToStringTagOfTarget(foreignTargetPointer);
-                        // eslint-disable-next-line no-empty
-                    } catch {}
-                    this.staticToStringTag = toStringTag;
-                }
-                // Preserve the semantics of the target.
-                if (targetIntegrityTraits & TargetIntegrityTraits.IsFrozen) {
-                    ObjectFreeze(shadowTarget);
-                } else {
-                    if (targetIntegrityTraits & TargetIntegrityTraits.IsSealed) {
-                        ObjectSeal(shadowTarget);
-                    } else if (targetIntegrityTraits & TargetIntegrityTraits.IsNotExtensible) {
-                        ReflectPreventExtensions(shadowTarget);
-                    }
-                    if (LOCKER_UNMINIFIED_FLAG) {
-                        // We don't wrap `foreignCallableDebugInfo()` in a try-catch
-                        // because it cannot throw.
-                        foreignCallableDebugInfo(
-                            'Mutations on the membrane of an object originating ' +
-                                'outside of the sandbox will not be reflected on ' +
-                                'the object itself:',
-                            foreignTargetPointer
-                        );
-                    }
-                }
-            }
+                      const { foreignTargetPointer, foreignTargetTraits, shadowTarget } = this;
+                      if (useFastForeignTargetPath) {
+                          fastForeignTargetPointers!.delete(foreignTargetPointer);
+                      }
+                      // We don't wrap `foreignCallableGetTargetIntegrityTraits()`
+                      // in a try-catch because it cannot throw.
+                      const targetIntegrityTraits =
+                          foreignCallableGetTargetIntegrityTraits(foreignTargetPointer);
+                      if (targetIntegrityTraits & TargetIntegrityTraits.Revoked) {
+                          // the target is a revoked proxy, in which case we revoke
+                          // this proxy as well.
+                          this.revoke();
+                          return;
+                      }
+                      // A proxy can revoke itself when traps are triggered and break
+                      // the membrane, therefore we need protection.
+                      try {
+                          copyForeignOwnPropertyDescriptorsAndPrototypeToShadowTarget(
+                              foreignTargetPointer,
+                              shadowTarget
+                          );
+                      } catch {
+                          // We don't wrap `foreignCallableIsTargetRevoked()` in a
+                          // try-catch because it cannot throw.
+                          if (foreignCallableIsTargetRevoked(foreignTargetPointer)) {
+                              this.revoke();
+                              return;
+                          }
+                      }
+                      if (
+                          foreignTargetTraits & TargetTraits.IsObject &&
+                          !(SymbolToStringTag in shadowTarget)
+                      ) {
+                          let toStringTag = 'Object';
+                          try {
+                              toStringTag =
+                                  foreignCallableGetToStringTagOfTarget(foreignTargetPointer);
+                              // eslint-disable-next-line no-empty
+                          } catch {}
+                          this.staticToStringTag = toStringTag;
+                      }
+                      // Preserve the semantics of the target.
+                      if (targetIntegrityTraits & TargetIntegrityTraits.IsFrozen) {
+                          ObjectFreeze(shadowTarget);
+                      } else {
+                          if (targetIntegrityTraits & TargetIntegrityTraits.IsSealed) {
+                              ObjectSeal(shadowTarget);
+                          } else if (
+                              targetIntegrityTraits & TargetIntegrityTraits.IsNotExtensible
+                          ) {
+                              ReflectPreventExtensions(shadowTarget);
+                          }
+                          if (LOCKER_UNMINIFIED_FLAG) {
+                              // We don't wrap `foreignCallableDebugInfo()` in a try-catch
+                              // because it cannot throw.
+                              foreignCallableDebugInfo(
+                                  'Mutations on the membrane of an object originating ' +
+                                      'outside of the sandbox will not be reflected on ' +
+                                      'the object itself:',
+                                  foreignTargetPointer
+                              );
+                          }
+                      }
+                  }
+                : noop;
 
             // Logic implementation of all traps.
 
@@ -3125,12 +3144,12 @@ export function createMembraneMarshall(
                       if (nearMembraneSymbolFlag) {
                           // Exit without performing a [[Get]] for near-membrane
                           // symbols because we know when the nearMembraneSymbolFlag
-                          // is on that there is no shadowed symbol value.
+                          // is ON that there is no shadowed symbol value.
                           if (key === LOCKER_NEAR_MEMBRANE_SYMBOL) {
                               return true;
                           }
                           if (key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL) {
-                              return this.serializedValue;
+                              return this.serialize();
                           }
                       }
                       let activity: Activity | undefined;
@@ -3740,6 +3759,7 @@ export function createMembraneMarshall(
         }
 
         if (IS_IN_SHADOW_REALM) {
+            // Initialize `fastForeignTargetPointers` weak map.
             clearFastForeignTargetPointers();
         }
         // Export callable hooks to a foreign realm.
@@ -4383,8 +4403,44 @@ export function createMembraneMarshall(
                     throw pushErrorAcrossBoundary(error);
                 }
             },
+            // callableInstallDateProtoToJSON
+            IS_IN_SHADOW_REALM
+                ? (DateProtoPointer: Pointer, DataProtoToJSONPointer: Pointer) => {
+                      DateProtoPointer();
+                      const dateProto = selectedTarget as typeof Date.prototype;
+                      selectedTarget = undefined;
+                      DataProtoToJSONPointer();
+                      const toJSON = selectedTarget as unknown as typeof DateProtoToJSON;
+                      selectedTarget = undefined;
+                      // eslint-disable-next-line no-extend-native
+                      dateProto.toJSON = proxyMaskFunction(
+                          toJSON,
+                          DateProtoToJSON
+                      ) as typeof DateProtoToJSON;
+                      selectedTarget = undefined;
+                  }
+                : noop,
             // callableInstallErrorPrepareStackTrace
             installErrorPrepareStackTrace,
+            // callableInstallJSONStringify
+            IS_IN_SHADOW_REALM
+                ? (WindowJSONPointer: Pointer) => {
+                      if (installedJSONStringify) {
+                          return;
+                      }
+                      installedJSONStringify = true;
+                      WindowJSONPointer();
+                      const WindowJSON = selectedTarget as typeof JSON;
+                      selectedTarget = undefined;
+                      WindowJSON.stringify = proxyMaskFunction(
+                          (
+                              ...args: Parameters<typeof JSON.stringify>
+                          ): ReturnType<typeof JSON.stringify> =>
+                              ReflectApply(JSONStringify, JSON, args),
+                          JSONStringify
+                      );
+                  }
+                : noop,
             // callableInstallLazyPropertyDescriptors
             IS_IN_SHADOW_REALM
                 ? (
@@ -4515,7 +4571,7 @@ export function createMembraneMarshall(
                   }
                 : (noop as CallableSetLazyPropertyDescriptorStateByTarget),
             // callableTrackAsFastTarget
-            !IS_IN_SHADOW_REALM
+            IS_IN_SHADOW_REALM
                 ? (targetPointer: Pointer) => {
                       targetPointer();
                       const target = selectedTarget!;
@@ -4731,16 +4787,18 @@ export function createMembraneMarshall(
                 24: foreignCallableGetPropertyValue,
                 25: foreignCallableGetTargetIntegrityTraits,
                 26: foreignCallableGetToStringTagOfTarget,
-                27: foreignCallableInstallErrorPrepareStackTrace,
-                // 28: callableInstallLazyPropertyDescriptors,
-                29: foreignCallableIsTargetLive,
-                30: foreignCallableIsTargetRevoked,
-                31: foreignCallableSerializeTarget,
-                32: foreignCallableSetLazyPropertyDescriptorStateByTarget,
-                // 33: foreignCallableTrackAsFastTarget,
-                34: foreignCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
-                35: foreignCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
-                36: foreignCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
+                // 27: callableInstallDateProtoToJSON,
+                28: foreignCallableInstallErrorPrepareStackTrace,
+                // 29: callableInstallJSONStringify,
+                // 30: callableInstallLazyPropertyDescriptors,
+                31: foreignCallableIsTargetLive,
+                32: foreignCallableIsTargetRevoked,
+                33: foreignCallableSerializeTarget,
+                34: foreignCallableSetLazyPropertyDescriptorStateByTarget,
+                // 35: callableTrackAsFastTarget,
+                36: foreignCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
+                37: foreignCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
+                38: foreignCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
             } = hooks);
             const applyTrapForZeroOrMoreArgs = createApplyOrConstructTrapForZeroOrMoreArgs(
                 ProxyHandlerTraps.Apply

@@ -3,6 +3,7 @@ import { getNearMembraneSerializedValue, isNearMembrane } from '../../dist/index
 const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = Symbol.for(
     '@@lockerNearMembraneSerializedValue'
 );
+
 describe('NearMembrane', () => {
     it('getNearMembraneSerializedValue', () => {
         // In the red realm this should return `undefined`.

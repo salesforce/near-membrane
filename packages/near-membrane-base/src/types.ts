@@ -84,7 +84,12 @@ export type CallableGetPrototypeOf = (targetPointer: Pointer) => PointerOrPrimit
 export type CallableGetTargetIntegrityTraits = (targetPointer: Pointer) => number;
 export type CallableGetToStringTagOfTarget = (targetPointer: Pointer) => string;
 export type CallableHas = (targetPointer: Pointer, key: PropertyKey) => boolean;
+export type CallableInstallDateProtoToJSON = (
+    DateProtoPointer: Pointer,
+    DataProtoToJSONPointer: Pointer
+) => void;
 export type CallableInstallErrorPrepareStackTrace = () => void;
+export type CallableInstallJSONStringify = (WindowJSONPointer: Pointer) => void;
 export type CallableInstallLazyPropertyDescriptors = (
     targetPointer: Pointer,
     ...ownKeysAndUnforgeableGlobalThisKeys: PropertyKey[]
@@ -164,7 +169,9 @@ export type HooksCallback = (
     callableGetPropertyValue: CallableGetPropertyValue,
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableGetToStringTagOfTarget: CallableGetToStringTagOfTarget,
+    callableInstallDateProtoToJSON: CallableInstallDateProtoToJSON,
     callableInstallErrorPrepareStackTrace: CallableInstallErrorPrepareStackTrace,
+    callableInstallJSONStringify: CallableInstallJSONStringify,
     callableInstallLazyPropertyDescriptors: CallableInstallLazyPropertyDescriptors,
     callableIsTargetLive: CallableIsTargetLive,
     callableIsTargetRevoked: CallableIsTargetRevoked,
@@ -189,7 +196,7 @@ export interface Instrumentation {
 export type LiveTargetCallback = (target: ProxyTarget, targetTraits: number) => boolean;
 export type Pointer = CallableFunction;
 export type PointerOrPrimitive = Pointer | Primitive;
-export type Primitive = bigint | boolean | null | number | string | symbol | undefined;
+export type Primitive = bigint | boolean | null | number | string | symbol | undefined | void;
 export type RevokedProxyCallback = (target: ProxyTarget) => boolean;
 export type SignSourceCallback = (sourceText: string) => string;
 export type { SerializedValue };

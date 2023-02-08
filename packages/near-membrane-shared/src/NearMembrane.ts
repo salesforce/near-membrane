@@ -1,10 +1,8 @@
-import { SymbolFor } from './Symbol';
+import {
+    LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL,
+    LOCKER_NEAR_MEMBRANE_SYMBOL,
+} from './constants';
 import type { NearMembraneSerializedValue } from './types';
-
-const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = SymbolFor(
-    '@@lockerNearMembraneSerializedValue'
-);
-const LOCKER_NEAR_MEMBRANE_SYMBOL = SymbolFor('@@lockerNearMembrane');
 
 export function getNearMembraneSerializedValue(object: object): NearMembraneSerializedValue {
     return LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in object

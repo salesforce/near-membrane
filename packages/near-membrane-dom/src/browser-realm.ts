@@ -76,7 +76,7 @@ function createIframeVirtualEnvironment(
         endowments,
         globalObjectShape,
         instrumentation,
-        keepAlive = false,
+        keepAlive = true,
         liveTargetCallback,
         signSourceCallback,
         // eslint-disable-next-line prefer-object-spread
@@ -150,6 +150,7 @@ function createIframeVirtualEnvironment(
     // We intentionally skip remapping Window.prototype because there is nothing
     // in it that needs to be remapped.
     env.lazyRemapProperties(blueRefs.EventTargetProto, blueRefs.EventTargetProtoOwnKeys);
+    env.installRemapOverrides();
     // We don't remap `blueRefs.WindowPropertiesProto` because it is "magical"
     // in that it provides access to elements by id.
     //
