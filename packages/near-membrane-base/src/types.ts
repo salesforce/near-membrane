@@ -69,7 +69,7 @@ export type CallableGet = (
 ) => PointerOrPrimitive;
 export type CallableGetPropertyValue = (
     targetPointer: Pointer,
-    index: PropertyKey
+    key: PropertyKey
 ) => PointerOrPrimitive;
 export type CallableGetLazyPropertyDescriptorStateByTarget = (
     targetPointer: Pointer
