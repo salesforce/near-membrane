@@ -6,9 +6,11 @@ export const LOCKER_IDENTIFIER_MARKER = '$LWS';
 // phase two, the user opted-in to custom devtools formatters. Phase one
 // is used for light weight initialization time debug while phase two is
 // reserved for post initialization runtime.
-
-// istanbul ignore next
-export const LOCKER_UNMINIFIED_FLAG = `${() => /* $LWS */ 1}`.includes(LOCKER_IDENTIFIER_MARKER);
+export const LOCKER_UNMINIFIED_FLAG =
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    /* istanbul ignore next */ `${(function LOCKER_UNMINIFIED_FLAG() {
+        return LOCKER_UNMINIFIED_FLAG.name;
+    })()}`.includes('LOCKER_UNMINIFIED_FLAG');
 export const CHAR_ELLIPSIS = '\u2026';
 export const TO_STRING_BRAND_ARRAY = '[object Array]';
 export const TO_STRING_BRAND_ARRAY_BUFFER = '[object ArrayBuffer]';
