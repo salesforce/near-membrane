@@ -1,6 +1,7 @@
 {
     "globals": {
-      "jasmine": "readonly"
+        "createVirtualEnvironment": true,
+        "jasmine": "readonly"
     },
     "ignorePatterns": [".eslintrc.js"],
     "overrides": [

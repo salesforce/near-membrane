@@ -68,6 +68,13 @@ export class VirtualEnvironment {
 
     private readonly redCallableSetPrototypeOf: CallableSetPrototypeOf;
 
+<<<<<<< HEAD
+=======
+    private readonly redCallableDefineProperties: CallableDefineProperties;
+
+    private readonly redCallableInstallLazyPropertyDescriptors: CallableInstallLazyPropertyDescriptors;
+
+>>>>>>> 3cede24 (test: add minimum test for ShadowRealm virtual environment, with instructions)
     private readonly redCallableTrackAsFastTarget: CallableTrackAsFastTarget;
 
     private readonly redGlobalThisPointer: Pointer;

@@ -5,17 +5,28 @@
 const globby = require('globby');
 const istanbul = require('rollup-plugin-istanbul');
 const { nodeResolve } = require('@rollup/plugin-node-resolve');
+const replaceRollupPlugin = require('@rollup/plugin-replace');
 const path = require('node:path');
+const yargs = require('yargs/yargs');
+const { hideBin } = require('yargs/helpers');
 
 process.env.CHROME_BIN = require('puppeteer').executablePath();
 
 let testFilesPattern = './test/**/*.spec.js';
 
 const basePath = path.resolve(__dirname, './');
-const matchArg = process.argv.indexOf('--match');
+const argv = yargs(hideBin(process.argv))
+    .options({
+        coverage: { type: 'boolean' },
+        match: { type: 'string' },
+        'use-shadow-realm': { type: 'boolean' },
+    })
+    .hide('help')
+    .hide('version').argv;
+const { coverage, match, useShadowRealm } = argv;
 
-if (matchArg > -1) {
-    testFilesPattern = process.argv[matchArg + 1] || '';
+if (match) {
+    testFilesPattern = match;
 }
 
 if (globby.sync(testFilesPattern).length) {
@@ -26,8 +37,6 @@ if (globby.sync(testFilesPattern).length) {
     console.error(`\nNo test files matching "${testFilesPattern}"\n`);
     process.exit(0);
 }
-
-const coverage = process.argv.includes('--coverage');
 
 const customLaunchers = {
     ChromeHeadlessNoSandbox: {
@@ -73,6 +82,13 @@ module.exports = function (config) {
             plugins: [
                 nodeResolve({
                     preferBuiltins: true,
+                }),
+                replaceRollupPlugin({
+                    include: ['./test/__bootstrap__/create-virtual-environment.js'],
+                    preventAssignment: true,
+                    values: {
+                        'process.env.USE_SHADOW_REALM': JSON.stringify(useShadowRealm),
+                    },
                 }),
             ],
         },

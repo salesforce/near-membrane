@@ -23,17 +23,27 @@ describe('createVirtualEnvironment', () => {
             const env = createVirtualEnvironment(window, {});
             expect(() => env.evaluate('')).not.toThrow();
         });
-        it('options object has endowments, but is undefined', () => {
-            let endowments;
-            const env = createVirtualEnvironment(window, { endowments });
-            expect(() => env.evaluate('')).not.toThrow();
-        });
-        it('options object has endowments, but is empty', () => {
-            const env = createVirtualEnvironment(window, {
-                endowments: {},
+        for (const useShadowRealm of [true, false]) {
+            fit(`options object has endowments, but is undefined${
+                useShadowRealm ? ' (Using ShadowRealm)' : ''
+            }`, () => {
+                let endowments;
+                const env = createVirtualEnvironment(window, {
+                    endowments,
+                    useShadowRealm,
+                });
+                expect(() => env.evaluate('')).not.toThrow();
             });
-            expect(() => env.evaluate('')).not.toThrow();
-        });
+            it(`options object has endowments, but is empty${
+                useShadowRealm ? ' (Using ShadowRealm)' : ''
+            }`, () => {
+                const env = createVirtualEnvironment(window, {
+                    endowments: {},
+                    useShadowRealm,
+                });
+                expect(() => env.evaluate('')).not.toThrow();
+            });
+        }
     });
 
     describe('options.distortionCallback', () => {
