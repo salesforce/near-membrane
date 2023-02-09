@@ -189,7 +189,11 @@ export function createMembraneMarshall(
     // phase two, the user opted-in to custom devtools formatters. Phase one
     // is used for light weight initialization time debug while phase two is
     // reserved for post initialization runtime.
-    const LOCKER_UNMINIFIED_FLAG = `${() => /* $LWS */ 1}`.includes('*');
+
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    const LOCKER_UNMINIFIED_FLAG = `${(function LOCKER_UNMINIFIED_FLAG() {
+        return LOCKER_UNMINIFIED_FLAG.name;
+    })()}`.includes('LOCKER_UNMINIFIED_FLAG');
     // Indicate whether debug support is available.
     const LOCKER_DEBUGGABLE_FLAG = LOCKER_UNMINIFIED_FLAG && !IS_IN_SHADOW_REALM;
     // BigInt is not supported in Safari 13.1.
