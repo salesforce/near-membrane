@@ -287,8 +287,9 @@ export function createMembraneMarshall(
     const localEval = IS_IN_SHADOW_REALM ? eval : undefined;
 
     // Install flags to ensure things are installed once per realm.
+    let installedDateProtoToJSONFlag = false;
     let installedErrorPrepareStackTraceFlag = false;
-    let installedJSONStringify = false;
+    let installedJSONStringifyFlag = false;
     let installedPropertyDescriptorMethodWrappersFlag = false;
 
     // eslint-disable-next-line no-shadow
@@ -4406,6 +4407,10 @@ export function createMembraneMarshall(
             // callableInstallDateProtoToJSON
             IS_IN_SHADOW_REALM
                 ? (DateProtoPointer: Pointer, DataProtoToJSONPointer: Pointer) => {
+                      if (installedDateProtoToJSONFlag) {
+                          return;
+                      }
+                      installedDateProtoToJSONFlag = true;
                       DateProtoPointer();
                       const dateProto = selectedTarget as typeof Date.prototype;
                       selectedTarget = undefined;
@@ -4425,10 +4430,10 @@ export function createMembraneMarshall(
             // callableInstallJSONStringify
             IS_IN_SHADOW_REALM
                 ? (WindowJSONPointer: Pointer) => {
-                      if (installedJSONStringify) {
+                      if (installedJSONStringifyFlag) {
                           return;
                       }
-                      installedJSONStringify = true;
+                      installedJSONStringifyFlag = true;
                       WindowJSONPointer();
                       const WindowJSON = selectedTarget as typeof JSON;
                       selectedTarget = undefined;
