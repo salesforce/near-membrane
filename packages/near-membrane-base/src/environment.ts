@@ -37,9 +37,14 @@ const { prototype: DateProto } = Date;
 const { toJSON: DateProtoToJSON } = DateProto;
 const WindowJSON = JSON;
 
-const installableDateToJSON = function toJSON(this: Date) {
+const installableDateToJSON = function toJSON(
+    this: Date,
+    ...args: Parameters<typeof Date.prototype.toJSON>
+): ReturnType<typeof Date.prototype.toJSON> {
+    // This pass through method invokes the native blue `Date.prototype.toJSON`
+    // method with the proxy unwrapped version of `this`.
     // istanbul ignore next: called within un-instrumented createMembraneMarshall
-    return ReflectApply(DateProtoToJSON, this, []);
+    return ReflectApply(DateProtoToJSON, this, args);
 };
 
 export class VirtualEnvironment {

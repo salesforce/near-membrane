@@ -167,14 +167,16 @@ export function createMembraneMarshall(
     // @rollup/plugin-replace replaces `DEV_MODE` references.
     const DEV_MODE = true;
     const IS_IN_SHADOW_REALM = typeof globalObject !== 'object' || globalObject === null;
-    const LOCKER_DEBUG_MODE_SYMBOL = !IS_IN_SHADOW_REALM
+    const IS_NOT_IN_SHADOW_REALM = !IS_IN_SHADOW_REALM;
+    const LOCKER_DEBUG_MODE_SYMBOL = IS_NOT_IN_SHADOW_REALM
         ? SymbolFor('@@lockerDebugMode')
         : undefined;
     const LOCKER_IDENTIFIER_MARKER = '$LWS';
-    const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = !IS_IN_SHADOW_REALM
+    const LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL = SymbolFor('@@lockerNearMembraneProxyMasked');
+    const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = IS_NOT_IN_SHADOW_REALM
         ? SymbolFor('@@lockerNearMembraneSerializedValue')
         : undefined;
-    const LOCKER_NEAR_MEMBRANE_SYMBOL = !IS_IN_SHADOW_REALM
+    const LOCKER_NEAR_MEMBRANE_SYMBOL = IS_NOT_IN_SHADOW_REALM
         ? SymbolFor('@@lockerNearMembrane')
         : undefined;
     const LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL = SymbolFor(
@@ -196,7 +198,8 @@ export function createMembraneMarshall(
         return LOCKER_UNMINIFIED_FLAG.name;
     })()}`.includes('LOCKER_UNMINIFIED_FLAG');
     // Indicate whether debug support is available.
-    const LOCKER_DEBUGGABLE_FLAG = LOCKER_UNMINIFIED_FLAG && !IS_IN_SHADOW_REALM;
+    const LOCKER_DEBUGGABLE_FLAG = LOCKER_UNMINIFIED_FLAG && IS_NOT_IN_SHADOW_REALM;
+    const ERR_ILLEGAL_PROPERTY_ACCESS = 'Illegal property access.';
     // BigInt is not supported in Safari 13.1.
     // https://caniuse.com/bigint
     const FLAGS_REG_EXP = IS_IN_SHADOW_REALM ? /\w*$/ : undefined;
@@ -280,7 +283,7 @@ export function createMembraneMarshall(
         [SymbolToStringTag]: WeakSetProtoSymbolToStringTag,
     } = WeakSetProto as any;
     const consoleObject =
-        !IS_IN_SHADOW_REALM && typeof console === 'object' && console !== null
+        IS_NOT_IN_SHADOW_REALM && typeof console === 'object' && console !== null
             ? console
             : undefined;
     const consoleInfo = consoleObject?.info;
@@ -341,20 +344,117 @@ export function createMembraneMarshall(
     }
 
     function proxyMaskFunction<T extends Function>(func: Function, maskFunc: T): T {
+        let nearMembraneSymbolFlag = false;
+        let lastProxyTrapCalled = ProxyHandlerTraps.None;
         const proxy = new ProxyCtor(maskFunc, {
             apply(_target: T, thisArg: any, args: any[]) {
+                lastProxyTrapCalled = ProxyHandlerTraps.Apply;
                 if (thisArg === proxy || thisArg === maskFunc) {
                     thisArg = func;
                 }
                 return ReflectApply(func, thisArg, args);
             },
             construct(_target: T, args: any[], newTarget: Function) {
+                lastProxyTrapCalled = ProxyHandlerTraps.Construct;
                 if (newTarget === proxy || newTarget === maskFunc) {
                     newTarget = func;
                 }
                 return ReflectConstruct(func, args, newTarget);
             },
-        });
+            defineProperty(target: ProxyTarget, key: PropertyKey, desc: PropertyDescriptor) {
+                lastProxyTrapCalled = ProxyHandlerTraps.DefineProperty;
+                // Defining forgeries of `LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL`
+                // properties is not allowed.
+                if (key === LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL) {
+                    throw new TypeErrorCtor(ERR_ILLEGAL_PROPERTY_ACCESS);
+                }
+                return ReflectDefineProperty(target, key, desc);
+            },
+            deleteProperty(target: ProxyTarget, key: PropertyKey) {
+                lastProxyTrapCalled = ProxyHandlerTraps.GetOwnPropertyDescriptor;
+                return ReflectDeleteProperty(target, key);
+            },
+            get(target: ProxyTarget, key: PropertyKey, receiver: any) {
+                // Only allow accessing near-membrane symbol values if the
+                // BoundaryProxyHandler.has trap has been called immediately
+                // before and the symbol does not exist.
+                nearMembraneSymbolFlag &&= lastProxyTrapCalled === ProxyHandlerTraps.Has;
+                lastProxyTrapCalled = ProxyHandlerTraps.Get;
+                const isProxyMaskedSymbol = key === LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL;
+                if (nearMembraneSymbolFlag) {
+                    // Exit without performing a [[Get]] for near-membrane symbols
+                    // because we know when the nearMembraneSymbolFlag is ON that
+                    // there is no shadowed symbol value.
+                    if (isProxyMaskedSymbol) {
+                        return true;
+                    }
+                }
+                const result = ReflectGet(target, key, receiver);
+                // Getting forged values of `LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL`
+                // properties is not allowed.
+                if (result !== undefined && isProxyMaskedSymbol) {
+                    throw new TypeErrorCtor(ERR_ILLEGAL_PROPERTY_ACCESS);
+                }
+                return result;
+            },
+            getOwnPropertyDescriptor(target: ProxyTarget, key: PropertyKey) {
+                lastProxyTrapCalled = ProxyHandlerTraps.GetOwnPropertyDescriptor;
+                const result = ReflectGetOwnPropertyDescriptor(target, key);
+                // Getting forged descriptors of `LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL`
+                // properties is not allowed.
+                if (result && key === LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL) {
+                    throw new TypeErrorCtor(ERR_ILLEGAL_PROPERTY_ACCESS);
+                }
+                return result;
+            },
+            getPrototypeOf(target: ProxyTarget) {
+                lastProxyTrapCalled = ProxyHandlerTraps.GetPrototypeOf;
+                return ReflectGetPrototypeOf(target);
+            },
+            has(target: ProxyTarget, key: PropertyKey) {
+                lastProxyTrapCalled = ProxyHandlerTraps.Has;
+                const result = ReflectHas(target, key);
+                const isProxyMaskedSymbol = key === LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL;
+                if (result) {
+                    nearMembraneSymbolFlag = false;
+                    // Checking the existence of forged `LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL`
+                    // properties is not allowed.
+                    if (isProxyMaskedSymbol) {
+                        throw new TypeErrorCtor(ERR_ILLEGAL_PROPERTY_ACCESS);
+                    }
+                } else {
+                    // The near-membrane symbol flag is on if the symbol does
+                    // not exist on the object or its [[Prototype]].
+                    nearMembraneSymbolFlag = isProxyMaskedSymbol;
+                }
+                return result;
+            },
+            isExtensible(target: ProxyTarget) {
+                lastProxyTrapCalled = ProxyHandlerTraps.IsExtensible;
+                return ReflectIsExtensible(target);
+            },
+            ownKeys(target: ProxyTarget) {
+                lastProxyTrapCalled = ProxyHandlerTraps.OwnKeys;
+                return ReflectOwnKeys(target);
+            },
+            preventExtensions(target: ProxyTarget) {
+                lastProxyTrapCalled = ProxyHandlerTraps.PreventExtensions;
+                return ReflectPreventExtensions(target);
+            },
+            set(target: ProxyTarget, key: PropertyKey, value: any, receiver: any) {
+                lastProxyTrapCalled = ProxyHandlerTraps.Set;
+                // Setting forged values of `LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL`
+                // properties is not allowed.
+                if (key === LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL) {
+                    throw new TypeErrorCtor(ERR_ILLEGAL_PROPERTY_ACCESS);
+                }
+                return ReflectSet(target, key, value, receiver);
+            },
+            setPrototypeOf(target: ProxyTarget, proto: object | null) {
+                lastProxyTrapCalled = ProxyHandlerTraps.SetPrototypeOf;
+                return ReflectSetPrototypeOf(target, proto);
+            },
+        }) as T;
         return proxy;
     }
 
@@ -705,7 +805,9 @@ export function createMembraneMarshall(
             // In the future we can preface the LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG
             // definition with a LOCKER_UNMINIFIED_FLAG check to have instrumentation
             // removed in minified production builds.
-            !IS_IN_SHADOW_REALM && typeof instrumentation === 'object' && instrumentation !== null;
+            IS_NOT_IN_SHADOW_REALM &&
+            typeof instrumentation === 'object' &&
+            instrumentation !== null;
 
         const applyTrapNameRegistry = {
             // Populated in the returned connector function below.
@@ -786,7 +888,7 @@ export function createMembraneMarshall(
         let useFastForeignTargetPath = IS_IN_SHADOW_REALM;
         let useFastForeignTargetPathForTypedArrays = IS_IN_SHADOW_REALM;
         let nearMembraneSymbolFlag = false;
-        let lastProxyTrapCalled: ProxyHandlerTraps = 0;
+        let lastProxyTrapCalled = ProxyHandlerTraps.None;
 
         const activateLazyOwnPropertyDefinition = IS_IN_SHADOW_REALM
             ? (target: object, key: PropertyKey, state: object) => {
@@ -3130,7 +3232,7 @@ export function createMembraneMarshall(
                 return result;
             }
 
-            private static passthruGetTrap = !IS_IN_SHADOW_REALM
+            private static passthruGetTrap = IS_NOT_IN_SHADOW_REALM
                 ? function (
                       this: BoundaryProxyHandler,
                       _shadowTarget: ShadowTarget,
@@ -3142,14 +3244,17 @@ export function createMembraneMarshall(
                       // before and the symbol does not exist.
                       nearMembraneSymbolFlag &&= lastProxyTrapCalled === ProxyHandlerTraps.Has;
                       lastProxyTrapCalled = ProxyHandlerTraps.Get;
+                      const isNearMembraneSymbol = key === LOCKER_NEAR_MEMBRANE_SYMBOL;
+                      const isNearMembraneSerializedValueSymbol =
+                          key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL;
                       if (nearMembraneSymbolFlag) {
                           // Exit without performing a [[Get]] for near-membrane
                           // symbols because we know when the nearMembraneSymbolFlag
                           // is ON that there is no shadowed symbol value.
-                          if (key === LOCKER_NEAR_MEMBRANE_SYMBOL) {
+                          if (isNearMembraneSymbol) {
                               return true;
                           }
-                          if (key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL) {
+                          if (isNearMembraneSerializedValueSymbol) {
                               return this.serialize();
                           }
                       }
@@ -3196,6 +3301,14 @@ export function createMembraneMarshall(
                       if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                           activity!.stop();
                       }
+                      // Getting forged values of near-membrane symbol properties
+                      // is not allowed.
+                      if (
+                          result !== undefined &&
+                          (isNearMembraneSymbol || isNearMembraneSerializedValueSymbol)
+                      ) {
+                          throw new TypeErrorCtor(ERR_ILLEGAL_PROPERTY_ACCESS);
+                      }
                       return result;
                   }
                 : (noop as typeof Reflect.get);
@@ -3234,7 +3347,7 @@ export function createMembraneMarshall(
                 return proto as object | null;
             }
 
-            private static passthruHasTrap = !IS_IN_SHADOW_REALM
+            private static passthruHasTrap = IS_NOT_IN_SHADOW_REALM
                 ? function (
                       this: BoundaryProxyHandler,
                       _shadowTarget: ShadowTarget,
@@ -3256,12 +3369,22 @@ export function createMembraneMarshall(
                           }
                           throw errorToThrow;
                       }
-                      // The near-membrane symbol flag is on if the symbol does not
-                      // exist on the object or its [[Prototype]].
-                      nearMembraneSymbolFlag =
-                          !result &&
-                          (key === LOCKER_NEAR_MEMBRANE_SYMBOL ||
-                              key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL);
+                      const isNearMembraneSymbol = key === LOCKER_NEAR_MEMBRANE_SYMBOL;
+                      const isNearMembraneSerializedValueSymbol =
+                          key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL;
+                      if (result) {
+                          nearMembraneSymbolFlag = false;
+                          // Checking the existence of forged near-membrane
+                          // symbol properties is not allowed.
+                          if (isNearMembraneSymbol || isNearMembraneSerializedValueSymbol) {
+                              throw new TypeErrorCtor(ERR_ILLEGAL_PROPERTY_ACCESS);
+                          }
+                      } else {
+                          // The near-membrane symbol flag is on if the symbol
+                          // does not exist on the object or its [[Prototype]].
+                          nearMembraneSymbolFlag =
+                              isNearMembraneSymbol || isNearMembraneSerializedValueSymbol;
+                      }
                       if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                           activity!.stop();
                       }
@@ -3386,6 +3509,16 @@ export function createMembraneMarshall(
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                     activity!.stop();
                 }
+                // Getting forged descriptors of near-membrane symbol properties
+                // is not allowed.
+                if (
+                    IS_NOT_IN_SHADOW_REALM &&
+                    safeDesc &&
+                    (key === LOCKER_NEAR_MEMBRANE_SYMBOL ||
+                        key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL)
+                ) {
+                    throw new TypeErrorCtor(ERR_ILLEGAL_PROPERTY_ACCESS);
+                }
                 return safeDesc;
             }
 
@@ -3479,6 +3612,15 @@ export function createMembraneMarshall(
                 }
                 if (typeof receiver === 'undefined') {
                     receiver = proxy;
+                }
+                // Setting forged values of near-membrane symbol properties
+                // is not allowed.
+                if (
+                    IS_NOT_IN_SHADOW_REALM &&
+                    (key === LOCKER_NEAR_MEMBRANE_SYMBOL ||
+                        key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL)
+                ) {
+                    throw new TypeErrorCtor(ERR_ILLEGAL_PROPERTY_ACCESS);
                 }
                 const isFastPath = proxy === receiver;
                 let activity: Activity | undefined;
@@ -3769,7 +3911,7 @@ export function createMembraneMarshall(
             // When crossing, should be mapped to the foreign globalThis
             createPointer(globalThisRef),
             // getSelectedTarget
-            !IS_IN_SHADOW_REALM
+            IS_NOT_IN_SHADOW_REALM
                 ? (): any => {
                       const result = selectedTarget;
                       selectedTarget = undefined;
@@ -4324,7 +4466,7 @@ export function createMembraneMarshall(
                   }
                 : (noop as CallableDefineProperties),
             // callableGetLazyPropertyDescriptorStateByTarget
-            !IS_IN_SHADOW_REALM
+            IS_NOT_IN_SHADOW_REALM
                 ? (targetPointer: Pointer) => {
                       targetPointer();
                       const target = selectedTarget!;
@@ -4336,7 +4478,7 @@ export function createMembraneMarshall(
                   }
                 : (noop as CallableGetLazyPropertyDescriptorStateByTarget),
             // callableGetPropertyValue
-            !IS_IN_SHADOW_REALM
+            IS_NOT_IN_SHADOW_REALM
                 ? (targetPointer: Pointer, key: PropertyKey): PointerOrPrimitive => {
                       targetPointer();
                       const target = selectedTarget!;
@@ -4354,7 +4496,7 @@ export function createMembraneMarshall(
                   }
                 : (noop as unknown as CallableGetPropertyValue),
             // callableGetTargetIntegrityTraits
-            !IS_IN_SHADOW_REALM
+            IS_NOT_IN_SHADOW_REALM
                 ? (targetPointer: Pointer): TargetIntegrityTraits => {
                       targetPointer();
                       const target = selectedTarget!;
@@ -4441,6 +4583,10 @@ export function createMembraneMarshall(
                           (
                               ...args: Parameters<typeof JSON.stringify>
                           ): ReturnType<typeof JSON.stringify> =>
+                              // This pass through method invokes the native red
+                              // `JSON.stringify` method so that properties added
+                              // to red proxied values are included in the
+                              // stringified result.
                               ReflectApply(JSONStringify, JSON, args),
                           JSONStringify
                       );
@@ -4517,7 +4663,7 @@ export function createMembraneMarshall(
                   }
                 : (noop as CallableInstallLazyPropertyDescriptors),
             // callableIsTargetLive
-            !IS_IN_SHADOW_REALM && liveTargetCallback
+            IS_NOT_IN_SHADOW_REALM && liveTargetCallback
                 ? (targetPointer: Pointer, targetTraits: TargetTraits): boolean => {
                       targetPointer();
                       const target = selectedTarget!;
@@ -4532,7 +4678,7 @@ export function createMembraneMarshall(
                   }
                 : (alwaysFalse as CallableIsTargetLive),
             // callableIsTargetRevoked
-            !IS_IN_SHADOW_REALM
+            IS_NOT_IN_SHADOW_REALM
                 ? (targetPointer: Pointer): boolean => {
                       targetPointer();
                       const target = selectedTarget!;
@@ -4562,7 +4708,7 @@ export function createMembraneMarshall(
                   }
                 : (noop as CallableSerializeTarget),
             // callableSetLazyPropertyDescriptorStateByTarget
-            !IS_IN_SHADOW_REALM
+            IS_NOT_IN_SHADOW_REALM
                 ? (targetPointer: Pointer, statePointer: Pointer) => {
                       targetPointer();
                       const target = selectedTarget!;

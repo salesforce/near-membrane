@@ -6,8 +6,8 @@ import {
     ArrayProtoSort,
     ArrayProtoUnshift,
     CHAR_ELLIPSIS,
-    getNearMembraneSerializedValue,
-    isNearMembrane,
+    getNearMembraneProxySerializedValue,
+    isNearMembraneProxy,
     isObject,
     JSONStringify,
     LOCKER_UNMINIFIED_FLAG,
@@ -180,7 +180,7 @@ if (LOCKER_UNMINIFIED_FLAG) {
                 boxedHeaderEntry = [
                     'span',
                     colorStyleObject,
-                    `${StringCtor(getNearMembraneSerializedValue(object))}`,
+                    `${StringCtor(getNearMembraneProxySerializedValue(object))}`,
                 ];
                 break;
             }
@@ -283,7 +283,7 @@ if (LOCKER_UNMINIFIED_FLAG) {
                     writable: true,
                 } as PropertyDescriptor);
             }
-            if (!isNearMembrane(object)) {
+            if (!isNearMembraneProxy(object)) {
                 return null;
             }
             const headerDiv = [

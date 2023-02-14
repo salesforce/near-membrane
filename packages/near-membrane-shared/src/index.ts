@@ -14,6 +14,7 @@ export * from './Math';
 export * from './NearMembrane';
 export * from './Number';
 export * from './Object';
+export * from './Proxy';
 export * from './Reflect';
 export * from './RegExp';
 export * from './Set';

@@ -13,7 +13,7 @@ import {
 } from './constants';
 import { JSONParse } from './JSON';
 import { MapCtor, MapProtoEntries, MapProtoSet, toSafeMap } from './Map';
-import { getNearMembraneSerializedValue, isNearMembrane } from './NearMembrane';
+import { getNearMembraneProxySerializedValue, isNearMembraneProxy } from './NearMembrane';
 import { ObjectCtor, ObjectKeys, ObjectProto } from './Object';
 import { ReflectApply, ReflectGetPrototypeOf } from './Reflect';
 import { RegExpCtor } from './RegExp';
@@ -22,7 +22,7 @@ import { SetCtor, SetProtoAdd, SetProtoValues } from './Set';
 const SEEN_OBJECTS = toSafeMap(new MapCtor<object, object>());
 
 function cloneBoxedPrimitive(object: object): object {
-    return ObjectCtor(getNearMembraneSerializedValue(object));
+    return ObjectCtor(getNearMembraneProxySerializedValue(object));
 }
 
 function cloneMap(map: Map<any, any>, queue: any[]): Map<any, any> {
@@ -61,7 +61,7 @@ function cloneMap(map: Map<any, any>, queue: any[]): Map<any, any> {
 }
 
 function cloneRegExp(regexp: RegExp): RegExp {
-    const { flags, source } = JSONParse(getNearMembraneSerializedValue(regexp) as string);
+    const { flags, source } = JSONParse(getNearMembraneProxySerializedValue(regexp) as string);
     return new RegExpCtor(source, flags);
 }
 
@@ -263,7 +263,7 @@ function partialStructuredCloneInternal(value: any): any {
         }
         if (cloneValue === undefined) {
             // istanbul ignore else
-            if (!isNearMembrane(originalValue)) {
+            if (!isNearMembraneProxy(originalValue)) {
                 // Skip cloning non-membrane proxied objects.
                 SEEN_OBJECTS.set(originalValue, originalValue);
                 setter(originalValue);
