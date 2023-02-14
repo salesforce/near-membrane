@@ -1,9 +1,10 @@
+import {
+    ERR_ILLEGAL_PROPERTY_ACCESS,
+    LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL,
+    LOCKER_NEAR_MEMBRANE_SYMBOL,
+} from '@locker/near-membrane-shared';
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
-const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = Symbol.for(
-    '@@lockerNearMembraneSerializedValue'
-);
-const LOCKER_NEAR_MEMBRANE_SYMBOL = Symbol.for('@@lockerNearMembrane');
 const { toStringTag: TO_STRING_TAG_SYMBOL } = Symbol;
 
 function customizeToStringTag(object) {
@@ -26,7 +27,7 @@ function freezeObject(object, inheritFrom = Reflect.getPrototypeOf(object)) {
 
 describe('@@lockerNearMembrane', () => {
     it('should be detectable', () => {
-        expect.assertions(15);
+        expect.assertions(18);
 
         let takeInside;
         const env = createVirtualEnvironment(window, {
@@ -56,6 +57,9 @@ describe('@@lockerNearMembrane', () => {
                 // Test red proxies.
                 expect(LOCKER_NEAR_MEMBRANE_SYMBOL in outsideValue).toBe(false);
                 expect(outsideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(undefined);
+                expect(
+                    Reflect.getOwnPropertyDescriptor(outsideValue, LOCKER_NEAR_MEMBRANE_SYMBOL)
+                ).toBe(undefined);
             });
         `);
 
@@ -73,7 +77,7 @@ describe('@@lockerNearMembrane', () => {
     });
 
     it('should not be detectable when customized', () => {
-        expect.assertions(12);
+        expect.assertions(15);
 
         let takeInside;
         const env = createVirtualEnvironment(window, {
@@ -82,10 +86,14 @@ describe('@@lockerNearMembrane', () => {
                 exposeTakeInside(func) {
                     takeInside = func;
                 },
-                takeOutside(insideValue, expectedValue) {
+                takeOutside(insideValue) {
                     // Test blue proxies.
-                    expect(LOCKER_NEAR_MEMBRANE_SYMBOL in insideValue).toBe(true);
-                    expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(expectedValue);
+                    expect(() => LOCKER_NEAR_MEMBRANE_SYMBOL in insideValue).toThrowError(
+                        ERR_ILLEGAL_PROPERTY_ACCESS
+                    );
+                    expect(() => insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toThrowError(
+                        ERR_ILLEGAL_PROPERTY_ACCESS
+                    );
                 },
             }),
         });
@@ -97,6 +105,9 @@ describe('@@lockerNearMembrane', () => {
                 // Test red proxies.
                 expect(LOCKER_NEAR_MEMBRANE_SYMBOL in outsideValue).toBe(true);
                 expect(outsideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(expectedValue);
+                expect(
+                    Reflect.getOwnPropertyDescriptor(outsideValue, LOCKER_NEAR_MEMBRANE_SYMBOL)
+                ).toBeDefined();
             });
         `);
 
@@ -122,23 +133,23 @@ describe('@@lockerNearMembrane', () => {
             // Test blue proxies.
             const insideObjectSymbolValue = 'insideObject';
             const insideObject = { [LOCKER_NEAR_MEMBRANE_SYMBOL]: insideObjectSymbolValue };
-            takeOutside(insideObject, insideObjectSymbolValue);
+            takeOutside(insideObject);
 
             const insideObjectWithNullProtoSymbolValue = 'insideObjectWithNullProto';
             const insideObjectWithNullProto = Object.create(null, {
                 [LOCKER_NEAR_MEMBRANE_SYMBOL]: { value: insideObjectWithNullProtoSymbolValue },
             });
-            takeOutside(insideObjectWithNullProto, insideObjectWithNullProtoSymbolValue);
+            takeOutside(insideObjectWithNullProto);
 
             const insideArraySymbolValue = 'insideArray';
             const insideArray = [];
             insideArray[LOCKER_NEAR_MEMBRANE_SYMBOL] = insideArraySymbolValue;
-            takeOutside(insideArray, insideArraySymbolValue);
+            takeOutside(insideArray);
         `);
     });
 
     it('should not throw proxy invariant violation errors', () => {
-        expect.assertions(15);
+        expect.assertions(18);
 
         let takeInside;
         const env = createVirtualEnvironment(window, {
@@ -157,6 +168,9 @@ describe('@@lockerNearMembrane', () => {
                     // Performing a get() trap call without first performing a
                     // has() trap check will produce `undefined`.
                     expect(insideValue[LOCKER_NEAR_MEMBRANE_SYMBOL]).toBe(undefined);
+                    expect(
+                        Reflect.getOwnPropertyDescriptor(insideValue, LOCKER_NEAR_MEMBRANE_SYMBOL)
+                    ).toBe(undefined);
                 },
             }),
         });
@@ -195,7 +209,7 @@ describe('@@lockerNearMembrane', () => {
 
 describe('@@lockerNearMembraneSerializedValue', () => {
     it('should be detectable', () => {
-        expect.assertions(45);
+        expect.assertions(63);
 
         let takeInside;
         const env = createVirtualEnvironment(window, {
@@ -218,6 +232,12 @@ describe('@@lockerNearMembraneSerializedValue', () => {
                     expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
                         undefined
                     );
+                    expect(
+                        Reflect.getOwnPropertyDescriptor(
+                            insideValue,
+                            LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL
+                        )
+                    ).toBe(undefined);
                 },
             }),
         });
@@ -231,6 +251,12 @@ describe('@@lockerNearMembraneSerializedValue', () => {
                 // Test red proxies.
                 expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in outsideValue).toBe(false);
                 expect(outsideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(undefined);
+                expect(
+                    Reflect.getOwnPropertyDescriptor(
+                        outsideValue,
+                        LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL
+                    )
+                ).toBe(undefined);
             });
         `);
 
@@ -280,7 +306,7 @@ describe('@@lockerNearMembraneSerializedValue', () => {
     });
 
     it('should be detectable with blue proxies of other realms', () => {
-        expect.assertions(45);
+        expect.assertions(54);
 
         const iframe = document.createElement('iframe');
         iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
@@ -348,6 +374,12 @@ describe('@@lockerNearMembraneSerializedValue', () => {
                     expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
                         undefined
                     );
+                    expect(
+                        Reflect.getOwnPropertyDescriptor(
+                            insideValue,
+                            LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL
+                        )
+                    ).toBe(undefined);
                 },
             }),
         });
@@ -582,7 +614,7 @@ describe('@@lockerNearMembraneSerializedValue', () => {
     });
 
     it('should not be detectable when customized', () => {
-        expect.assertions(36);
+        expect.assertions(54);
 
         let takeInside;
         const env = createVirtualEnvironment(window, {
@@ -591,12 +623,20 @@ describe('@@lockerNearMembraneSerializedValue', () => {
                 exposeTakeInside(func) {
                     takeInside = func;
                 },
-                takeOutside(insideValue, expectedValue) {
+                takeOutside(insideValue) {
                     // Test blue proxies.
-                    expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue).toBe(true);
-                    expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
-                        expectedValue
-                    );
+                    expect(
+                        () => LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in insideValue
+                    ).toThrowError(ERR_ILLEGAL_PROPERTY_ACCESS);
+                    expect(
+                        () => insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]
+                    ).toThrowError(ERR_ILLEGAL_PROPERTY_ACCESS);
+                    expect(() =>
+                        Reflect.getOwnPropertyDescriptor(
+                            insideValue,
+                            LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL
+                        )
+                    ).toThrowError(ERR_ILLEGAL_PROPERTY_ACCESS);
                 },
             }),
         });
@@ -612,6 +652,12 @@ describe('@@lockerNearMembraneSerializedValue', () => {
                 expect(outsideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
                     expectedValue
                 );
+                expect(
+                    Reflect.getOwnPropertyDescriptor(
+                        outsideValue,
+                        LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL
+                    )
+                ).toBeDefined();
             });
         `);
         // Test blue proxies.
@@ -685,64 +731,64 @@ describe('@@lockerNearMembraneSerializedValue', () => {
             const insideBigIntObject = Object(BigInt(0x1fffffffffffff));
             insideBigIntObject[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL] =
                 insideBigIntObjectSymbolValue;
-            takeOutside(insideBigIntObject, insideBigIntObjectSymbolValue);
+            takeOutside(insideBigIntObject);
 
             const insideBooleanTrueObjectSymbolValue = 'insideBooleanTrueObject';
             // eslint-disable-next-line no-new-wrappers
             const insideBooleanTrueObject = new Boolean(true);
             insideBooleanTrueObject[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL] =
                 insideBooleanTrueObjectSymbolValue;
-            takeOutside(insideBooleanTrueObject, insideBooleanTrueObjectSymbolValue);
+            takeOutside(insideBooleanTrueObject);
 
             const insideBooleanFalseObjectSymbolValue = 'insideBooleanFalseObject';
             // eslint-disable-next-line no-new-wrappers
             const insideBooleanFalseObject = new Boolean(false);
             insideBooleanFalseObject[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL] =
                 insideBooleanFalseObjectSymbolValue;
-            takeOutside(insideBooleanFalseObject, insideBooleanFalseObjectSymbolValue);
+            takeOutside(insideBooleanFalseObject);
 
             const insideNumberObjectSymbolValue = 'insideNumberObject';
             // eslint-disable-next-line no-new-wrappers
             const insideNumberObject = new Number(0);
             insideNumberObject[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL] =
                 insideNumberObjectSymbolValue;
-            takeOutside(insideNumberObject, insideNumberObjectSymbolValue);
+            takeOutside(insideNumberObject);
 
             const insideRegExpLiteralSymbolValue = 'insideRegExpLiteral';
             const insideRegExpLiteral = /insideRegExpLiteral/suy;
             insideRegExpLiteral[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL] =
                 insideRegExpLiteralSymbolValue;
-            takeOutside(insideRegExpLiteral, insideRegExpLiteralSymbolValue);
+            takeOutside(insideRegExpLiteral);
 
             const insideRegExpObjectSymbolValue = 'insideRegExpObject';
             const insideRegExpObject = new RegExp('insideRegExpObject', 'suy');
             insideRegExpObject[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL] =
                 insideRegExpObjectSymbolValue;
-            takeOutside(insideRegExpObject, insideRegExpObjectSymbolValue);
+            takeOutside(insideRegExpObject);
 
             const insideStringObjectSymbolValue = 'insideStringObject';
             // eslint-disable-next-line no-new-wrappers
             const insideStringObject = new String('insideString');
             insideStringObject[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL] =
                 insideStringObjectSymbolValue;
-            takeOutside(insideStringObject, insideStringObjectSymbolValue);
+            takeOutside(insideStringObject);
 
             const insideSymbolObjectSymbolValue = 'insideSymbolObject';
             // eslint-disable-next-line no-new-wrappers
             const insideSymbolObject = Object(Symbol('insideSymbol'));
             insideSymbolObject[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL] =
                 insideSymbolObjectSymbolValue;
-            takeOutside(insideSymbolObject, insideSymbolObjectSymbolValue);
+            takeOutside(insideSymbolObject);
 
             const insideArraySymbolValue = 'insideArray';
             const insideArray = ['insideArray'];
             insideArray[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL] = insideArraySymbolValue;
-            takeOutside(insideArray, insideArraySymbolValue);
+            takeOutside(insideArray);
         `);
     });
 
     it('should not throw proxy invariant violation errors', () => {
-        expect.assertions(45);
+        expect.assertions(63);
 
         let takeInside;
         const env = createVirtualEnvironment(window, {
@@ -765,6 +811,12 @@ describe('@@lockerNearMembraneSerializedValue', () => {
                     expect(insideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(
                         undefined
                     );
+                    expect(
+                        Reflect.getOwnPropertyDescriptor(
+                            insideValue,
+                            LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL
+                        )
+                    ).toBe(undefined);
                 },
             }),
         });
@@ -778,6 +830,12 @@ describe('@@lockerNearMembraneSerializedValue', () => {
                 // Test red proxies.
                 expect(LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL in outsideValue).toBe(false);
                 expect(outsideValue[LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL]).toBe(undefined);
+                expect(
+                    Reflect.getOwnPropertyDescriptor(
+                        outsideValue,
+                        LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL
+                    )
+                ).toBe(undefined);
             });
         `);
 

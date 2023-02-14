@@ -1,3 +1,5 @@
+'use strict';
+
 // Based on jasmine-expect-count.
 // Copyright (c) 2017 Tony Brix. Released under MIT license:
 // https://github.com/UziTech/jasmine-expect-count
@@ -39,18 +41,9 @@ EXPECT_PATCHING_SCOPE: {
         }
     };
 
-    const defaultGlobalThisKeysLookup = new Set(Reflect.ownKeys(globalThis));
-
     beforeEach(() => {
         actualExpects = 0;
         expectedExpects = null;
-        // Cleanup global object pollution after each test.
-        const ownKeys = Reflect.ownKeys(globalThis);
-        for (const ownKey of ownKeys) {
-            if (!defaultGlobalThisKeysLookup.has(ownKey)) {
-                delete globalThis[ownKey];
-            }
-        }
     });
 
     afterEach(checkExpectCount);

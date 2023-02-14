@@ -18,11 +18,18 @@ export const LOCKER_UNMINIFIED_FLAG =
 // Character constants.
 export const CHAR_ELLIPSIS = '\u2026';
 
+// Error message constants.
+export const ERR_ILLEGAL_PROPERTY_ACCESS = 'Illegal property access.';
+
 // Near-membrane constants.
+export const LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL = SymbolFor(
+    '@@lockerNearMembraneProxyMasked'
+);
 export const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = SymbolFor(
     '@@lockerNearMembraneSerializedValue'
 );
 export const LOCKER_NEAR_MEMBRANE_SYMBOL = SymbolFor('@@lockerNearMembrane');
+export const SYMBOL_LIVE_OBJECT = SymbolFor('@@lockerLiveValue');
 
 // Object brand constants.
 export const TO_STRING_BRAND_ARRAY = '[object Array]';
