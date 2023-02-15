@@ -9,6 +9,18 @@ describe('JSON', () => {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
         });
         env.evaluate(`
+            expect(JSON.stringify.toString()).toContain('[native code]');
+        `);
+        expect(isNearMembraneProxyMaskedFunction(JSON.stringify)).toBe(false);
+    });
+
+    it('JSON.stringify does not support proxy masked symbol handshake', () => {
+        expect.assertions(1);
+
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ expect }),
+        });
+        env.evaluate(`
             const LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL = Symbol.for(
                 '@@lockerNearMembraneProxyMasked'
             );
@@ -16,9 +28,8 @@ describe('JSON', () => {
             expect(
                 !(LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL in JSONStringify) &&
                 JSONStringify[LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL] === true
-            ).toBe(true);
+            ).toBe(false);
         `);
-        expect(isNearMembraneProxyMaskedFunction(JSON.stringify)).toBe(false);
     });
 
     it('JSON.stringify of blue objects with modified properties', () => {
