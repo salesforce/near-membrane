@@ -1,4 +1,4 @@
-import { isNearMembraneProxyMaskedFunction } from '@locker/near-membrane-shared';
+import { isProxyMaskedFunction } from '@locker/near-membrane-shared';
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('JSON', () => {
@@ -11,7 +11,7 @@ describe('JSON', () => {
         env.evaluate(`
             expect(JSON.stringify.toString()).toContain('[native code]');
         `);
-        expect(isNearMembraneProxyMaskedFunction(JSON.stringify)).toBe(false);
+        expect(isProxyMaskedFunction(JSON.stringify)).toBe(false);
     });
 
     it('JSON.stringify does not support proxy masked symbol handshake', () => {

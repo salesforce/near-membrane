@@ -1,11 +1,25 @@
 import {
     ERR_ILLEGAL_PROPERTY_ACCESS,
+    isProxyMaskedFunction,
     LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL,
     noop,
     proxyMaskFunction,
 } from '../../dist/index.mjs.js';
 
 describe('Function', () => {
+    it('isProxyMaskedFunction', () => {
+        expect(isProxyMaskedFunction({})).toBe(false);
+        expect(isProxyMaskedFunction(null)).toBe(false);
+        expect(isProxyMaskedFunction(undefined)).toBe(false);
+        const func = () => 'func';
+        func[LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL] = true;
+        expect(isProxyMaskedFunction(func)).toBe(false);
+        const mask = () => 'mask';
+        expect(isProxyMaskedFunction(mask)).toBe(false);
+        const masked = proxyMaskFunction(func, mask);
+        expect(isProxyMaskedFunction(masked)).toBe(true);
+    });
+
     it('noop', () => {
         expect(noop()).toBe(undefined);
         expect(noop(null)).toBe(undefined);

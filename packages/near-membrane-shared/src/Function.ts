@@ -26,6 +26,18 @@ export function noop() {
     // No operation performed.
 }
 
+export function isProxyMaskedFunction(value: any): boolean {
+    // To extract the flag value of a blue near-membrane proxy we must perform
+    // a two step handshake. First, we trigger the "has" trap for the
+    // `LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL` property which must report
+    // `false`. Second, we trigger the "get" trap to return the flag value.
+    return (
+        typeof value === 'function' &&
+        !(LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL in value) &&
+        (value as any)[LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL] === true
+    );
+}
+
 export function proxyMaskFunction<T extends Function>(
     func: Function,
     maskFunc: T,
