@@ -31,8 +31,6 @@ export function proxyMaskFunction<T extends Function>(
     maskFunc: T,
     trapInvokers?: ProxyTrapInvokers
 ): T {
-    let nearMembraneSymbolFlag = false;
-    let lastProxyTrapCalled = ProxyHandlerTraps.None;
     let applyTrapInvoker = ReflectApply;
     let constructTrapInvoker = ReflectConstruct;
     let getTrapInvoker = (ReflectGet as ProxyTrapInvokers['get'])!;
@@ -45,6 +43,9 @@ export function proxyMaskFunction<T extends Function>(
             has: hasTrapInvoker = ReflectHas,
         } = trapInvokers);
     }
+    let handshakeFlag = false;
+    let handshakeProxyMaskedFlag = false;
+    let lastProxyTrapCalled = ProxyHandlerTraps.None;
     const proxy = new ProxyCtor(maskFunc, {
         apply(_target: T, thisArg: any, args: any[]) {
             lastProxyTrapCalled = ProxyHandlerTraps.Apply;
@@ -62,8 +63,7 @@ export function proxyMaskFunction<T extends Function>(
         },
         defineProperty(target: ProxyTarget, key: PropertyKey, desc: PropertyDescriptor) {
             lastProxyTrapCalled = ProxyHandlerTraps.DefineProperty;
-            // Defining forgeries of `LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL`
-            // properties is not allowed.
+            // Defining forgeries of handshake properties is not allowed.
             if (key === LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL) {
                 throw new TypeErrorCtor(ERR_ILLEGAL_PROPERTY_ACCESS);
             }
@@ -74,23 +74,24 @@ export function proxyMaskFunction<T extends Function>(
             return ReflectDeleteProperty(target, key);
         },
         get(target: ProxyTarget, key: PropertyKey, receiver: any) {
-            // Only allow accessing near-membrane symbol values if the
-            // BoundaryProxyHandler.has trap has been called immediately before
-            // and the symbol does not exist.
-            nearMembraneSymbolFlag &&= lastProxyTrapCalled === ProxyHandlerTraps.Has;
+            // Only allow accessing handshake property values if the "has"
+            // trap has been triggered immediately BEFORE and the property does
+            // NOT exist.
+            handshakeFlag &&= lastProxyTrapCalled === ProxyHandlerTraps.Has;
+            handshakeProxyMaskedFlag &&= handshakeFlag;
             lastProxyTrapCalled = ProxyHandlerTraps.Get;
             const isProxyMaskedSymbol = key === LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL;
-            if (nearMembraneSymbolFlag) {
-                // Exit without performing a [[Get]] for near-membrane symbols
-                // because we know when the nearMembraneSymbolFlag is ON that
-                // there is no shadowed symbol value.
+            if (handshakeProxyMaskedFlag) {
+                // Exit without performing a [[Get]] for
+                // `LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL` properties
+                // because we know that when the `handshakeProxyMaskedFlag`
+                // is ON that there are NO shadowed values.
                 if (isProxyMaskedSymbol) {
                     return true;
                 }
             }
-            const result = getTrapInvoker(target, key, receiver, nearMembraneSymbolFlag);
-            // Getting forged values of `LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL`
-            // properties is not allowed.
+            const result = getTrapInvoker(target, key, receiver, handshakeFlag);
+            // Getting forged values of handshake properties is not allowed.
             if (result !== undefined && isProxyMaskedSymbol) {
                 throw new TypeErrorCtor(ERR_ILLEGAL_PROPERTY_ACCESS);
             }
@@ -99,8 +100,7 @@ export function proxyMaskFunction<T extends Function>(
         getOwnPropertyDescriptor(target: ProxyTarget, key: PropertyKey) {
             lastProxyTrapCalled = ProxyHandlerTraps.GetOwnPropertyDescriptor;
             const result = ReflectGetOwnPropertyDescriptor(target, key);
-            // Getting forged descriptors of `LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL`
-            // properties is not allowed.
+            // Getting forged descriptors of handshake properties is not allowed.
             if (result && key === LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL) {
                 throw new TypeErrorCtor(ERR_ILLEGAL_PROPERTY_ACCESS);
             }
@@ -115,16 +115,16 @@ export function proxyMaskFunction<T extends Function>(
             const result = hasTrapInvoker(target, key);
             const isProxyMaskedSymbol = key === LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL;
             if (result) {
-                nearMembraneSymbolFlag = false;
-                // Checking the existence of forged `LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL`
-                // properties is not allowed.
+                handshakeFlag = false;
+                // Checking the existence of forged handshake properties is not allowed.
                 if (isProxyMaskedSymbol) {
                     throw new TypeErrorCtor(ERR_ILLEGAL_PROPERTY_ACCESS);
                 }
             } else {
-                // The near-membrane symbol flag is on if the symbol does
-                // not exist on the object or its [[Prototype]].
-                nearMembraneSymbolFlag = isProxyMaskedSymbol;
+                // The `handshakeFlag` is ON if the handshake property does NOT
+                // exist on the object or its [[Prototype]].
+                handshakeFlag = true;
+                handshakeProxyMaskedFlag = isProxyMaskedSymbol;
             }
             return result;
         },
@@ -142,8 +142,7 @@ export function proxyMaskFunction<T extends Function>(
         },
         set(target: ProxyTarget, key: PropertyKey, value: any, receiver: any) {
             lastProxyTrapCalled = ProxyHandlerTraps.Set;
-            // Setting forged values of `LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL`
-            // properties is not allowed.
+            // Setting forged values of handshake properties is not allowed.
             if (key === LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL) {
                 throw new TypeErrorCtor(ERR_ILLEGAL_PROPERTY_ACCESS);
             }

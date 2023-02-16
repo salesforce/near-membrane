@@ -6,6 +6,7 @@ import {
     ObjectAssign,
     ReflectApply,
     ReflectOwnKeys,
+    SymbolFor,
 } from '@locker/near-membrane-shared';
 import type { ProxyTarget } from '@locker/near-membrane-shared/types';
 import type {
@@ -29,9 +30,7 @@ import type {
     VirtualEnvironmentOptions,
 } from './types';
 
-const LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL = Symbol.for(
-    '@@lockerNearMembraneUndefinedValue'
-);
+const LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL = SymbolFor('@@lockerNearMembraneUndefinedValue');
 
 const { prototype: DateProto } = Date;
 const { toJSON: DateProtoToJSON } = DateProto;

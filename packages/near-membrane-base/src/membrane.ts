@@ -483,7 +483,7 @@ export function createMembraneMarshall(
 
     const proxyMaskFunction = IS_IN_SHADOW_REALM
         ? <T extends Function>(func: Function, maskFunc: T): T => {
-              // Unlike the blue `proxyMaskFunction()` from '@locker/near-membrane-shared'
+              // Unlike the blue `proxyMaskFunction()` from @locker/near-membrane-shared
               // this red variation does NOT support the `LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL`
               // handshake.
               const proxy = new ProxyCtor(maskFunc, {
@@ -796,10 +796,10 @@ export function createMembraneMarshall(
         let foreignPointerUint32ArrayProto: Pointer;
         let selectedTarget: undefined | ProxyTarget;
 
+        let lastProxyTrapCalled = ProxyHandlerTraps.None;
+        let handshakePropertyFlag = false;
         let useFastForeignTargetPath = IS_IN_SHADOW_REALM;
         let useFastForeignTargetPathForTypedArrays = IS_IN_SHADOW_REALM;
-        let nearMembraneSymbolFlag = false;
-        let lastProxyTrapCalled = ProxyHandlerTraps.None;
 
         const activateLazyOwnPropertyDefinition = IS_IN_SHADOW_REALM
             ? (target: object, key: PropertyKey, state: object) => {
@@ -3150,18 +3150,19 @@ export function createMembraneMarshall(
                       key: PropertyKey,
                       receiver: any
                   ): ReturnType<typeof Reflect.get> {
-                      // Only allow accessing near-membrane symbol values if the
-                      // BoundaryProxyHandler.has trap has been called immediately
-                      // before and the symbol does not exist.
-                      nearMembraneSymbolFlag &&= lastProxyTrapCalled === ProxyHandlerTraps.Has;
+                      // Only allow accessing handshake property values if the
+                      // "has" trap has been triggered immediately BEFORE and
+                      // the property does NOT exist.
+                      handshakePropertyFlag &&= lastProxyTrapCalled === ProxyHandlerTraps.Has;
                       lastProxyTrapCalled = ProxyHandlerTraps.Get;
                       const isNearMembraneSymbol = key === LOCKER_NEAR_MEMBRANE_SYMBOL;
                       const isNearMembraneSerializedValueSymbol =
                           key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL;
-                      if (nearMembraneSymbolFlag) {
-                          // Exit without performing a [[Get]] for near-membrane
-                          // symbols because we know when the nearMembraneSymbolFlag
-                          // is ON that there is no shadowed symbol value.
+                      if (handshakePropertyFlag) {
+                          // Exit without performing a [[Get]] for handshake
+                          // properties because we know that when the
+                          // `handshakePropertyFlag` is ON that there are NO
+                          // shadowed values.
                           if (isNearMembraneSymbol) {
                               return true;
                           }
@@ -3212,8 +3213,7 @@ export function createMembraneMarshall(
                       if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                           activity!.stop();
                       }
-                      // Getting forged values of near-membrane symbol properties
-                      // is not allowed.
+                      // Getting forged values of handshake properties is not allowed.
                       if (
                           result !== undefined &&
                           (isNearMembraneSymbol || isNearMembraneSerializedValueSymbol)
@@ -3284,16 +3284,16 @@ export function createMembraneMarshall(
                       const isNearMembraneSerializedValueSymbol =
                           key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL;
                       if (result) {
-                          nearMembraneSymbolFlag = false;
-                          // Checking the existence of forged near-membrane
-                          // symbol properties is not allowed.
+                          handshakePropertyFlag = false;
+                          // Checking the existence of forged handshake properties
+                          // is not allowed.
                           if (isNearMembraneSymbol || isNearMembraneSerializedValueSymbol) {
                               throw new TypeErrorCtor(ERR_ILLEGAL_PROPERTY_ACCESS);
                           }
                       } else {
-                          // The near-membrane symbol flag is on if the symbol
-                          // does not exist on the object or its [[Prototype]].
-                          nearMembraneSymbolFlag =
+                          // The `handshakePropertyFlag` is ON if the handshake
+                          // property does NOT exist on the object or its [[Prototype]].
+                          handshakePropertyFlag =
                               isNearMembraneSymbol || isNearMembraneSerializedValueSymbol;
                       }
                       if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
@@ -3420,8 +3420,7 @@ export function createMembraneMarshall(
                 if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
                     activity!.stop();
                 }
-                // Getting forged descriptors of near-membrane symbol properties
-                // is not allowed.
+                // Getting forged descriptors of handshake properties is not allowed.
                 if (
                     IS_NOT_IN_SHADOW_REALM &&
                     safeDesc &&
@@ -3524,8 +3523,7 @@ export function createMembraneMarshall(
                 if (typeof receiver === 'undefined') {
                     receiver = proxy;
                 }
-                // Setting forged values of near-membrane symbol properties
-                // is not allowed.
+                // Setting forged values of handshake properties is not allowed.
                 if (
                     IS_NOT_IN_SHADOW_REALM &&
                     (key === LOCKER_NEAR_MEMBRANE_SYMBOL ||
