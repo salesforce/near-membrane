@@ -22,10 +22,6 @@ import type { ProxyTarget, ProxyTrapInvokers } from './types';
 // references to the enum from the generated JavaScript.
 import { ProxyHandlerTraps } from './types';
 
-export function noop() {
-    // No operation performed.
-}
-
 export function isProxyMaskedFunction(value: any): boolean {
     // To extract the flag value of a blue near-membrane proxy we must perform
     // a two step handshake. First, we trigger the "has" trap for the
@@ -38,6 +34,10 @@ export function isProxyMaskedFunction(value: any): boolean {
     );
 }
 
+export function noop() {
+    // No operation performed.
+}
+
 export function proxyMaskFunction<T extends Function>(
     func: Function,
     maskFunc: T,
@@ -45,14 +45,21 @@ export function proxyMaskFunction<T extends Function>(
 ): T {
     let applyTrapInvoker = ReflectApply;
     let constructTrapInvoker = ReflectConstruct;
+    let definePropertyTrapInvoker = ReflectDefineProperty;
     let getTrapInvoker = (ReflectGet as ProxyTrapInvokers['get'])!;
+    let getOwnPropertyDescriptorTrapInvoker = ReflectGetOwnPropertyDescriptor;
     let hasTrapInvoker = ReflectHas;
+    let setTrapInvoker = ReflectSet;
     if (trapInvokers) {
         ({
             apply: applyTrapInvoker = ReflectApply,
             construct: constructTrapInvoker = ReflectConstruct,
+            defineProperty: definePropertyTrapInvoker = ReflectDefineProperty,
             get: getTrapInvoker = (ReflectGet as ProxyTrapInvokers['get'])!,
+            getOwnPropertyDescriptor:
+                getOwnPropertyDescriptorTrapInvoker = ReflectGetOwnPropertyDescriptor,
             has: hasTrapInvoker = ReflectHas,
+            set: setTrapInvoker = ReflectSet,
         } = trapInvokers);
     }
     let handshakeFlag = false;
@@ -79,7 +86,7 @@ export function proxyMaskFunction<T extends Function>(
             if (key === LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL) {
                 throw new TypeErrorCtor(ERR_ILLEGAL_PROPERTY_ACCESS);
             }
-            return ReflectDefineProperty(target, key, desc);
+            return definePropertyTrapInvoker(target, key, desc);
         },
         deleteProperty(target: ProxyTarget, key: PropertyKey) {
             lastProxyTrapCalled = ProxyHandlerTraps.GetOwnPropertyDescriptor;
@@ -111,7 +118,7 @@ export function proxyMaskFunction<T extends Function>(
         },
         getOwnPropertyDescriptor(target: ProxyTarget, key: PropertyKey) {
             lastProxyTrapCalled = ProxyHandlerTraps.GetOwnPropertyDescriptor;
-            const result = ReflectGetOwnPropertyDescriptor(target, key);
+            const result = getOwnPropertyDescriptorTrapInvoker(target, key);
             // Getting forged descriptors of handshake properties is not allowed.
             if (result && key === LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL) {
                 throw new TypeErrorCtor(ERR_ILLEGAL_PROPERTY_ACCESS);
@@ -158,7 +165,7 @@ export function proxyMaskFunction<T extends Function>(
             if (key === LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL) {
                 throw new TypeErrorCtor(ERR_ILLEGAL_PROPERTY_ACCESS);
             }
-            return ReflectSet(target, key, value, receiver);
+            return setTrapInvoker(target, key, value, receiver);
         },
         setPrototypeOf(target: ProxyTarget, proto: object | null) {
             lastProxyTrapCalled = ProxyHandlerTraps.SetPrototypeOf;

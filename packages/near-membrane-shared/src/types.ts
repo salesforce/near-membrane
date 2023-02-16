@@ -22,13 +22,16 @@ export interface ProxyTrapInvokers {
     // We can add more trap invokers as needed.
     apply?: typeof Reflect.apply;
     construct?: typeof Reflect.construct;
+    defineProperty?: typeof Reflect.defineProperty;
     get?: <T extends object, P extends PropertyKey>(
         target: T,
         propertyKey: P,
         receiver?: unknown,
         handshake?: boolean
     ) => P extends keyof T ? T[P] : any;
+    getOwnPropertyDescriptor?: typeof Reflect.getOwnPropertyDescriptor;
     has?: typeof Reflect.has;
+    set?: typeof Reflect.set;
 }
 export type Setter = (value: any) => void;
 // eslint-disable-next-line no-shadow
