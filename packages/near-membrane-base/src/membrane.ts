@@ -215,9 +215,6 @@ export function createMembraneMarshall(
     const { isView: ArrayBufferIsView } = ArrayBufferCtor;
     const BigIntProtoValueOf = SUPPORTS_BIG_INT ? BigInt.prototype.valueOf : undefined;
     const { valueOf: BooleanProtoValueOf } = Boolean.prototype;
-    const {
-        prototype: { toJSON: DateProtoToJSON },
-    } = Date;
     const { toString: ErrorProtoToString } = ErrorCtor.prototype;
     const { bind: FunctionProtoBind, toString: FunctionProtoToString } = Function.prototype;
     const { stringify: JSONStringify } = JSON;
@@ -289,7 +286,6 @@ export function createMembraneMarshall(
     const localEval = IS_IN_SHADOW_REALM ? eval : undefined;
 
     // Install flags to ensure things are installed once per realm.
-    let installedDateProtoToJSONFlag = false;
     let installedErrorPrepareStackTraceFlag = false;
     let installedJSONStringifyFlag = false;
     let installedPropertyDescriptorMethodWrappersFlag = false;
@@ -340,10 +336,6 @@ export function createMembraneMarshall(
 
     function alwaysFalse() {
         return false;
-    }
-
-    function identity<T>(value: T): T {
-        return value;
     }
 
     const installErrorPrepareStackTrace = LOCKER_UNMINIFIED_FLAG
@@ -480,29 +472,6 @@ export function createMembraneMarshall(
     function noop() {
         // No-operation.
     }
-
-    const proxyMaskFunction = IS_IN_SHADOW_REALM
-        ? <T extends Function>(func: Function, maskFunc: T): T => {
-              // Unlike the blue `proxyMaskFunction()` from @locker/near-membrane-shared
-              // this red variation does NOT support the `LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL`
-              // handshake.
-              const proxy = new ProxyCtor(maskFunc, {
-                  apply(_target: T, thisArg: any, args: any[]) {
-                      if (thisArg === proxy || thisArg === maskFunc) {
-                          thisArg = func;
-                      }
-                      return ReflectApply(func, thisArg, args);
-                  },
-                  construct(_target: T, args: any[], newTarget: Function) {
-                      if (newTarget === proxy || newTarget === maskFunc) {
-                          newTarget = func;
-                      }
-                      return ReflectConstruct(func, args, newTarget);
-                  },
-              }) as T;
-              return proxy;
-          }
-        : (identity as <T extends Function>(func: Function, maskFunc: T) => T);
 
     const serializeBigIntObject = IS_IN_SHADOW_REALM
         ? (bigIntObject: BigInt): bigint =>
@@ -4455,27 +4424,6 @@ export function createMembraneMarshall(
                     throw pushErrorAcrossBoundary(error);
                 }
             },
-            // callableInstallDateProtoToJSON
-            IS_IN_SHADOW_REALM
-                ? (DateProtoPointer: Pointer, DataProtoToJSONPointer: Pointer) => {
-                      if (installedDateProtoToJSONFlag) {
-                          return;
-                      }
-                      installedDateProtoToJSONFlag = true;
-                      DateProtoPointer();
-                      const dateProto = selectedTarget as typeof Date.prototype;
-                      selectedTarget = undefined;
-                      DataProtoToJSONPointer();
-                      const toJSON = selectedTarget as unknown as typeof DateProtoToJSON;
-                      selectedTarget = undefined;
-                      // eslint-disable-next-line no-extend-native
-                      dateProto.toJSON = proxyMaskFunction(
-                          toJSON,
-                          DateProtoToJSON
-                      ) as typeof DateProtoToJSON;
-                      selectedTarget = undefined;
-                  }
-                : noop,
             // callableInstallErrorPrepareStackTrace
             installErrorPrepareStackTrace,
             // callableInstallJSONStringify
@@ -4488,17 +4436,7 @@ export function createMembraneMarshall(
                       WindowJSONPointer();
                       const WindowJSON = selectedTarget as typeof JSON;
                       selectedTarget = undefined;
-                      WindowJSON.stringify = proxyMaskFunction(
-                          (
-                              ...args: Parameters<typeof JSON.stringify>
-                          ): ReturnType<typeof JSON.stringify> =>
-                              // This pass through method invokes the native red
-                              // `JSON.stringify` method so that properties added
-                              // to red proxied values are included in the
-                              // stringified result.
-                              ReflectApply(JSONStringify, JSON, args),
-                          JSONStringify
-                      );
+                      WindowJSON.stringify = JSONStringify;
                   }
                 : noop,
             // callableInstallLazyPropertyDescriptors
@@ -4847,18 +4785,17 @@ export function createMembraneMarshall(
                 24: foreignCallableGetPropertyValue,
                 25: foreignCallableGetTargetIntegrityTraits,
                 26: foreignCallableGetToStringTagOfTarget,
-                // 27: callableInstallDateProtoToJSON,
-                28: foreignCallableInstallErrorPrepareStackTrace,
-                // 29: callableInstallJSONStringify,
-                // 30: callableInstallLazyPropertyDescriptors,
-                31: foreignCallableIsTargetLive,
-                32: foreignCallableIsTargetRevoked,
-                33: foreignCallableSerializeTarget,
-                34: foreignCallableSetLazyPropertyDescriptorStateByTarget,
-                // 35: callableTrackAsFastTarget,
-                36: foreignCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
-                37: foreignCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
-                38: foreignCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
+                27: foreignCallableInstallErrorPrepareStackTrace,
+                // 28: callableInstallJSONStringify,
+                // 29: callableInstallLazyPropertyDescriptors,
+                30: foreignCallableIsTargetLive,
+                31: foreignCallableIsTargetRevoked,
+                32: foreignCallableSerializeTarget,
+                33: foreignCallableSetLazyPropertyDescriptorStateByTarget,
+                // 34: callableTrackAsFastTarget,
+                35: foreignCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
+                36: foreignCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
+                37: foreignCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
             } = hooks);
             const applyTrapForZeroOrMoreArgs = createApplyOrConstructTrapForZeroOrMoreArgs(
                 ProxyHandlerTraps.Apply
