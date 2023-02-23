@@ -287,7 +287,6 @@ export function createMembraneMarshall(
 
     // Install flags to ensure things are installed once per realm.
     let installedErrorPrepareStackTraceFlag = false;
-    let installedJSONStringifyFlag = false;
     let installedPropertyDescriptorMethodWrappersFlag = false;
 
     // eslint-disable-next-line no-shadow
@@ -4426,19 +4425,6 @@ export function createMembraneMarshall(
             },
             // callableInstallErrorPrepareStackTrace
             installErrorPrepareStackTrace,
-            // callableInstallJSONStringify
-            IS_IN_SHADOW_REALM
-                ? (WindowJSONPointer: Pointer) => {
-                      if (installedJSONStringifyFlag) {
-                          return;
-                      }
-                      installedJSONStringifyFlag = true;
-                      WindowJSONPointer();
-                      const WindowJSON = selectedTarget as typeof JSON;
-                      selectedTarget = undefined;
-                      WindowJSON.stringify = JSONStringify;
-                  }
-                : noop,
             // callableInstallLazyPropertyDescriptors
             IS_IN_SHADOW_REALM
                 ? (
@@ -4786,16 +4772,15 @@ export function createMembraneMarshall(
                 25: foreignCallableGetTargetIntegrityTraits,
                 26: foreignCallableGetToStringTagOfTarget,
                 27: foreignCallableInstallErrorPrepareStackTrace,
-                // 28: callableInstallJSONStringify,
-                // 29: callableInstallLazyPropertyDescriptors,
-                30: foreignCallableIsTargetLive,
-                31: foreignCallableIsTargetRevoked,
-                32: foreignCallableSerializeTarget,
-                33: foreignCallableSetLazyPropertyDescriptorStateByTarget,
-                // 34: callableTrackAsFastTarget,
-                35: foreignCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
-                36: foreignCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
-                37: foreignCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
+                // 28: callableInstallLazyPropertyDescriptors,
+                29: foreignCallableIsTargetLive,
+                30: foreignCallableIsTargetRevoked,
+                31: foreignCallableSerializeTarget,
+                32: foreignCallableSetLazyPropertyDescriptorStateByTarget,
+                // 33: callableTrackAsFastTarget,
+                34: foreignCallableBatchGetPrototypeOfAndGetOwnPropertyDescriptors,
+                35: foreignCallableBatchGetPrototypeOfWhenHasNoOwnProperty,
+                36: foreignCallableBatchGetPrototypeOfWhenHasNoOwnPropertyDescriptor,
             } = hooks);
             const applyTrapForZeroOrMoreArgs = createApplyOrConstructTrapForZeroOrMoreArgs(
                 ProxyHandlerTraps.Apply

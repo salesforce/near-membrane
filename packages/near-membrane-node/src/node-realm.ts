@@ -74,6 +74,5 @@ export default function createVirtualEnvironment(
         assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(filteredEndowments, endowments);
         env.remapProperties(globalObject, filteredEndowments);
     }
-    env.installRemapOverrides();
     return env;
 }
