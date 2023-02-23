@@ -40,9 +40,9 @@ In browsers, since we don't have a way to create a light-weight Realm that is sy
 
 #### Detached iframes
 
-Since the iframes have many ways to reach out to the opener/top window reference, we are forced to use a detached `iframe`, which is, on itself, a complication. A detached `iframe`'s window is a window that does not have any host behavior associated to it, in other words, this window does not have an origin after disconnecting the iframe, which means it can't execute any DOM API without throwing a error. Luckly for us, the JavaScript intrinsics, and all JavaScript language features specified by Ecma262 and Ecma402 are still alive and kicking in that iframe, except for one feature, dynamic imports in a form of `import(specifier)`.
+Since the iframes have many ways to reach out to the opener/top window reference, we are forced to use a detached `iframe`, which is, on itself, a complication. A detached `iframe`'s window is a window that does not have any host behavior associated to it, in other words, this window does not have an origin after disconnecting the iframe, which means it can't execute any DOM API without throwing an error. Luckily for us, the JavaScript intrinsics, and all JavaScript language features specified by ECMA262 and ECMA402 are still alive and kicking in that iframe, except for one feature, dynamic imports in a form of `import(specifier)`.
 
-To mitigate the issue with dynamic imports, we are forced to transpile the code that attempts to use this feature of the language, otherwise it will just fail to fetch the module because there is no origin available at the host level. Luckly for us, transpiling dynamic imports is a very common way to bundle code for production systems today.
+To mitigate the issue with dynamic imports, we are forced to transpile the code that attempts to use this feature of the language, otherwise it will just fail to fetch the module because there is no origin available at the host level. However, transpiling dynamic imports is a very common way to bundle code for production systems today.
 
 #### Unforgeables
 
@@ -83,7 +83,7 @@ We do not know the applications of this library just yet, but we suspect that th
 
 * This library is distributed via npm packages `@locker/near-membrane-base`, `@locker/near-membrane-dom` and `@locker/near-membrane-node`.
 * This library is implemented using TypeScript, and produces the proper TypeScript types, in case you care about it.
-* Few tests are provided as of now, but the plan is to rely on existing tests (e.g.: WPT or ecma262) to validate that the near membrane created by this library is a high-fidelity membrane.
+* Few tests are provided as of now, but the plan is to rely on existing tests (e.g.: WPT or ECMA262) to validate that the near membrane created by this library is a high-fidelity membrane.
 * The `src/` folder contains the library code, while the `dist/` folder will contain the compiled distributable code produced by executing the `build` script from `package.json`.
 * This library does not have any runtime dependency, in fact it is very tiny.
 

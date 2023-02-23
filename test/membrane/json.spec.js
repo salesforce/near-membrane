@@ -1,37 +1,6 @@
-import { isProxyMaskedFunction } from '@locker/near-membrane-shared';
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('JSON', () => {
-    it('JSON.stringify is masked', () => {
-        expect.assertions(2);
-
-        const env = createVirtualEnvironment(window, {
-            endowments: Object.getOwnPropertyDescriptors({ expect }),
-        });
-        env.evaluate(`
-            expect(JSON.stringify.toString()).toContain('[native code]');
-        `);
-        expect(isProxyMaskedFunction(JSON.stringify)).toBe(false);
-    });
-
-    it('JSON.stringify does not support proxy masked symbol handshake', () => {
-        expect.assertions(1);
-
-        const env = createVirtualEnvironment(window, {
-            endowments: Object.getOwnPropertyDescriptors({ expect }),
-        });
-        env.evaluate(`
-            const LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL = Symbol.for(
-                '@@lockerNearMembraneProxyMasked'
-            );
-            const { stringify: JSONStringify } = JSON;
-            expect(
-                !(LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL in JSONStringify) &&
-                JSONStringify[LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL] === true
-            ).toBe(false);
-        `);
-    });
-
     it('JSON.stringify of blue objects with modified properties', () => {
         expect.assertions(1);
 
@@ -55,7 +24,7 @@ describe('JSON', () => {
         takeInside(outsideObject, JSON.stringify({ blue: true, red: true }));
     });
 
-    it('JSON.stringify of blue objects with date and regexp properties', () => {
+    it('JSON.stringify of blue objects with date, rect, and regexp properties', () => {
         expect.assertions(1);
 
         let takeInside;
@@ -74,12 +43,13 @@ describe('JSON', () => {
             });
         `);
         const date = new Date();
+        const rect = document.body.getBoundingClientRect();
         const regexp = /a/;
-        const outsideObject = { date, regexp };
-        takeInside(outsideObject, JSON.stringify({ date, regexp }));
+        const outsideObject = { date, rect, regexp };
+        takeInside(outsideObject, JSON.stringify({ date, rect, regexp }));
     });
 
-    it('JSON.parse of red objects with modified properties', () => {
+    it('JSON.stringify of red objects with modified properties', () => {
         expect.assertions(1);
 
         const env = createVirtualEnvironment(window, {
@@ -98,23 +68,29 @@ describe('JSON', () => {
         `);
     });
 
-    it('JSON.parse of red objects with date and regexp properties', () => {
+    it('JSON.stringify of red objects with date, rect, and regexp properties', () => {
         expect.assertions(1);
 
+        const date = new Date();
+        const rect = document.body.getBoundingClientRect();
+        const regexp = /a/;
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({
                 expect,
-                takeOutside(insideValue, expectedValue) {
+                takeOutside(insideValue) {
                     // Test blue proxies.
-                    expect(JSON.stringify(insideValue)).toBe(expectedValue);
+                    expect(JSON.stringify(insideValue)).toBe(
+                        JSON.stringify({ date, rect, regexp })
+                    );
                 },
             }),
         });
         env.evaluate(`
-            const date = new Date();
+            const date = new Date(${JSON.stringify(date)});
+            const rect = document.body.getBoundingClientRect();
             const regexp = /a/;
-            const insideObject = { date, regexp };
-            takeOutside(insideObject, \`{"date":"\${date.toISOString()}","regexp":{}}\`);
+            const insideObject = { date, rect, regexp };
+            takeOutside(insideObject);
         `);
     });
 });

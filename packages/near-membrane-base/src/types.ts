@@ -84,10 +84,6 @@ export type CallableGetPrototypeOf = (targetPointer: Pointer) => PointerOrPrimit
 export type CallableGetTargetIntegrityTraits = (targetPointer: Pointer) => number;
 export type CallableGetToStringTagOfTarget = (targetPointer: Pointer) => string;
 export type CallableHas = (targetPointer: Pointer, key: PropertyKey) => boolean;
-export type CallableInstallDateProtoToJSON = (
-    DateProtoPointer: Pointer,
-    DataProtoToJSONPointer: Pointer
-) => void;
 export type CallableInstallErrorPrepareStackTrace = () => void;
 export type CallableInstallJSONStringify = (WindowJSONPointer: Pointer) => void;
 export type CallableInstallLazyPropertyDescriptors = (
@@ -169,7 +165,6 @@ export type HooksCallback = (
     callableGetPropertyValue: CallableGetPropertyValue,
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableGetToStringTagOfTarget: CallableGetToStringTagOfTarget,
-    callableInstallDateProtoToJSON: CallableInstallDateProtoToJSON,
     callableInstallErrorPrepareStackTrace: CallableInstallErrorPrepareStackTrace,
     callableInstallJSONStringify: CallableInstallJSONStringify,
     callableInstallLazyPropertyDescriptors: CallableInstallLazyPropertyDescriptors,

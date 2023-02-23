@@ -22,9 +22,6 @@ export const CHAR_ELLIPSIS = '\u2026';
 export const ERR_ILLEGAL_PROPERTY_ACCESS = 'Illegal property access.';
 
 // Near-membrane constants.
-export const LOCKER_NEAR_MEMBRANE_PROXY_MASKED_SYMBOL = SymbolFor(
-    '@@lockerNearMembraneProxyMasked'
-);
 export const LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL = SymbolFor(
     '@@lockerNearMembraneSerializedValue'
 );
