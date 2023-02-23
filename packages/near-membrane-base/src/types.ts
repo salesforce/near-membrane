@@ -85,7 +85,6 @@ export type CallableGetTargetIntegrityTraits = (targetPointer: Pointer) => numbe
 export type CallableGetToStringTagOfTarget = (targetPointer: Pointer) => string;
 export type CallableHas = (targetPointer: Pointer, key: PropertyKey) => boolean;
 export type CallableInstallErrorPrepareStackTrace = () => void;
-export type CallableInstallJSONStringify = (WindowJSONPointer: Pointer) => void;
 export type CallableInstallLazyPropertyDescriptors = (
     targetPointer: Pointer,
     ...ownKeysAndUnforgeableGlobalThisKeys: PropertyKey[]
@@ -166,7 +165,6 @@ export type HooksCallback = (
     callableGetTargetIntegrityTraits: CallableGetTargetIntegrityTraits,
     callableGetToStringTagOfTarget: CallableGetToStringTagOfTarget,
     callableInstallErrorPrepareStackTrace: CallableInstallErrorPrepareStackTrace,
-    callableInstallJSONStringify: CallableInstallJSONStringify,
     callableInstallLazyPropertyDescriptors: CallableInstallLazyPropertyDescriptors,
     callableIsTargetLive: CallableIsTargetLive,
     callableIsTargetRevoked: CallableIsTargetRevoked,
