@@ -41,7 +41,7 @@ import {
 
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 
-const aliveIframes = toSafeWeakSet(new WeakSetCtor<HTMLIFrameElement>());
+const revoked = toSafeWeakSet(new WeakSetCtor<GlobalObject | Node>());
 const blueCreateHooksCallbackCache = toSafeWeakMap(new WeakMapCtor<Document, Connector>());
 
 let defaultGlobalOwnKeys: PropertyKey[] | null = null;
@@ -156,10 +156,12 @@ function createIframeVirtualEnvironment(
     // Once we get the iframe info ready, and all mapped, we can proceed to
     // detach the iframe only if `options.keepAlive` isn't true.
     if (keepAlive) {
-        aliveIframes.add(iframe);
         // @TODO: Temporary hack to preserve the document reference in Firefox.
         // https://bugzilla.mozilla.org/show_bug.cgi?id=543435
         const { document: redDocument } = redWindow;
+        // Revoke the proxies of the redDocument and redWindow to prevent access.
+        revoked.add(redDocument);
+        revoked.add(redWindow);
         ReflectApply(DocumentProtoOpen, redDocument, []);
         ReflectApply(DocumentProtoClose, redDocument, []);
     } else {
@@ -175,7 +177,7 @@ function createIframeVirtualEnvironment(
 }
 
 function revokedProxyCallback(value: ProxyTarget): boolean {
-    return aliveIframes.has(value as any);
+    return revoked.has(value as any);
 }
 
 export default createIframeVirtualEnvironment;
