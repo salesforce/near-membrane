@@ -80,19 +80,19 @@ describe('createVirtualEnvironment', () => {
 
             const { length: framesOffset } = window.frames;
             const env = createVirtualEnvironment(window, { keepAlive: true });
-            const iframes = document.body.querySelectorAll('iframe');
+            const iframes = [...document.body.querySelectorAll('iframe')];
             expect(window.frames.length).toBe(framesOffset + 1);
             expect(() => env.evaluate('')).not.toThrow();
             iframes.forEach((iframe) => iframe.remove());
         });
-        it('is true with the iframe proxy revoked', () => {
-            expect.assertions(6);
+        it('is true and revokes the attached iframe proxy', () => {
+            expect.assertions(16);
 
             const { length: framesOffset } = window.frames;
             const env1 = createVirtualEnvironment(window, { keepAlive: true });
             const env2 = createVirtualEnvironment(window, { keepAlive: true });
             document.body.append(document.createElement('iframe'));
-            const iframes = document.body.querySelectorAll('iframe');
+            const iframes = [...document.body.querySelectorAll('iframe')];
             const remapDescriptors = {
                 frames: {
                     configurable: true,
@@ -104,25 +104,45 @@ describe('createVirtualEnvironment', () => {
             env1.remapProperties(window, remapDescriptors);
             env2.remapProperties(window, remapDescriptors);
             for (const env of [env1, env2]) {
-                expect(() =>
-                    env.evaluate(`
-                        const { get: originalContentWindowGetter } =
-                            Reflect.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow');
-                        Reflect.apply(window.frames[${framesOffset}], originalContentWindowGetter, []);
-                    `)
-                ).toThrow();
-                expect(() =>
-                    env.evaluate(`
-                        const { get: originalContentWindowGetter } =
-                            Reflect.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow');
-                        Reflect.apply(window.frames[${
-                            framesOffset + 1
-                        }], originalContentWindowGetter, []);
-                    `)
-                ).toThrow();
-                expect(() =>
-                    env.evaluate(`window.frames[${framesOffset + 2}].contentWindow;`)
-                ).not.toThrow();
+                for (let i = 0; i < 3; i += 1) {
+                    expect(() =>
+                        env.evaluate(`
+                            const contentWindow = window.frames[${framesOffset + i}];
+                            const iframes = [...document.body.querySelectorAll('iframe')];
+                            const iframe = iframes.find((iframe) => iframe.contentWindow === contentWindow);
+                            iframe.contentDocument;
+                            iframe.contentWindow;
+                        `)
+                    ).not.toThrow();
+                    if (i === 2) {
+                        expect(() =>
+                            env.evaluate(`
+                                const contentWindow = window.frames[${framesOffset + i}];
+                                const iframes = [...document.body.querySelectorAll('iframe')];
+                                const iframe = iframes.find((iframe) => iframe.contentWindow === contentWindow);
+                                iframe.contentDocument.nodeName;
+                                iframe.contentWindow.parent;
+                            `)
+                        ).not.toThrow();
+                    } else {
+                        expect(() =>
+                            env.evaluate(`
+                                const contentWindow = window.frames[${framesOffset + i}];
+                                const iframes = [...document.body.querySelectorAll('iframe')];
+                                const iframe = iframes.find((iframe) => iframe.contentWindow === contentWindow);
+                                iframe.contentDocument.nodeName;
+                            `)
+                        ).toThrow();
+                        expect(() =>
+                            env.evaluate(`
+                                const contentWindow = window.frames[${framesOffset + i}];
+                                const iframes = [...document.body.querySelectorAll('iframe')];
+                                const iframe = iframes.find((iframe) => iframe.contentWindow === contentWindow);
+                                iframe.contentWindow.parent;
+                            `)
+                        ).toThrow();
+                    }
+                }
             }
             iframes.forEach((iframe) => iframe.remove());
         });
