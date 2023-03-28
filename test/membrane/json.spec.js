@@ -1,8 +1,7 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('JSON', () => {
-    // @TODO: Fix in 246 with performance optimization.
-    xit('stringify of blue objects with modified properties', () => {
+    it('stringify of blue objects with modified properties', () => {
         expect.assertions(1);
 
         let takeInside;
