@@ -12,7 +12,7 @@ import {
     TypeErrorCtor,
     WeakMapCtor,
 } from '@locker/near-membrane-shared';
-import type { Connector } from '@locker/near-membrane-base/types';
+import type { Connector } from '@locker/near-membrane-base';
 import { runInNewContext } from 'node:vm';
 import type { NodeEnvironmentOptions } from './types';
 

@@ -23,7 +23,7 @@
  *    it via `selectedTarget!`.
  */
 import { toSafeWeakMap, WeakMapCtor } from '@locker/near-membrane-shared';
-import type { Getter, ProxyTarget, Setter } from '@locker/near-membrane-shared/types';
+import type { Getter, ProxyTarget, Setter } from '@locker/near-membrane-shared';
 import type {
     Activity,
     CallableApply,

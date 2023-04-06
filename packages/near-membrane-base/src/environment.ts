@@ -8,7 +8,7 @@ import {
     ReflectOwnKeys,
     SymbolFor,
 } from '@locker/near-membrane-shared';
-import type { ProxyTarget } from '@locker/near-membrane-shared/types';
+import type { ProxyTarget } from '@locker/near-membrane-shared';
 import type {
     CallableDefineProperties,
     CallableDescriptorCallback,
