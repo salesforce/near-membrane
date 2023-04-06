@@ -2,7 +2,7 @@ import type {
     Getter,
     NearMembraneSerializedValue as SerializedValue,
     ProxyTarget,
-} from '@locker/near-membrane-shared/types';
+} from '@locker/near-membrane-shared';
 
 export interface Activity {
     stop(data?: DataType): void;

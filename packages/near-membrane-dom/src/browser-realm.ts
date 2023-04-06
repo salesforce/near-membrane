@@ -28,9 +28,9 @@ import {
     NodeProtoAppendChild,
     NodeProtoLastChildGetter,
 } from '@locker/near-membrane-shared-dom';
-import type { Connector } from '@locker/near-membrane-base/types';
-import type { ProxyTarget } from '@locker/near-membrane-shared/types';
-import type { GlobalObject } from '@locker/near-membrane-shared-dom/types';
+import type { Connector } from '@locker/near-membrane-base';
+import type { ProxyTarget } from '@locker/near-membrane-shared';
+import type { GlobalObject } from '@locker/near-membrane-shared-dom';
 import type { BrowserEnvironmentOptions } from './types';
 import {
     getCachedGlobalObjectReferences,

@@ -12,15 +12,13 @@
     "main": "dist/index.cjs.js",
     "module": "dist/index.mjs.js",
     "sideEffects": false,
-    "typings": "types/index.d.ts",
     "scripts": {
-        "clean": "locker-trash dist types",
-        "build": "tsc --project tsconfig.types.json && rollup --config .rolluprc.cjs",
+        "clean": "locker-trash dist",
+        "build": "rollup --config .rolluprc.cjs",
         "build:dev": "cross-env NODE_ENV=development yarn build"
     },
     "files": [
-        "dist/",
-        "types/"
+        "dist/"
     ],
     "publishConfig": {
         "access": "public"

@@ -2,7 +2,7 @@
 
 const mergeOptions = require('merge-options');
 const fs = require('fs-extra');
-const typescriptPlugin = require('@rollup/plugin-typescript');
+const typescriptPlugin = require('rollup-plugin-ts');
 const { getBabelOutputPlugin } = require('../plugins/babel-output.cjs');
 
 const mergeOptionsConfig = {

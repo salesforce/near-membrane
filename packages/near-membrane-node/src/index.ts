@@ -6,4 +6,4 @@ export type {
     DistortionCallback,
     Instrumentation,
     LiveTargetCallback,
-} from '@locker/near-membrane-base/types';
+} from '@locker/near-membrane-base';

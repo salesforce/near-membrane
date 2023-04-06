@@ -1,14 +1,15 @@
 {
   "name": "@locker/near-membrane-multipack",
+  "author": "Caridy Patiño <caridy@gmail.com>",
+  "description": "JavaScript Near Membrane Library to create a sandboxed environment",
+  "license": "MIT",
   "private": true,
   "workspaces": [
     "packages/*",
     "examples",
     "scripts"
   ],
-  "description": "JavaScript Near Membrane Library to create a sandboxed environment",
   "module": "dist/index.js",
-  "typings": "types/index.js",
   "scripts": {
     "clean": "lerna run clean --stream",
     "build": "lerna run build --stream",
@@ -34,12 +35,6 @@
     "npm:publish": "lerna publish from-package --ignore-scripts --yes --registry https://registry.npmjs.org/",
     "version": "yarn build"
   },
-  "files": [
-    "dist/",
-    "types/"
-  ],
-  "author": "Caridy Patiño <caridy@gmail.com>",
-  "license": "MIT",
   "devDependencies": {
     "@babel/core": "7.18.13",
     "@babel/preset-env": "7.18.10",
@@ -49,11 +44,10 @@
     "@rollup/plugin-babel": "5.3.1",
     "@rollup/plugin-node-resolve": "13.0.5",
     "@rollup/plugin-replace": "4.0.0",
-    "@rollup/plugin-typescript": "8.4.0",
     "@types/eslint": "8.4.6",
     "@types/jest": "29.0.0",
-    "@typescript-eslint/eslint-plugin": "5.36.1",
-    "@typescript-eslint/parser": "5.36.1",
+    "@typescript-eslint/eslint-plugin": "5.55.0",
+    "@typescript-eslint/parser": "5.55.0",
     "chokidar": "3.5.3",
     "cross-env": "7.0.3",
     "eslint": "8.23.0",
@@ -88,9 +82,9 @@
     "rimraf": "3.0.2",
     "rollup": "2.79.0",
     "rollup-plugin-istanbul": "3.0.0",
+    "rollup-plugin-ts": "3.2.0",
     "trash": "7.2.0",
-    "tslib": "2.4.0",
-    "typescript": "4.8.2"
+    "typescript": "4.9.5"
   },
   "engines": {
     "node": ">=16"
@@ -108,7 +102,7 @@
     }
   },
   "volta": {
-    "node": "16.13.1",
+    "node": "16.19.1",
     "yarn": "1.22.11"
   },
   "dependencies": {}
