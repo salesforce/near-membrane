@@ -10,4 +10,3 @@ dist/
 jest-coverage/
 karma-coverage/
 node_modules/
-types/

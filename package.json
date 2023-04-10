@@ -9,7 +9,6 @@
     "examples",
     "scripts"
   ],
-  "module": "dist/index.js",
   "scripts": {
     "clean": "lerna run clean --stream",
     "build": "lerna run build --stream",
