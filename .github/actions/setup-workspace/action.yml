@@ -1,0 +1,18 @@
+name: 'Setup workspace'
+description: 'Set Node.js version, install dependencies, setup environment vars'
+runs:
+  using: 'composite'
+  steps: 
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 16.x
+        cache: 'yarn'
+    - name: Install dependencies
+      shell: bash
+      run: yarn install --frozen-lockfile
+    - name: Run build
+      shell: bash
+      run: yarn build
+    - name: Set NODE_OPTIONS
+      shell: bash
+      run: NODE_OPTIONS="$NODE_OPTIONS --max_old_space_size=17408"
