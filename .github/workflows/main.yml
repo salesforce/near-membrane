@@ -1,32 +1,76 @@
-name: Node.js CI
+name: Build, lint & test with coverage capture
 
-# Controls when the action will run. Triggers the workflow on push or pull request
-# events but only for the main branch
 on:
-  # Trigger the workflow on push or pull request,
-  # but only for the main branch
   push:
-    branches:
-      - main
+    branches: [ core-*-patch, main, release ]
   pull_request:
-    branches:
-      - main
+    branches: [ core-*-patch, main, release ]
+
+env:
+  GITHUB_PR_NUMBER: ${{github.event.number}}
+  GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
 jobs:
-  build:
 
-    runs-on: ubuntu-latest
-
+  Run-linter:
+    runs-on: salesforce-Ubuntu
     steps:
-    - uses: actions/checkout@v2
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v1
-      with:
-        node-version: '12.x'
-    - run: yarn install
-    - run: yarn build
-    - run: yarn test
-    - run: yarn test:bundlesize
-    - run: yarn karma
-      env:
-        CI: true
+      - uses: actions/checkout@v3
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+      - name: Run linting
+        run: yarn lint
+
+  Run-all-tests:
+    runs-on: salesforce-Ubuntu
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+
+      - name: Run Node tests in Jest with coverage collection
+        run: |
+          yarn coverage:jest
+
+      - name: Run DOM tests in Karma with coverage collection
+        run: |
+          yarn coverage:karma
+
+      - name: Run merge & generate report
+        run: |
+          yarn coverage:report
+
+      - name: Checkout pages branch
+        run: |
+          git fetch;
+          git checkout -b pages origin/pages
+
+      # All of this is necessary because github pages doesn't provide a way to display artifacts as circle-ci does
+      # https://github.com/actions/upload-artifact/issues/14
+      - name: Copy coverage report to pages/coverage-reports and commit to pages branch
+        run: |
+          if [ -d "coverage/report" ]; then
+            [ "$GITHUB_PR_NUMBER" == "" ] && NEW_COVERAGE_SUBJECT=$(git branch --show-current) || NEW_COVERAGE_SUBJECT=$GITHUB_PR_NUMBER;
+            NEW_COVERAGE_PATH=pages/coverage-reports/${NEW_COVERAGE_SUBJECT}/$(date +%s%N);
+            mkdir -p $NEW_COVERAGE_PATH;
+            cp -r coverage/report/* ${NEW_COVERAGE_PATH}/;
+            git status;
+            git add ${NEW_COVERAGE_PATH}/. --force;
+            git status;
+            git -c user.name="github-actions[bot]" -c user.email="github-actions[bot]@users.noreply.github.com" \
+              commit -m "$NEW_COVERAGE_PATH" \
+              --author="${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>" --no-verify;
+            git status;
+            git pull --rebase origin main;
+            git push origin pages --no-verify -f;
+            echo "NEW_COVERAGE_PATH=$NEW_COVERAGE_PATH" >> $GITHUB_ENV
+          fi
+
+      - uses: actions/checkout@v3
+        with:
+          clean: false
+
+      # This must follow the checkout back to the PR branch as it relies on vars set for that branch
+      - name: Comment on PR with test coverage report table and link
+        run: |
+          node scripts/ci/post-coverage-to-pr.mjs;
