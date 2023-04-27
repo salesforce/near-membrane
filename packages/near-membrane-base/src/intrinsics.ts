@@ -1,4 +1,11 @@
-import { ObjectAssign, ReflectOwnKeys, toSafeArray } from '@locker/near-membrane-shared';
+import {
+    ArrayProtoIncludes,
+    ObjectAssign,
+    ObjectHasOwn,
+    ReflectApply,
+    ReflectOwnKeys,
+    toSafeArray,
+} from '@locker/near-membrane-shared';
 import { VirtualEnvironment } from './environment';
 
 /**
@@ -120,10 +127,21 @@ const ESGlobalsAndReflectiveIntrinsicObjectNames = toSafeArray([
     ...ReflectiveIntrinsicObjectNames,
 ]);
 
+function getGlobalObjectOwnKeys(source: object): PropertyKey[] {
+    const ownKeys = ReflectOwnKeys(source);
+    // WKWebView incorrectly excludes the 'webkit' own property of the global
+    // object from `Object.keys()` and `Reflect.ownKeys()` results, so add it.
+    // istanbul ignore if: currently unreachable via tests
+    if (ObjectHasOwn(source, 'webkit') && !ReflectApply(ArrayProtoIncludes, ownKeys, ['webkit'])) {
+        ownKeys[ownKeys.length] = 'webkit';
+    }
+    return ownKeys;
+}
+
 export function assignFilteredGlobalDescriptorsFromPropertyDescriptorMap<
     T extends PropertyDescriptorMap
 >(descs: T, source: PropertyDescriptorMap): T {
-    const ownKeys = ReflectOwnKeys(source);
+    const ownKeys = getGlobalObjectOwnKeys(source);
     for (let i = 0, { length } = ownKeys; i < length; i += 1) {
         const ownKey = ownKeys[i];
         // Avoid overriding ECMAScript global names that correspond to
@@ -146,7 +164,7 @@ export function assignFilteredGlobalDescriptorsFromPropertyDescriptorMap<
 export function getFilteredGlobalOwnKeys(source: object): PropertyKey[] {
     const result: PropertyKey[] = [];
     let resultOffset = 0;
-    const ownKeys = ReflectOwnKeys(source);
+    const ownKeys = getGlobalObjectOwnKeys(source);
     for (let i = 0, { length } = ownKeys; i < length; i += 1) {
         const ownKey = ownKeys[i];
         // Avoid overriding ECMAScript global names that correspond to global
