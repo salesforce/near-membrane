@@ -680,8 +680,8 @@ export function createMembraneMarshall(
             // eslint-disable-next-line prefer-object-spread
         } = ObjectAssign({ __proto__: null }, options);
 
-        const LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG: boolean =
-            // In the future we can preface the LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG
+        const LOCKER_INSTRUMENTATION_FLAG: boolean =
+            // In the future we can preface the LOCKER_INSTRUMENTATION_FLAG
             // definition with a LOCKER_UNMINIFIED_FLAG check to have instrumentation
             // removed in minified production builds.
             IS_NOT_IN_SHADOW_REALM &&
@@ -716,7 +716,7 @@ export function createMembraneMarshall(
 
         const proxyPointerCache = toSafeWeakMap(new WeakMapCtor<ProxyTarget, Pointer>());
 
-        const startActivity = LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG
+        const startActivity = LOCKER_INSTRUMENTATION_FLAG
             ? instrumentation!.startActivity
             : undefined;
 
@@ -836,7 +836,7 @@ export function createMembraneMarshall(
             shadowTarget: ShadowTarget
         ): void {
             let activity: Activity | undefined;
-            if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+            if (LOCKER_INSTRUMENTATION_FLAG) {
                 activity = startActivity!(
                     'copyForeignOwnPropertyDescriptorsAndPrototypeToShadowTarget'
                 );
@@ -866,7 +866,7 @@ export function createMembraneMarshall(
             } catch (error: any) {
                 const errorToThrow = selectedTarget ?? error;
                 selectedTarget = undefined;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity!.error(errorToThrow);
                 }
                 throw errorToThrow;
@@ -880,7 +880,7 @@ export function createMembraneMarshall(
                 proto = null;
             }
             ReflectSetPrototypeOf(shadowTarget, proto);
-            if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+            if (LOCKER_INSTRUMENTATION_FLAG) {
                 activity!.stop();
             }
         }
@@ -910,7 +910,7 @@ export function createMembraneMarshall(
                     ](shadowTarget, thisArgOrArgs, argsOrNewTarget);
                 }
                 let activity: Activity | undefined;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity = startActivity!(activityName);
                 }
                 // @ts-ignore: Prevent private property access error.
@@ -934,7 +934,7 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    if (LOCKER_INSTRUMENTATION_FLAG) {
                         activity!.error(errorToThrow);
                     }
                     throw errorToThrow;
@@ -947,7 +947,7 @@ export function createMembraneMarshall(
                 } else {
                     result = pointerOrPrimitive;
                 }
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity!.stop();
                 }
                 return result;
@@ -979,7 +979,7 @@ export function createMembraneMarshall(
                     ](shadowTarget, thisArgOrArgs, argsOrNewTarget);
                 }
                 let activity: Activity | undefined;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity = startActivity!(activityName);
                 }
                 // @ts-ignore: Prevent private property access error.
@@ -1013,7 +1013,7 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    if (LOCKER_INSTRUMENTATION_FLAG) {
                         activity!.error(errorToThrow);
                     }
                     throw errorToThrow;
@@ -1026,7 +1026,7 @@ export function createMembraneMarshall(
                 } else {
                     result = pointerOrPrimitive;
                 }
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity!.stop();
                 }
                 return result;
@@ -1058,7 +1058,7 @@ export function createMembraneMarshall(
                     ](shadowTarget, thisArgOrArgs, argsOrNewTarget);
                 }
                 let activity: Activity | undefined;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity = startActivity!(activityName);
                 }
                 // @ts-ignore: Prevent private property access error.
@@ -1101,7 +1101,7 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    if (LOCKER_INSTRUMENTATION_FLAG) {
                         activity!.error(errorToThrow);
                     }
                     throw errorToThrow;
@@ -1114,7 +1114,7 @@ export function createMembraneMarshall(
                 } else {
                     result = pointerOrPrimitive;
                 }
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity!.stop();
                 }
                 return result;
@@ -1146,7 +1146,7 @@ export function createMembraneMarshall(
                     ](shadowTarget, thisArgOrArgs, argsOrNewTarget);
                 }
                 let activity: Activity | undefined;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity = startActivity!(activityName);
                 }
                 // @ts-ignore: Prevent private property access error.
@@ -1198,7 +1198,7 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    if (LOCKER_INSTRUMENTATION_FLAG) {
                         activity!.error(errorToThrow);
                     }
                     throw errorToThrow;
@@ -1211,7 +1211,7 @@ export function createMembraneMarshall(
                 } else {
                     result = pointerOrPrimitive;
                 }
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity!.stop();
                 }
                 return result;
@@ -1243,7 +1243,7 @@ export function createMembraneMarshall(
                     ](shadowTarget, thisArgOrArgs, argsOrNewTarget);
                 }
                 let activity: Activity | undefined;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity = startActivity!(activityName);
                 }
                 // @ts-ignore: Prevent private property access error.
@@ -1304,7 +1304,7 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    if (LOCKER_INSTRUMENTATION_FLAG) {
                         activity!.error(errorToThrow);
                     }
                     throw errorToThrow;
@@ -1317,7 +1317,7 @@ export function createMembraneMarshall(
                 } else {
                     result = pointerOrPrimitive;
                 }
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity!.stop();
                 }
                 return result;
@@ -1349,7 +1349,7 @@ export function createMembraneMarshall(
                     ](shadowTarget, thisArgOrArgs, argsOrNewTarget);
                 }
                 let activity: Activity | undefined;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity = startActivity!(activityName);
                 }
                 // @ts-ignore: Prevent private property access error.
@@ -1419,7 +1419,7 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    if (LOCKER_INSTRUMENTATION_FLAG) {
                         activity!.error(errorToThrow);
                     }
                     throw errorToThrow;
@@ -1432,7 +1432,7 @@ export function createMembraneMarshall(
                 } else {
                     result = pointerOrPrimitive;
                 }
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity!.stop();
                 }
                 return result;
@@ -1458,7 +1458,7 @@ export function createMembraneMarshall(
                 const args = isApplyTrap ? argsOrNewTarget : thisArgOrArgs;
                 const { length } = args;
                 let activity: Activity | undefined;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity = startActivity!(`Reflect.${nativeMethodName}(${length})`);
                 }
                 const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
@@ -1498,7 +1498,7 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    if (LOCKER_INSTRUMENTATION_FLAG) {
                         activity!.error(errorToThrow);
                     }
                     throw errorToThrow;
@@ -1511,7 +1511,7 @@ export function createMembraneMarshall(
                 } else {
                     result = pointerOrPrimitive;
                 }
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity!.stop();
                 }
                 return result;
@@ -2102,7 +2102,7 @@ export function createMembraneMarshall(
             key: PropertyKey
         ): ForeignPropertyDescriptor | undefined {
             let activity: Activity | undefined;
-            if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+            if (LOCKER_INSTRUMENTATION_FLAG) {
                 activity = startActivity!('lookupForeignDescriptor');
             }
             let protoPointerOrNull;
@@ -2180,7 +2180,7 @@ export function createMembraneMarshall(
             } catch (error: any) {
                 const errorToThrow = selectedTarget ?? error;
                 selectedTarget = undefined;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity!.error(errorToThrow);
                 }
                 throw errorToThrow;
@@ -2213,7 +2213,7 @@ export function createMembraneMarshall(
                         proxyPointerCache.get(possibleProxy) !== undefined;
                 }
             }
-            if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+            if (LOCKER_INSTRUMENTATION_FLAG) {
                 activity!.stop();
             }
             return safeDesc;
@@ -2687,7 +2687,7 @@ export function createMembraneMarshall(
                       receiver: any
                   ): ReturnType<typeof Reflect.get> {
                       let activity: Activity | undefined;
-                      if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                      if (LOCKER_INSTRUMENTATION_FLAG) {
                           activity = startActivity!('hybridGetTrap');
                       }
                       const { foreignTargetPointer, foreignTargetTraits, proxy, shadowTarget } =
@@ -2707,7 +2707,7 @@ export function createMembraneMarshall(
                           } catch (error: any) {
                               const errorToThrow = selectedTarget ?? error;
                               selectedTarget = undefined;
-                              if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                              if (LOCKER_INSTRUMENTATION_FLAG) {
                                   activity!.error(errorToThrow);
                               }
                               throw errorToThrow;
@@ -2747,7 +2747,7 @@ export function createMembraneMarshall(
                                       } catch (error: any) {
                                           const errorToThrow = selectedTarget ?? error;
                                           selectedTarget = undefined;
-                                          if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                                          if (LOCKER_INSTRUMENTATION_FLAG) {
                                               activity!.error(errorToThrow);
                                           }
                                           throw errorToThrow;
@@ -2790,7 +2790,7 @@ export function createMembraneMarshall(
                               } catch (error: any) {
                                   const errorToThrow = selectedTarget ?? error;
                                   selectedTarget = undefined;
-                                  if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                                  if (LOCKER_INSTRUMENTATION_FLAG) {
                                       activity!.error(errorToThrow);
                                   }
                                   throw errorToThrow;
@@ -2817,7 +2817,7 @@ export function createMembraneMarshall(
                           } catch (error: any) {
                               const errorToThrow = selectedTarget ?? error;
                               selectedTarget = undefined;
-                              if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                              if (LOCKER_INSTRUMENTATION_FLAG) {
                                   activity!.error(errorToThrow);
                               }
                               throw errorToThrow;
@@ -2830,7 +2830,7 @@ export function createMembraneMarshall(
                               result = toStringTag;
                           }
                       }
-                      if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                      if (LOCKER_INSTRUMENTATION_FLAG) {
                           activity!.stop();
                       }
                       return result;
@@ -2845,7 +2845,7 @@ export function createMembraneMarshall(
                       receiver: any
                   ): ReturnType<typeof Reflect.get> {
                       let activity: Activity | undefined;
-                      if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                      if (LOCKER_INSTRUMENTATION_FLAG) {
                           activity = startActivity!('hybridGetTrapForTypedArray');
                       }
                       const {
@@ -2873,7 +2873,7 @@ export function createMembraneMarshall(
                           } catch (error: any) {
                               const errorToThrow = selectedTarget ?? error;
                               selectedTarget = undefined;
-                              if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                              if (LOCKER_INSTRUMENTATION_FLAG) {
                                   activity!.error(errorToThrow);
                               }
                               throw errorToThrow;
@@ -2913,7 +2913,7 @@ export function createMembraneMarshall(
                                       } catch (error: any) {
                                           const errorToThrow = selectedTarget ?? error;
                                           selectedTarget = undefined;
-                                          if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                                          if (LOCKER_INSTRUMENTATION_FLAG) {
                                               activity!.error(errorToThrow);
                                           }
                                           throw errorToThrow;
@@ -2938,7 +2938,7 @@ export function createMembraneMarshall(
                               }
                           }
                       }
-                      if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                      if (LOCKER_INSTRUMENTATION_FLAG) {
                           activity!.stop();
                       }
                       return result;
@@ -2952,7 +2952,7 @@ export function createMembraneMarshall(
                       key: PropertyKey
                   ): ReturnType<typeof Reflect.has> {
                       let activity: Activity | undefined;
-                      if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                      if (LOCKER_INSTRUMENTATION_FLAG) {
                           activity = startActivity!('hybridHasTrap');
                       }
                       let trueOrProtoPointerOrNull;
@@ -2965,7 +2965,7 @@ export function createMembraneMarshall(
                       } catch (error: any) {
                           const errorToThrow = selectedTarget ?? error;
                           selectedTarget = undefined;
-                          if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                          if (LOCKER_INSTRUMENTATION_FLAG) {
                               activity!.error(errorToThrow);
                           }
                           throw errorToThrow;
@@ -2992,7 +2992,7 @@ export function createMembraneMarshall(
                               currentObject = ReflectGetPrototypeOf(currentObject);
                           }
                       }
-                      if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                      if (LOCKER_INSTRUMENTATION_FLAG) {
                           activity!.stop();
                       }
                       return result;
@@ -3009,7 +3009,7 @@ export function createMembraneMarshall(
             ): ReturnType<typeof Reflect.defineProperty> {
                 lastProxyTrapCalled = ProxyHandlerTraps.DefineProperty;
                 let activity: Activity | undefined;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity = startActivity!('Reflect.defineProperty');
                 }
                 const { foreignTargetPointer, nonConfigurableDescriptorCallback } = this;
@@ -3065,12 +3065,12 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    if (LOCKER_INSTRUMENTATION_FLAG) {
                         activity!.error(errorToThrow);
                     }
                     throw errorToThrow;
                 }
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity!.stop();
                 }
                 if (
@@ -3091,7 +3091,7 @@ export function createMembraneMarshall(
             ): ReturnType<typeof Reflect.deleteProperty> {
                 lastProxyTrapCalled = ProxyHandlerTraps.DeleteProperty;
                 let activity: Activity | undefined;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity = startActivity!('Reflect.deleteProperty');
                 }
                 let result = false;
@@ -3100,12 +3100,12 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    if (LOCKER_INSTRUMENTATION_FLAG) {
                         activity!.error(errorToThrow);
                     }
                     throw errorToThrow;
                 }
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity!.stop();
                 }
                 return result;
@@ -3139,7 +3139,7 @@ export function createMembraneMarshall(
                           }
                       }
                       let activity: Activity | undefined;
-                      if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                      if (LOCKER_INSTRUMENTATION_FLAG) {
                           activity = startActivity!('Reflect.get');
                       }
                       const { foreignTargetPointer, foreignTargetTraits, proxy } = this;
@@ -3165,7 +3165,7 @@ export function createMembraneMarshall(
                       } catch (error: any) {
                           const errorToThrow = selectedTarget ?? error;
                           selectedTarget = undefined;
-                          if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                          if (LOCKER_INSTRUMENTATION_FLAG) {
                               activity!.error(errorToThrow);
                           }
                           throw errorToThrow;
@@ -3178,7 +3178,7 @@ export function createMembraneMarshall(
                       } else {
                           result = pointerOrPrimitive;
                       }
-                      if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                      if (LOCKER_INSTRUMENTATION_FLAG) {
                           activity!.stop();
                       }
                       // Getting forged values of handshake properties is not allowed.
@@ -3198,7 +3198,7 @@ export function createMembraneMarshall(
             ): ReturnType<typeof Reflect.getPrototypeOf> {
                 lastProxyTrapCalled = ProxyHandlerTraps.GetPrototypeOf;
                 let activity: Activity | undefined;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity = startActivity!('Reflect.getPrototypeOf');
                 }
                 let protoPointerOrNull;
@@ -3207,7 +3207,7 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    if (LOCKER_INSTRUMENTATION_FLAG) {
                         activity!.error(errorToThrow);
                     }
                     throw errorToThrow;
@@ -3220,7 +3220,7 @@ export function createMembraneMarshall(
                 } else {
                     proto = null;
                 }
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity!.stop();
                 }
                 return proto as object | null;
@@ -3234,7 +3234,7 @@ export function createMembraneMarshall(
                   ): ReturnType<typeof Reflect.has> {
                       lastProxyTrapCalled = ProxyHandlerTraps.Has;
                       let activity: Activity | undefined;
-                      if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                      if (LOCKER_INSTRUMENTATION_FLAG) {
                           activity = startActivity!('Reflect.has');
                       }
                       let result;
@@ -3243,7 +3243,7 @@ export function createMembraneMarshall(
                       } catch (error: any) {
                           const errorToThrow = selectedTarget ?? error;
                           selectedTarget = undefined;
-                          if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                          if (LOCKER_INSTRUMENTATION_FLAG) {
                               activity!.error(errorToThrow);
                           }
                           throw errorToThrow;
@@ -3264,7 +3264,7 @@ export function createMembraneMarshall(
                           handshakePropertyFlag =
                               isNearMembraneSymbol || isNearMembraneSerializedValueSymbol;
                       }
-                      if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                      if (LOCKER_INSTRUMENTATION_FLAG) {
                           activity!.stop();
                       }
                       return result;
@@ -3277,7 +3277,7 @@ export function createMembraneMarshall(
             ): ReturnType<typeof Reflect.isExtensible> {
                 lastProxyTrapCalled = ProxyHandlerTraps.IsExtensible;
                 let activity: Activity | undefined;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity = startActivity!('Reflect.isExtensible');
                 }
                 const { shadowTarget } = this;
@@ -3290,7 +3290,7 @@ export function createMembraneMarshall(
                     } catch (error: any) {
                         const errorToThrow = selectedTarget ?? error;
                         selectedTarget = undefined;
-                        if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        if (LOCKER_INSTRUMENTATION_FLAG) {
                             activity!.error(errorToThrow);
                         }
                         throw errorToThrow;
@@ -3303,7 +3303,7 @@ export function createMembraneMarshall(
                         ReflectPreventExtensions(shadowTarget);
                     }
                 }
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity!.stop();
                 }
                 return result;
@@ -3315,7 +3315,7 @@ export function createMembraneMarshall(
             ): ReturnType<typeof Reflect.ownKeys> {
                 lastProxyTrapCalled = ProxyHandlerTraps.OwnKeys;
                 let activity: Activity | undefined;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity = startActivity!('Reflect.ownKeys');
                 }
                 let ownKeys: ReturnType<typeof Reflect.ownKeys> | undefined;
@@ -3326,12 +3326,12 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    if (LOCKER_INSTRUMENTATION_FLAG) {
                         activity!.error(errorToThrow);
                     }
                     throw errorToThrow;
                 }
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity!.stop();
                 }
                 return ownKeys || [];
@@ -3344,7 +3344,7 @@ export function createMembraneMarshall(
             ): ReturnType<typeof Reflect.getOwnPropertyDescriptor> {
                 lastProxyTrapCalled = ProxyHandlerTraps.GetOwnPropertyDescriptor;
                 let activity: Activity | undefined;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity = startActivity!('Reflect.getOwnPropertyDescriptor');
                 }
                 const { foreignTargetPointer, shadowTarget } = this;
@@ -3380,12 +3380,12 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    if (LOCKER_INSTRUMENTATION_FLAG) {
                         activity!.error(errorToThrow);
                     }
                     throw errorToThrow;
                 }
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity!.stop();
                 }
                 // Getting forged descriptors of handshake properties is not allowed.
@@ -3406,7 +3406,7 @@ export function createMembraneMarshall(
             ): ReturnType<typeof Reflect.preventExtensions> {
                 lastProxyTrapCalled = ProxyHandlerTraps.PreventExtensions;
                 let activity: Activity | undefined;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity = startActivity!('Reflect.preventExtensions');
                 }
                 const { foreignTargetPointer, shadowTarget } = this;
@@ -3418,7 +3418,7 @@ export function createMembraneMarshall(
                     } catch (error: any) {
                         const errorToThrow = selectedTarget ?? error;
                         selectedTarget = undefined;
-                        if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                        if (LOCKER_INSTRUMENTATION_FLAG) {
                             activity!.error(errorToThrow);
                         }
                         throw errorToThrow;
@@ -3435,7 +3435,7 @@ export function createMembraneMarshall(
                     }
                     result = !(resultEnum & PreventExtensionsResult.False);
                 }
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity!.stop();
                 }
                 return result;
@@ -3448,7 +3448,7 @@ export function createMembraneMarshall(
             ): ReturnType<typeof Reflect.setPrototypeOf> {
                 lastProxyTrapCalled = ProxyHandlerTraps.SetPrototypeOf;
                 let activity: Activity | undefined;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity = startActivity!('Reflect.setPrototypeOf');
                 }
                 const { foreignTargetPointer } = this;
@@ -3459,12 +3459,12 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    if (LOCKER_INSTRUMENTATION_FLAG) {
                         activity!.error(errorToThrow);
                     }
                     throw errorToThrow;
                 }
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity!.stop();
                 }
                 if (useFastForeignTargetPath && result) {
@@ -3501,7 +3501,7 @@ export function createMembraneMarshall(
                 }
                 const isFastPath = proxy === receiver;
                 let activity: Activity | undefined;
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity = startActivity!(
                         isFastPath ? 'Reflect.set' : 'passthruForeignTraversedSet'
                     );
@@ -3529,12 +3529,12 @@ export function createMembraneMarshall(
                 } catch (error: any) {
                     const errorToThrow = selectedTarget ?? error;
                     selectedTarget = undefined;
-                    if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                    if (LOCKER_INSTRUMENTATION_FLAG) {
                         activity!.error(errorToThrow);
                     }
                     throw errorToThrow;
                 }
-                if (LOCKER_DEBUG_MODE_INSTRUMENTATION_FLAG) {
+                if (LOCKER_INSTRUMENTATION_FLAG) {
                     activity!.stop();
                 }
                 return result;
