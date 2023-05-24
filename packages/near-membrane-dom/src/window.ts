@@ -55,7 +55,8 @@ export function getCachedGlobalObjectReferences(
         WindowProto: ReflectGetPrototypeOf(window)!,
         WindowPropertiesProto: ReflectGetPrototypeOf(WindowProto)!,
         EventTargetProto,
-        EventTargetProtoOwnKeys: ReflectOwnKeys(EventTargetProto),
+        // Some simulated browser environments, e.g. those using JSDOM, may lack an EventTargetProto.
+        EventTargetProtoOwnKeys: EventTargetProto ? ReflectOwnKeys(EventTargetProto) : [],
     } as CachedBlueReferencesRecord;
     blueDocumentToRecordMap.set(document, record);
     return record;
