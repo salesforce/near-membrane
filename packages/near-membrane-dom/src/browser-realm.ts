@@ -7,6 +7,7 @@ import {
     VirtualEnvironment,
 } from '@locker/near-membrane-base';
 import {
+    isObject,
     ObjectAssign,
     ReflectApply,
     toSafeWeakMap,
@@ -73,6 +74,7 @@ function createIframeVirtualEnvironment(
     }
     const {
         distortionCallback,
+        defaultPolicy,
         endowments,
         globalObjectShape,
         instrumentation,
@@ -98,6 +100,12 @@ function createIframeVirtualEnvironment(
     if (blueConnector === undefined) {
         blueConnector = createBlueConnector(globalObject);
         blueCreateHooksCallbackCache.set(blueRefs.document, blueConnector);
+    }
+    // Install default TrustedTypes policy in the virtual environment.
+    // @ts-ignore trustedTypes does not exist on GlobalObject
+    if (typeof redWindow.trustedTypes !== 'undefined' && isObject(defaultPolicy)) {
+        // @ts-ignore trustedTypes does not exist on GlobalObject
+        redWindow.trustedTypes.createPolicy('default', defaultPolicy);
     }
     const { eval: redIndirectEval } = redWindow;
     const env = new VirtualEnvironment({
