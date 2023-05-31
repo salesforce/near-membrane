@@ -7,6 +7,7 @@ import type {
 
 export interface BrowserEnvironmentOptions {
     distortionCallback?: DistortionCallback;
+    defaultPolicy?: object;
     endowments?: PropertyDescriptorMap;
     globalObjectShape?: object;
     instrumentation?: Instrumentation;
