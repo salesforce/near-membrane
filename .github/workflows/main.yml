@@ -61,7 +61,6 @@ jobs:
               commit -m "$NEW_COVERAGE_PATH" \
               --author="${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>" --no-verify;
             git status;
-            git pull --rebase origin main;
             git push origin pages --no-verify -f;
             echo "NEW_COVERAGE_PATH=$NEW_COVERAGE_PATH" >> $GITHUB_ENV
           fi
