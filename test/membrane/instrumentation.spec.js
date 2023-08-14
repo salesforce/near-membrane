@@ -1,7 +1,7 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('Ensure instrumentation object usage in near-membrane', () => {
-    it('Instrumentation object is passed to and used in near-membrane', () => {
+    xit('Instrumentation object is passed to and used in near-membrane', () => {
         let redProxy;
         const mockInstrumentation = {
             startActivity: () => ({ stop: () => {}, error: () => {} }),
