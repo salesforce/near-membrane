@@ -1,3 +1,4 @@
+import { runInNewContext } from 'node:vm';
 import {
     assignFilteredGlobalDescriptorsFromPropertyDescriptorMap,
     createBlueConnector,
@@ -13,7 +14,6 @@ import {
     WeakMapCtor,
 } from '@locker/near-membrane-shared';
 import type { Connector } from '@locker/near-membrane-base';
-import { runInNewContext } from 'node:vm';
 import type { NodeEnvironmentOptions } from './types';
 
 const blueCreateHooksCallbackCache = toSafeWeakMap(new WeakMapCtor<typeof globalThis, Connector>());
