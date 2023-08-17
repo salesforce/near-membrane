@@ -8,6 +8,5 @@
     "version": {
       "message": "release: %s"
     }
-  },
-  "useWorkspaces": true
+  }
 }
