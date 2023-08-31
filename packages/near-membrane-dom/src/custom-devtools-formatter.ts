@@ -2,8 +2,10 @@ import {
     ArrayIsArray,
     ArrayProtoFilter,
     ArrayProtoIncludes,
+    ArrayProtoIndexOf,
+    ArrayProtoMap,
     ArrayProtoPush,
-    ArrayProtoSort,
+    ArrayProtoSplice,
     ArrayProtoUnshift,
     CHAR_ELLIPSIS,
     getNearMembraneProxySerializedValue,
@@ -12,8 +14,10 @@ import {
     JSONStringify,
     LOCKER_UNMINIFIED_FLAG,
     MathMin,
+    NumberCtor,
     NumberIsFinite,
     NumberIsInteger,
+    NumberIsNaN,
     ObjectKeys,
     ObjectProtoToString,
     ReflectApply,
@@ -58,7 +62,7 @@ if (LOCKER_UNMINIFIED_FLAG) {
 
     const headerCSSText =
         'display: inline-block; margin-bottom: 3px; margin-left: -3px; word-break: break-all; word-wrap: wrap;';
-    const bodyItemStyleObject = { style: 'margin-left:11px; margin-bottom: 3px;' };
+    const bodyItemStyleObject = { style: 'margin-left:15px; margin-bottom: 3px;' };
     const bodyStyleObject = {
         style: 'display: inline-block; margin-left:12px; word-break: break-all; word-wrap: wrap;',
     };
@@ -81,6 +85,9 @@ if (LOCKER_UNMINIFIED_FLAG) {
             return NumberIsFinite(value)
                 ? ['span', primitiveBlueColorStyleObject, value]
                 : ['span', primitiveBlueColorStyleObject, `${value >= 0 ? '' : '-'}Infinity`];
+        }
+        if (typeof value === 'bigint') {
+            return ['span', primitiveGreenColorStyleObject, `${value}n`];
         }
         if (typeof value === 'string') {
             let string = value as any;
@@ -119,6 +126,7 @@ if (LOCKER_UNMINIFIED_FLAG) {
             ];
             formattedHeader[formattedHeaderOffset++] = ['span', {}, ': '];
         }
+
         const brand = ReflectApply(ObjectProtoToString, object, []);
         let keys = ObjectKeys(object);
         if (brand === TO_STRING_BRAND_SYMBOL) {
@@ -138,20 +146,37 @@ if (LOCKER_UNMINIFIED_FLAG) {
                 },
             ]);
         }
-        const { length: keysLength } = keys;
+
+        const ownKeysRaw = ReflectOwnKeys(object);
+        const ownKeys = ReflectApply(ArrayProtoMap, ownKeysRaw, [StringCtor]);
+        const { length: ownKeysLength } = ownKeys;
         if (ArrayIsArray(object)) {
-            formattedHeader[formattedHeaderOffset++] = [
-                'span',
-                isChildElement ? primitiveGreyColorStyleObject : {},
-                `(${object.length}) [`,
-            ];
-            for (let i = 0, length = MathMin(keysLength, MAX_ARRAY_DISPLAY); i < length; i += 1) {
-                const key = keys[i];
-                const value = (object as any)[key];
-                formattedHeader[formattedHeaderOffset++] = ['span', {}, i ? ', ' : ''];
-                formattedHeader[formattedHeaderOffset++] = formatValue(value);
+            formattedHeader[formattedHeaderOffset++] = ['span', {}, `(${object.length}) [`];
+            for (
+                let i = 0, length = MathMin(ownKeysLength, MAX_ARRAY_DISPLAY);
+                i < length;
+                i += 1
+            ) {
+                const ownKeyRaw = ownKeysRaw[i];
+                const ownKey = ownKeys[i];
+                const value = (object as any)[ownKeyRaw];
+                if (ownKey !== 'length') {
+                    if (!NumberIsNaN(NumberCtor(ownKey))) {
+                        formattedHeader[formattedHeaderOffset++] = ['span', {}, i ? ', ' : ''];
+                        formattedHeader[formattedHeaderOffset++] = formatValue(value);
+                    } else {
+                        formattedHeader[formattedHeaderOffset++] = ['span', {}, i ? ', ' : ''];
+                        formattedHeader[formattedHeaderOffset++] = [
+                            'span',
+                            primitiveGreyColorStyleObject,
+                            StringCtor(ownKey),
+                        ];
+                        formattedHeader[formattedHeaderOffset++] = ['span', {}, ': '];
+                        formattedHeader[formattedHeaderOffset++] = formatValue(value);
+                    }
+                }
             }
-            if (keysLength > MAX_ARRAY_DISPLAY) {
+            if (ownKeysLength > MAX_ARRAY_DISPLAY) {
                 formattedHeader[formattedHeaderOffset++] = [
                     'span',
                     null,
@@ -161,6 +186,7 @@ if (LOCKER_UNMINIFIED_FLAG) {
             formattedHeader[formattedHeaderOffset++] = ['span', {}, ']'];
             return formattedHeader;
         }
+
         let boxedHeaderEntry: any[] | undefined;
         let headerOpening = '{';
         // eslint-disable-next-line default-case
@@ -185,22 +211,28 @@ if (LOCKER_UNMINIFIED_FLAG) {
                 break;
             }
         }
+
         formattedHeader[formattedHeaderOffset++] = ['span', {}, headerOpening];
         if (boxedHeaderEntry) {
             formattedHeader[formattedHeaderOffset++] = boxedHeaderEntry;
-            if (keysLength) {
+            if (ownKeysLength) {
                 formattedHeader[formattedHeaderOffset++] = ['span', {}, ', '];
             }
         }
-        for (let i = 0, length = MathMin(keysLength, MAX_OBJECT_DISPLAY); i < length; i += 1) {
-            const key = keys[i];
-            const value = object[key];
+        for (let i = 0, length = MathMin(ownKeysLength, MAX_OBJECT_DISPLAY); i < length; i += 1) {
+            const ownKeyRaw = ownKeysRaw[i];
+            const ownKey = ownKeys[i];
+            const value = (object as any)[ownKeyRaw];
             formattedHeader[formattedHeaderOffset++] = ['span', {}, i ? ', ' : ''];
-            formattedHeader[formattedHeaderOffset++] = ['span', primitiveGreyColorStyleObject, key];
+            formattedHeader[formattedHeaderOffset++] = [
+                'span',
+                primitiveGreyColorStyleObject,
+                ownKey,
+            ];
             formattedHeader[formattedHeaderOffset++] = ['span', {}, ': '];
             formattedHeader[formattedHeaderOffset++] = formatValue(value);
         }
-        if (keysLength > MAX_OBJECT_DISPLAY) {
+        if (ownKeysLength > MAX_OBJECT_DISPLAY) {
             formattedHeader[formattedHeaderOffset++] = [
                 'span',
                 null,
@@ -212,17 +244,23 @@ if (LOCKER_UNMINIFIED_FLAG) {
     };
     // istanbul ignore next: currently unreachable via tests
     const formatBody = function formatBody(object: object) {
-        const keys = ObjectKeys(object);
         // @TODO: Arrays are broken into groups of 100.
-        const ownKeys = ReflectOwnKeys(object);
-        if (!ArrayIsArray(object)) {
-            ReflectApply(ArrayProtoSort, ownKeys, []);
+        const ownKeysRaw = ReflectOwnKeys(object);
+        const ownKeys = ReflectApply(ArrayProtoMap, ownKeysRaw, [StringCtor]);
+        // Put 'length' at the end.
+        const lengthIndex = ReflectApply(ArrayProtoIndexOf, ownKeys, ['length']);
+        if (lengthIndex) {
+            const lengthValueRaw = ReflectApply(ArrayProtoSplice, ownKeysRaw, [lengthIndex, 1])[0];
+            ReflectApply(ArrayProtoPush, ownKeysRaw, [lengthValueRaw]);
+            const lengthValue = ReflectApply(ArrayProtoSplice, ownKeys, [lengthIndex, 1])[0];
+            ReflectApply(ArrayProtoPush, ownKeys, [lengthValue]);
         }
         const formattedBody: any[] = [];
         let formattedBodyOffset = 0;
         for (let i = 0, { length } = ownKeys; i < length; i += 1) {
+            const ownKeyRaw = ownKeysRaw[i];
             const ownKey = ownKeys[i];
-            const value = (object as any)[ownKey];
+            const value = (object as any)[ownKeyRaw];
             if (isObject(value)) {
                 formattedBody[formattedBodyOffset++] = [
                     'div',
@@ -237,16 +275,13 @@ if (LOCKER_UNMINIFIED_FLAG) {
                 ];
             } else {
                 let currentKeyStyle = keyEnumerableStringStyleObject;
-                if (
-                    typeof ownKey === 'symbol' ||
-                    !ReflectApply(ArrayProtoIncludes, keys, [ownKey])
-                ) {
+                if (ownKey === 'length') {
                     currentKeyStyle = keyNonEnumerableOrSymbolStyleObject;
                 }
                 formattedBody[formattedBodyOffset++] = [
                     'div',
                     bodyItemStyleObject,
-                    ['span', currentKeyStyle, StringCtor(ownKey)],
+                    ['span', currentKeyStyle, ownKey],
                     ['span', {}, ': '],
                     formatValue(value),
                 ];
