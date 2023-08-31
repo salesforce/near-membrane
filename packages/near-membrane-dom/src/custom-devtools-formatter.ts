@@ -250,10 +250,10 @@ if (LOCKER_UNMINIFIED_FLAG) {
         // Put 'length' at the end.
         const lengthIndex = ReflectApply(ArrayProtoIndexOf, ownKeys, ['length']);
         if (lengthIndex) {
-            const lengthValueRaw = ReflectApply(ArrayProtoSplice, ownKeysRaw, [lengthIndex, 1])[0];
-            ReflectApply(ArrayProtoPush, ownKeysRaw, [lengthValueRaw]);
-            const lengthValue = ReflectApply(ArrayProtoSplice, ownKeys, [lengthIndex, 1])[0];
-            ReflectApply(ArrayProtoPush, ownKeys, [lengthValue]);
+            const lengthKeyRaw = ReflectApply(ArrayProtoSplice, ownKeysRaw, [lengthIndex, 1])[0];
+            ReflectApply(ArrayProtoPush, ownKeysRaw, [lengthKeyRaw]);
+            const lengthKey = ReflectApply(ArrayProtoSplice, ownKeys, [lengthIndex, 1])[0];
+            ReflectApply(ArrayProtoPush, ownKeys, [lengthKey]);
         }
         const formattedBody: any[] = [];
         let formattedBodyOffset = 0;
