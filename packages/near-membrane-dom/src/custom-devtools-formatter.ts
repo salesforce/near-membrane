@@ -247,9 +247,10 @@ if (LOCKER_UNMINIFIED_FLAG) {
         // @TODO: Arrays are broken into groups of 100.
         const ownKeysRaw = ReflectOwnKeys(object);
         const ownKeys = ReflectApply(ArrayProtoMap, ownKeysRaw, [StringCtor]);
-        // Put 'length' at the end.
-        const lengthIndex = ReflectApply(ArrayProtoIndexOf, ownKeys, ['length']);
-        if (lengthIndex) {
+        // Put 'length' at the end of array.
+        const isArray = ArrayIsArray(object);
+        if (isArray) {
+            const lengthIndex = ReflectApply(ArrayProtoIndexOf, ownKeys, ['length']);
             const lengthKeyRaw = ReflectApply(ArrayProtoSplice, ownKeysRaw, [lengthIndex, 1])[0];
             ReflectApply(ArrayProtoPush, ownKeysRaw, [lengthKeyRaw]);
             const lengthKey = ReflectApply(ArrayProtoSplice, ownKeys, [lengthIndex, 1])[0];
@@ -275,7 +276,7 @@ if (LOCKER_UNMINIFIED_FLAG) {
                 ];
             } else {
                 let currentKeyStyle = keyEnumerableStringStyleObject;
-                if (ownKey === 'length') {
+                if (isArray && ownKey === 'length') {
                     currentKeyStyle = keyNonEnumerableOrSymbolStyleObject;
                 }
                 formattedBody[formattedBodyOffset++] = [
