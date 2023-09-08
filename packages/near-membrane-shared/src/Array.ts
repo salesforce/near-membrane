@@ -17,18 +17,15 @@ const {
     flat: ArrayProtoFlat,
     flatMap: ArrayProtoFlatMap,
     forEach: ArrayProtoForEach,
-    indexOf: ArrayProtoIndexOf,
     join: ArrayProtoJoin,
     keys: ArrayProtoKeys,
     lastIndexOf: ArrayProtoLastIndexOf,
-    map: ArrayProtoMap,
     pop: ArrayProtoPop,
     reduce: ArrayProtoReduce,
     reduceRight: ArrayProtoReduceRight,
     reverse: ArrayProtoReverse,
     slice: ArrayProtoSlice,
     some: ArrayProtoSome,
-    splice: ArrayProtoSplice,
     toLocaleString: ArrayProtoToLocaleString,
     toString: ArrayProtoToString,
     values: ArrayProtoValues,
@@ -43,12 +40,14 @@ export const {
     filter: ArrayProtoFilter,
     find: ArrayProtoFind,
     includes: ArrayProtoIncludes,
+    indexOf: ArrayProtoIndexOf,
+    map: ArrayProtoMap,
+    push: ArrayProtoPush,
     shift: ArrayProtoShift,
+    splice: ArrayProtoSplice,
     sort: ArrayProtoSort,
     unshift: ArrayProtoUnshift,
 } = ArrayProto;
-
-export const { push: ArrayProtoPush } = ArrayProto;
 
 export const { isArray: ArrayIsArray } = ArrayCtor;
 
