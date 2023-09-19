@@ -13,9 +13,9 @@
     "module": "dist/index.mjs.js",
     "sideEffects": false,
     "scripts": {
-        "clean": "locker-trash dist",
         "build": "rollup --config .rolluprc.cjs",
-        "build:dev": "cross-env NODE_ENV=development yarn build"
+        "build:dev": "cross-env NODE_ENV=development yarn build",
+        "clean": "locker-trash dist/"
     },
     "files": [
         "dist/"
