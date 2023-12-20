@@ -1,7 +1,7 @@
 {
     "private": true,
     "name": "@locker/scripts",
-    "version": "0.13.3",
+    "version": "0.13.4",
     "description": "Locker scripts",
     "bin": {
         "locker-trash": "./locker-trash.mjs"
