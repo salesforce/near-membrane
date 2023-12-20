@@ -4003,7 +4003,11 @@ export function createMembraneMarshall(
                 selectedTarget = undefined;
                 let proto: object | null;
                 if (typeof protoPointerOrNull === 'function') {
-                    protoPointerOrNull();
+                    // Instead of calling `protoPointerOrNull()` directly we use
+                    // `ReflectApply` to avoid a Maglev (https://v8.dev/blog/maglev)
+                    // optimizing JIT bug in Chrome >= 117:
+                    // https://bugs.chromium.org/p/chromium/issues/detail?id=1494060
+                    ReflectApply(protoPointerOrNull, undefined, []);
                     proto = selectedTarget!;
                     selectedTarget = undefined;
                 } else {
