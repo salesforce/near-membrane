@@ -13,5 +13,6 @@ export interface BrowserEnvironmentOptions {
     instrumentation?: Instrumentation;
     keepAlive?: boolean;
     liveTargetCallback?: LiveTargetCallback;
+    remapTypedArrays?: boolean;
     signSourceCallback?: SignSourceCallback;
 }

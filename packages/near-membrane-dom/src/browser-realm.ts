@@ -80,6 +80,7 @@ function createIframeVirtualEnvironment(
         instrumentation,
         keepAlive = true,
         liveTargetCallback,
+        remapTypedArrays,
         signSourceCallback,
         // eslint-disable-next-line prefer-object-spread
     } = ObjectAssign({ __proto__: null }, providedOptions) as BrowserEnvironmentOptions;
@@ -92,7 +93,9 @@ function createIframeVirtualEnvironment(
     const shouldUseDefaultGlobalOwnKeys =
         typeof globalObjectShape !== 'object' || globalObjectShape === null;
     if (shouldUseDefaultGlobalOwnKeys && defaultGlobalOwnKeys === null) {
-        defaultGlobalOwnKeys = filterWindowKeys(getFilteredGlobalOwnKeys(redWindow));
+        defaultGlobalOwnKeys = filterWindowKeys(
+            getFilteredGlobalOwnKeys(redWindow, remapTypedArrays)
+        );
     }
     let blueConnector = blueCreateHooksCallbackCache.get(blueRefs.document) as
         | Connector
@@ -151,7 +154,11 @@ function createIframeVirtualEnvironment(
     );
     if (endowments) {
         const filteredEndowments: PropertyDescriptorMap = {};
-        assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(filteredEndowments, endowments);
+        assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
+            filteredEndowments,
+            endowments,
+            remapTypedArrays
+        );
         removeWindowDescriptors(filteredEndowments);
         env.remapProperties(blueRefs.window, filteredEndowments);
     }
