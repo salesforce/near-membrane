@@ -27,81 +27,90 @@ import { VirtualEnvironment } from './environment';
  * problematic, and requires a lot more work to guarantee that objects from both sides
  * can be considered equivalents (without identity discontinuity).
  */
-const ESGlobalKeys = [
-    // *** 19.1 Value Properties of the Global Object
-    'globalThis',
-    'Infinity',
-    'NaN',
-    'undefined',
+function getESGlobalKeys(remapTypedArrays = true) {
+    const ESGlobalKeys = [
+        // *** 19.1 Value Properties of the Global Object
+        'globalThis',
+        'Infinity',
+        'NaN',
+        'undefined',
 
-    // *** 19.2 Function Properties of the Global Object
-    // 'eval', // dangerous & Reflective
-    'isFinite',
-    'isNaN',
-    'parseFloat',
-    'parseInt',
-    'decodeURI',
-    'decodeURIComponent',
-    'encodeURI',
-    'encodeURIComponent',
+        // *** 19.2 Function Properties of the Global Object
+        // 'eval', // dangerous & Reflective
+        'isFinite',
+        'isNaN',
+        'parseFloat',
+        'parseInt',
+        'decodeURI',
+        'decodeURIComponent',
+        'encodeURI',
+        'encodeURIComponent',
 
-    // *** 19.3 Constructor Properties of the Global Object
-    // 'AggregateError', // Reflective
-    // 'Array', // Reflective
-    // 'ArrayBuffer', // Remapped
-    'BigInt',
-    // 'BigInt64Array', // Remapped
-    // 'BigUint64Array', // Remapped
-    'Boolean',
-    // 'DataView', // Remapped
-    // 'Date', // Remapped
-    // 'Error', // Reflective
-    // 'EvalError', // Reflective
-    'FinalizationRegistry',
-    // 'Float32Array', // Remapped
-    // 'Float64Array', // Remapped
-    // 'Function', // dangerous & Reflective
-    // 'Int8Array', // Remapped
-    // 'Int16Array', // Remapped
-    // 'Int32Array', // Remapped
-    // 'Map', // Remapped
-    'Number',
-    // 'Object', // Reflective
-    // Allow blue `Promise` constructor to overwrite the Red one so that promises
-    // created by the `Promise` constructor or APIs like `fetch` will work.
-    // 'Promise', // Remapped
-    // 'Proxy', // Reflective
-    // 'RangeError', // Reflective
-    // 'ReferenceError', // Reflective
-    'RegExp',
-    // 'Set', // Remapped
-    // 'SharedArrayBuffer', // Remapped
-    'String',
-    'Symbol',
-    // 'SyntaxError', // Reflective
-    // 'TypeError', // Reflective
-    // 'Uint8Array', // Remapped
-    // 'Uint8ClampedArray', // Remapped
-    // 'Uint16Array', // Remapped
-    // 'Uint32Array', // Remapped
-    // 'URIError', // Reflective
-    // 'WeakMap', // Remapped
-    // 'WeakSet', // Remapped
-    'WeakRef',
+        // *** 19.3 Constructor Properties of the Global Object
+        // 'AggregateError', // Reflective
+        // 'Array', // Reflective
+        'BigInt',
+        'Boolean',
+        // 'Date', // Remapped
+        // 'Error', // Reflective
+        // 'EvalError', // Reflective
+        'FinalizationRegistry',
+        // 'Function', // dangerous & Reflective
+        // 'Map', // Remapped
+        'Number',
+        // 'Object', // Reflective
+        // Allow blue `Promise` constructor to overwrite the Red one so that promises
+        // created by the `Promise` constructor or APIs like `fetch` will work.
+        // 'Promise', // Remapped
+        // 'Proxy', // Reflective
+        // 'RangeError', // Reflective
+        // 'ReferenceError', // Reflective
+        'RegExp',
+        // 'Set', // Remapped
 
-    // *** 18.4 Other Properties of the Global Object
-    // 'Atomics', // Remapped
-    'JSON',
-    'Math',
-    'Reflect',
+        'String',
+        'Symbol',
+        // 'SyntaxError', // Reflective
+        // 'TypeError', // Reflective
+        // 'URIError', // Reflective
+        // 'WeakMap', // Remapped
+        // 'WeakSet', // Remapped
+        'WeakRef',
 
-    // *** Annex B
-    'escape',
-    'unescape',
+        // *** 18.4 Other Properties of the Global Object
+        // 'Atomics', // Remapped
+        'JSON',
+        'Math',
+        'Reflect',
 
-    // *** ECMA-402
-    // 'Intl',  // Remapped
-];
+        // *** Annex B
+        'escape',
+        'unescape',
+
+        // *** ECMA-402
+        // 'Intl',  // Remapped
+    ];
+
+    if (remapTypedArrays === false) {
+        ESGlobalKeys.push(
+            'ArrayBuffer',
+            'BigInt64Array',
+            'BigUint64Array',
+            'DataView',
+            'Float32Array',
+            'Float64Array',
+            'Int8Array',
+            'Int16Array',
+            'Int32Array',
+            'SharedArrayBuffer',
+            'Uint8Array',
+            'Uint8ClampedArray',
+            'Uint16Array',
+            'Uint32Array'
+        );
+    }
+    return ESGlobalKeys;
+}
 
 // These are foundational things that should never be wrapped but are equivalent
 // @TODO: Revisit this list.
@@ -122,10 +131,10 @@ const ReflectiveIntrinsicObjectNames = [
     'globalThis',
 ];
 
-const ESGlobalsAndReflectiveIntrinsicObjectNames = toSafeArray([
-    ...ESGlobalKeys,
-    ...ReflectiveIntrinsicObjectNames,
-]);
+function getESGlobalsAndReflectiveIntrinsicObjectNames(remapTypedArrays = true) {
+    const ESGlobalKeys = getESGlobalKeys(remapTypedArrays);
+    return toSafeArray([...ESGlobalKeys, ...ReflectiveIntrinsicObjectNames]);
+}
 
 function getGlobalObjectOwnKeys(source: object): PropertyKey[] {
     const ownKeys = ReflectOwnKeys(source);
@@ -140,8 +149,10 @@ function getGlobalObjectOwnKeys(source: object): PropertyKey[] {
 
 export function assignFilteredGlobalDescriptorsFromPropertyDescriptorMap<
     T extends PropertyDescriptorMap
->(descs: T, source: PropertyDescriptorMap): T {
+>(descs: T, source: PropertyDescriptorMap, includeTypedArrays?: boolean): T {
     const ownKeys = getGlobalObjectOwnKeys(source);
+    const ESGlobalsAndReflectiveIntrinsicObjectNames =
+        getESGlobalsAndReflectiveIntrinsicObjectNames(includeTypedArrays);
     for (let i = 0, { length } = ownKeys; i < length; i += 1) {
         const ownKey = ownKeys[i];
         // Avoid overriding ECMAScript global names that correspond to
@@ -161,10 +172,15 @@ export function assignFilteredGlobalDescriptorsFromPropertyDescriptorMap<
     return descs;
 }
 
-export function getFilteredGlobalOwnKeys(source: object): PropertyKey[] {
+export function getFilteredGlobalOwnKeys(
+    source: object,
+    includeTypedArrays?: boolean
+): PropertyKey[] {
     const result: PropertyKey[] = [];
     let resultOffset = 0;
     const ownKeys = getGlobalObjectOwnKeys(source);
+    const ESGlobalsAndReflectiveIntrinsicObjectNames =
+        getESGlobalsAndReflectiveIntrinsicObjectNames(includeTypedArrays);
     for (let i = 0, { length } = ownKeys; i < length; i += 1) {
         const ownKey = ownKeys[i];
         // Avoid overriding ECMAScript global names that correspond to global

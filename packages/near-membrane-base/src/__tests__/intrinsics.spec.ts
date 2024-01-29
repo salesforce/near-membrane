@@ -29,22 +29,13 @@ const ESGlobalKeys = [
     // *** 19.3 Constructor Properties of the Global Object
     // 'AggregateError', // Reflective
     // 'Array', // Reflective
-    // 'ArrayBuffer', // Remapped
     'BigInt',
-    // 'BigInt64Array', // Remapped
-    // 'BigUint64Array', // Remapped
     'Boolean',
-    // 'DataView', // Remapped
     // 'Date', // Remapped
     // 'Error', // Reflective
     // 'EvalError', // Reflective
     'FinalizationRegistry',
-    // 'Float32Array', // Remapped
-    // 'Float64Array', // Remapped
     // 'Function', // dangerous & Reflective
-    // 'Int8Array', // Remapped
-    // 'Int16Array', // Remapped
-    // 'Int32Array', // Remapped
     // 'Map', // Remapped
     'Number',
     // 'Object', // Reflective
@@ -56,15 +47,10 @@ const ESGlobalKeys = [
     // 'ReferenceError', // Reflective
     'RegExp',
     // 'Set', // Remapped
-    // 'SharedArrayBuffer', // Remapped
     'String',
     'Symbol',
     // 'SyntaxError', // Reflective
     // 'TypeError', // Reflective
-    // 'Uint8Array', // Remapped
-    // 'Uint8ClampedArray', // Remapped
-    // 'Uint16Array', // Remapped
-    // 'Uint32Array', // Remapped
     // 'URIError', // Reflective
     // 'WeakMap', // Remapped
     // 'WeakSet', // Remapped
@@ -102,28 +88,31 @@ const ReflectiveIntrinsicObjectNames = [
 ];
 
 const RemappedIntrinsicObjectNames = [
-    'ArrayBuffer',
     'Atomics',
+    'Date',
+    'Intl',
+    'Map',
+    'Promise',
+    'Set',
+    'WeakMap',
+    'WeakSet',
+];
+
+const TypedAraysInstrinsics = [
+    'ArrayBuffer',
     'BigInt64Array',
     'BigUint64Array',
     'DataView',
-    'Date',
     'Float32Array',
     'Float64Array',
     'Int16Array',
     'Int32Array',
     'Int8Array',
-    'Intl',
-    'Map',
-    'Promise',
-    'Set',
     'SharedArrayBuffer',
     'Uint16Array',
     'Uint32Array',
     'Uint8Array',
     'Uint8ClampedArray',
-    'WeakMap',
-    'WeakSet',
 ];
 
 describe('assignFilteredGlobalDescriptorsFromPropertyDescriptorMap', () => {
@@ -158,9 +147,10 @@ describe('assignFilteredGlobalDescriptorsFromPropertyDescriptorMap', () => {
         }
     });
     it('includes Remapped ES intrinsics', () => {
-        expect.assertions(RemappedIntrinsicObjectNames.length);
+        const remappedObjectNames = [...RemappedIntrinsicObjectNames, ...TypedAraysInstrinsics];
+        expect.assertions(remappedObjectNames.length);
 
-        const shape = RemappedIntrinsicObjectNames.reduce((accum, key) => {
+        const shape = remappedObjectNames.reduce((accum, key) => {
             (accum as any)[key] = (globalThis as any)[key];
             return accum;
         }, {});
@@ -168,7 +158,7 @@ describe('assignFilteredGlobalDescriptorsFromPropertyDescriptorMap', () => {
             {},
             Object.getOwnPropertyDescriptors(shape)
         );
-        for (const key of RemappedIntrinsicObjectNames) {
+        for (const key of remappedObjectNames) {
             expect(descs[key]).toBeDefined();
         }
     });
@@ -185,6 +175,22 @@ describe('assignFilteredGlobalDescriptorsFromPropertyDescriptorMap', () => {
             value: 1,
             writable: true,
         });
+    });
+    it('should not remap TypedArrays when flag is false', () => {
+        expect.assertions(RemappedIntrinsicObjectNames.length);
+
+        const shape = RemappedIntrinsicObjectNames.reduce((accum, key) => {
+            (accum as any)[key] = (globalThis as any)[key];
+            return accum;
+        }, {});
+        const descs = assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
+            {},
+            Object.getOwnPropertyDescriptors(shape),
+            false
+        );
+        for (const key of RemappedIntrinsicObjectNames) {
+            expect(descs[key]).toBeDefined();
+        }
     });
 });
 
@@ -214,18 +220,27 @@ describe('getFilteredGlobalOwnKeys', () => {
         }
     });
     it('includes Remapped ES intrinsics', () => {
-        const shape = RemappedIntrinsicObjectNames.reduce((accum, key) => {
+        const remappedObjectNames = [...RemappedIntrinsicObjectNames, ...TypedAraysInstrinsics];
+        const shape = remappedObjectNames.reduce((accum, key) => {
             (accum as any)[key] = (globalThis as any)[key];
             return accum;
         }, {});
         const filteredOwnKeys = getFilteredGlobalOwnKeys(shape);
-        expect(filteredOwnKeys).toEqual(RemappedIntrinsicObjectNames);
+        expect(filteredOwnKeys).toEqual(remappedObjectNames);
     });
     it('should include non-ES built-ins', () => {
         const filteredOwnKeys = getFilteredGlobalOwnKeys({
             Foo: 1,
         });
         expect(filteredOwnKeys).toEqual(['Foo']);
+    });
+    it('should not remap TypedArrays when flag is false', () => {
+        const shape = RemappedIntrinsicObjectNames.reduce((accum, key) => {
+            (accum as any)[key] = (globalThis as any)[key];
+            return accum;
+        }, {});
+        const filteredOwnKeys = getFilteredGlobalOwnKeys(shape, false);
+        expect(filteredOwnKeys).toEqual(RemappedIntrinsicObjectNames);
     });
 });
 
