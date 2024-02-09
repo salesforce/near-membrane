@@ -2,6 +2,7 @@ import {
     ReflectDeleteProperty,
     ReflectGetPrototypeOf,
     ReflectOwnKeys,
+    toSafeArray,
     toSafeWeakMap,
 } from '@locker/near-membrane-shared';
 import { IS_CHROMIUM_BROWSER, rootWindow } from '@locker/near-membrane-shared-dom';
@@ -62,8 +63,8 @@ export function getCachedGlobalObjectReferences(
     return record;
 }
 
-export function filterWindowKeys(keys: PropertyKey[]): PropertyKey[] {
-    const result: PropertyKey[] = [];
+export function filterWindowKeys(keys: PropertyKey[], remapTypedArrays: boolean): PropertyKey[] {
+    const result: PropertyKey[] = toSafeArray([]);
     let resultOffset = 0;
     for (let i = 0, { length } = keys; i < length; i += 1) {
         const key = keys[i];
@@ -79,6 +80,12 @@ export function filterWindowKeys(keys: PropertyKey[]): PropertyKey[] {
             result[resultOffset++] = key;
         }
     }
+
+    // Crypto and typed arrays must be from the same global object
+    if (remapTypedArrays === false) {
+        result.splice(result.indexOf('Crypto'), 1);
+    }
+
     return result;
 }
 
@@ -109,7 +116,10 @@ export function filterWindowKeys(keys: PropertyKey[]): PropertyKey[] {
  * that will be installed (via the membrane) as global descriptors in
  * the red realm.
  */
-export function removeWindowDescriptors<T extends PropertyDescriptorMap>(unsafeDescs: T): T {
+export function removeWindowDescriptors<T extends PropertyDescriptorMap>(
+    unsafeDescs: T,
+    remapTypedArrays: boolean
+): T {
     // Remove unforgeable descriptors that cannot be installed.
     ReflectDeleteProperty(unsafeDescs, 'document');
     ReflectDeleteProperty(unsafeDescs, 'location');
@@ -117,6 +127,10 @@ export function removeWindowDescriptors<T extends PropertyDescriptorMap>(unsafeD
     ReflectDeleteProperty(unsafeDescs, 'window');
     // Remove other browser specific unforgeables.
     ReflectDeleteProperty(unsafeDescs, 'chrome');
+    // Crypto and typed arrays must be from the same global object
+    if (remapTypedArrays === false) {
+        ReflectDeleteProperty(unsafeDescs, 'Crypto');
+    }
     return unsafeDescs;
 }
 
