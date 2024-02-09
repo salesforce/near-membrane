@@ -80,7 +80,7 @@ function createIframeVirtualEnvironment(
         instrumentation,
         keepAlive = true,
         liveTargetCallback,
-        remapTypedArrays,
+        remapTypedArrays = true,
         signSourceCallback,
         // eslint-disable-next-line prefer-object-spread
     } = ObjectAssign({ __proto__: null }, providedOptions) as BrowserEnvironmentOptions;
@@ -94,7 +94,8 @@ function createIframeVirtualEnvironment(
         typeof globalObjectShape !== 'object' || globalObjectShape === null;
     if (shouldUseDefaultGlobalOwnKeys && defaultGlobalOwnKeys === null) {
         defaultGlobalOwnKeys = filterWindowKeys(
-            getFilteredGlobalOwnKeys(redWindow, remapTypedArrays)
+            getFilteredGlobalOwnKeys(redWindow, remapTypedArrays),
+            remapTypedArrays
         );
     }
     let blueConnector = blueCreateHooksCallbackCache.get(blueRefs.document) as
@@ -145,7 +146,7 @@ function createIframeVirtualEnvironment(
         blueRefs.window,
         shouldUseDefaultGlobalOwnKeys
             ? (defaultGlobalOwnKeys as PropertyKey[])
-            : filterWindowKeys(getFilteredGlobalOwnKeys(globalObjectShape)),
+            : filterWindowKeys(getFilteredGlobalOwnKeys(globalObjectShape), remapTypedArrays),
         // Chromium based browsers have a bug that nulls the result of `window`
         // getters in detached iframes when the property descriptor of `window.window`
         // is retrieved.
@@ -159,7 +160,7 @@ function createIframeVirtualEnvironment(
             endowments,
             remapTypedArrays
         );
-        removeWindowDescriptors(filteredEndowments);
+        removeWindowDescriptors(filteredEndowments, remapTypedArrays);
         env.remapProperties(blueRefs.window, filteredEndowments);
     }
     // We intentionally skip remapping Window.prototype because there is nothing

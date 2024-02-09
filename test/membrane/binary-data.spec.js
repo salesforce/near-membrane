@@ -54,6 +54,30 @@ describe('Crypto', () => {
             }).not.toThrow();
         `);
     });
+    it('works when typed arrays are not remapped', () => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ expect }),
+            remapTypedArrays: false,
+        });
+
+        env.evaluate(`
+            expect(() => {
+                crypto.getRandomValues(new Uint8Array(1));
+            }).not.toThrow();
+        `);
+    });
+    it('ignores the presense of crypto in endowments if remapTypedArrays is false', () => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ Crypto, crypto, expect }),
+            remapTypedArrays: false,
+        });
+
+        env.evaluate(`
+            expect(() => {
+                crypto.getRandomValues(new Uint8Array(1));
+            }).not.toThrow();
+        `);
+    });
 });
 
 describe('DataView', () => {
