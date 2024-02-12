@@ -1,12 +1,12 @@
 {
     "name": "examples",
-    "version": "0.13.7",
+    "version": "0.13.8",
     "private": true,
     "scripts": {
         "clean": "locker-trash */bundle.js",
         "build": "rollup --config .rolluprc.cjs"
     },
     "dependencies": {
-        "@locker/near-membrane-dom": "0.13.7"
+        "@locker/near-membrane-dom": "0.13.8"
     }
 }
