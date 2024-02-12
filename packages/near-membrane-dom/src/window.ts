@@ -1,9 +1,11 @@
 import {
+    ReflectApply,
     ReflectDeleteProperty,
     ReflectGetPrototypeOf,
     ReflectOwnKeys,
-    toSafeArray,
     toSafeWeakMap,
+    SetCtor,
+    SetProtoHas,
 } from '@locker/near-membrane-shared';
 import { IS_CHROMIUM_BROWSER, rootWindow } from '@locker/near-membrane-shared-dom';
 
@@ -64,28 +66,22 @@ export function getCachedGlobalObjectReferences(
 }
 
 export function filterWindowKeys(keys: PropertyKey[], remapTypedArrays: boolean): PropertyKey[] {
-    const result: PropertyKey[] = toSafeArray([]);
+    const excludedKeys = new SetCtor(['document', 'location', 'top', 'window']);
+    // Crypto and typed arrays must be from the same global object
+    if (remapTypedArrays === false) {
+        excludedKeys.add('crypto');
+        excludedKeys.add('Crypto');
+        excludedKeys.add('SubtleCrypto');
+    }
+    const result: PropertyKey[] = [];
     let resultOffset = 0;
     for (let i = 0, { length } = keys; i < length; i += 1) {
         const key = keys[i];
-        if (
-            // Filter out unforgeable property keys that cannot be installed.
-            key !== 'document' &&
-            key !== 'location ' &&
-            key !== 'top' &&
-            key !== 'window' &&
-            // Remove other browser specific unforgeables.
-            key !== 'chrome'
-        ) {
-            result[resultOffset++] = key;
+        if (ReflectApply(SetProtoHas, excludedKeys, [key])) {
+            continue;
         }
+        result[resultOffset++] = key;
     }
-
-    // Crypto and typed arrays must be from the same global object
-    if (remapTypedArrays === false) {
-        result.splice(result.indexOf('Crypto'), 1);
-    }
-
     return result;
 }
 
@@ -129,7 +125,9 @@ export function removeWindowDescriptors<T extends PropertyDescriptorMap>(
     ReflectDeleteProperty(unsafeDescs, 'chrome');
     // Crypto and typed arrays must be from the same global object
     if (remapTypedArrays === false) {
+        ReflectDeleteProperty(unsafeDescs, 'crypto');
         ReflectDeleteProperty(unsafeDescs, 'Crypto');
+        ReflectDeleteProperty(unsafeDescs, 'SubtleCrypto');
     }
     return unsafeDescs;
 }
