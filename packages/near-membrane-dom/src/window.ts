@@ -83,7 +83,9 @@ export function filterWindowKeys(keys: PropertyKey[], remapTypedArrays: boolean)
 
     // Crypto and typed arrays must be from the same global object
     if (remapTypedArrays === false) {
+        result.splice(result.indexOf('crypto'), 1);
         result.splice(result.indexOf('Crypto'), 1);
+        result.splice(result.indexOf('SubtleCrypto'), 1);
     }
 
     return result;
@@ -129,7 +131,9 @@ export function removeWindowDescriptors<T extends PropertyDescriptorMap>(
     ReflectDeleteProperty(unsafeDescs, 'chrome');
     // Crypto and typed arrays must be from the same global object
     if (remapTypedArrays === false) {
+        ReflectDeleteProperty(unsafeDescs, 'crypto');
         ReflectDeleteProperty(unsafeDescs, 'Crypto');
+        ReflectDeleteProperty(unsafeDescs, 'SubtleCrypto');
     }
     return unsafeDescs;
 }
