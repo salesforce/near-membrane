@@ -45,8 +45,6 @@ const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 const revoked = toSafeWeakSet(new WeakSetCtor<GlobalObject | Node>());
 const blueCreateHooksCallbackCache = toSafeWeakMap(new WeakMapCtor<Document, Connector>());
 
-let defaultGlobalOwnKeys: PropertyKey[] | null = null;
-
 function createDetachableIframe(doc: Document): HTMLIFrameElement {
     const iframe = ReflectApply(DocumentProtoCreateElement, doc, ['iframe']) as HTMLIFrameElement;
     // It is impossible to test whether the NodeProtoLastChildGetter branch is
@@ -92,12 +90,10 @@ function createIframeVirtualEnvironment(
     )!;
     const shouldUseDefaultGlobalOwnKeys =
         typeof globalObjectShape !== 'object' || globalObjectShape === null;
-    if (shouldUseDefaultGlobalOwnKeys && defaultGlobalOwnKeys === null) {
-        defaultGlobalOwnKeys = filterWindowKeys(
-            getFilteredGlobalOwnKeys(redWindow, remapTypedArrays),
-            remapTypedArrays
-        );
-    }
+    const defaultGlobalOwnKeys = filterWindowKeys(
+        getFilteredGlobalOwnKeys(redWindow, remapTypedArrays),
+        remapTypedArrays
+    );
     let blueConnector = blueCreateHooksCallbackCache.get(blueRefs.document) as
         | Connector
         | undefined;
