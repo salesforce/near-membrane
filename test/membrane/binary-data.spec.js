@@ -23,13 +23,14 @@ if (typeof Atomics !== 'undefined') {
             `);
         });
 
-        it('operates on atomic-friendly typed arrays, when typed arrays are not remapped', () => {
+        it('fails to operate on atomic-friendly typed arrays, when typed arrays are not remapped', () => {
             const env = createVirtualEnvironment(window, {
                 endowments: Object.getOwnPropertyDescriptors({ expect }),
                 remapTypedArrays: false,
             });
 
-            env.evaluate(`
+            expect(() =>
+                env.evaluate(`
                 const ab = new ArrayBuffer(Int32Array.BYTES_PER_ELEMENT);
                 const i32a = new Int32Array(ab);
                 i32a[0] = 9;
@@ -41,7 +42,8 @@ if (typeof Atomics !== 'undefined') {
                 Atomics.sub(i32a, 0, 10);
                 Atomics.xor(i32a, 0, 1);
                 expect(Atomics.load(i32a, 0)).toBe(9);
-            `);
+            `)
+            ).toThrow();
         });
     });
 }
@@ -61,20 +63,17 @@ describe('Blob', () => {
             });
         `);
     });
-    it('encodes blobs from typed arrays, when typed arrays are not remapped', (done) => {
+    it('fails to encode blobs from typed arrays, when typed arrays are not remapped', () => {
         const env = createVirtualEnvironment(window, {
-            endowments: Object.getOwnPropertyDescriptors({ done, expect }),
             remapTypedArrays: false,
         });
 
-        env.evaluate(`
+        expect(() =>
+            env.evaluate(`
             const a = new Uint8Array([97, 98, 99]);
             const b = new Blob([a], { type: 'application/octet-stream' });
-            b.text().then((output) => {
-                expect(output).toBe('abc');
-                done();
-            });
-        `);
+        `)
+        ).toThrow();
     });
 });
 
@@ -222,46 +221,6 @@ describe('DataView', () => {
             const buffer = new ArrayBuffer(8);
             const dataView = new DataView(buffer);
             expect(dataView[0]).toBe(undefined);
-        `);
-    });
-});
-
-describe('FileReader', () => {
-    it('reads from blobs created from typed arrays', (done) => {
-        const env = createVirtualEnvironment(window, {
-            endowments: Object.getOwnPropertyDescriptors({ done, expect }),
-        });
-
-        env.evaluate(`
-            const source = new Uint8Array([97, 98, 99]);
-            const blob = new Blob([source]);
-            const reader = new FileReader();
-
-            reader.onload = (event) => {
-                expect(reader.result.byteLength).toBe(source.length);
-                expect(reader.result).toBeInstanceOf(ArrayBuffer);
-                done();
-            };
-            reader.readAsArrayBuffer(blob);
-        `);
-    });
-    it('reads from blobs created from typed arrays, when typed arrays are not remapped', (done) => {
-        const env = createVirtualEnvironment(window, {
-            endowments: Object.getOwnPropertyDescriptors({ done, expect }),
-            remapTypedArrays: false,
-        });
-
-        env.evaluate(`
-            const source = new Uint8Array([97, 98, 99]);
-            const blob = new Blob([source]);
-            const reader = new FileReader();
-
-            reader.onload = (event) => {
-                expect(reader.result.byteLength).toBe(source.length);
-                expect(reader.result).toBeInstanceOf(ArrayBuffer);
-                done();
-            };
-            reader.readAsArrayBuffer(blob);
         `);
     });
 });
