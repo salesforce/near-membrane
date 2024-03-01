@@ -1,8 +1,20 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
+function createEnvironmentThatAlwaysRemapsTypedArray() {
+    const alwayRemapping = createVirtualEnvironment(window, {
+        endowments: Object.getOwnPropertyDescriptors({ expect, OuterUint8Array: Uint8Array }),
+    });
+
+    alwayRemapping.evaluate(`
+        const u8a = new Uint8Array();
+        expect(u8a instanceof OuterUint8Array).toBe(true);
+    `);
+}
 // Safari Technology Preview may not have support for Atomics enabled.
 if (typeof Atomics !== 'undefined') {
     describe('Atomics', () => {
+        beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+
         it('operates on atomic-friendly typed arrays', () => {
             const env = createVirtualEnvironment(window, {
                 endowments: Object.getOwnPropertyDescriptors({ expect }),
@@ -49,6 +61,8 @@ if (typeof Atomics !== 'undefined') {
 }
 
 describe('Blob', () => {
+    beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+
     it('encodes blobs from typed arrays', (done) => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ done, expect }),
@@ -68,16 +82,16 @@ describe('Blob', () => {
             remapTypedArrays: false,
         });
 
-        expect(() =>
-            env.evaluate(`
+        env.evaluate(`
             const a = new Uint8Array([97, 98, 99]);
             const b = new Blob([a], { type: 'application/octet-stream' });
-        `)
-        ).toThrow();
+        `);
     });
 });
 
 describe('Crypto', () => {
+    beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+
     it('creates random values from typed arrays', (done) => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ done, expect }),
@@ -200,6 +214,8 @@ describe('Crypto', () => {
 });
 
 describe('DataView', () => {
+    beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+
     it('should not support index access', () => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
@@ -225,7 +241,51 @@ describe('DataView', () => {
     });
 });
 
+describe('FileReader', () => {
+    beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+
+    it('reads from blobs created from typed arrays', (done) => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ done, expect }),
+        });
+
+        env.evaluate(`
+            const source = new Uint8Array([97, 98, 99]);
+            const blob = new Blob([source]);
+            const reader = new FileReader();
+
+            reader.onload = (event) => {
+                expect(reader.result.byteLength).toBe(source.length);
+                expect(reader.result).toBeInstanceOf(ArrayBuffer);
+                done();
+            };
+            reader.readAsArrayBuffer(blob);
+        `);
+    });
+    it('reads from blobs created from typed arrays, when typed arrays are not remapped', (done) => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ done, expect }),
+            remapTypedArrays: false,
+        });
+
+        env.evaluate(`
+            const source = new Uint8Array([97, 98, 99]);
+            const blob = new Blob([source]);
+            const reader = new FileReader();
+
+            reader.onload = (event) => {
+                expect(reader.result.byteLength).toBe(source.length);
+                expect(reader.result).toBeInstanceOf(ArrayBuffer);
+                done();
+            };
+            reader.readAsArrayBuffer(blob);
+        `);
+    });
+});
+
 describe('TypedArray', () => {
+    beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+
     it('should support in bound index access', () => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
@@ -510,3 +570,144 @@ describe('TypedArray', () => {
         `);
     });
 });
+
+describe('URL', () => {
+    beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+
+    it('can create an svg blob url', () => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ expect }),
+        });
+
+        env.evaluate(`
+            const createUrl = (type, content) => {
+                const blob = new Blob([content], { type });
+                return URL.createObjectURL(blob);
+            };
+
+            const content = \`
+                <svg id="rectangle" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="100" height="100">
+                <circle cx="50" cy="50" r="40" stroke="black" stroke-width="3" fill="blue" />
+                </svg>\`;
+
+            expect(() => {
+                createUrl('image/svg+xml', content);
+            }).not.toThrow();
+        `);
+    });
+    it('can create an svg blob url, when typed arrays are not remapped', () => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ expect }),
+            remapTypedArrays: false,
+        });
+        env.evaluate(`
+            const createUrl = (type, content) => {
+                const blob = new Blob([content], { type });
+                return URL.createObjectURL(blob);
+            };
+
+            const content = \`
+                <svg id="rectangle" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="100" height="100">
+                <circle cx="50" cy="50" r="40" stroke="black" stroke-width="3" fill="blue" />
+                </svg>\`;
+
+            expect(() => {
+                createUrl('image/svg+xml', content);
+            }).not.toThrow();
+        `);
+    });
+
+    it('can create an html blob url', () => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ expect }),
+        });
+
+        env.evaluate(`
+            const createUrl = (type, content) => {
+                const blob = new Blob([content], { type });
+                return URL.createObjectURL(blob);
+            };
+
+            expect(() => {
+                createUrl('text/html', '<h1>Hello World</h1>')
+            }).not.toThrow();
+        `);
+    });
+    it('can create an html blob url, when typed arrays are not remapped', () => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ expect }),
+            remapTypedArrays: false,
+        });
+        env.evaluate(`
+            const createUrl = (type, content) => {
+                const blob = new Blob([content], { type });
+                return URL.createObjectURL(blob);
+            };
+
+            expect(() => {
+                createUrl('text/html', '<h1>Hello World</h1>')
+            }).not.toThrow();
+        `);
+    });
+
+    it('can create an xml blob url', () => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ expect }),
+        });
+
+        env.evaluate(`
+            const createUrl = (type, content) => {
+                const blob = new Blob([content], { type });
+                return URL.createObjectURL(blob);
+            };
+
+            expect(() => {
+                expect(() => createUrl('text/xml', '<div><span>foo</span></div>')).not.toThrow();
+            }).not.toThrow();
+        `);
+    });
+    it('can create an xml blob url, when typed arrays are not remapped', () => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ expect }),
+            remapTypedArrays: false,
+        });
+        env.evaluate(`
+            const createUrl = (type, content) => {
+                const blob = new Blob([content], { type });
+                return URL.createObjectURL(blob);
+            };
+
+            expect(() => {
+                expect(() => createUrl('text/xml', '<div><span>foo</span></div>')).not.toThrow();
+            }).not.toThrow();
+        `);
+    });
+
+    it('can create a File blob url', () => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ expect }),
+        });
+
+        env.evaluate(`
+            const f = new File(
+                ['<p>PEW</p><script src="http://localhost:9876/resource/test"></script>'],
+                'foo.txt'
+            );
+            URL.createObjectURL(f);
+        `);
+    });
+    it('can create a File blob url, when typed arrays are not remapped', () => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ expect }),
+            remapTypedArrays: false,
+        });
+        env.evaluate(`
+            const f = new File(
+                ['<p>PEW</p><script src="http://localhost:9876/resource/test"></script>'],
+                'foo.txt'
+            );
+            URL.createObjectURL(f);
+        `);
+    });
+});
+
