@@ -1,6 +1,6 @@
 {
     "name": "@locker/near-membrane-shared-dom",
-    "version": "0.13.9",
+    "version": "0.13.10",
     "repository": {
         "type": "git",
         "url": "https://github.com/salesforce/near-membrane.git",
@@ -24,6 +24,6 @@
         "access": "public"
     },
     "dependencies": {
-        "@locker/near-membrane-shared": "0.13.9"
+        "@locker/near-membrane-shared": "0.13.10"
     }
 }
