@@ -72,6 +72,10 @@ export function filterWindowKeys(keys: PropertyKey[], remapTypedArrays: boolean)
         excludedKeys.add('crypto');
         excludedKeys.add('Crypto');
         excludedKeys.add('SubtleCrypto');
+        excludedKeys.add('Blob');
+        excludedKeys.add('File');
+        excludedKeys.add('FileReader');
+        excludedKeys.add('URL');
     }
     const result: PropertyKey[] = [];
     let resultOffset = 0;
@@ -128,6 +132,10 @@ export function removeWindowDescriptors<T extends PropertyDescriptorMap>(
         ReflectDeleteProperty(unsafeDescs, 'crypto');
         ReflectDeleteProperty(unsafeDescs, 'Crypto');
         ReflectDeleteProperty(unsafeDescs, 'SubtleCrypto');
+        ReflectDeleteProperty(unsafeDescs, 'Blob');
+        ReflectDeleteProperty(unsafeDescs, 'File');
+        ReflectDeleteProperty(unsafeDescs, 'FileReader');
+        ReflectDeleteProperty(unsafeDescs, 'URL');
     }
     return unsafeDescs;
 }
