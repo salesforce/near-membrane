@@ -87,12 +87,12 @@
     "typescript": "5.1.6"
   },
   "engines": {
-    "node": "^16.19.1",
-    "yarn": "^1.22.11"
+    "node": "18.*",
+    "yarn": "1.*"
   },
   "volta": {
-    "node": "16.19.1",
-    "yarn": "1.22.11"
+    "node": "18.*",
+    "yarn": "1.*"
   },
   "engineStrict": true,
   "lint-staged": {
@@ -102,8 +102,7 @@
   },
   "husky": {
     "hooks": {
-      "pre-commit": "lint-staged",
-      "commit-msg": "yarn commitlint --edit $1"
+      "pre-commit": "lint-staged"
     }
   },
   "dependencies": {}
