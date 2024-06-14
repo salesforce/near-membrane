@@ -4,7 +4,7 @@ This library implements a "near membrane" that can connect two Realms (the Incub
 
 ## Goals
 
-* Code executed inside the sandboxed environment cannot observe the sandbox.
+* Code executed inside the sandboxed environment cannot observe the sandbox. 
 * Mutations on the object graph should only affect the sandboxed environment.
 
 ## Non-goals
