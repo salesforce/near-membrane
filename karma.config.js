@@ -38,6 +38,7 @@ const customLaunchers = {
 
 module.exports = function (config) {
     const bootstrapFilesPattern = 'test/__bootstrap__/**/*.js';
+    const fileFixturesPattern = '**/untrusted/**/*.js';
     const karmaConfig = {
         basePath,
         browsers: Object.keys(customLaunchers),
@@ -58,6 +59,7 @@ module.exports = function (config) {
         logLevel: config.LOG_ERROR,
         preprocessors: {
             [bootstrapFilesPattern]: ['rollup'],
+            [fileFixturesPattern]: ['file-fixtures'],
             [testFilesPattern]: ['rollup'],
         },
         reporters: ['progress'],
