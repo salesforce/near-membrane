@@ -27,7 +27,7 @@ import { VirtualEnvironment } from './environment';
  * problematic, and requires a lot more work to guarantee that objects from both sides
  * can be considered equivalents (without identity discontinuity).
  */
-function getESGlobalKeys(remapTypedArrays = true) {
+function getESGlobalKeys(maxCompatMode = true) {
     const ESGlobalKeys = [
         // *** 19.1 Value Properties of the Global Object
         'globalThis',
@@ -91,7 +91,7 @@ function getESGlobalKeys(remapTypedArrays = true) {
         // 'Intl',  // Remapped
     ];
 
-    if (remapTypedArrays === false) {
+    if (maxCompatMode === false) {
         ESGlobalKeys.push(
             'ArrayBuffer',
             'BigInt64Array',
@@ -131,8 +131,8 @@ const ReflectiveIntrinsicObjectNames = [
     'globalThis',
 ];
 
-function getESGlobalsAndReflectiveIntrinsicObjectNames(remapTypedArrays = true) {
-    const ESGlobalKeys = getESGlobalKeys(remapTypedArrays);
+function getESGlobalsAndReflectiveIntrinsicObjectNames(maxCompatMode = true) {
+    const ESGlobalKeys = getESGlobalKeys(maxCompatMode);
     return toSafeArray([...ESGlobalKeys, ...ReflectiveIntrinsicObjectNames]);
 }
 

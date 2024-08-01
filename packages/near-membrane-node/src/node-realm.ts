@@ -33,7 +33,7 @@ export default function createVirtualEnvironment(
         globalObjectShape,
         instrumentation,
         liveTargetCallback,
-        remapTypedArrays,
+        maxCompatMode,
         signSourceCallback,
     } = ObjectAssign({ __proto__: null }, providedOptions) as NodeEnvironmentOptions;
     let blueConnector = blueCreateHooksCallbackCache.get(globalObject) as Connector | undefined;
@@ -60,7 +60,7 @@ export default function createVirtualEnvironment(
     const shouldUseDefaultGlobalOwnKeys =
         typeof globalObjectShape !== 'object' || globalObjectShape === null;
     if (shouldUseDefaultGlobalOwnKeys && defaultGlobalOwnKeys === null) {
-        defaultGlobalOwnKeys = getFilteredGlobalOwnKeys(redGlobalObject, remapTypedArrays);
+        defaultGlobalOwnKeys = getFilteredGlobalOwnKeys(redGlobalObject, maxCompatMode);
     }
 
     env.lazyRemapProperties(
@@ -75,7 +75,7 @@ export default function createVirtualEnvironment(
         assignFilteredGlobalDescriptorsFromPropertyDescriptorMap(
             filteredEndowments,
             endowments,
-            remapTypedArrays
+            maxCompatMode
         );
         env.remapProperties(globalObject, filteredEndowments);
     }

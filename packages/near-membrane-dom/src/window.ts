@@ -65,10 +65,10 @@ export function getCachedGlobalObjectReferences(
     return record;
 }
 
-export function filterWindowKeys(keys: PropertyKey[], remapTypedArrays: boolean): PropertyKey[] {
+export function filterWindowKeys(keys: PropertyKey[], maxCompatMode: boolean): PropertyKey[] {
     const excludedKeys = new SetCtor(['document', 'location', 'top', 'window']);
     // Crypto and typed arrays must be from the same global object
-    if (remapTypedArrays === false) {
+    if (maxCompatMode === false) {
         excludedKeys.add('crypto');
         excludedKeys.add('Crypto');
         excludedKeys.add('SubtleCrypto');
@@ -118,7 +118,7 @@ export function filterWindowKeys(keys: PropertyKey[], remapTypedArrays: boolean)
  */
 export function removeWindowDescriptors<T extends PropertyDescriptorMap>(
     unsafeDescs: T,
-    remapTypedArrays: boolean
+    maxCompatMode: boolean
 ): T {
     // Remove unforgeable descriptors that cannot be installed.
     ReflectDeleteProperty(unsafeDescs, 'document');
@@ -128,7 +128,7 @@ export function removeWindowDescriptors<T extends PropertyDescriptorMap>(
     // Remove other browser specific unforgeables.
     ReflectDeleteProperty(unsafeDescs, 'chrome');
     // Crypto and typed arrays must be from the same global object
-    if (remapTypedArrays === false) {
+    if (maxCompatMode === false) {
         ReflectDeleteProperty(unsafeDescs, 'crypto');
         ReflectDeleteProperty(unsafeDescs, 'Crypto');
         ReflectDeleteProperty(unsafeDescs, 'SubtleCrypto');
