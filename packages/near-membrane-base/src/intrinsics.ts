@@ -91,31 +91,34 @@ function getESGlobalKeys(maxCompatMode = true) {
         // 'Intl',  // Remapped
     ];
 
+    // This set is for maxPerfMode, all of these must be from the same global object
+    const maxPerfModeKeys = [
+        'ArrayBuffer',
+        'Atomics',
+        'BigInt64Array',
+        'BigUint64Array',
+        'Blob',
+        'crypto',
+        'Crypto',
+        'DataView',
+        'File',
+        'FileReader',
+        'Float32Array',
+        'Float64Array',
+        'Int16Array',
+        'Int32Array',
+        'Int8Array',
+        'SharedArrayBuffer',
+        'SubtleCrypto',
+        'Uint16Array',
+        'Uint32Array',
+        'Uint8Array',
+        'Uint8ClampedArray',
+        'URL',
+    ];
+
     if (maxCompatMode === false) {
-        // All of these must be from the same global object
-        ESGlobalKeys.push(
-            'ArrayBuffer',
-            'BigInt64Array',
-            'BigUint64Array',
-            'Blob',
-            'crypto',
-            'Crypto',
-            'DataView',
-            'File',
-            'FileReader',
-            'Float32Array',
-            'Float64Array',
-            'Int16Array',
-            'Int32Array',
-            'Int8Array',
-            'SharedArrayBuffer',
-            'SubtleCrypto',
-            'Uint16Array',
-            'Uint32Array',
-            'Uint8Array',
-            'Uint8ClampedArray',
-            'URL'
-        );
+        ESGlobalKeys.push(...maxPerfModeKeys);
     }
     return ESGlobalKeys;
 }

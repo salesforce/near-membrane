@@ -24,13 +24,13 @@ if (typeof Atomics !== 'undefined') {
             env.evaluate(untrusted('atomics.js'));
         });
 
-        it('fails to operate on atomic-friendly typed arrays, when maxCompatMode is false', () => {
+        it('operates on atomic-friendly typed arrays, when maxCompatMode is false', () => {
             const env = createVirtualEnvironment(window, {
                 endowments: Object.getOwnPropertyDescriptors({ expect }),
                 maxCompatMode: false,
             });
 
-            expect(() => env.evaluate(untrusted('atomics.js'))).toThrow();
+            env.evaluate(untrusted('atomics.js'));
         });
     });
 }

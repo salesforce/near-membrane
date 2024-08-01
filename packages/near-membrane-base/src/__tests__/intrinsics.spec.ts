@@ -88,7 +88,6 @@ const ReflectiveIntrinsicObjectNames = [
 ];
 
 const RemappedIntrinsicObjectNames = [
-    'Atomics',
     'Date',
     'Intl',
     'Map',
@@ -100,6 +99,7 @@ const RemappedIntrinsicObjectNames = [
 
 const TypedAraysInstrinsics = [
     'ArrayBuffer',
+    'Atomics',
     'BigInt64Array',
     'BigUint64Array',
     'DataView',
