@@ -24,7 +24,7 @@ if (typeof Atomics !== 'undefined') {
             env.evaluate(untrusted('atomics.js'));
         });
 
-        it('fails to operate on atomic-friendly typed arrays, when typed arrays are not remapped', () => {
+        it('fails to operate on atomic-friendly typed arrays, when maxCompatMode is false', () => {
             const env = createVirtualEnvironment(window, {
                 endowments: Object.getOwnPropertyDescriptors({ expect }),
                 maxCompatMode: false,
@@ -45,7 +45,7 @@ describe('Blob', () => {
 
         env.evaluate(untrusted('blob.js'));
     });
-    it('encode blobs from typed arrays, when typed arrays are not remapped', (done) => {
+    it('encode blobs from typed arrays, when maxCompatMode is false', (done) => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ done, expect }),
             maxCompatMode: false,
@@ -65,7 +65,7 @@ describe('Crypto', () => {
 
         env.evaluate(untrusted('crypto.js'));
     });
-    it('creates random values from typed arrays, when typed arrays are not remapped', (done) => {
+    it('creates random values from typed arrays, when maxCompatMode is false', (done) => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ done, expect }),
             maxCompatMode: false,
@@ -93,7 +93,7 @@ describe('DataView', () => {
 
         env.evaluate(untrusted('data-view.js'));
     });
-    it('should not support index access, when typed arrays are not remapped', () => {
+    it('should not support index access, when maxCompatMode is false', () => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
             maxCompatMode: false,
@@ -113,7 +113,7 @@ describe('FileReader', () => {
 
         env.evaluate(untrusted('file-reader.js'));
     });
-    it('reads from blobs created from typed arrays, when typed arrays are not remapped', (done) => {
+    it('reads from blobs created from typed arrays, when maxCompatMode is false', (done) => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ done, expect }),
             maxCompatMode: false,
@@ -133,7 +133,7 @@ describe('TypedArray', () => {
 
         env.evaluate(untrusted('typed-array.js'));
     });
-    it('should support in bound index access, when typed arrays are not remapped', () => {
+    it('should support in bound index access, when maxCompatMode is false', () => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
             maxCompatMode: false,
@@ -148,7 +148,7 @@ describe('TypedArray', () => {
 
         env.evaluate(untrusted('typed-array-modified.js'));
     });
-    it('should support in bound index access with modified prototypes, when typed arrays are not remapped', () => {
+    it('should support in bound index access with modified prototypes, when maxCompatMode is false', () => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
             maxCompatMode: false,
@@ -163,7 +163,7 @@ describe('TypedArray', () => {
 
         env.evaluate(untrusted('typed-array-subclass.js'));
     });
-    it('should support setting in bound index values on subclasses, when typed arrays are not remapped', () => {
+    it('should support setting in bound index values on subclasses, when maxCompatMode is false', () => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
             maxCompatMode: false,
@@ -178,7 +178,7 @@ describe('TypedArray', () => {
 
         env.evaluate(untrusted('typed-array-out-of-bound.js'));
     });
-    it('should treat out of bound index access as undefined, when typed arrays are not remapped', () => {
+    it('should treat out of bound index access as undefined, when maxCompatMode is false', () => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
             maxCompatMode: false,
@@ -193,7 +193,7 @@ describe('TypedArray', () => {
 
         env.evaluate(untrusted('typed-array-subarray.js'));
     });
-    it('should support subarray method, when typed arrays are not remapped', () => {
+    it('should support subarray method, when maxCompatMode is false', () => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
             maxCompatMode: false,
@@ -212,7 +212,7 @@ describe('URL', () => {
         });
         env.evaluate(untrusted('url-typed-array.js'));
     });
-    it('can create a typed array blob url, when typed arrays are not remapped', () => {
+    it('can create a typed array blob url, when maxCompatMode is false', () => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
             maxCompatMode: false,
@@ -226,7 +226,7 @@ describe('URL', () => {
 
         env.evaluate(untrusted('url-svg.js'));
     });
-    it('can create an svg blob url, when typed arrays are not remapped', () => {
+    it('can create an svg blob url, when maxCompatMode is false', () => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
             maxCompatMode: false,
@@ -241,7 +241,7 @@ describe('URL', () => {
 
         env.evaluate(untrusted('url-html.js'));
     });
-    it('can create an html blob url, when typed arrays are not remapped', () => {
+    it('can create an html blob url, when maxCompatMode is false', () => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
             maxCompatMode: false,
@@ -256,7 +256,7 @@ describe('URL', () => {
 
         env.evaluate(untrusted('url-xml.js'));
     });
-    it('can create an xml blob url, when typed arrays are not remapped', () => {
+    it('can create an xml blob url, when maxCompatMode is false', () => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
             maxCompatMode: false,
@@ -271,7 +271,7 @@ describe('URL', () => {
 
         env.evaluate(untrusted('url-file-blob.js'));
     });
-    it('can create a File blob url, when typed arrays are not remapped', () => {
+    it('can create a File blob url, when maxCompatMode is false', () => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
             maxCompatMode: false,
@@ -293,7 +293,7 @@ describe('FileSaver library', () => {
             ${untrusted('FileSaver-blob.js')}
         `);
     });
-    it('can create a blob to save as, when typed arrays are not remapped', () => {
+    it('can create a blob to save as, when maxCompatMode is false', () => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
             maxCompatMode: false,
@@ -315,7 +315,7 @@ describe('FileSaver library', () => {
             ${untrusted('FileSaver-file.js')}
         `);
     });
-    it('can create a file to save as, when typed arrays are not remapped', () => {
+    it('can create a file to save as, when maxCompatMode is false', () => {
         const env = createVirtualEnvironment(window, {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
             maxCompatMode: false,

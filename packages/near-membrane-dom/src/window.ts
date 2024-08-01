@@ -65,18 +65,8 @@ export function getCachedGlobalObjectReferences(
     return record;
 }
 
-export function filterWindowKeys(keys: PropertyKey[], maxCompatMode: boolean): PropertyKey[] {
+export function filterWindowKeys(keys: PropertyKey[]): PropertyKey[] {
     const excludedKeys = new SetCtor(['document', 'location', 'top', 'window']);
-    // Crypto and typed arrays must be from the same global object
-    if (maxCompatMode === false) {
-        excludedKeys.add('crypto');
-        excludedKeys.add('Crypto');
-        excludedKeys.add('SubtleCrypto');
-        excludedKeys.add('Blob');
-        excludedKeys.add('File');
-        excludedKeys.add('FileReader');
-        excludedKeys.add('URL');
-    }
     const result: PropertyKey[] = [];
     let resultOffset = 0;
     for (let i = 0, { length } = keys; i < length; i += 1) {
@@ -116,10 +106,7 @@ export function filterWindowKeys(keys: PropertyKey[], maxCompatMode: boolean): P
  * that will be installed (via the membrane) as global descriptors in
  * the red realm.
  */
-export function removeWindowDescriptors<T extends PropertyDescriptorMap>(
-    unsafeDescs: T,
-    maxCompatMode: boolean
-): T {
+export function removeWindowDescriptors<T extends PropertyDescriptorMap>(unsafeDescs: T): T {
     // Remove unforgeable descriptors that cannot be installed.
     ReflectDeleteProperty(unsafeDescs, 'document');
     ReflectDeleteProperty(unsafeDescs, 'location');
@@ -127,16 +114,6 @@ export function removeWindowDescriptors<T extends PropertyDescriptorMap>(
     ReflectDeleteProperty(unsafeDescs, 'window');
     // Remove other browser specific unforgeables.
     ReflectDeleteProperty(unsafeDescs, 'chrome');
-    // Crypto and typed arrays must be from the same global object
-    if (maxCompatMode === false) {
-        ReflectDeleteProperty(unsafeDescs, 'crypto');
-        ReflectDeleteProperty(unsafeDescs, 'Crypto');
-        ReflectDeleteProperty(unsafeDescs, 'SubtleCrypto');
-        ReflectDeleteProperty(unsafeDescs, 'Blob');
-        ReflectDeleteProperty(unsafeDescs, 'File');
-        ReflectDeleteProperty(unsafeDescs, 'FileReader');
-        ReflectDeleteProperty(unsafeDescs, 'URL');
-    }
     return unsafeDescs;
 }
 

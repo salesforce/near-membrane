@@ -91,8 +91,7 @@ function createIframeVirtualEnvironment(
     const shouldUseDefaultGlobalOwnKeys =
         typeof globalObjectShape !== 'object' || globalObjectShape === null;
     const defaultGlobalOwnKeys = filterWindowKeys(
-        getFilteredGlobalOwnKeys(redWindow, maxCompatMode),
-        maxCompatMode
+        getFilteredGlobalOwnKeys(redWindow, maxCompatMode)
     );
     let blueConnector = blueCreateHooksCallbackCache.get(blueRefs.document) as
         | Connector
@@ -142,7 +141,7 @@ function createIframeVirtualEnvironment(
         blueRefs.window,
         shouldUseDefaultGlobalOwnKeys
             ? (defaultGlobalOwnKeys as PropertyKey[])
-            : filterWindowKeys(getFilteredGlobalOwnKeys(globalObjectShape), maxCompatMode),
+            : filterWindowKeys(getFilteredGlobalOwnKeys(globalObjectShape)),
         // Chromium based browsers have a bug that nulls the result of `window`
         // getters in detached iframes when the property descriptor of `window.window`
         // is retrieved.
@@ -156,7 +155,7 @@ function createIframeVirtualEnvironment(
             endowments,
             maxCompatMode
         );
-        removeWindowDescriptors(filteredEndowments, maxCompatMode);
+        removeWindowDescriptors(filteredEndowments);
         env.remapProperties(blueRefs.window, filteredEndowments);
     }
     // We intentionally skip remapping Window.prototype because there is nothing

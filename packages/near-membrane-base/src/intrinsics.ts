@@ -92,21 +92,29 @@ function getESGlobalKeys(maxCompatMode = true) {
     ];
 
     if (maxCompatMode === false) {
+        // All of these must be from the same global object
         ESGlobalKeys.push(
             'ArrayBuffer',
             'BigInt64Array',
             'BigUint64Array',
+            'Blob',
+            'crypto',
+            'Crypto',
             'DataView',
+            'File',
+            'FileReader',
             'Float32Array',
             'Float64Array',
-            'Int8Array',
             'Int16Array',
             'Int32Array',
+            'Int8Array',
             'SharedArrayBuffer',
+            'SubtleCrypto',
+            'Uint16Array',
+            'Uint32Array',
             'Uint8Array',
             'Uint8ClampedArray',
-            'Uint16Array',
-            'Uint32Array'
+            'URL'
         );
     }
     return ESGlobalKeys;
