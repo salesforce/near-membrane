@@ -21,11 +21,10 @@ import {
     DocumentProtoClose,
     DocumentProtoCreateElement,
     DocumentProtoOpen,
-    ElementProtoRemove,
+    ElementProtoAttachShadow,
     ElementProtoSetAttribute,
     HTMLElementProtoStyleGetter,
     HTMLIFrameElementProtoContentWindowGetter,
-    IS_OLD_CHROMIUM_BROWSER,
     NodeProtoAppendChild,
     NodeProtoLastChildGetter,
 } from '@locker/near-membrane-shared-dom';
@@ -37,7 +36,6 @@ import {
     getCachedGlobalObjectReferences,
     filterWindowKeys,
     removeWindowDescriptors,
-    unforgeablePoisonedWindowKeys,
 } from './window';
 
 const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
@@ -45,17 +43,29 @@ const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
 const revoked = toSafeWeakSet(new WeakSetCtor<GlobalObject | Node>());
 const blueCreateHooksCallbackCache = toSafeWeakMap(new WeakMapCtor<Document, Connector>());
 
-function createDetachableIframe(doc: Document): HTMLIFrameElement {
-    const iframe = ReflectApply(DocumentProtoCreateElement, doc, ['iframe']) as HTMLIFrameElement;
+let iframeStash: ShadowRoot;
+
+function createShadowHiddenIframe(doc: Document): HTMLIFrameElement {
     // It is impossible to test whether the NodeProtoLastChildGetter branch is
     // reached in a normal Karma test environment.
     const parent: Element =
         ReflectApply(DocumentProtoBodyGetter, doc, []) ??
         /* istanbul ignore next */ ReflectApply(NodeProtoLastChildGetter, doc, []);
+
+    if (!iframeStash) {
+        const host = ReflectApply(DocumentProtoCreateElement, doc, ['div']) as HTMLDivElement;
+
+        iframeStash = ReflectApply(ElementProtoAttachShadow, host, [
+            { mode: 'closed' },
+        ]) as ShadowRoot;
+
+        ReflectApply(NodeProtoAppendChild, parent, [host]);
+    }
+    const iframe = ReflectApply(DocumentProtoCreateElement, doc, ['iframe']) as HTMLIFrameElement;
     const style: CSSStyleDeclaration = ReflectApply(HTMLElementProtoStyleGetter, iframe, []);
     style.display = 'none';
     ReflectApply(ElementProtoSetAttribute, iframe, ['sandbox', IFRAME_SANDBOX_ATTRIBUTE_VALUE]);
-    ReflectApply(NodeProtoAppendChild, parent, [iframe]);
+    ReflectApply(NodeProtoAppendChild, iframeStash, [iframe]);
     return iframe;
 }
 
@@ -76,13 +86,12 @@ function createIframeVirtualEnvironment(
         endowments,
         globalObjectShape,
         instrumentation,
-        keepAlive = true,
         liveTargetCallback,
         maxPerfMode = false,
         signSourceCallback,
         // eslint-disable-next-line prefer-object-spread
     } = ObjectAssign({ __proto__: null }, providedOptions) as BrowserEnvironmentOptions;
-    const iframe = createDetachableIframe(blueRefs.document);
+    const iframe = createShadowHiddenIframe(blueRefs.document);
     const redWindow: GlobalObject = ReflectApply(
         HTMLIFrameElementProtoContentWindowGetter,
         iframe,
@@ -115,7 +124,7 @@ function createIframeVirtualEnvironment(
         distortionCallback,
         instrumentation,
         liveTargetCallback,
-        revokedProxyCallback: keepAlive ? revokedProxyCallback : undefined,
+        revokedProxyCallback,
         signSourceCallback,
     });
     linkIntrinsics(env, globalObject);
@@ -139,12 +148,7 @@ function createIframeVirtualEnvironment(
         blueRefs.window,
         shouldUseDefaultGlobalOwnKeys
             ? (defaultGlobalOwnKeys as PropertyKey[])
-            : filterWindowKeys(getFilteredGlobalOwnKeys(globalObjectShape, maxPerfMode)),
-        // Chromium based browsers have a bug that nulls the result of `window`
-        // getters in detached iframes when the property descriptor of `window.window`
-        // is retrieved.
-        // https://bugs.chromium.org/p/chromium/issues/detail?id=1305302
-        keepAlive ? undefined : unforgeablePoisonedWindowKeys
+            : filterWindowKeys(getFilteredGlobalOwnKeys(globalObjectShape, maxPerfMode))
     );
     if (endowments) {
         const filteredEndowments: PropertyDescriptorMap = {};
@@ -161,27 +165,15 @@ function createIframeVirtualEnvironment(
     env.lazyRemapProperties(blueRefs.EventTargetProto, blueRefs.EventTargetProtoOwnKeys);
     // We don't remap `blueRefs.WindowPropertiesProto` because it is "magical"
     // in that it provides access to elements by id.
-    //
-    // Once we get the iframe info ready, and all mapped, we can proceed to
-    // detach the iframe only if `options.keepAlive` isn't true.
-    if (keepAlive) {
-        // @TODO: Temporary hack to preserve the document reference in Firefox.
-        // https://bugzilla.mozilla.org/show_bug.cgi?id=543435
-        const { document: redDocument } = redWindow;
-        // Revoke the proxies of the redDocument and redWindow to prevent access.
-        revoked.add(redDocument);
-        revoked.add(redWindow);
-        ReflectApply(DocumentProtoOpen, redDocument, []);
-        ReflectApply(DocumentProtoClose, redDocument, []);
-    } else {
-        if (IS_OLD_CHROMIUM_BROWSER) {
-            // For Chromium < v86 browsers we evaluate the `window` object to
-            // kickstart the realm so that `window` persists when the iframe is
-            // removed from the document.
-            redIndirectEval('window');
-        }
-        ReflectApply(ElementProtoRemove, iframe, []);
-    }
+
+    // @TODO: Temporary hack to preserve the document reference in Firefox.
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=543435 (reviewed 2024-08-02, still reproduces)
+    const { document: redDocument } = redWindow;
+    // Revoke the proxies of the redDocument and redWindow to prevent access.
+    revoked.add(redDocument);
+    revoked.add(redWindow);
+    ReflectApply(DocumentProtoOpen, redDocument, []);
+    ReflectApply(DocumentProtoClose, redDocument, []);
     return env;
 }
 
