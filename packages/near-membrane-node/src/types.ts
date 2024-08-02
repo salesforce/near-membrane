@@ -11,6 +11,6 @@ export interface NodeEnvironmentOptions {
     globalObjectShape?: object;
     instrumentation?: Instrumentation;
     liveTargetCallback?: LiveTargetCallback;
-    maxCompatMode?: boolean;
+    maxPerfMode?: boolean;
     signSourceCallback?: SignSourceCallback;
 }
