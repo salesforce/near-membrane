@@ -2,10 +2,10 @@
 
 'use strict';
 
+const path = require('node:path');
 const globby = require('globby');
 const istanbul = require('rollup-plugin-istanbul');
 const { nodeResolve } = require('@rollup/plugin-node-resolve');
-const path = require('node:path');
 
 process.env.CHROME_BIN = require('puppeteer').executablePath();
 
@@ -38,6 +38,7 @@ const customLaunchers = {
 
 module.exports = function (config) {
     const bootstrapFilesPattern = 'test/__bootstrap__/**/*.js';
+    const fileFixturesPattern = '**/untrusted/**/*.js';
     const karmaConfig = {
         basePath,
         browsers: Object.keys(customLaunchers),
@@ -58,6 +59,7 @@ module.exports = function (config) {
         logLevel: config.LOG_ERROR,
         preprocessors: {
             [bootstrapFilesPattern]: ['rollup'],
+            [fileFixturesPattern]: ['file-fixtures'],
             [testFilesPattern]: ['rollup'],
         },
         reporters: ['progress'],

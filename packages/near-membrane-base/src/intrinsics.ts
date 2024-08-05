@@ -27,7 +27,7 @@ import { VirtualEnvironment } from './environment';
  * problematic, and requires a lot more work to guarantee that objects from both sides
  * can be considered equivalents (without identity discontinuity).
  */
-function getESGlobalKeys(remapTypedArrays = true) {
+function getESGlobalKeys(maxPerfMode: boolean) {
     const ESGlobalKeys = [
         // *** 19.1 Value Properties of the Global Object
         'globalThis',
@@ -91,23 +91,31 @@ function getESGlobalKeys(remapTypedArrays = true) {
         // 'Intl',  // Remapped
     ];
 
-    if (remapTypedArrays === false) {
-        ESGlobalKeys.push(
+    // This set is for maxPerfMode, all of these must be from the same global object
+    const maxPerfModeKeys = {
+        intrinsics: [
             'ArrayBuffer',
+            'Atomics',
             'BigInt64Array',
             'BigUint64Array',
             'DataView',
             'Float32Array',
             'Float64Array',
-            'Int8Array',
             'Int16Array',
             'Int32Array',
+            'Int8Array',
             'SharedArrayBuffer',
+            'Uint16Array',
+            'Uint32Array',
             'Uint8Array',
             'Uint8ClampedArray',
-            'Uint16Array',
-            'Uint32Array'
-        );
+        ],
+        // Ideally these should come from browser-realm, that's a code reorg improvement for later
+        browser: ['Blob', 'crypto', 'Crypto', 'File', 'FileReader', 'SubtleCrypto', 'URL'],
+    };
+
+    if (maxPerfMode) {
+        ESGlobalKeys.push(...maxPerfModeKeys.intrinsics, ...maxPerfModeKeys.browser);
     }
     return ESGlobalKeys;
 }
@@ -131,8 +139,8 @@ const ReflectiveIntrinsicObjectNames = [
     'globalThis',
 ];
 
-function getESGlobalsAndReflectiveIntrinsicObjectNames(remapTypedArrays = true) {
-    const ESGlobalKeys = getESGlobalKeys(remapTypedArrays);
+function getESGlobalsAndReflectiveIntrinsicObjectNames(maxPerfMode: boolean) {
+    const ESGlobalKeys = getESGlobalKeys(maxPerfMode);
     return toSafeArray([...ESGlobalKeys, ...ReflectiveIntrinsicObjectNames]);
 }
 
@@ -149,10 +157,10 @@ function getGlobalObjectOwnKeys(source: object): PropertyKey[] {
 
 export function assignFilteredGlobalDescriptorsFromPropertyDescriptorMap<
     T extends PropertyDescriptorMap
->(descs: T, source: PropertyDescriptorMap, includeTypedArrays?: boolean): T {
+>(descs: T, source: PropertyDescriptorMap, maxPerfMode: boolean): T {
     const ownKeys = getGlobalObjectOwnKeys(source);
     const ESGlobalsAndReflectiveIntrinsicObjectNames =
-        getESGlobalsAndReflectiveIntrinsicObjectNames(includeTypedArrays);
+        getESGlobalsAndReflectiveIntrinsicObjectNames(maxPerfMode);
     for (let i = 0, { length } = ownKeys; i < length; i += 1) {
         const ownKey = ownKeys[i];
         // Avoid overriding ECMAScript global names that correspond to
@@ -172,15 +180,12 @@ export function assignFilteredGlobalDescriptorsFromPropertyDescriptorMap<
     return descs;
 }
 
-export function getFilteredGlobalOwnKeys(
-    source: object,
-    includeTypedArrays?: boolean
-): PropertyKey[] {
+export function getFilteredGlobalOwnKeys(source: object, maxPerfMode: boolean): PropertyKey[] {
     const result: PropertyKey[] = [];
     let resultOffset = 0;
     const ownKeys = getGlobalObjectOwnKeys(source);
     const ESGlobalsAndReflectiveIntrinsicObjectNames =
-        getESGlobalsAndReflectiveIntrinsicObjectNames(includeTypedArrays);
+        getESGlobalsAndReflectiveIntrinsicObjectNames(maxPerfMode);
     for (let i = 0, { length } = ownKeys; i < length; i += 1) {
         const ownKey = ownKeys[i];
         // Avoid overriding ECMAScript global names that correspond to global
