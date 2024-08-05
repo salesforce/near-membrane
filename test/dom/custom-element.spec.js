@@ -15,7 +15,7 @@ const envOptions = {
 customElements.define('x-external', ExternalElement);
 
 describe('Outer Realm Custom Element', () => {
-    it('should be accessible within the sandbox', () => {
+    it('should be accessible within the sandbox if exists on provided globalObjectShape', () => {
         expect.assertions(3);
 
         const env = createVirtualEnvironment(window, envOptions);
@@ -25,8 +25,11 @@ describe('Outer Realm Custom Element', () => {
             expect(elm.identity()).toBe('ExternalElement');
         `);
         env.evaluate(`
-            document.body.innerHTML = '<x-external></x-external>';
-            const elm = document.body.firstChild;
+            const container = document.createElement('div');
+            container.id = 'look-here';
+            document.body.append(container);
+            container.innerHTML = '<x-external></x-external>';
+            const elm = document.getElementById('look-here').firstChild;
             expect(elm.identity()).toBe('ExternalElement');
         `);
         env.evaluate(`
@@ -34,7 +37,7 @@ describe('Outer Realm Custom Element', () => {
             expect(elm.identity()).toBe('ExternalElement');
         `);
     });
-    it('should be extensible within the sandbox', () => {
+    it('should be extensible within the sandbox if exists on provided globalObjectShape', () => {
         expect.assertions(3);
 
         const env = createVirtualEnvironment(window, envOptions);
@@ -49,7 +52,7 @@ describe('Outer Realm Custom Element', () => {
             expect(elm instanceof ExternalElement).toBe(true);
         `);
     });
-    it('should be extensible and can be new from within the sandbox', () => {
+    it('should be extensible and can be new from within the sandbox if exists on provided globalObjectShape', () => {
         expect.assertions(3);
 
         const env = createVirtualEnvironment(window, envOptions);
@@ -64,7 +67,7 @@ describe('Outer Realm Custom Element', () => {
             expect(elm instanceof ExternalElement).toBe(true);
         `);
     });
-    it('should get access to external registered elements', () => {
+    it('should get access to external registered elements if exists on provided globalObjectShape', () => {
         expect.assertions(1);
 
         window.refToExternalElement = ExternalElement;
