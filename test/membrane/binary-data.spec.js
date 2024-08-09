@@ -327,3 +327,50 @@ describe('FileSaver library', () => {
         `);
     });
 });
+
+describe('Identity Discontinuity', () => {
+    beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+
+    function getBlueBlob() {
+        return new Blob([new Uint8Array([1, 2, 3])], { type: 'text/plain;charset=utf-8' });
+    }
+
+    it('can save blue blob', (done) => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ done, expect, getBlueBlob }),
+        });
+
+        env.evaluate(`
+            ${untrusted('FileSaver.js')}
+            const transferBlueBlob = false;
+            const expectedToThrow = false;
+            ${untrusted('FileSaver-blue-blob.js')}
+        `);
+    });
+    it('fails to save blue blob, when maxPerfMode is true and blob is not transferred to red', (done) => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ done, expect, getBlueBlob }),
+            maxPerfMode: true,
+        });
+
+        env.evaluate(`
+            ${untrusted('FileSaver.js')}
+            const transferBlueBlob = false;
+            const expectedToThrow = true;
+            ${untrusted('FileSaver-blue-blob.js')}
+        `);
+    });
+    it('can save blue blob, when maxPerfMode is true and blob is transferred to red', (done) => {
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ done, expect, getBlueBlob }),
+            maxPerfMode: true,
+        });
+
+        env.evaluate(`
+            ${untrusted('FileSaver.js')}
+            const transferBlueBlob = true;
+            const expectedToThrow = false;
+            ${untrusted('FileSaver-blue-blob.js')}
+        `);
+    });
+});
