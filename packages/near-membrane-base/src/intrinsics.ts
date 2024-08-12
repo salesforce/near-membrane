@@ -56,7 +56,7 @@ function getESGlobalKeys(maxPerfMode: boolean) {
         // 'EvalError', // Reflective
         'FinalizationRegistry',
         // 'Function', // dangerous & Reflective
-        'Map', // Remapped
+        'Map',
         'Number',
         // 'Object', // Reflective
         // Allow blue `Promise` constructor to overwrite the Red one so that promises
@@ -66,15 +66,15 @@ function getESGlobalKeys(maxPerfMode: boolean) {
         // 'RangeError', // Reflective
         // 'ReferenceError', // Reflective
         'RegExp',
-        'Set', // Remapped
+        'Set',
 
         'String',
         'Symbol',
         // 'SyntaxError', // Reflective
         // 'TypeError', // Reflective
         // 'URIError', // Reflective
-        'WeakMap', // Remapped
-        'WeakSet', // Remapped
+        'WeakMap',
+        'WeakSet',
         'WeakRef',
 
         // *** 18.4 Other Properties of the Global Object
