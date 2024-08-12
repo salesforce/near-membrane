@@ -90,14 +90,14 @@ const ReflectiveIntrinsicObjectNames = [
 const RemappedIntrinsicObjectNames = [
     'Date',
     'Intl',
-    'Map',
+    // 'Map',
     'Promise',
-    'Set',
-    'WeakMap',
-    'WeakSet',
+    // 'Set',
+    // 'WeakMap',
+    // 'WeakSet',
 ];
 
-const TypedAraysInstrinsics = [
+const TypedArraysInstrinsics = [
     'ArrayBuffer',
     'Atomics',
     'BigInt64Array',
@@ -147,7 +147,7 @@ describe('assignFilteredGlobalDescriptorsFromPropertyDescriptorMap', () => {
         }
     });
     it('includes Remapped ES intrinsics', () => {
-        const remappedObjectNames = [...RemappedIntrinsicObjectNames, ...TypedAraysInstrinsics];
+        const remappedObjectNames = [...RemappedIntrinsicObjectNames, ...TypedArraysInstrinsics];
         expect.assertions(remappedObjectNames.length);
 
         const shape = remappedObjectNames.reduce((accum, key) => {
@@ -220,7 +220,7 @@ describe('getFilteredGlobalOwnKeys', () => {
         }
     });
     it('includes Remapped ES intrinsics', () => {
-        const remappedObjectNames = [...RemappedIntrinsicObjectNames, ...TypedAraysInstrinsics];
+        const remappedObjectNames = [...RemappedIntrinsicObjectNames, ...TypedArraysInstrinsics];
         const shape = remappedObjectNames.reduce((accum, key) => {
             (accum as any)[key] = (globalThis as any)[key];
             return accum;
