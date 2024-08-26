@@ -111,7 +111,22 @@ function getESGlobalKeys(maxPerfMode: boolean) {
             'Uint8ClampedArray',
         ],
         // Ideally these should come from browser-realm, that's a code reorg improvement for later
-        browser: ['Blob', 'crypto', 'Crypto', 'File', 'FileReader', 'SubtleCrypto', 'URL'],
+        browser: [
+            'Blob',
+            // 'createImageBitmap',
+            'crypto',
+            'Crypto',
+            'fetch',
+            'File',
+            'FileReader',
+            'FileReaderSync',
+            // 'ImageData',
+            'Request',
+            'Response',
+            'SubtleCrypto',
+            'URL',
+            'XMLHttpRequest',
+        ],
     };
 
     if (maxPerfMode) {
