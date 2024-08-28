@@ -4,7 +4,7 @@ import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 const untrusted = (name) => window.__FIXTURES__[`test/membrane/untrusted/binary-data/${name}`];
 
-function createEnvironmentThatAlwaysRemapsTypedArray() {
+function createBaseLineMaxCompatModeEnvironment() {
     const alwayRemapping = createVirtualEnvironment(window, {
         endowments: Object.getOwnPropertyDescriptors({ expect, OuterUint8Array: Uint8Array }),
     });
@@ -16,7 +16,7 @@ describe('Binary Data and maxPerfMode:', () => {
     // Safari Technology Preview may not have support for Atomics enabled.
     if (typeof Atomics !== 'undefined') {
         describe('Atomics:', () => {
-            beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+            beforeEach(createBaseLineMaxCompatModeEnvironment);
 
             it('operates on atomic-friendly typed arrays', () => {
                 const env = createVirtualEnvironment(window, {
@@ -38,7 +38,7 @@ describe('Binary Data and maxPerfMode:', () => {
     }
 
     describe('Blob:', () => {
-        beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+        beforeEach(createBaseLineMaxCompatModeEnvironment);
 
         it('encodes blobs from typed arrays', (done) => {
             const env = createVirtualEnvironment(window, {
@@ -58,7 +58,7 @@ describe('Binary Data and maxPerfMode:', () => {
     });
 
     describe('Crypto:', () => {
-        beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+        beforeEach(createBaseLineMaxCompatModeEnvironment);
 
         it('creates random values from typed arrays', (done) => {
             const env = createVirtualEnvironment(window, {
@@ -86,7 +86,7 @@ describe('Binary Data and maxPerfMode:', () => {
     });
 
     describe('DataView:', () => {
-        beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+        beforeEach(createBaseLineMaxCompatModeEnvironment);
 
         it('should not support index access', () => {
             const env = createVirtualEnvironment(window, {
@@ -106,7 +106,7 @@ describe('Binary Data and maxPerfMode:', () => {
     });
 
     describe('FileReader:', () => {
-        beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+        beforeEach(createBaseLineMaxCompatModeEnvironment);
 
         it('reads from blobs created from typed arrays', (done) => {
             const env = createVirtualEnvironment(window, {
@@ -126,7 +126,7 @@ describe('Binary Data and maxPerfMode:', () => {
     });
 
     describe('TypedArray:', () => {
-        beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+        beforeEach(createBaseLineMaxCompatModeEnvironment);
 
         it('should support in bound index access', () => {
             const env = createVirtualEnvironment(window, {
@@ -206,7 +206,7 @@ describe('Binary Data and maxPerfMode:', () => {
     });
 
     describe('URL:', () => {
-        beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+        beforeEach(createBaseLineMaxCompatModeEnvironment);
 
         it('can create a typed array blob url', () => {
             const env = createVirtualEnvironment(window, {
@@ -283,7 +283,7 @@ describe('Binary Data and maxPerfMode:', () => {
     });
 
     describe('createImageBitmap:', () => {
-        beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+        beforeEach(createBaseLineMaxCompatModeEnvironment);
 
         it('can create an ImageBitmap from a Blob', (done) => {
             const env = createVirtualEnvironment(window, {
@@ -319,7 +319,7 @@ describe('Binary Data and maxPerfMode:', () => {
     });
 
     describe('XMLHttpRequest:send:', () => {
-        beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+        beforeEach(createBaseLineMaxCompatModeEnvironment);
 
         it('can use xhr send', () => {
             const env = createVirtualEnvironment(window, {
@@ -339,7 +339,7 @@ describe('Binary Data and maxPerfMode:', () => {
     });
 
     describe('fetch:', () => {
-        beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+        beforeEach(createBaseLineMaxCompatModeEnvironment);
 
         it('can use fetch', () => {
             const env = createVirtualEnvironment(window, {
@@ -359,7 +359,7 @@ describe('Binary Data and maxPerfMode:', () => {
     });
 
     describe('Request:', () => {
-        beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+        beforeEach(createBaseLineMaxCompatModeEnvironment);
 
         it('can create Request', () => {
             const env = createVirtualEnvironment(window, {
@@ -379,7 +379,7 @@ describe('Binary Data and maxPerfMode:', () => {
     });
 
     describe('Response:', () => {
-        beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+        beforeEach(createBaseLineMaxCompatModeEnvironment);
 
         it('can create Response', () => {
             const env = createVirtualEnvironment(window, {
@@ -399,7 +399,7 @@ describe('Binary Data and maxPerfMode:', () => {
     });
 
     describe('FileSaver library:', () => {
-        beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+        beforeEach(createBaseLineMaxCompatModeEnvironment);
 
         it('can create a blob to save as', () => {
             const env = createVirtualEnvironment(window, {
@@ -447,7 +447,7 @@ describe('Binary Data and maxPerfMode:', () => {
     });
 
     describe('Identity discontinuity:', () => {
-        beforeEach(createEnvironmentThatAlwaysRemapsTypedArray);
+        beforeEach(createBaseLineMaxCompatModeEnvironment);
 
         function getBlueBlob() {
             return new Blob([new Uint8Array([1, 2, 3])], { type: 'text/plain;charset=utf-8' });
