@@ -81,7 +81,7 @@
     "prettier": "2.8.8",
     "puppeteer": "21.0.3",
     "rimraf": "5.0.1",
-    "rollup": "3.28.0",
+    "rollup": "3.29.5",
     "rollup-plugin-istanbul": "4.0.0",
     "rollup-plugin-ts": "3.4.4",
     "trash": "7.2.0",
