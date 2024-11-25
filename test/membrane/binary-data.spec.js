@@ -398,6 +398,46 @@ describe('Binary Data and maxPerfMode:', () => {
         });
     });
 
+    describe('TextDecoder:', () => {
+        beforeEach(createBaseLineMaxCompatModeEnvironment);
+
+        it('can decode from typed array', () => {
+            const env = createVirtualEnvironment(window, {
+                endowments: Object.getOwnPropertyDescriptors({ expect }),
+            });
+
+            env.evaluate(untrusted('text-decoder.js'));
+        });
+        it('can decode from typed array, when maxPerfMode is true', () => {
+            const env = createVirtualEnvironment(window, {
+                endowments: Object.getOwnPropertyDescriptors({ expect }),
+                maxPerfMode: true,
+            });
+
+            env.evaluate(untrusted('text-decoder.js'));
+        });
+    });
+
+    describe('TextEncoder:', () => {
+        beforeEach(createBaseLineMaxCompatModeEnvironment);
+
+        it('can encode into typed array', () => {
+            const env = createVirtualEnvironment(window, {
+                endowments: Object.getOwnPropertyDescriptors({ expect }),
+            });
+
+            env.evaluate(untrusted('text-encoder.js'));
+        });
+        it('can encode into typed array, when maxPerfMode is true', () => {
+            const env = createVirtualEnvironment(window, {
+                endowments: Object.getOwnPropertyDescriptors({ expect }),
+                maxPerfMode: true,
+            });
+
+            env.evaluate(untrusted('text-encoder.js'));
+        });
+    });
+
     describe('FileSaver library:', () => {
         beforeEach(createBaseLineMaxCompatModeEnvironment);
 
