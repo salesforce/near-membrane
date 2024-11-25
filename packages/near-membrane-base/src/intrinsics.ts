@@ -124,6 +124,8 @@ function getESGlobalKeys(maxPerfMode: boolean) {
             'Request',
             'Response',
             'SubtleCrypto',
+            'TextDecoder',
+            'TextEncoder',
             'URL',
             'XMLHttpRequest',
         ],
