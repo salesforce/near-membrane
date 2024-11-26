@@ -305,22 +305,12 @@ export class VirtualEnvironment {
         }
     }
 
-    lazyRemapProperties(
-        target: ProxyTarget,
-        ownKeys: PropertyKey[],
-        unforgeableGlobalThisKeys?: PropertyKey[]
-    ) {
+    lazyRemapProperties(target: ProxyTarget, ownKeys: PropertyKey[]) {
         if ((typeof target === 'object' && target !== null) || typeof target === 'function') {
             const args: Parameters<CallableInstallLazyPropertyDescriptors> = [
                 this.blueGetTransferableValue(target) as Pointer,
             ];
             ReflectApply(ArrayProtoPush, args, ownKeys);
-            if (unforgeableGlobalThisKeys?.length) {
-                // Use `LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL` to delimit
-                // `ownKeys` and `unforgeableGlobalThisKeys`.
-                args[args.length] = LOCKER_NEAR_MEMBRANE_UNDEFINED_VALUE_SYMBOL;
-                ReflectApply(ArrayProtoPush, args, unforgeableGlobalThisKeys);
-            }
             ReflectApply(this.redCallableInstallLazyPropertyDescriptors, undefined, args);
         }
     }

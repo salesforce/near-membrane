@@ -36,6 +36,19 @@ describe('createVirtualEnvironment', () => {
         });
     });
 
+    describe('creates an environment that is always kept alive (ie. sandbox host iframe attached)', () => {
+        it('but is not discoverable via querySelectorAll', () => {
+            createVirtualEnvironment(window /* no options */);
+            const iframes = document.querySelectorAll('iframe');
+            expect(iframes.length).toBe(0);
+        });
+        it('but is not discoverable via getElementsByTagName', () => {
+            createVirtualEnvironment(window /* no options */);
+            const iframes = document.getElementsByTagName('iframe');
+            expect(iframes.length).toBe(0);
+        });
+    });
+
     describe('options.distortionCallback', () => {
         it('distorts getters', () => {
             expect.assertions(3);
@@ -71,84 +84,6 @@ describe('createVirtualEnvironment', () => {
             expect(env.evaluate('a')).toBe('b');
             expect(env.evaluate('b')).toBe('a');
             expect(env.evaluate('c')).toBe('c');
-        });
-    });
-
-    describe('options.keepAlive', () => {
-        it('is true', () => {
-            expect.assertions(2);
-
-            const { length: framesOffset } = window.frames;
-            const env = createVirtualEnvironment(window, { keepAlive: true });
-            const iframes = [...document.body.querySelectorAll('iframe')];
-            expect(window.frames.length).toBe(framesOffset + 1);
-            expect(() => env.evaluate('')).not.toThrow();
-            iframes.forEach((iframe) => iframe.remove());
-        });
-        it('is true and revokes the attached iframe proxy', () => {
-            expect.assertions(16);
-
-            const { length: framesOffset } = window.frames;
-            const env1 = createVirtualEnvironment(window, { keepAlive: true });
-            const env2 = createVirtualEnvironment(window, { keepAlive: true });
-            document.body.append(document.createElement('iframe'));
-            const iframes = [...document.body.querySelectorAll('iframe')];
-            const remapDescriptors = {
-                frames: {
-                    configurable: true,
-                    enumerable: true,
-                    value: Array.from(window.frames),
-                    writable: true,
-                },
-            };
-            env1.remapProperties(window, remapDescriptors);
-            env2.remapProperties(window, remapDescriptors);
-            for (const env of [env1, env2]) {
-                for (let i = 0; i < 3; i += 1) {
-                    expect(() =>
-                        env.evaluate(`
-                            const contentWindow = window.frames[${framesOffset + i}];
-                            const iframes = [...document.body.querySelectorAll('iframe')];
-                            const iframe = iframes.find((iframe) => iframe.contentWindow === contentWindow);
-                            iframe.contentDocument;
-                            iframe.contentWindow;
-                        `)
-                    ).not.toThrow();
-                    if (i === 2) {
-                        expect(() =>
-                            env.evaluate(`
-                                const contentWindow = window.frames[${framesOffset + i}];
-                                const iframes = [...document.body.querySelectorAll('iframe')];
-                                const iframe = iframes.find((iframe) => iframe.contentWindow === contentWindow);
-                                iframe.contentDocument.nodeName;
-                                iframe.contentWindow.parent;
-                            `)
-                        ).not.toThrow();
-                    } else {
-                        expect(() =>
-                            env.evaluate(`
-                                const contentWindow = window.frames[${framesOffset + i}];
-                                const iframes = [...document.body.querySelectorAll('iframe')];
-                                const iframe = iframes.find((iframe) => iframe.contentWindow === contentWindow);
-                                iframe.contentDocument.nodeName;
-                            `)
-                        ).toThrow();
-                        expect(() =>
-                            env.evaluate(`
-                                const contentWindow = window.frames[${framesOffset + i}];
-                                const iframes = [...document.body.querySelectorAll('iframe')];
-                                const iframe = iframes.find((iframe) => iframe.contentWindow === contentWindow);
-                                iframe.contentWindow.parent;
-                            `)
-                        ).toThrow();
-                    }
-                }
-            }
-            iframes.forEach((iframe) => iframe.remove());
-        });
-        it('is false', () => {
-            const env = createVirtualEnvironment(window, { keepAlive: false });
-            expect(() => env.evaluate('')).not.toThrow();
         });
     });
 

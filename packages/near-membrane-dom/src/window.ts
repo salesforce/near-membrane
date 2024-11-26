@@ -7,7 +7,7 @@ import {
     SetCtor,
     SetProtoHas,
 } from '@locker/near-membrane-shared';
-import { IS_CHROMIUM_BROWSER, rootWindow } from '@locker/near-membrane-shared-dom';
+import { rootWindow } from '@locker/near-membrane-shared-dom';
 
 interface CachedBlueReferencesRecord extends Object {
     document: Document;
@@ -22,12 +22,6 @@ interface CachedBlueReferencesRecord extends Object {
 const blueDocumentToRecordMap: WeakMap<Document, CachedBlueReferencesRecord> = toSafeWeakMap(
     new WeakMap()
 );
-
-// Chromium based browsers have a bug that nulls the result of `window`
-// getters in detached iframes when the property descriptor of `window.window`
-// is retrieved.
-// https://bugs.chromium.org/p/chromium/issues/detail?id=1305302
-export const unforgeablePoisonedWindowKeys = IS_CHROMIUM_BROWSER ? ['window'] : undefined;
 
 export function getCachedGlobalObjectReferences(
     globalObject: WindowProxy & typeof globalThis

@@ -1,4 +1,3 @@
-export * from './constants';
 export * from './Document';
 export * from './DOMException';
 export * from './Element';
