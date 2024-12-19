@@ -38,23 +38,15 @@ Since you can have multiple sandboxes associated to the Blue Realm, there is a p
 
 In browsers, since we don't have a way to create a light-weight Realm that is synchronously accessible (that will be solved in part by the [stage 3 ShadowRealms Proposal](https://github.com/tc39/proposal-shadowrealm)), we are forced to use a same-domain iframe in order to isolate the code to be evaluated inside a sandbox for a particular window.
 
-#### Detached iframes
-
-Since the iframes have many ways to reach out to the opener/top window reference, we are forced to use a detached `iframe`, which is, on itself, a complication. A detached `iframe`'s window is a window that does not have any host behavior associated to it, in other words, this window does not have an origin after disconnecting the iframe, which means it can't execute any DOM API without throwing an error. Luckily for us, the JavaScript intrinsics, and all JavaScript language features specified by ECMA262 and ECMA402 are still alive and kicking in that iframe, except for one feature, dynamic imports in a form of `import(specifier)`.
-
-To mitigate the issue with dynamic imports, we are forced to transpile the code that attempts to use this feature of the language, otherwise it will just fail to fetch the module because there is no origin available at the host level. However, transpiling dynamic imports is a very common way to bundle code for production systems today.
-
 #### Unforgeables
 
-The `window` reference in the detached iframe, just like any other `window` reference in browsers, contains various unforgeable descriptors, these are descriptors installed in Window, and other globals that are non-configurable, and therefor this library cannot remove them or replace them with a Red Proxy. Must notable, we have the window's prototype chain that is completely unforgeable:
+The `window` reference in the iframe, just like any other `window` reference in browsers, contains various unforgeable descriptors, these are descriptors installed in Window, and other globals that are non-configurable, and therefor this library cannot remove them or replace them with a Red Proxy. Must notable, we have the window's prototype chain that is completely unforgeable:
 
 ```
 window -> Window.prototype -> WindowProperties.prototype -> EventTarget.prototype
 ```
 
 What we do in this case is to keep the identity of those unforgeable around, but changing the descriptors installing on them, and any other method that expects these identities to be passed to them. This make them effectively harmless because they don't give any power.
-
-Additionally, there are other unforgeables like `location` that are host bounded, in that case, we don't have to do much since the detaching mechanism will automatically invalidate them.
 
 These can only be virtualized via transpilation if they need to be available inside the sandbox. Such transpilation process is not provided as part of this library.
 
@@ -93,13 +85,10 @@ We do not know the applications of this library just yet, but we suspect that th
 
 * Debugging is still very challenging considering that dev-tools are still catching up with the Proxies. Chrome for example has differences displaying proxies in the console vs the watch panel.
 
-Additionally, there is an existing bug in ChromeDev-tools that prevent a detached iframe to be debugged (https://bugs.chromium.org/p/chromium/issues/detail?id=1015462).
-
 ### WindowProxy
 
 The `window` reference in the iframe, just like any other `window` reference in browsers, exhibit a bizarre behavior, the `WindowProxy` behavior. This has two big implications for this implementation when attempting to give access to other window references coming from same domain iframes (e.g.: sandboxing the main app + one iframe):
 
-* each window will require a new detached iframe to sandbox each of them, but if the iframe navigates to another page, the window reference remains the same, but the internal of the non-observable real window are changing. Otherwise distortions defined for the sandbox will not apply to the identity of the methods from the same-domain iframe.
 * GCing the sandbox when the iframe navigates out is tricky due to the fact that the original iframe's window reference remains the same, and it is used by few of the internal maps.
 
 For those reasons, we do not support accessing other realm instances from within the sandbox at the moment.

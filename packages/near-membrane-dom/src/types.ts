@@ -11,7 +11,6 @@ export interface BrowserEnvironmentOptions {
     endowments?: PropertyDescriptorMap;
     globalObjectShape?: object;
     instrumentation?: Instrumentation;
-    keepAlive?: boolean;
     liveTargetCallback?: LiveTargetCallback;
     maxPerfMode?: boolean;
     signSourceCallback?: SignSourceCallback;
