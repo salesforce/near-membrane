@@ -1,4 +1,4 @@
-# JavaScript Near Membrane Library
+# JavaScript Near Membrane Library (Test)
 
 This library implements a "near membrane" that can connect two Realms (the Incubator Realm, and the Child Realm) running on the same process. As a result, the Child Realm will emulate the capabilities of the Incubator Realm, plus the distortions defined as part of the near membrane configuration. Code evaluated inside the Child Realm will function as if it is evaluated in the Incubator Realm, exhibiting identity continuity, while preserving the integrity of the Incubator Realm by limiting the side effects that such code can have.
 
