@@ -7,8 +7,6 @@ const globby = require('globby');
 const istanbul = require('rollup-plugin-istanbul');
 const { nodeResolve } = require('@rollup/plugin-node-resolve');
 
-process.env.CHROME_BIN = require('puppeteer').executablePath();
-
 let testFilesPattern = './test/**/*.spec.js';
 
 const basePath = path.resolve(__dirname, './');

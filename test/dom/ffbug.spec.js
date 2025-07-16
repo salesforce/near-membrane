@@ -17,7 +17,6 @@ describe('FF BugFix 543435', () => {
                     done();
                 },
             }),
-            keepAlive: true,
         });
 
         env.evaluate(`
