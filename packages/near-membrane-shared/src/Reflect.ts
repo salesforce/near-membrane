@@ -1,8 +1,15 @@
 export const {
     apply: ReflectApply,
+    construct: ReflectConstruct,
     defineProperty: ReflectDefineProperty,
     deleteProperty: ReflectDeleteProperty,
+    get: ReflectGet,
+    getOwnPropertyDescriptor: ReflectGetOwnPropertyDescriptor,
     getPrototypeOf: ReflectGetPrototypeOf,
+    has: ReflectHas,
+    isExtensible: ReflectIsExtensible,
     ownKeys: ReflectOwnKeys,
+    preventExtensions: ReflectPreventExtensions,
+    set: ReflectSet,
     setPrototypeOf: ReflectSetPrototypeOf,
 } = Reflect;

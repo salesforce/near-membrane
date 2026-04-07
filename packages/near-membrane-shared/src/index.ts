@@ -8,6 +8,7 @@ export * from './constants';
 export * from './Date';
 export * from './Error';
 export * from './Function';
+export * from './GaterFeatures';
 export * from './JSON';
 export * from './Map';
 export * from './Math';
