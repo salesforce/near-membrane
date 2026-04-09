@@ -36,7 +36,7 @@ function getESGlobalKeys(maxPerfMode: boolean) {
         'undefined',
 
         // *** 19.2 Function Properties of the Global Object
-        // 'eval', // dangerous & Reflective
+        'eval',
         'isFinite',
         'isNaN',
         'parseFloat',
@@ -152,7 +152,6 @@ const ReflectiveIntrinsicObjectNames = [
     'SyntaxError',
     'TypeError',
     'URIError',
-    'eval',
     'globalThis',
 ];
 

@@ -16,7 +16,7 @@ const ESGlobalKeys = [
     'undefined',
 
     // *** 19.2 Function Properties of the Global Object
-    // 'eval', // dangerous & Reflective
+    'eval',
     'isFinite',
     'isNaN',
     'parseFloat',
@@ -83,7 +83,6 @@ const ReflectiveIntrinsicObjectNames = [
     'SyntaxError',
     'TypeError',
     'URIError',
-    'eval',
     'globalThis',
 ];
 
@@ -261,5 +260,20 @@ describe('linkIntrinsics()', () => {
         linkIntrinsics(env, {});
 
         expect(count).toBe(0);
+    });
+    it('does not link eval as a reflective intrinsic', () => {
+        const env = new VirtualEnvironment({
+            blueConnector: createBlueConnector(globalThis as any),
+            redConnector: createRedConnector(globalThis.eval),
+        });
+        env.link('globalThis');
+
+        const linkedNames: string[] = [];
+        env.link = (globalName: string) => {
+            linkedNames.push(globalName);
+        };
+        linkIntrinsics(env, globalThis);
+
+        expect(linkedNames).not.toContain('eval');
     });
 });
