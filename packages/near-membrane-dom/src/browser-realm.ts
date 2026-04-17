@@ -79,6 +79,7 @@ function createIframeVirtualEnvironment(
         keepAlive = true,
         liveTargetCallback,
         maxPerfMode = false,
+        protectDistortions = false,
         signSourceCallback,
         // eslint-disable-next-line prefer-object-spread
     } = ObjectAssign({ __proto__: null }, providedOptions) as BrowserEnvironmentOptions;
@@ -115,6 +116,7 @@ function createIframeVirtualEnvironment(
         distortionCallback,
         instrumentation,
         liveTargetCallback,
+        protectDistortions,
         revokedProxyCallback: keepAlive ? revokedProxyCallback : undefined,
         signSourceCallback,
     });

@@ -14,5 +14,6 @@ export interface BrowserEnvironmentOptions {
     keepAlive?: boolean;
     liveTargetCallback?: LiveTargetCallback;
     maxPerfMode?: boolean;
+    protectDistortions?: boolean;
     signSourceCallback?: SignSourceCallback;
 }

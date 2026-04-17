@@ -12,5 +12,6 @@ export interface NodeEnvironmentOptions {
     instrumentation?: Instrumentation;
     liveTargetCallback?: LiveTargetCallback;
     maxPerfMode?: boolean;
+    protectDistortions?: boolean;
     signSourceCallback?: SignSourceCallback;
 }

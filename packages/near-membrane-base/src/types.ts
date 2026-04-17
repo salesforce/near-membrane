@@ -179,6 +179,7 @@ export interface HooksOptions {
     distortionCallback?: DistortionCallback;
     instrumentation?: Instrumentation;
     liveTargetCallback?: LiveTargetCallback;
+    protectDistortions?: boolean;
     revokedProxyCallback?: RevokedProxyCallback;
 }
 export interface Instrumentation {
@@ -200,6 +201,7 @@ export interface VirtualEnvironmentOptions {
     distortionCallback?: DistortionCallback;
     instrumentation?: Instrumentation;
     liveTargetCallback?: LiveTargetCallback;
+    protectDistortions?: boolean;
     revokedProxyCallback?: RevokedProxyCallback;
     signSourceCallback?: SignSourceCallback;
 }
