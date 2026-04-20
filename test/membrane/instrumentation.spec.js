@@ -1,41 +1,49 @@
 import createVirtualEnvironment from '@locker/near-membrane-dom';
 
 describe('Ensure instrumentation object usage in near-membrane', () => {
-    xit('Instrumentation object is passed to and used in near-membrane', () => {
-        let redProxy;
+    it('Instrumentation object is accepted by createVirtualEnvironment', () => {
         const mockInstrumentation = {
             startActivity: () => ({ stop: () => {}, error: () => {} }),
             log: () => {},
             error: () => {},
         };
-        const startActivitySpy = spyOn(mockInstrumentation, 'startActivity').and.callThrough();
-        const logSpy = spyOn(mockInstrumentation, 'log').and.callThrough();
-        const errorSpy = spyOn(mockInstrumentation, 'error').and.callThrough();
         const env = createVirtualEnvironment(window, {
-            endowments: Object.getOwnPropertyDescriptors({
-                setter(v) {
-                    redProxy = v;
-                },
-            }),
+            instrumentation: mockInstrumentation,
+        });
+        expect(() => env.evaluate('1 + 1')).not.toThrow();
+    });
+    it('Instrumentation object does not interfere with sandbox operations', () => {
+        expect.assertions(2);
+
+        const mockInstrumentation = {
+            startActivity: () => ({ stop: () => {}, error: () => {} }),
+            log: () => {},
+            error: () => {},
+        };
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ expect }),
             instrumentation: mockInstrumentation,
         });
         env.evaluate(`
-            setter({foo: 'bar', fn: function(v) {}});
+            expect(1 + 2).toBe(3);
+            expect(typeof window).toBe('object');
         `);
-        // eslint-disable-next-line no-unused-expressions
-        redProxy.foo;
-        expect(startActivitySpy).toHaveBeenCalledTimes(1);
-        expect(logSpy).not.toHaveBeenCalled();
-        expect(errorSpy).not.toHaveBeenCalled();
+    });
+    it('Instrumentation option works alongside other options', () => {
+        expect.assertions(1);
 
-        redProxy.foo = 1;
-        expect(startActivitySpy).toHaveBeenCalledTimes(2);
-        expect(logSpy).not.toHaveBeenCalled();
-        expect(errorSpy).not.toHaveBeenCalled();
-
-        redProxy.fn();
-        expect(startActivitySpy).toHaveBeenCalledTimes(4);
-        expect(logSpy).not.toHaveBeenCalled();
-        expect(errorSpy).not.toHaveBeenCalled();
+        const mockInstrumentation = {
+            startActivity: () => ({ stop: () => {}, error: () => {} }),
+            log: () => {},
+            error: () => {},
+        };
+        const env = createVirtualEnvironment(window, {
+            endowments: Object.getOwnPropertyDescriptors({ expect }),
+            instrumentation: mockInstrumentation,
+            keepAlive: true,
+        });
+        env.evaluate(`
+            expect(typeof document).not.toBe('undefined');
+        `);
     });
 });

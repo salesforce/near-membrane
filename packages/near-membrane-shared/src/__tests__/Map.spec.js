@@ -1,4 +1,10 @@
-import { MapCtor, MapProtoEntries, MapProtoSet, toSafeMap } from '../../dist/index.mjs.js';
+import {
+    MapCtor,
+    MapProtoEntries,
+    MapProtoSet,
+    MapProtoSizeGetter,
+    toSafeMap,
+} from '../../dist/index.mjs.js';
 
 describe('Map', () => {
     it('MapCtor', () => {
@@ -9,6 +15,10 @@ describe('Map', () => {
     });
     it('MapProtoSet', () => {
         expect(MapProtoSet).toBe(Map.prototype.set);
+    });
+    it('MapProtoSizeGetter', () => {
+        const nativeSizeGetter = Reflect.getOwnPropertyDescriptor(Map.prototype, 'size').get;
+        expect(MapProtoSizeGetter).toBe(nativeSizeGetter);
     });
     it('toSafeMap', () => {
         const map = new Map();

@@ -1,11 +1,13 @@
 import {
     isObject,
     ObjectAssign,
+    ObjectCtor,
     ObjectFreeze,
     ObjectHasOwn,
     ObjectKeys,
     ObjectLookupOwnGetter,
     ObjectLookupOwnSetter,
+    ObjectProto,
     ObjectProtoToString,
 } from '../../dist/index.mjs.js';
 
@@ -22,6 +24,12 @@ describe('Object', () => {
         expect(isObject([])).toBe(true);
         expect(isObject({})).toBe(true);
         expect(isObject(Object.create(null))).toBe(true);
+    });
+    it('ObjectCtor', () => {
+        expect(ObjectCtor).toBe(Object);
+    });
+    it('ObjectProto', () => {
+        expect(ObjectProto).toBe(Object.prototype);
     });
     it('ObjectAssign', () => {
         expect(ObjectAssign).toBe(Object.assign);

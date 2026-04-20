@@ -312,6 +312,7 @@ export class VirtualEnvironment {
         ownKeys: PropertyKey[],
         unforgeableGlobalThisKeys?: PropertyKey[]
     ) {
+        // istanbul ignore else: primitive targets are silently ignored
         if ((typeof target === 'object' && target !== null) || typeof target === 'function') {
             const args: Parameters<CallableInstallLazyPropertyDescriptors> = [
                 this.blueGetTransferableValue(target) as Pointer,

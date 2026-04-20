@@ -1,10 +1,15 @@
 import {
     ArrayCtor,
     ArrayIsArray,
+    ArrayProtoFilter,
     ArrayProtoFind,
     ArrayProtoIncludes,
+    ArrayProtoIndexOf,
+    ArrayProtoMap,
     ArrayProtoPush,
+    ArrayProtoShift,
     ArrayProtoSort,
+    ArrayProtoSplice,
     ArrayProtoUnshift,
     toSafeArray,
 } from '../../dist/index.mjs.js';
@@ -27,6 +32,21 @@ describe('Array', () => {
     });
     it('ArrayProtoSort', () => {
         expect(ArrayProtoSort).toBe(Array.prototype.sort);
+    });
+    it('ArrayProtoFilter', () => {
+        expect(ArrayProtoFilter).toBe(Array.prototype.filter);
+    });
+    it('ArrayProtoIndexOf', () => {
+        expect(ArrayProtoIndexOf).toBe(Array.prototype.indexOf);
+    });
+    it('ArrayProtoMap', () => {
+        expect(ArrayProtoMap).toBe(Array.prototype.map);
+    });
+    it('ArrayProtoShift', () => {
+        expect(ArrayProtoShift).toBe(Array.prototype.shift);
+    });
+    it('ArrayProtoSplice', () => {
+        expect(ArrayProtoSplice).toBe(Array.prototype.splice);
     });
     it('ArrayProtoUnshift', () => {
         expect(ArrayProtoUnshift).toBe(Array.prototype.unshift);
