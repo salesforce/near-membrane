@@ -674,6 +674,7 @@ export function createMembraneMarshall(
         const {
             distortionCallback,
             liveTargetCallback,
+            protectDistortions,
             revokedProxyCallback,
             // eslint-disable-next-line prefer-object-spread
         } = ObjectAssign({ __proto__: null }, options);
@@ -3776,6 +3777,31 @@ export function createMembraneMarshall(
                 targetPointer();
                 const target = selectedTarget!;
                 selectedTarget = undefined;
+                if (protectDistortions && distortionCallback) {
+                    let safeDesc;
+                    try {
+                        safeDesc = ReflectGetOwnPropertyDescriptor(target, key);
+                    } catch (error: any) {
+                        throw pushErrorAcrossBoundary(error);
+                    }
+                    if (safeDesc) {
+                        ReflectSetPrototypeOf(safeDesc, null);
+                        const { get: getter, set: setter, value } = safeDesc;
+                        if (
+                            (typeof getter === 'function' &&
+                                distortionCallback(getter) !== getter) ||
+                            (typeof setter === 'function' &&
+                                distortionCallback(setter) !== setter) ||
+                            (((typeof value === 'object' && value !== null) ||
+                                typeof value === 'function') &&
+                                distortionCallback(value) !== value)
+                        ) {
+                            throw pushErrorAcrossBoundary(
+                                new TypeErrorCtor('Cannot delete property with a distortion.')
+                            );
+                        }
+                    }
+                }
                 try {
                     return ReflectDeleteProperty(target, key);
                 } catch (error: any) {

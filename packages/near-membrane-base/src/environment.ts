@@ -68,6 +68,7 @@ export class VirtualEnvironment {
             distortionCallback,
             instrumentation,
             liveTargetCallback,
+            protectDistortions,
             revokedProxyCallback,
             signSourceCallback,
             // eslint-disable-next-line prefer-object-spread
@@ -82,6 +83,7 @@ export class VirtualEnvironment {
                 distortionCallback,
                 instrumentation,
                 liveTargetCallback,
+                protectDistortions,
                 revokedProxyCallback,
             }
         );

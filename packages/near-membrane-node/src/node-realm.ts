@@ -34,6 +34,7 @@ export default function createVirtualEnvironment(
         instrumentation,
         liveTargetCallback,
         maxPerfMode = false,
+        protectDistortions = false,
         signSourceCallback,
     } = ObjectAssign({ __proto__: null }, providedOptions) as NodeEnvironmentOptions;
     let blueConnector = blueCreateHooksCallbackCache.get(globalObject) as Connector | undefined;
@@ -53,6 +54,7 @@ export default function createVirtualEnvironment(
         distortionCallback,
         instrumentation,
         liveTargetCallback,
+        protectDistortions,
         signSourceCallback,
     });
     linkIntrinsics(env, globalObject);
