@@ -271,5 +271,114 @@ describe('VirtualEnvironment', () => {
             };
             env.remapProto(a, b);
         });
+        it('calls through to redCallableSetPrototypeOf without stubbing', () => {
+            const env = new VirtualEnvironment({
+                blueConnector: createBlueConnector(globalThis),
+                redConnector: createRedConnector(globalThis.eval),
+            });
+            const target = {};
+            const proto = { marker: true };
+            expect(() => env.remapProto(target, proto)).not.toThrow();
+        });
+        it('passes null proto through to redCallableSetPrototypeOf', () => {
+            const env = new VirtualEnvironment({
+                blueConnector: createBlueConnector(globalThis),
+                redConnector: createRedConnector(globalThis.eval),
+            });
+            const target = {};
+            expect(() => env.remapProto(target, null)).not.toThrow();
+        });
+    });
+
+    describe('VirtualEnvironment.prototype.link', () => {
+        it('links a single property key', () => {
+            const env = new VirtualEnvironment({
+                blueConnector: createBlueConnector(globalThis),
+                redConnector: createRedConnector(globalThis.eval),
+            });
+            globalThis.linkTestSingle = { value: 42 };
+            expect(() => env.link('linkTestSingle')).not.toThrow();
+            delete globalThis.linkTestSingle;
+        });
+        it('links a multi-key property path', () => {
+            const env = new VirtualEnvironment({
+                blueConnector: createBlueConnector(globalThis),
+                redConnector: createRedConnector(globalThis.eval),
+            });
+            globalThis.linkTestChainA = { linkTestChainB: { linkTestChainC: 99 } };
+            expect(() => env.link('linkTestChainA', 'linkTestChainB')).not.toThrow();
+            delete globalThis.linkTestChainA;
+        });
+    });
+
+    describe('VirtualEnvironment.prototype.lazyRemapProperties', () => {
+        it('installs lazy property descriptors for given ownKeys', () => {
+            const env = new VirtualEnvironment({
+                blueConnector: createBlueConnector(globalThis),
+                redConnector: createRedConnector(globalThis.eval),
+            });
+            const target = { lazyPropA: 1, lazyPropB: 2 };
+            expect(() => env.lazyRemapProperties(target, ['lazyPropA', 'lazyPropB'])).not.toThrow();
+        });
+        it('accepts unforgeableGlobalThisKeys parameter', () => {
+            const env = new VirtualEnvironment({
+                blueConnector: createBlueConnector(globalThis),
+                redConnector: createRedConnector(globalThis.eval),
+            });
+            const target = { x: 1 };
+            expect(() => env.lazyRemapProperties(target, ['x'], ['window'])).not.toThrow();
+        });
+        it('ignores primitive targets', () => {
+            const env = new VirtualEnvironment({
+                blueConnector: createBlueConnector(globalThis),
+                redConnector: createRedConnector(globalThis.eval),
+            });
+            expect(() => env.lazyRemapProperties(null as any, ['a'])).not.toThrow();
+            expect(() => env.lazyRemapProperties(42 as any, ['a'])).not.toThrow();
+        });
+    });
+
+    describe('VirtualEnvironment.prototype.trackAsFastTarget', () => {
+        it('does not throw for object targets', () => {
+            const env = new VirtualEnvironment({
+                blueConnector: createBlueConnector(globalThis),
+                redConnector: createRedConnector(globalThis.eval),
+            });
+            const target = { fast: true };
+            expect(() => env.trackAsFastTarget(target)).not.toThrow();
+        });
+        it('does not throw for function targets', () => {
+            const env = new VirtualEnvironment({
+                blueConnector: createBlueConnector(globalThis),
+                redConnector: createRedConnector(globalThis.eval),
+            });
+            expect(() => env.trackAsFastTarget(() => {})).not.toThrow();
+        });
+        it('ignores primitive targets', () => {
+            const env = new VirtualEnvironment({
+                blueConnector: createBlueConnector(globalThis),
+                redConnector: createRedConnector(globalThis.eval),
+            });
+            expect(() => env.trackAsFastTarget(null as any)).not.toThrow();
+            expect(() => env.trackAsFastTarget(42 as any)).not.toThrow();
+        });
+    });
+
+    describe('options.instrumentation', () => {
+        it('accepts an instrumentation object without error', () => {
+            const mockInstrumentation = {
+                startActivity: () => ({ stop() {}, error() {} }),
+                log() {},
+                error() {},
+            };
+            expect(() => {
+                const env = new VirtualEnvironment({
+                    blueConnector: createBlueConnector(globalThis),
+                    redConnector: createRedConnector(globalThis.eval),
+                    instrumentation: mockInstrumentation,
+                });
+                env.evaluate('1 + 1');
+            }).not.toThrow();
+        });
     });
 });

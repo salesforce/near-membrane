@@ -100,6 +100,7 @@ function createIframeVirtualEnvironment(
         blueCreateHooksCallbackCache.set(blueRefs.document, blueConnector);
     }
     // Install default TrustedTypes policy in the virtual environment.
+    // istanbul ignore next: requires both trustedTypes API (unavailable in jsdom) and a defaultPolicy option
     // @ts-ignore trustedTypes does not exist on GlobalObject
     if (typeof redWindow.trustedTypes !== 'undefined' && isObject(defaultPolicy)) {
         // @ts-ignore trustedTypes does not exist on GlobalObject
@@ -124,6 +125,7 @@ function createIframeVirtualEnvironment(
     // window
     // window.document
     // In browsers globalThis is === window.
+    // istanbul ignore next: coverage never runs where globalThis !== window
     if (typeof globalThis === 'undefined') {
         // Support for globalThis was added in Chrome 71.
         // However, environments like Android emulators are running Chrome 69.
@@ -176,6 +178,7 @@ function createIframeVirtualEnvironment(
         ReflectApply(DocumentProtoOpen, redDocument, []);
         ReflectApply(DocumentProtoClose, redDocument, []);
     } else {
+        // istanbul ignore next: coverage never runs in old Chromium (<v86)
         if (IS_OLD_CHROMIUM_BROWSER) {
             // For Chromium < v86 browsers we evaluate the `window` object to
             // kickstart the realm so that `window` persists when the iframe is

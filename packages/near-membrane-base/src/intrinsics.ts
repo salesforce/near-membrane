@@ -182,8 +182,10 @@ export function assignFilteredGlobalDescriptorsFromPropertyDescriptorMap<
         // Avoid overriding ECMAScript global names that correspond to
         // global intrinsics. This guarantee that those entries will be
         // ignored if present in the source property descriptor map.
+        // istanbul ignore else: ES intrinsic names are intentionally skipped
         if (!ESGlobalsAndReflectiveIntrinsicObjectNames.includes(ownKey as any)) {
             const unsafeDesc = (source as any)[ownKey];
+            // istanbul ignore else: no action needed when unsafeDesc is falsy
             if (unsafeDesc) {
                 // Avoid poisoning by only installing own properties from
                 // unsafeDesc. We don't use a toSafeDescriptor() style helper
@@ -219,6 +221,7 @@ export function linkIntrinsics(env: VirtualEnvironment, globalObject: typeof glo
     for (let i = 0, { length } = ReflectiveIntrinsicObjectNames; i < length; i += 1) {
         const globalName = ReflectiveIntrinsicObjectNames[i];
         const reflectiveValue = (globalObject as any)[globalName];
+        // istanbul ignore else: all standard reflective intrinsics exist at runtime
         if (reflectiveValue) {
             // Proxy.prototype is undefined.
             if (reflectiveValue.prototype) {

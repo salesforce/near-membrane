@@ -21,6 +21,7 @@ import { SetCtor, SetProtoAdd, SetProtoValues } from './Set';
 
 const SEEN_OBJECTS = toSafeMap(new MapCtor<object, object>());
 
+// istanbul ignore next: only reachable with near-membrane proxied boxed primitives
 function cloneBoxedPrimitive(object: object): object {
     return ObjectCtor(getNearMembraneProxySerializedValue(object));
 }
@@ -60,6 +61,7 @@ function cloneMap(map: Map<any, any>, queue: any[]): Map<any, any> {
     return clone;
 }
 
+// istanbul ignore next: only reachable with near-membrane proxied RegExp
 function cloneRegExp(regexp: RegExp): RegExp {
     const { flags, source } = JSONParse(getNearMembraneProxySerializedValue(regexp) as string);
     return new RegExpCtor(source, flags);
@@ -262,7 +264,7 @@ function partialStructuredCloneInternal(value: any): any {
                 break;
         }
         if (cloneValue === undefined) {
-            // istanbul ignore else
+            // istanbul ignore else: else branch requires actual near-membrane proxies, unavailable in unit tests
             if (!isNearMembraneProxy(originalValue)) {
                 // Skip cloning non-membrane proxied objects.
                 SEEN_OBJECTS.set(originalValue, originalValue);
@@ -271,6 +273,7 @@ function partialStructuredCloneInternal(value: any): any {
                 continue queueLoop;
             }
             // Cases ordered by a guestimate on frequency of encounter.
+            // istanbul ignore next: entire switch only reachable with near-membrane proxies
             // eslint-disable-next-line default-case
             switch (brand) {
                 // Step 12: Otherwise, if value has a [[RegExpMatcher]] internal slot...
@@ -294,6 +297,7 @@ function partialStructuredCloneInternal(value: any): any {
         }
         // Step 21: Otherwise, if IsCallable(value) is true, then throw a 'DataCloneError'
         // Step 20: Otherwise, if value is a platform object, then throw a 'DataCloneError'
+        // istanbul ignore next: only reachable with a near-membrane proxy of unrecognized brand
         if (cloneValue === undefined) {
             // Stop cloning and set the original value and defer throwing to
             // native methods.

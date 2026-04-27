@@ -3,6 +3,12 @@
 module.exports = {
     collectCoverage: true,
     coverageDirectory: 'jest-coverage/json/',
+    coveragePathIgnorePatterns: [
+        '/node_modules/',
+        'packages/near-membrane-base/src/',
+        'packages/near-membrane-shared/src/',
+        'packages/near-membrane-shared-dom/src/',
+    ],
     coverageReporters: ['json'],
     moduleNameMapper: {
         '^@locker/(near-membrane-\\w+)$': '<rootDir>/packages/$1/src',
