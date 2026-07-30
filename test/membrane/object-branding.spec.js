@@ -61,6 +61,17 @@ describe('object-branding', () => {
             endowments: Object.getOwnPropertyDescriptors({ expect }),
         });
 
+        // ArrayBufferView targets (DataView + typed arrays) are made live at
+        // proxy construction so the get trap can read buffer indices straight
+        // from the raw foreign target. Their `[[SetPrototypeOf]]` is scoped to
+        // the shadow target: a proto change from inside the sandbox is
+        // observably inert on the raw object. Branding therefore does NOT
+        // degrade to 'Object' for these targets when their proto is wiped to
+        // null, because the raw object's prototype (and its internal slots)
+        // are untouched. Plain foreign objects, including ArrayBuffer itself,
+        // remain static, so their proto wipe is observable and degrades the
+        // brand to 'Object' as before. This asymmetry is the observable
+        // consequence of the setPrototypeOf isolation fix (W-23623814).
         env.evaluate(`
             function getToStringTag(object) {
                 return Object.prototype.toString.call(object).slice(8, -1);
@@ -86,75 +97,80 @@ describe('object-branding', () => {
             expect(getToStringTag(setProto(new String('a'), null))).toBe('String');
             expect(getToStringTag(setProto(Object(Symbol('a')), null))).toBe('Object');
 
+            // ArrayBuffer is a plain (static) foreign object: proto wipe is
+            // observable and degrades the brand.
             const buffer = new ArrayBuffer(8);
             const bufferProto = Reflect.getPrototypeOf(buffer);
             expect(getToStringTag(setProto(buffer, null))).toBe('Object');
             expect(getToStringTag(setProto(buffer, bufferProto))).toBe('ArrayBuffer');
 
+            // ArrayBufferView targets below are live: the shadow-scoped proto
+            // change is inert, so the brand is preserved after a null wipe and
+            // a subsequent restore is a no-op that leaves the brand intact.
             const dataView = new DataView(buffer);
             const dataViewProto = Reflect.getPrototypeOf(dataView);
-            expect(getToStringTag(setProto(dataView, null))).toBe('Object');
+            expect(getToStringTag(setProto(dataView, null))).toBe('DataView');
             expect(getToStringTag(setProto(dataView, dataViewProto))).toBe('DataView');
 
             const float32Array = new Float32Array(buffer);
             const float32ArrayProto = Reflect.getPrototypeOf(float32Array);
-            expect(getToStringTag(setProto(float32Array, null))).toBe('Object');
+            expect(getToStringTag(setProto(float32Array, null))).toBe('Float32Array');
             expect(getToStringTag(setProto(float32Array, float32ArrayProto))).toBe(
                 'Float32Array'
             );
 
             const float64Array = new Float64Array(buffer);
             const float64ArrayProto = Reflect.getPrototypeOf(float64Array);
-            expect(getToStringTag(setProto(float64Array, null))).toBe('Object');
+            expect(getToStringTag(setProto(float64Array, null))).toBe('Float64Array');
             expect(getToStringTag(setProto(float64Array, float64ArrayProto))).toBe(
                 'Float64Array'
             );
 
             const int8Array = new Int8Array(buffer);
             const int8ArrayProto = Reflect.getPrototypeOf(int8Array);
-            expect(getToStringTag(setProto(int8Array, null))).toBe('Object');
+            expect(getToStringTag(setProto(int8Array, null))).toBe('Int8Array');
             expect(getToStringTag(setProto(int8Array, int8ArrayProto))).toBe(
                 'Int8Array'
             );
 
             const int16Array = new Int16Array(buffer);
             const int16ArrayProto = Reflect.getPrototypeOf(int16Array);
-            expect(getToStringTag(setProto(int16Array, null))).toBe('Object');
+            expect(getToStringTag(setProto(int16Array, null))).toBe('Int16Array');
             expect(getToStringTag(setProto(int16Array, int8ArrayProto))).toBe(
                 'Int16Array'
             );
 
             const int32Array = new Int32Array(buffer);
             const int32ArrayProto = Reflect.getPrototypeOf(int32Array);
-            expect(getToStringTag(setProto(int32Array, null))).toBe('Object');
+            expect(getToStringTag(setProto(int32Array, null))).toBe('Int32Array');
             expect(getToStringTag(setProto(int32Array, int8ArrayProto))).toBe(
                 'Int32Array'
             );
 
             const uint8Array = new Uint8Array(buffer);
             const uint8ArrayProto = Reflect.getPrototypeOf(uint8Array);
-            expect(getToStringTag(setProto(uint8Array, null))).toBe('Object');
+            expect(getToStringTag(setProto(uint8Array, null))).toBe('Uint8Array');
             expect(getToStringTag(setProto(uint8Array, uint8ArrayProto))).toBe(
                 'Uint8Array'
             );
 
             const uint8ClampedArray = new Uint8ClampedArray(buffer);
             const uint8ClampedArrayProto = Reflect.getPrototypeOf(uint8ClampedArray);
-            expect(getToStringTag(setProto(uint8ClampedArray, null))).toBe('Object');
+            expect(getToStringTag(setProto(uint8ClampedArray, null))).toBe('Uint8ClampedArray');
             expect(getToStringTag(setProto(uint8ClampedArray, uint8ClampedArrayProto))).toBe(
                 'Uint8ClampedArray'
             );
 
             const uint16Array = new Uint16Array(buffer);
             const uint16ArrayProto = Reflect.getPrototypeOf(uint16Array);
-            expect(getToStringTag(setProto(uint16Array, null))).toBe('Object');
+            expect(getToStringTag(setProto(uint16Array, null))).toBe('Uint16Array');
             expect(getToStringTag(setProto(uint16Array, uint16ArrayProto))).toBe(
                 'Uint16Array'
             );
 
             const uint32Array = new Uint32Array(buffer);
             const uint32ArrayProto = Reflect.getPrototypeOf(uint32Array);
-            expect(getToStringTag(setProto(uint32Array, null))).toBe('Object');
+            expect(getToStringTag(setProto(uint32Array, null))).toBe('Uint32Array');
             expect(getToStringTag(setProto(uint32Array, uint32ArrayProto))).toBe(
                 'Uint32Array'
             );
