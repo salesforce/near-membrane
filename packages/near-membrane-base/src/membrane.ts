@@ -2474,7 +2474,20 @@ export function createMembraneMarshall(
                       this.defineProperty = BoundaryProxyHandler.passthruDefinePropertyTrap;
                       this.preventExtensions = BoundaryProxyHandler.passthruPreventExtensionsTrap;
                       this.set = BoundaryProxyHandler.passthruSetTrap;
-                      this.setPrototypeOf = BoundaryProxyHandler.passthruSetPrototypeOfTrap;
+                      // `[[SetPrototypeOf]]` is the one live trap we do not
+                      // passthru. The passthru variant calls `ReflectSetPrototypeOf`
+                      // on the RAW foreign target, which lets sandbox code splice a
+                      // foreign prototype (e.g. the primary-realm global) onto a live
+                      // target and then read foreign globals through inherited
+                      // lookups: live reads resolve against the RAW prototype chain
+                      // (`hybridGetTrap` -> `lookupForeignDescriptor`), never the
+                      // shadow target. It also lets sandbox code wipe a host-shared
+                      // object's prototype to `null`. Scoping the proto change to the
+                      // shadow target makes both observably inert while leaving
+                      // `set`/`defineProperty`/`deleteProperty` passthru (the
+                      // capabilities live targets actually need) untouched. No
+                      // legitimate live target re-parents itself across the membrane.
+                      this.setPrototypeOf = BoundaryProxyHandler.staticSetPrototypeOfTrap;
                   }
                 : noop;
 
@@ -3244,6 +3257,25 @@ export function createMembraneMarshall(
                         key === LOCKER_NEAR_MEMBRANE_SERIALIZED_VALUE_SYMBOL)
                 ) {
                     throw new TypeErrorCtor(ERR_ILLEGAL_PROPERTY_ACCESS);
+                }
+                // `x.__proto__ = value` triggers the `Object.prototype.__proto__`
+                // accessor, whose setter performs `[[SetPrototypeOf]]` on the
+                // target. This is the live target's `set` trap, and its passthru
+                // below would forward the write to the RAW foreign target,
+                // running the raw realm's `__proto__` setter and reparenting the
+                // raw object. That reintroduces the `setPrototypeOf` isolation
+                // leak (W-23623814) through property-assignment syntax: a
+                // subsequent inherited read would resolve foreign members
+                // against the spliced prototype. Confine an own `__proto__`
+                // write to the shadow target by delegating to `ReflectSet` on
+                // it, exactly as static proxies do via `staticSetTrap`; the red
+                // realm's own `__proto__` accessor then applies the correct
+                // ordinary semantics (primitive no-op, Object/Null reparent)
+                // scoped to the shadow target. A non-own write
+                // (`proxy !== receiver`) targets the other receiver, not the
+                // raw foreign target, so it is left to the passthru path.
+                if (IS_IN_SHADOW_REALM && key === '__proto__' && proxy === receiver) {
+                    return ReflectSet(shadowTarget, key, value, shadowTarget);
                 }
                 const isFastPath = proxy === receiver;
                 let result = false;
