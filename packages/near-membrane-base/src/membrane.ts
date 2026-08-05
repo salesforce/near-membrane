@@ -2471,9 +2471,23 @@ export function createMembraneMarshall(
                       // Replace pending traps with live traps that can work with the
                       // target without taking snapshots.
                       this.deleteProperty = BoundaryProxyHandler.passthruDeletePropertyTrap;
-                      this.defineProperty = BoundaryProxyHandler.passthruDefinePropertyTrap;
                       this.preventExtensions = BoundaryProxyHandler.passthruPreventExtensionsTrap;
                       this.set = BoundaryProxyHandler.passthruSetTrap;
+                      // `[[DefineOwnProperty]]` is passthru for DATA descriptors
+                      // (the expando capability live targets actually need) but
+                      // accessor descriptors are scoped to the shadow target. The
+                      // passthru variant calls `foreignCallableDefineProperty` on the
+                      // RAW foreign target; for an accessor that plants a
+                      // sandbox-authored getter/setter directly onto a host-shared
+                      // object. Because the descriptor's functions are marshalled as
+                      // pointers back into the sandbox, any later access from the
+                      // primary realm (a confused deputy reading the planted key)
+                      // would execute sandbox code with the RAW object as `this` and
+                      // read raw-global-only state through it. Data expandos carry no
+                      // such callback, so they remain passthru; only accessors are
+                      // contained. See `liveAccessorGuardedDefinePropertyTrap`.
+                      this.defineProperty =
+                          BoundaryProxyHandler.liveAccessorGuardedDefinePropertyTrap;
                       // `[[SetPrototypeOf]]` is the one live trap we do not
                       // passthru. The passthru variant calls `ReflectSetPrototypeOf`
                       // on the RAW foreign target, which lets sandbox code splice a
@@ -2484,9 +2498,9 @@ export function createMembraneMarshall(
                       // shadow target. It also lets sandbox code wipe a host-shared
                       // object's prototype to `null`. Scoping the proto change to the
                       // shadow target makes both observably inert while leaving
-                      // `set`/`defineProperty`/`deleteProperty` passthru (the
-                      // capabilities live targets actually need) untouched. No
-                      // legitimate live target re-parents itself across the membrane.
+                      // `set`/`deleteProperty` passthru (the capabilities live targets
+                      // actually need) untouched. No legitimate live target re-parents
+                      // itself across the membrane.
                       this.setPrototypeOf = BoundaryProxyHandler.staticSetPrototypeOfTrap;
                   }
                 : noop;
@@ -2932,6 +2946,87 @@ export function createMembraneMarshall(
                 }
                 return result;
             }
+
+            // `[[DefineOwnProperty]]` trap for LIVE targets. Data descriptors are the
+            // expando capability live targets rely on and stay passthru to the RAW
+            // foreign target via `passthruDefinePropertyTrap`. Accessor descriptors
+            // (a `get` and/or `set`), however, would install sandbox-authored
+            // functions onto a host-shared object; a subsequent access from the
+            // primary realm would run that sandbox code with the RAW target as
+            // receiver and expose raw-global-only state. We contain accessors on the
+            // inert shadow target instead. This mirrors the `staticSetPrototypeOfTrap`
+            // contract: the operation is observably inert from every side. A live
+            // `get` resolves against the RAW foreign target (`lookupForeignDescriptor`
+            // reads the raw own descriptor and walks the RAW prototype chain; it only
+            // ever writes the shadow target, never reads its own properties), so the
+            // sandbox reads back `undefined` for a shadow-scoped accessor too. The
+            // security-relevant guarantee is that no sandbox-authored callback ever
+            // reaches the raw host-shared object.
+            //
+            // The shadow-scoped copy is always written with `configurable: true`,
+            // regardless of what the sandbox asked for. A live proxy's `has`,
+            // `ownKeys`, and `getOwnPropertyDescriptor` traps are NOT overridden by
+            // `makeProxyLive()` (see `hybridHasTrap`, `passthruOwnKeysTrap`,
+            // `passthruGetOwnPropertyDescriptorTrap`): they all resolve against the
+            // RAW foreign target and never consult the shadow target's own
+            // properties. `Object.defineProperty` defaults `configurable` to
+            // `false`, so the common `{ get() {...} }` shape would otherwise leave
+            // the shadow target — the proxy's actual `[[ProxyTarget]]` — holding a
+            // NON-CONFIGURABLE own key that those raw-resolving traps can never
+            // mirror. The engine's proxy invariants then throw on the very next
+            // `has`/`ownKeys`/`getOwnPropertyDescriptor` (`in`, `Object.keys`,
+            // spread, `JSON.stringify`, `Object.getOwnPropertyDescriptor`, ...)
+            // because a non-configurable target key must be reported by those traps
+            // and it never can be. Since the accessor is invisible through the
+            // proxy either way (reads resolve against the raw target), forcing
+            // `configurable: true` is not observable to the sandbox, and it keeps
+            // every read-side invariant satisfiable. An explicit `configurable:
+            // false` request cannot be honored while preserving that invisibility;
+            // it now fails fast with a native TypeError raised by the engine's own
+            // `defineProperty` trap-result invariant check (requested
+            // non-configurable vs. an actually-configurable target descriptor) at
+            // the `defineProperty` call site itself, rather than deferring the
+            // detonation to a later, unrelated read.
+            private static liveAccessorGuardedDefinePropertyTrap = IS_IN_SHADOW_REALM
+                ? function (
+                      this: BoundaryProxyHandler,
+                      shadowTarget: ShadowTarget,
+                      key: PropertyKey,
+                      unsafePartialDesc: PropertyDescriptor
+                  ): ReturnType<typeof Reflect.defineProperty> {
+                      // A descriptor is an accessor iff it carries a `get` or `set`.
+                      // Read membership before detaching the prototype so a poisoned
+                      // `Object.prototype` getter cannot forge the answer.
+                      const isAccessorDescriptor =
+                          'get' in unsafePartialDesc || 'set' in unsafePartialDesc;
+                      if (isAccessorDescriptor) {
+                          lastProxyTrapCalled = ProxyHandlerTraps.DefineProperty;
+                          // Build a fresh descriptor rather than writing the
+                          // sandbox's `unsafePartialDesc` object directly, and
+                          // force `configurable: true` on the shadow-scoped copy
+                          // (see the block comment above).
+                          const shadowDesc = { __proto__: null } as PropertyDescriptor;
+                          if ('get' in unsafePartialDesc) {
+                              shadowDesc.get = unsafePartialDesc.get;
+                          }
+                          if ('set' in unsafePartialDesc) {
+                              shadowDesc.set = unsafePartialDesc.set;
+                          }
+                          if ('enumerable' in unsafePartialDesc) {
+                              shadowDesc.enumerable = unsafePartialDesc.enumerable;
+                          }
+                          shadowDesc.configurable = true;
+                          // Scope the accessor to the shadow target: observably
+                          // defined for the sandbox, never planted on the raw object.
+                          return ReflectDefineProperty(shadowTarget, key, shadowDesc);
+                      }
+                      return ReflectApply(BoundaryProxyHandler.passthruDefinePropertyTrap, this, [
+                          shadowTarget,
+                          key,
+                          unsafePartialDesc,
+                      ]);
+                  }
+                : (alwaysFalse as typeof Reflect.defineProperty);
 
             private static passthruDeletePropertyTrap(
                 this: BoundaryProxyHandler,
