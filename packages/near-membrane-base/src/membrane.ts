@@ -1368,31 +1368,51 @@ export function createMembraneMarshall(
                 const thisArgOrNewTarget = isApplyTrap ? thisArgOrArgs : argsOrNewTarget;
                 let combinedOffset = 2;
                 const combinedArgs = new ArrayCtor(length + combinedOffset);
-                combinedArgs[0] = foreignTargetPointer;
+                // Use `[[DefineOwnProperty]]` (via `ReflectDefineProperty`) rather than
+                // `[[Set]]` (`combinedArgs[i] = value`) to populate the combined arguments.
+                // A plain array still inherits from `Array.prototype`, so a `[[Set]]` on a
+                // numeric index would invoke an inherited accessor if sandboxed code has
+                // installed one (e.g. `Object.defineProperty(Array.prototype, '2', { set })`).
+                // Such a setter can observe and overwrite the pointers marshalled here —
+                // including `combinedArgs[0]`, the foreign target pointer — redirecting the
+                // call to a different foreign callable. Defining own data properties bypasses
+                // the prototype chain entirely and is immune to prototype pollution.
+                ReflectDefineProperty(combinedArgs, 0, {
+                    __proto__: null,
+                    value: foreignTargetPointer,
+                } as PropertyDescriptor);
                 let pointerOrPrimitive: PointerOrPrimitive;
                 try {
-                    combinedArgs[1] =
-                        (typeof thisArgOrNewTarget === 'object' && thisArgOrNewTarget !== null) ||
-                        typeof thisArgOrNewTarget === 'function'
-                            ? getTransferablePointer(thisArgOrNewTarget)
-                            : // Intentionally ignoring `document.all`.
-                            // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
-                            // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
-                            typeof thisArgOrNewTarget === 'undefined'
-                            ? undefined
-                            : thisArgOrNewTarget;
-                    for (let i = 0; i < length; i += 1) {
-                        const arg = args[i];
-                        // Inlining `getTransferableValue()`.
-                        combinedArgs[combinedOffset++] =
-                            (typeof arg === 'object' && arg !== null) || typeof arg === 'function'
-                                ? getTransferablePointer(arg)
+                    ReflectDefineProperty(combinedArgs, 1, {
+                        __proto__: null,
+                        value:
+                            (typeof thisArgOrNewTarget === 'object' &&
+                                thisArgOrNewTarget !== null) ||
+                            typeof thisArgOrNewTarget === 'function'
+                                ? getTransferablePointer(thisArgOrNewTarget)
                                 : // Intentionally ignoring `document.all`.
                                 // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
                                 // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
-                                typeof arg === 'undefined'
+                                typeof thisArgOrNewTarget === 'undefined'
                                 ? undefined
-                                : arg;
+                                : thisArgOrNewTarget,
+                    } as PropertyDescriptor);
+                    for (let i = 0; i < length; i += 1) {
+                        const arg = args[i];
+                        // Inlining `getTransferableValue()`.
+                        ReflectDefineProperty(combinedArgs, combinedOffset++, {
+                            __proto__: null,
+                            value:
+                                (typeof arg === 'object' && arg !== null) ||
+                                typeof arg === 'function'
+                                    ? getTransferablePointer(arg)
+                                    : // Intentionally ignoring `document.all`.
+                                    // https://developer.mozilla.org/en-US/docs/Web/API/Document/all
+                                    // https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+                                    typeof arg === 'undefined'
+                                    ? undefined
+                                    : arg,
+                        } as PropertyDescriptor);
                     }
                     pointerOrPrimitive = ReflectApply(
                         foreignCallableApplyOrConstruct,
@@ -3764,7 +3784,17 @@ export function createMembraneMarshall(
                     const pointerOrPrimitive = args[i];
                     if (typeof pointerOrPrimitive === 'function') {
                         pointerOrPrimitive();
-                        args[i] = selectedTarget;
+                        // Use `[[DefineOwnProperty]]` rather than `[[Set]]` (`args[i] = ...`).
+                        // `args` is a rest-parameter array that still inherits from
+                        // `Array.prototype`, so a plain assignment to a numeric index would
+                        // invoke an inherited accessor installed by sandboxed code (e.g.
+                        // `Object.defineProperty(Array.prototype, '2', { set })`). Such a
+                        // setter could observe and overwrite the un-marshalled arguments
+                        // before they reach the target function. See W-23789302.
+                        ReflectDefineProperty(args, i, {
+                            __proto__: null,
+                            value: selectedTarget,
+                        } as PropertyDescriptor);
                         selectedTarget = undefined;
                     }
                 }
